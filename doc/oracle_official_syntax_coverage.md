@@ -43,4 +43,6 @@ Oracle `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE`、�
 
 Oracle 层次查询的 `CURRENT` 边界包括 `START WITH`、`CONNECT BY`、一元 `PRIOR`、`LEVEL`、`CONNECT_BY_ROOT`、`CONNECT_BY_ISLEAF`、`CONNECT_BY_ISCYCLE`、`NOCYCLE` 和复合层次条件；源文本必须使用 `START WITH` 在 `CONNECT BY` 之前的顺序。可执行矩阵包含 4 条 `final` 用例和 20 个独立 patch；`CONNECT BY` 在 `START WITH` 之前的反向子句顺序不在当前范围。
 
-`RETURNING ... INTO` 已覆盖 `INSERT`、`UPDATE`、`DELETE` 的 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 配对；不接受 `BULK COLLECT`、非冒号 bind receiver 或数量不等的两侧列表。成对 `insert_column` 使用同一个 patch 同时插入 target 和 receiver，不拆分单侧操作。O198 至 O200 分别验证 8 对结果及头部、中部、尾部插入后的 9 对结果；整个 Oracle 可执行夹具包含 253 条 `final` 用例和 857 个独立 patch。Oracle 当前剩余未完整覆盖项主要属于无法安全映射到共享 AST 的专属语义。`SYNONYM` 和 `EXPLAIN PLAN FOR` 已覆盖基础语句解析、keyword 和反解析；完整对象属性或执行计划语义需要 Oracle 专用模型。
+Query Graph 对 relation 的 database、schema、object、database-link 名称段分别保留引号状态，DML target column 也保留独立 `quoted_identifier`；未定界或不存在的段不输出 true 标志。18 条用例和 19 个独立 patch 覆盖普通五类 DML、quoted/unquoted database link、`INSERT ALL/FIRST` 多分支和 database-link target，并验证 patch 后重算。
+
+`RETURNING ... INTO` 已覆盖 `INSERT`、`UPDATE`、`DELETE` 的 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 配对；不接受 `BULK COLLECT`、非冒号 bind receiver 或数量不等的两侧列表。成对 `insert_column` 使用同一个 patch 同时插入 target 和 receiver，不拆分单侧操作。O198 至 O200 分别验证 8 对结果及头部、中部、尾部插入后的 9 对结果；整个 Oracle 可执行夹具包含 271 条 `final` 用例和 876 个独立 patch。Oracle 当前剩余未完整覆盖项主要属于无法安全映射到共享 AST 的专属语义。`SYNONYM` 和 `EXPLAIN PLAN FOR` 已覆盖基础语句解析、keyword 和反解析；完整对象属性或执行计划语义需要 Oracle 专用模型。

@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 262 cases with `status = "final"` and 881 independent
+The fixture contains 263 cases with `status = "final"` and 886 independent
 patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -223,6 +223,23 @@ does not claim official MySQL server support for `MERGE` syntax.
 | Case ID | Case Name | Form | Verification Focus |
 | --- | --- | --- | --- |
 | M260 | `mysql-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
+
+## Query Graph Segmented Quoted-Identifier Contract
+
+Relation qualification records backtick delimiter state per segment through
+`database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+`quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+DML target columns use `dml_column.quoted_identifier`. Each flag describes only
+its corresponding name segment; View JSON omits the key for an unquoted or
+absent segment, so case cannot be inferred from identifier spelling. The MySQL
+entry has no database-link form, so `link_quoted_identifier` is not applicable.
+The `MERGE` form in this section validates only the project's compatibility
+entry and is not an official MySQL server syntax claim. Public C-structure
+lifecycle coverage is maintained in `tests/unit/test_identifier_spelling.c`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M261 | `mysql-quoted-identifier-segment-and-dml-column-inventory` | seven statements covering three-part relations, ordinary INSERT, UPDATE, DELETE, compatibility-entry MERGE INSERT, MySQL `INSERT ... SET`, and `REPLACE ... SET` | quoted/unquoted same-name contrasts for `database_quoted_identifier`, `schema_quoted_identifier`, and ordinary/branch/SET `dml_column.quoted_identifier`; five independent patches verify recomputation after relation replacement, MERGE-column replacement, paired insertion, and INSERT SET column insertion |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

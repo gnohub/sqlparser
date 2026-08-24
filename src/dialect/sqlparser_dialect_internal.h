@@ -147,6 +147,9 @@ struct sqlparser_dialect_ops {
 		void *state,
 		PgQuery__ParseResult *ast,
 		sqlparser_error_t *out_error);
+	const char *(*relation_link_sql)(
+		const void *state,
+		const char *parser_object_name);
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect);
@@ -341,6 +344,11 @@ int sqlparser_dialect_is_oracle_compatible(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_oracle_or_dameng_compatible(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_mysql_compatible(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_sqlserver_compatible(sqlparser_dialect_t dialect);
+
+const char *sqlparser_dialect_relation_link_sql(
+	const sqlparser_dialect_ops_t *ops,
+	const void *state,
+	const char *parser_object_name);
 
 sqlparser_status_t sqlparser_dialect_rewrite_like_escape(
 	char **io_sql,

@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 218 cases with `status = "final"` and 734 independent
+The fixture contains 219 cases with `status = "final"` and 738 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -209,6 +209,23 @@ and value fields are all part of that comparison.
 | Case ID | Case Name | Form | Verification Focus |
 | --- | --- | --- | --- |
 | P170 | `postgresql-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
+
+## Query Graph Segmented Quoted-Identifier Contract
+
+Relation qualification records delimiter state per segment through
+`database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+`quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+DML target columns use `dml_column.quoted_identifier`. Each flag describes only
+its corresponding name segment; View JSON omits the key for an unquoted or
+absent segment, so case cannot be inferred from identifier spelling.
+PostgreSQL has no database-link form in this fixture, so
+`link_quoted_identifier` is not applicable. Batch, clone, patch-to-fresh-View,
+and public C-structure lifecycle coverage is maintained in
+`tests/unit/test_identifier_spelling.c`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| P171 | `postgresql-quoted-identifier-segment-and-dml-column-inventory` | six statements covering three-part relations, ordinary INSERT, UPDATE, DELETE, MERGE INSERT, and `DEFAULT VALUES` | quoted/unquoted same-name contrasts for `database_quoted_identifier`, `schema_quoted_identifier`, and ordinary/branch `dml_column.quoted_identifier`; four independent patches verify per-segment recomputation after relation replacement, MERGE-column replacement, and paired column insertion |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 262 条 `status = "final"` 用例和 881 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 263 条 `status = "final"` 用例和 886 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -214,6 +214,14 @@ MySQL 多表 `UPDATE` 支持 JOIN 链和逗号 relation 列表中的多个写入
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | M260 | `mysql-merge-omitted-insert-column-value-independent` | 省略目标列列表的 `WHEN NOT MATCHED THEN INSERT VALUES (...)` | 省略状态仍输出 `target_list_selector`；3 个独立 patch 分别验证 column-only 物化列列表、value-only 追加 cell 和现有 `merge_insert_cell` 替换；与既有 paired 模式共同覆盖 `insert_column` 三态合同 |
+
+## Query Graph 分段引号标识合同
+
+relation 的限定名按段记录反引号状态：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`。每个标志只描述对应名称段，未定界或不存在的段不输出该键，不能由名称大小写推断。MySQL 可执行入口没有 database link，因此 `link_quoted_identifier` 不适用。该节中的 `MERGE` 仅验证项目兼容入口，不表示 MySQL 官方服务端语法；公共 C 结构生命周期由 `tests/unit/test_identifier_spelling.c` 验证。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M261 | `mysql-quoted-identifier-segment-and-dml-column-inventory` | 7 条语句覆盖三段 relation、普通 INSERT、UPDATE、DELETE、兼容入口 MERGE INSERT、MySQL `INSERT ... SET` 与 `REPLACE ... SET` | `database_quoted_identifier`、`schema_quoted_identifier`、普通/分支/SET `dml_column.quoted_identifier` 的 quoted/unquoted 同名对照；5 个独立 patch 验证 relation 分段重算、MERGE 列替换、paired 列插入及 INSERT SET 列插入后的标志重算 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

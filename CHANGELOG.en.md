@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.9
+
+### Query Graph Identifier Segment Delimiter State
+
+- `sqlparser_graph_relation_t` adds the `unsigned char` fields `database_quoted_identifier`, `schema_quoted_identifier`, and `link_quoted_identifier`. `sqlparser_graph_dml_column_t` adds `int quoted_identifier`. Each flag describes only its corresponding exact source token, and View JSON emits the matching field only when its value is `true`.
+- Relation segment state covers ordinary SELECT, INSERT, UPDATE, DELETE, and MERGE statements. DML target-column state covers regular INSERT, MERGE INSERT, Oracle-family `INSERT ALL/FIRST`, MySQL `INSERT ... SET` / `REPLACE ... SET`, and SQL Server `OUTPUT ... INTO` sinks. Multi-table INSERT database-link branches in Oracle, Dameng, and Vastbase-Oracle fully project the object, link, and their delimiter state.
+- Multi-table INSERT branch link names and exact source spellings are owned internally by dialect state and are deep-copied and released through clone/destroy paths. Caller-facing Query Graph ownership and lifetime rules are unchanged.
+- This release adds public structure fields but no public export symbol. On x86_64 and AArch64 64-bit layouts, the new fields occupy existing padding, preserving both affected structure sizes and every old member offset. No equivalent claim is made for 32-bit layouts.
+
+### Cases and Validation
+
+- Sixty-two final cases and 103 patches were added. The nine fixtures now contain 2,902 final cases and 9,266 patches.
+- The full `make test` suite, targeted identifier and core-API tests, all nine dialect matrices, and the relevant Valgrind checks passed.
+
 ## 2.16.8
 
 ### Independent MERGE INSERT Target/Value Patches

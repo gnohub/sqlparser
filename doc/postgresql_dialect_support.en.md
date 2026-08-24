@@ -59,6 +59,14 @@ exposed by the public query graph.
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
   emits either key only when its value is `true`.
+- Relation qualification reports delimiter state per segment through
+  `database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+  `quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+  DML target columns use `dml_column.quoted_identifier`. Each flag describes
+  only its corresponding segment; View JSON omits the key for an unquoted or
+  absent segment, so case cannot be inferred from identifier spelling. The
+  PostgreSQL entry currently has no database-link relation, so the link flag is
+  not applicable.
 
 ## Regression Cases
 
@@ -70,5 +78,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 218 cases and 734 independent patches,
+The current PostgreSQL matrix contains 219 cases and 738 independent patches,
 all with `status = "final"`.

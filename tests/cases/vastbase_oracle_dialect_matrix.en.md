@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 222 cases and 796 independent patches, all with
+The fixture contains 240 cases and 815 independent patches, all with
 `status = "final"`. The expected View contains a non-empty session projection
 in 41 cases.
 
@@ -32,6 +32,31 @@ The following final case defines a project `vastbase-oracle` compatibility-entry
 ## Delimited Alias-State Regression
 
 `vastbase-oracle-quoted-relation-alias-and-target-output-contract` and its two output-alias patches verify the Query Graph field contract: `alias_quoted_identifier: true` is emitted when the exact relation-alias token uses double quotes; `output_quoted_identifier: true` is emitted when `output_name` comes from a double-quoted explicit alias, or from a double-quoted direct-field token when no explicit alias exists. The corresponding field is omitted for an undelimited source. This is a project compatibility-entry contract, not a claim about official Vastbase server syntax.
+
+## Delimited Relation-Segment and DML-Column State Regression
+
+The following 18 final cases use actual AST/View paths to verify database, schema, object, and database-link segment state on relations and DML target-column state. A delimited source emits `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, `link_quoted_identifier`, or DML-column `quoted_identifier`; an identically spelled undelimited source omits the corresponding View key. Nineteen independent patches also verify that relation, field, value, and DML-target-column rewrites recompute flags from the new source and that patched and reparsed handles agree. These cases define the project `vastbase-oracle` compatibility-entry contract and do not claim that the Vastbase server documentation defines the same syntax scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VO223` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-select` | final | 1 | ordinary SELECT three-part relation, delimited alias/field/output, and segment state after relation replacement |
+| `VO224` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-insert` | final | 1 | ordinary INSERT delimited schema, object, and target-column state |
+| `VO225` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-update` | final | 1 | ordinary UPDATE three-part target relation, alias, and assignment-target field state |
+| `VO226` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-delete` | final | 1 | ordinary DELETE delimited schema, alias, and predicate-field state |
+| `VO227` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-merge` | final | 2 | MERGE target/source relations, UPDATE target field, and INSERT-branch target columns; separate relation and DML-column rewrites |
+| `VO228` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-select-unquoted` | final | 1 | undelimited SELECT database-link counterpart with false relation-segment flags |
+| `VO229` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-select-quoted` | final | 1 | delimited SELECT schema, object, link, alias, field, and output state |
+| `VO230` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-unquoted` | final | 1 | undelimited remote INSERT relation and target-column counterpart |
+| `VO231` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-quoted` | final | 1 | delimited remote INSERT schema, object, link, and target-column state |
+| `VO232` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-update-unquoted` | final | 1 | undelimited remote UPDATE relation, alias, and field counterpart |
+| `VO233` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-update-quoted` | final | 1 | delimited remote UPDATE schema, object, link, alias, and field state |
+| `VO234` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-unquoted` | final | 1 | undelimited remote DELETE relation, alias, and field counterpart |
+| `VO235` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-quoted` | final | 1 | delimited remote DELETE schema, object, link, alias, and field state |
+| `VO236` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-unquoted` | final | 1 | undelimited remote MERGE target/source relations and INSERT target-column counterpart |
+| `VO237` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-quoted` | final | 1 | delimited remote MERGE schema, object, link, alias, field, and INSERT-target-column state on both sides |
+| `VO238` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | final | 1 | interleaved delimited database/schema/object and target-column state across three `INSERT ALL` branches |
+| `VO239` | `vastbase-oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | final | 1 | interleaved delimited relation and target-column state across three `INSERT FIRST` WHEN/ELSE branches |
+| `VO240` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | final | 1 | remote `INSERT ALL` branch projection preserves delimited object, link, and target-column state |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

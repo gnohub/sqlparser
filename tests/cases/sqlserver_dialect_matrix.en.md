@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 627 cases with `status = "final"` and 1875 independent
+The fixture contains 629 cases with `status = "final"` and 1889 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -433,6 +433,24 @@ syntax remains marked as requiring a SQL Server-specific model in
 | SH334 | `sqlserver-table-hints-join-alias` | multi-table JOIN with `WITH (NOLOCK)` / `WITH (FORCESEEK)` | restores table hints by table-source order while keeping field and JOIN attribution unchanged |
 | SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | restores multi-argument query hints from the original SQL fragment while keeping bind attribution unchanged |
 | SH336 | `sqlserver-merge-cte-target-relation-binding` | `WITH cte AS (...) MERGE INTO cte ...` | identifies the MERGE target as a CTE with its source block and propagates base-relation patches to qualified columns |
+
+## Query Graph Segmented Quoted-Identifier Contract
+
+Relation qualification records bracket-delimiter state per segment through
+`database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+`quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+DML target columns and `OUTPUT ... INTO` sink columns share
+`dml_column.quoted_identifier`. Each flag describes only its corresponding name
+segment; View JSON omits the key for an unquoted or absent segment, so case
+cannot be inferred from identifier spelling. SQL Server has no database-link
+form in this entry, so `link_quoted_identifier` is not applicable. Public
+C-structure lifecycle coverage is maintained in
+`tests/unit/test_identifier_spelling.c`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH431 | `sqlserver-quoted-identifier-three-part-dml-matrix` | five statements covering three-part relations in SELECT, INSERT, UPDATE FROM, DELETE, and MERGE | database/schema/object segment flags and ordinary/MERGE `dml_column.quoted_identifier`; seven independent patches cover per-segment recomputation for all five relation forms and quoted-to-unquoted MERGE-column changes |
+| SH432 | `sqlserver-output-into-quoted-identifier-sink-matrix` | three-part `OUTPUT ... INTO` sink relations and sink columns for INSERT, UPDATE, DELETE, and MERGE | segment flags on all four result-channel sink relations and `sink_columns[].quoted_identifier`; seven independent patches cover four sink relations, two sink columns, and fresh-View recomputation for the source INSERT relation |
 
 ## Official Hook Coverage Cases
 

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 218 条 `status = "final"` 用例和 734 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 219 条 `status = "final"` 用例和 738 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -202,6 +202,14 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | P170 | `postgresql-merge-omitted-insert-column-value-independent` | 省略目标列列表的 `WHEN NOT MATCHED THEN INSERT VALUES (...)` | 省略状态仍输出 `target_list_selector`；3 个独立 patch 分别验证 column-only 物化列列表、value-only 追加 cell 和现有 `merge_insert_cell` 替换；与既有 paired 模式共同覆盖 `insert_column` 三态合同 |
+
+## Query Graph 分段引号标识合同
+
+relation 的限定名按段记录引号状态：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`。每个标志只描述对应名称段，未定界或不存在的段不输出该键，不能由名称大小写推断。PostgreSQL 用例不包含 database link，因此 `link_quoted_identifier` 不适用；公共 C 结构的批量、clone、patch 后 fresh View 生命周期由 `tests/unit/test_identifier_spelling.c` 验证。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| P171 | `postgresql-quoted-identifier-segment-and-dml-column-inventory` | 6 条语句覆盖三段 relation、普通 INSERT、UPDATE、DELETE、MERGE INSERT 与 `DEFAULT VALUES` | `database_quoted_identifier`、`schema_quoted_identifier`、普通/分支 `dml_column.quoted_identifier` 的 quoted/unquoted 同名对照；4 个独立 patch 验证 relation 分段重算、MERGE 列替换及 paired 列插入后标志重算 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

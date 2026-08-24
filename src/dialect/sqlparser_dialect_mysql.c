@@ -17979,7 +17979,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	sqlparser_mysql_bind_fragment_ast_state,
 	sqlparser_mysql_reconcile_ast_state,
 	sqlparser_mysql_clone_ast_state,
-	sqlparser_mysql_prepare_ast_state
+	sqlparser_mysql_prepare_ast_state,
+	NULL
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void)

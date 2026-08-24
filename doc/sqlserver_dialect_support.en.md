@@ -123,6 +123,14 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   aliases and `output_quoted_identifier` for explicit bracket-delimited output
   aliases or inherited bracket-delimited field names when no explicit alias
   exists. View JSON emits either key only when its value is `true`.
+- Relation qualification reports bracket-delimiter state per segment through
+  `database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+  `quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+  DML target columns and `OUTPUT ... INTO` sink columns share
+  `dml_column.quoted_identifier`. Each flag describes only its corresponding
+  segment; View JSON omits the key for an unquoted or absent segment, so case
+  cannot be inferred from identifier spelling. The SQL Server entry has no
+  database-link relation, so the link flag is not applicable.
 - Control conditions and branch SQL are emitted as ordered statement units;
   View JSON `control_flow` mirrors the public read-only control structures.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -137,7 +145,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 627 cases, all with `status = "final"`, and 1875
+The SQL Server matrix contains 629 cases, all with `status = "final"`, and 1889
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.

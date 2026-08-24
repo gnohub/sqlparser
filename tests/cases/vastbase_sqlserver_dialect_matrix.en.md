@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 607 cases with `status = "final"` and 1858 independent
+The fixture contains 609 cases with `status = "final"` and 1872 independent
 patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
@@ -31,6 +31,15 @@ The following final case defines a project `vastbase-sqlserver` compatibility-en
 ## Delimited Alias-State Regression
 
 `vastbase-sqlserver-graph-quoted-relation-alias-and-target-output` and its two output-alias patches verify the Query Graph field contract: `alias_quoted_identifier: true` is emitted when the exact relation-alias token uses brackets; `output_quoted_identifier: true` is emitted when `output_name` comes from a bracket-delimited explicit alias, or from a bracket-delimited direct-field token when no explicit alias exists. The corresponding field is omitted for an undelimited source. This is a project compatibility-entry contract, not a claim about official Vastbase server syntax.
+
+## Delimited Relation-Segment and DML-Column State Regression
+
+The following two final cases contrast identically spelled delimited and undelimited identifiers to verify three-part relation and DML-column state. Fourteen independent patches cover ordinary DML, MERGE INSERT, `OUTPUT ... INTO` sink relations, and sink columns; flags on patched handles must match those on reparsed handles. These cases define the project `vastbase-sqlserver` compatibility-entry contract and do not claim that the Vastbase server documentation defines the same syntax scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VSH608` | `vastbase-sqlserver-quoted-identifier-three-part-dml-matrix` | final | 7 | SELECT, INSERT, UPDATE FROM, DELETE, and MERGE target/source relations cover `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, and DML-column `quoted_identifier`; relation and MERGE-column rewrites recompute state |
+| `VSH609` | `vastbase-sqlserver-output-into-quoted-identifier-sink-matrix` | final | 7 | `OUTPUT ... INTO` sink-relation segment state and `sink_columns[].quoted_identifier` across INSERT, UPDATE, DELETE, and MERGE; per-sink relation/column patches and an ordinary DML-relation patch agree with fresh Views |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

@@ -55,6 +55,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `RETURNING ... INTO` 在 View 中使用一个 `kind = "sink"` 通道，每个 target 的 `sink_value` 指向对应 ordinal 的输出 bind；`insert_column` 使用同一个 patch 原子地插入 target/receiver 对，不支持拆分为单侧插入。
 - 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
+- relation 限定名的定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier` 和 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`，覆盖普通 INSERT、MERGE INSERT 及 `INSERT ALL/FIRST` 的每个分支。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断；database-link target 同样保留 schema/object/link 的独立状态。
 - View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -67,4 +68,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 253 条用例和 857 个独立 patch，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch；O198 至 O200 分别验证 `INSERT`、`UPDATE`、`DELETE` 的 8 对 `RETURNING ... INTO` 结果及头部、中部、尾部成对插入。
+当前 Oracle 方言矩阵包含 271 条用例和 876 个独立 patch，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch；O198 至 O200 分别验证 `INSERT`、`UPDATE`、`DELETE` 的 8 对 `RETURNING ... INTO` 结果及头部、中部、尾部成对插入。

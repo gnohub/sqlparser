@@ -98,6 +98,14 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
   emits either key only when its value is `true`.
+- Relation qualification reports delimiter state per segment through
+  `database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+  `quoted_identifier`, and `link_quoted_identifier`. DML target columns use
+  `dml_column.quoted_identifier` for ordinary INSERT, MERGE INSERT, and every
+  `INSERT ALL/FIRST` branch. Each flag describes only its corresponding
+  segment; View JSON omits the key for an unquoted or absent segment, so case
+  cannot be inferred from identifier spelling. Database-link targets retain
+  independent schema, object, and link state as well.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -112,7 +120,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 253 cases and 857 independent patches, all
+The current Oracle matrix contains 271 cases and 876 independent patches, all
 with `status = "final"`. Four hierarchical-query cases contain 20 independent
 patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
 `UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

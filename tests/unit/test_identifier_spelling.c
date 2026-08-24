@@ -922,6 +922,1392 @@ static int query_graph_alias_output_quote_flags(void)
 	return 1;
 }
 
+typedef struct {
+	const char *database_name;
+	const char *schema_name;
+	const char *object_name;
+	const char *alias_name;
+	const char *link_name;
+	int database_quoted_identifier;
+	int schema_quoted_identifier;
+	int object_quoted_identifier;
+	int alias_quoted_identifier;
+	int link_quoted_identifier;
+} graph_relation_quote_expectation_t;
+
+static int graph_relation_quote_flags_match(
+	const sqlparser_query_graph_view_t *graph,
+	size_t relation_index,
+	const graph_relation_quote_expectation_t *expected,
+	const char *label)
+{
+	sqlparser_graph_relation_t relation;
+	sqlparser_error_t error;
+
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	if (sqlparser_query_graph_relation_at(
+		    graph,
+		    relation_index,
+		    &relation,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    (expected->database_name == NULL ?
+		     relation.database_name != NULL :
+		     relation.database_name == NULL ||
+			     strcmp(
+				     relation.database_name,
+				     expected->database_name) != 0) ||
+	    (expected->schema_name == NULL ?
+		     relation.schema_name != NULL :
+		     relation.schema_name == NULL ||
+			     strcmp(
+				     relation.schema_name,
+				     expected->schema_name) != 0) ||
+	    (expected->object_name == NULL ?
+		     relation.object_name != NULL :
+		     relation.object_name == NULL ||
+			     strcmp(
+				     relation.object_name,
+				     expected->object_name) != 0) ||
+	    (expected->alias_name == NULL ?
+		     relation.alias_name != NULL :
+		     relation.alias_name == NULL ||
+			     strcmp(
+				     relation.alias_name,
+				     expected->alias_name) != 0) ||
+	    (expected->link_name == NULL ?
+		     relation.link_name != NULL :
+		     relation.link_name == NULL ||
+			     strcmp(
+				     relation.link_name,
+				     expected->link_name) != 0) ||
+	    relation.database_quoted_identifier !=
+		    expected->database_quoted_identifier ||
+	    relation.schema_quoted_identifier !=
+		    expected->schema_quoted_identifier ||
+	    relation.quoted_identifier != expected->object_quoted_identifier ||
+	    relation.alias_quoted_identifier != expected->alias_quoted_identifier ||
+	    relation.link_quoted_identifier != expected->link_quoted_identifier) {
+		fprintf(
+			stderr,
+			"FAIL: %s relation quote contract mismatch: %s\n",
+			label,
+			error.message);
+		return 0;
+	}
+	return 1;
+}
+
+static int graph_dml_column_quote_flags_match(
+	const sqlparser_query_graph_view_t *graph,
+	sqlparser_index_span_t columns,
+	const char *const *expected_names,
+	const int *expected_quoted,
+	size_t expected_count,
+	const char *label)
+{
+	sqlparser_graph_dml_column_t column;
+	sqlparser_error_t error;
+	size_t column_index;
+	size_t index;
+
+	if (columns.count != expected_count) {
+		fprintf(
+			stderr,
+			"FAIL: %s DML column count mismatch\n",
+			label);
+		return 0;
+	}
+	for (index = 0U; index < expected_count; index++) {
+		memset(&error, 0, sizeof(error));
+		memset(&column, 0, sizeof(column));
+		if (sqlparser_query_graph_span_index_at(
+			    graph,
+			    columns,
+			    index,
+			    &column_index,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_dml_column_at(
+			    graph,
+			    column_index,
+			    &column,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    column.ordinal != index ||
+		    column.column_name == NULL ||
+		    strcmp(column.column_name, expected_names[index]) != 0 ||
+		    column.quoted_identifier != expected_quoted[index]) {
+			fprintf(
+				stderr,
+				"FAIL: %s DML column %lu quote contract mismatch: %s\n",
+				label,
+				(unsigned long)index,
+				error.message);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int ordinary_graph_quote_contract_matches(
+	sqlparser_handle_t *handle,
+	int patched,
+	const char *label)
+{
+	static const char *const initial_columns[] = {"phone", "phone"};
+	static const int initial_column_quotes[] = {1, 0};
+	static const char *const patched_insert_columns[] = {
+		"phone",
+		"phone",
+		"QuotedAdded",
+		"plain_added"
+	};
+	static const int patched_insert_column_quotes[] = {1, 0, 1, 0};
+	static const char *const patched_merge_columns[] = {
+		"plain_phone",
+		"QuotedPhone",
+		"QuotedAdded",
+		"plain_merge_added"
+	};
+	static const int patched_merge_column_quotes[] = {0, 1, 1, 0};
+	graph_relation_quote_expectation_t expected;
+	sqlparser_error_t error;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_target_t target;
+	sqlparser_query_graph_view_t graph;
+	size_t branch_index;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    graph.generation != handle->generation ||
+	    graph.relation_count != 2U ||
+	    graph.field_count != 2U ||
+	    graph.target_count != 2U) {
+		fprintf(stderr, "FAIL: %s SELECT graph mismatch: %s\n", label, error.message);
+		return 0;
+	}
+	memset(&expected, 0, sizeof(expected));
+	expected.database_name = "DbName";
+	expected.schema_name = "SchemaName";
+	expected.object_name = "ObjName";
+	expected.alias_name = "QuotedAlias";
+	expected.database_quoted_identifier = !patched;
+	expected.schema_quoted_identifier = patched;
+	expected.object_quoted_identifier = !patched;
+	expected.alias_quoted_identifier = 1;
+	if (!graph_relation_quote_flags_match(&graph, 0U, &expected, label)) {
+		return 0;
+	}
+	expected.database_quoted_identifier = patched;
+	expected.schema_quoted_identifier = !patched;
+	expected.object_quoted_identifier = patched;
+	expected.alias_quoted_identifier = 0;
+	expected.alias_name = "plain_alias";
+	if (!graph_relation_quote_flags_match(&graph, 1U, &expected, label)) {
+		return 0;
+	}
+	memset(&field, 0, sizeof(field));
+	memset(&target, 0, sizeof(target));
+	if (sqlparser_query_graph_field_at(
+		    &graph,
+		    0U,
+		    &field,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !field.quoted_identifier ||
+	    !field.has_relation ||
+	    field.relation_index != 0U ||
+	    sqlparser_query_graph_target_at(
+		    &graph,
+		    0U,
+		    &target,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !target.output_quoted_identifier ||
+	    sqlparser_query_graph_field_at(
+		    &graph,
+		    1U,
+		    &field,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    field.quoted_identifier ||
+	    !field.has_relation ||
+	    field.relation_index != 1U ||
+	    sqlparser_query_graph_target_at(
+		    &graph,
+		    1U,
+		    &target,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    target.output_quoted_identifier) {
+		fprintf(
+			stderr,
+			"FAIL: %s existing field/target quote flags changed: %s\n",
+			label,
+			error.message);
+		return 0;
+	}
+
+	memset(&graph, 0, sizeof(graph));
+	memset(&dml, 0, sizeof(dml));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    1U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    graph.generation != handle->generation ||
+	    sqlparser_query_graph_dml_at(
+		    &graph,
+		    0U,
+		    &dml,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    dml.kind != SQLPARSER_GRAPH_DML_INSERT ||
+	    !dml.has_target_relation) {
+		fprintf(stderr, "FAIL: %s INSERT graph mismatch: %s\n", label, error.message);
+		return 0;
+	}
+	memset(&expected, 0, sizeof(expected));
+	expected.database_name = "DbName";
+	expected.schema_name = "SchemaName";
+	expected.object_name = "Target";
+	expected.schema_quoted_identifier = 1;
+	expected.object_quoted_identifier = 1;
+	if (!graph_relation_quote_flags_match(
+		    &graph,
+		    dml.target_relation_index,
+		    &expected,
+		    label) ||
+	    !graph_dml_column_quote_flags_match(
+		    &graph,
+		    dml.target_columns,
+		    patched ? patched_insert_columns : initial_columns,
+		    patched ? patched_insert_column_quotes : initial_column_quotes,
+		    patched ? 4U : 2U,
+		    label)) {
+		return 0;
+	}
+
+	memset(&graph, 0, sizeof(graph));
+	memset(&dml, 0, sizeof(dml));
+	memset(&branch, 0, sizeof(branch));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    2U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    graph.generation != handle->generation ||
+	    sqlparser_query_graph_dml_at(
+		    &graph,
+		    0U,
+		    &dml,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    dml.kind != SQLPARSER_GRAPH_DML_MERGE ||
+	    dml.branches.count != 1U ||
+	    sqlparser_query_graph_span_index_at(
+		    &graph,
+		    dml.branches,
+		    0U,
+		    &branch_index,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_query_graph_dml_branch_at(
+		    &graph,
+		    branch_index,
+		    &branch,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s MERGE graph mismatch: %s\n", label, error.message);
+		return 0;
+	}
+	memset(&expected, 0, sizeof(expected));
+	expected.database_name = "DbName";
+	expected.schema_name = "SchemaName";
+	expected.object_name = "Target";
+	expected.alias_name = "TargetAlias";
+	expected.database_quoted_identifier = 1;
+	expected.object_quoted_identifier = 1;
+	expected.alias_quoted_identifier = 1;
+	if (!graph_relation_quote_flags_match(
+		    &graph,
+		    dml.target_relation_index,
+		    &expected,
+		    label)) {
+		return 0;
+	}
+	memset(&expected, 0, sizeof(expected));
+	expected.database_name = "DbName";
+	expected.schema_name = "SchemaName";
+	expected.object_name = "Source";
+	expected.alias_name = "SourceAlias";
+	expected.schema_quoted_identifier = 1;
+	if (!graph_relation_quote_flags_match(&graph, 1U, &expected, label) ||
+	    !graph_dml_column_quote_flags_match(
+		    &graph,
+		    branch.target_columns,
+		    patched ? patched_merge_columns : initial_columns,
+		    patched ? patched_merge_column_quotes : initial_column_quotes,
+		    patched ? 4U : 2U,
+		    label)) {
+		return 0;
+	}
+	return 1;
+}
+
+static int query_graph_relation_dml_quote_flags(void)
+{
+	static const char standard_sql[] =
+		"SELECT \"QuotedAlias\".\"Phone\", plain_alias.Phone "
+		"FROM \"DbName\".SchemaName.\"ObjName\" \"QuotedAlias\", "
+		"DbName.\"SchemaName\".ObjName plain_alias; "
+		"INSERT INTO DbName.\"SchemaName\".\"Target\" "
+		"(\"phone\", phone) VALUES (1, 2); "
+		"MERGE INTO \"DbName\".SchemaName.\"Target\" \"TargetAlias\" "
+		"USING DbName.\"SchemaName\".Source SourceAlias "
+		"ON (\"TargetAlias\".ID = SourceAlias.ID) "
+		"WHEN NOT MATCHED THEN INSERT (\"phone\", phone) "
+		"VALUES (SourceAlias.\"phone\", SourceAlias.phone)";
+	static const char mysql_sql[] =
+		"SELECT `QuotedAlias`.`Phone`, plain_alias.Phone "
+		"FROM `DbName`.SchemaName.`ObjName` `QuotedAlias`, "
+		"DbName.`SchemaName`.ObjName plain_alias; "
+		"INSERT INTO DbName.`SchemaName`.`Target` "
+		"(`phone`, phone) VALUES (1, 2); "
+		"MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` "
+		"USING DbName.`SchemaName`.Source SourceAlias "
+		"ON (`TargetAlias`.ID = SourceAlias.ID) "
+		"WHEN NOT MATCHED THEN INSERT (`phone`, phone) "
+		"VALUES (SourceAlias.`phone`, SourceAlias.phone)";
+	static const char sqlserver_sql[] =
+		"SELECT [QuotedAlias].[Phone], plain_alias.Phone "
+		"FROM [DbName].SchemaName.[ObjName] AS [QuotedAlias], "
+		"DbName.[SchemaName].ObjName AS plain_alias; "
+		"INSERT INTO DbName.[SchemaName].[Target] "
+		"([phone], phone) VALUES (1, 2); "
+		"MERGE INTO [DbName].SchemaName.[Target] AS [TargetAlias] "
+		"USING DbName.[SchemaName].Source AS SourceAlias "
+		"ON ([TargetAlias].ID = SourceAlias.ID) "
+		"WHEN NOT MATCHED BY TARGET THEN INSERT ([phone], phone) "
+		"VALUES (SourceAlias.[phone], SourceAlias.phone);";
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+		const char *sql;
+		const char *relation_zero_patch;
+		const char *relation_one_patch;
+		const char *quoted_phone;
+		const char *quoted_added;
+	} cases[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL", standard_sql,
+		 "DbName.\"SchemaName\".ObjName",
+		 "\"DbName\".SchemaName.\"ObjName\"",
+		 "\"QuotedPhone\"", "\"QuotedAdded\""},
+		{SQLPARSER_DIALECT_MYSQL, "MySQL", mysql_sql,
+		 "DbName.`SchemaName`.ObjName",
+		 "`DbName`.SchemaName.`ObjName`",
+		 "`QuotedPhone`", "`QuotedAdded`"},
+		{SQLPARSER_DIALECT_ORACLE, "Oracle", standard_sql,
+		 "DbName.\"SchemaName\".ObjName",
+		 "\"DbName\".SchemaName.\"ObjName\"",
+		 "\"QuotedPhone\"", "\"QuotedAdded\""},
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server", sqlserver_sql,
+		 "DbName.[SchemaName].ObjName",
+		 "[DbName].SchemaName.[ObjName]",
+		 "[QuotedPhone]", "[QuotedAdded]"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng", standard_sql,
+		 "DbName.\"SchemaName\".ObjName",
+		 "\"DbName\".SchemaName.\"ObjName\"",
+		 "\"QuotedPhone\"", "\"QuotedAdded\""},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle", standard_sql,
+		 "DbName.\"SchemaName\".ObjName",
+		 "\"DbName\".SchemaName.\"ObjName\"",
+		 "\"QuotedPhone\"", "\"QuotedAdded\""},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL", mysql_sql,
+		 "DbName.`SchemaName`.ObjName",
+		 "`DbName`.SchemaName.`ObjName`",
+		 "`QuotedPhone`", "`QuotedAdded`"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL, "Vastbase-PostgreSQL", standard_sql,
+		 "DbName.\"SchemaName\".ObjName",
+		 "\"DbName\".SchemaName.\"ObjName\"",
+		 "\"QuotedPhone\"", "\"QuotedAdded\""},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "Vastbase-SQL Server", sqlserver_sql,
+		 "DbName.[SchemaName].ObjName",
+		 "[DbName].SchemaName.[ObjName]",
+		 "[QuotedPhone]", "[QuotedAdded]"}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_error_t error;
+		sqlparser_graph_relation_t stale_relation;
+		sqlparser_handle_t *clone;
+		sqlparser_handle_t *handle;
+		sqlparser_handle_t *reparsed;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_patch_t patches[8];
+		sqlparser_query_graph_view_t stale_graph;
+		char *clone_view;
+		char *original_after;
+		char *original_before;
+		char *patched_sql;
+		char *reparsed_view;
+		unsigned long generation;
+		int valid;
+
+		handle = NULL;
+		clone = NULL;
+		reparsed = NULL;
+		clone_view = NULL;
+		original_after = NULL;
+		original_before = NULL;
+		patched_sql = NULL;
+		reparsed_view = NULL;
+		valid = 0;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ordinary_graph_quote_contract_matches(
+			    handle,
+			    0,
+			    cases[case_index].label) ||
+		    sqlparser_deparse(handle, &original_before, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    sqlparser_handle_clone(handle, &clone, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    clone,
+			    0U,
+			    &stale_graph,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: %s relation/DML quote setup failed: %s\n",
+				cases[case_index].label,
+				error.message);
+			goto cleanup;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE;
+		patches[0].selector = "stmt[0].relation[0]";
+		patches[0].sql = cases[case_index].relation_zero_patch;
+		patches[1].op = SQLPARSER_PATCH_REPLACE;
+		patches[1].selector = "stmt[0].relation[1]";
+		patches[1].sql = cases[case_index].relation_one_patch;
+		patches[2].op = SQLPARSER_PATCH_REPLACE;
+		patches[2].selector = "stmt[2].merge_insert_column[0][0]";
+		patches[2].sql = "plain_phone";
+		patches[3].op = SQLPARSER_PATCH_REPLACE;
+		patches[3].selector = "stmt[2].merge_insert_column[0][1]";
+		patches[3].sql = cases[case_index].quoted_phone;
+		patches[4].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[4].selector = "stmt[1].insert_columns";
+		patches[4].index = 2U;
+		patches[4].name = cases[case_index].quoted_added;
+		patches[4].default_sql = "3";
+		patches[5].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[5].selector = "stmt[1].insert_columns";
+		patches[5].index = 3U;
+		patches[5].name = "plain_added";
+		patches[5].default_sql = "4";
+		patches[6].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[6].selector = "stmt[2].insert_branch_columns[0]";
+		patches[6].index = 2U;
+		patches[6].name = cases[case_index].quoted_added;
+		patches[6].default_sql = "SourceAlias.added_quoted";
+		patches[7].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[7].selector = "stmt[2].insert_branch_columns[0]";
+		patches[7].index = 3U;
+		patches[7].name = "plain_merge_added";
+		patches[7].default_sql = "SourceAlias.added_plain";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		generation = clone->generation;
+		if (sqlparser_apply_patch(clone, &patch_list, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    clone->generation != generation + 1UL ||
+		    sqlparser_query_graph_relation_at(
+			    &stale_graph,
+			    0U,
+			    &stale_relation,
+			    &error) != SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    !ordinary_graph_quote_contract_matches(
+			    clone,
+			    1,
+			    cases[case_index].label) ||
+		    !ordinary_graph_quote_contract_matches(
+			    handle,
+			    0,
+			    cases[case_index].label) ||
+		    sqlparser_validate_ast_identifier_spelling(clone, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &original_after, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    original_before == NULL ||
+		    original_after == NULL ||
+		    strcmp(original_before, original_after) != 0 ||
+		    sqlparser_deparse(clone, &patched_sql, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    sqlparser_parse_with_options(
+			    patched_sql,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ordinary_graph_quote_contract_matches(
+			    reparsed,
+			    1,
+			    cases[case_index].label) ||
+		    sqlparser_export_view_json(
+			    clone,
+			    0,
+			    &clone_view,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_export_view_json(
+			    reparsed,
+			    0,
+			    &reparsed_view,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    clone_view == NULL ||
+		    reparsed_view == NULL ||
+		    strcmp(clone_view, reparsed_view) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: %s relation/DML quote patch contract failed: %s\n",
+				cases[case_index].label,
+				error.message);
+			goto cleanup;
+		}
+		valid = 1;
+
+cleanup:
+		sqlparser_string_free(reparsed_view);
+		sqlparser_string_free(clone_view);
+		sqlparser_string_free(patched_sql);
+		sqlparser_string_free(original_after);
+		sqlparser_string_free(original_before);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(clone);
+		sqlparser_handle_destroy(handle);
+		if (!valid) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int oracle_multi_insert_quote_contract_matches(
+	sqlparser_handle_t *handle,
+	sqlparser_graph_insert_mode_t expected_mode,
+	const int expected_relation_quotes[3][3],
+	const char *label)
+{
+	static const char *const column_names[] = {"ID", "NOTE"};
+	static const int column_quotes[3][2] = {{1, 0}, {0, 1}, {1, 1}};
+	static const char *const object_names[] = {"T1", "T2", "T3"};
+	graph_relation_quote_expectation_t expected;
+	sqlparser_error_t error;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_query_graph_view_t graph;
+	size_t branch_index;
+	size_t index;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	memset(&dml, 0, sizeof(dml));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_query_graph_dml_at(
+		    &graph,
+		    0U,
+		    &dml,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    dml.kind != SQLPARSER_GRAPH_DML_INSERT ||
+	    dml.insert_mode != expected_mode ||
+	    dml.branches.count != 3U) {
+		fprintf(stderr, "FAIL: %s multi-insert graph mismatch: %s\n", label, error.message);
+		return 0;
+	}
+	for (index = 0U; index < 3U; index++) {
+		memset(&branch, 0, sizeof(branch));
+		if (sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    index,
+			    &branch_index,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    branch_index,
+			    &branch,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !branch.has_target_relation ||
+		    !graph_dml_column_quote_flags_match(
+			    &graph,
+			    branch.target_columns,
+			    column_names,
+			    column_quotes[index],
+			    2U,
+			    label)) {
+			return 0;
+		}
+		memset(&expected, 0, sizeof(expected));
+		expected.database_name = "CAT";
+		expected.schema_name = "APP";
+		expected.object_name = object_names[index];
+		expected.database_quoted_identifier =
+			expected_relation_quotes[index][0];
+		expected.schema_quoted_identifier =
+			expected_relation_quotes[index][1];
+		expected.object_quoted_identifier =
+			expected_relation_quotes[index][2];
+		if (!graph_relation_quote_flags_match(
+			    &graph,
+			    branch.target_relation_index,
+			    &expected,
+			    label)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int query_graph_oracle_special_quote_flags(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_ORACLE, "Oracle"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle"}
+	};
+	static const char insert_all_sql[] =
+		"INSERT ALL "
+		"INTO \"CAT\".APP.T1 (\"ID\", NOTE) VALUES (1, 'a') "
+		"INTO CAT.\"APP\".\"T2\" (ID, \"NOTE\") VALUES (2, 'b') "
+		"INTO CAT.APP.T3 (\"ID\", \"NOTE\") VALUES (3, 'c') "
+		"SELECT 1 FROM DUAL";
+	static const char insert_first_sql[] =
+		"INSERT FIRST "
+		"WHEN 1 = 1 THEN INTO \"CAT\".\"APP\".T1 "
+		"(\"ID\", NOTE) VALUES (1, 'a') "
+		"WHEN 1 = 2 THEN INTO CAT.APP.\"T2\" "
+		"(ID, \"NOTE\") VALUES (2, 'b') "
+		"ELSE INTO CAT.\"APP\".T3 "
+		"(\"ID\", \"NOTE\") VALUES (3, 'c') "
+		"SELECT 1 FROM DUAL";
+	static const int all_relation_quotes[3][3] = {
+		{1, 0, 0},
+		{0, 1, 1},
+		{0, 0, 0}
+	};
+	static const int first_relation_quotes[3][3] = {
+		{1, 1, 0},
+		{0, 0, 1},
+		{0, 1, 0}
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		graph_relation_quote_expectation_t expected;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT r.ID FROM APP.T@REMOTE r",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(stderr, "FAIL: %s unquoted link setup failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		memset(&expected, 0, sizeof(expected));
+		expected.schema_name = "APP";
+		expected.object_name = "T";
+		expected.alias_name = "r";
+		expected.link_name = "REMOTE";
+		if (!graph_relation_quote_flags_match(
+			    &graph,
+			    0U,
+			    &expected,
+			    dialects[dialect_index].label)) {
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		if (sqlparser_parse_with_options(
+			    "SELECT \"r\".\"ID\" FROM \"APP\".\"T\"@\"REMOTE\" \"r\"",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(stderr, "FAIL: %s quoted link setup failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		expected.schema_quoted_identifier = 1;
+		expected.object_quoted_identifier = 1;
+		expected.alias_quoted_identifier = 1;
+		expected.link_quoted_identifier = 1;
+		if (!graph_relation_quote_flags_match(
+			    &graph,
+			    0U,
+			    &expected,
+			    dialects[dialect_index].label)) {
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		{
+			graph_relation_quote_expectation_t patched_expected;
+			sqlparser_graph_field_t fresh_field;
+			sqlparser_graph_field_t patched_field;
+			sqlparser_graph_relation_t stale_relation;
+			sqlparser_handle_t *clone;
+			sqlparser_handle_t *fresh;
+			sqlparser_patch_list_t patch_list;
+			sqlparser_patch_t patch;
+			sqlparser_query_graph_view_t fresh_graph;
+			sqlparser_query_graph_view_t original_graph;
+			sqlparser_query_graph_view_t patched_graph;
+			sqlparser_query_graph_view_t stale_graph;
+			char *original_after;
+			char *original_before;
+			char *patched_sql;
+			unsigned long generation;
+			int valid;
+
+			clone = NULL;
+			fresh = NULL;
+			original_after = NULL;
+			original_before = NULL;
+			patched_sql = NULL;
+			valid = 0;
+			memset(&patch, 0, sizeof(patch));
+			patched_expected = expected;
+			if (sqlparser_deparse(handle, &original_before, &error) ==
+				    SQLPARSER_STATUS_OK &&
+			    sqlparser_handle_clone(handle, &clone, &error) ==
+				    SQLPARSER_STATUS_OK &&
+			    sqlparser_statement_query_graph(
+				    clone,
+				    0U,
+				    &stale_graph,
+				    &error) == SQLPARSER_STATUS_OK) {
+				generation = clone->generation;
+				patch.op = SQLPARSER_PATCH_REPLACE;
+				patch.selector = "stmt[0].name[1]";
+				patch.sql = "\"PATCH_ID\"";
+				patch_list.items = &patch;
+				patch_list.count = 1U;
+				memset(&patched_graph, 0, sizeof(patched_graph));
+				memset(&original_graph, 0, sizeof(original_graph));
+				memset(&fresh_graph, 0, sizeof(fresh_graph));
+				memset(&patched_field, 0, sizeof(patched_field));
+				memset(&fresh_field, 0, sizeof(fresh_field));
+				if (sqlparser_apply_patch(clone, &patch_list, &error) ==
+					    SQLPARSER_STATUS_OK &&
+				    clone->generation == generation + 1UL &&
+				    sqlparser_query_graph_relation_at(
+					    &stale_graph,
+					    0U,
+					    &stale_relation,
+					    &error) == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+				    sqlparser_statement_query_graph(
+					    clone,
+					    0U,
+					    &patched_graph,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    graph_relation_quote_flags_match(
+					    &patched_graph,
+					    0U,
+					    &patched_expected,
+					    dialects[dialect_index].label) &&
+				    sqlparser_query_graph_field_at(
+					    &patched_graph,
+					    0U,
+					    &patched_field,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    patched_field.column_name != NULL &&
+				    strcmp(patched_field.column_name, "PATCH_ID") == 0 &&
+				    patched_field.quoted_identifier &&
+				    sqlparser_statement_query_graph(
+					    handle,
+					    0U,
+					    &original_graph,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    graph_relation_quote_flags_match(
+					    &original_graph,
+					    0U,
+					    &expected,
+					    dialects[dialect_index].label) &&
+				    sqlparser_deparse(handle, &original_after, &error) ==
+					    SQLPARSER_STATUS_OK &&
+				    original_before != NULL &&
+				    original_after != NULL &&
+				    strcmp(original_before, original_after) == 0 &&
+				    sqlparser_deparse(clone, &patched_sql, &error) ==
+					    SQLPARSER_STATUS_OK &&
+				    sqlparser_parse_with_options(
+					    patched_sql,
+					    &options,
+					    &fresh,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    sqlparser_statement_query_graph(
+					    fresh,
+					    0U,
+					    &fresh_graph,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    graph_relation_quote_flags_match(
+					    &fresh_graph,
+					    0U,
+					    &patched_expected,
+					    dialects[dialect_index].label) &&
+				    sqlparser_query_graph_field_at(
+					    &fresh_graph,
+					    0U,
+					    &fresh_field,
+					    &error) == SQLPARSER_STATUS_OK &&
+				    fresh_field.column_name != NULL &&
+				    strcmp(fresh_field.column_name, "PATCH_ID") == 0 &&
+				    fresh_field.quoted_identifier) {
+					valid = 1;
+				}
+			}
+			if (!valid) {
+				fprintf(stderr, "FAIL: %s quoted link clone patch failed: %s\n",
+					dialects[dialect_index].label, error.message);
+			}
+			sqlparser_string_free(patched_sql);
+			sqlparser_string_free(original_after);
+			sqlparser_string_free(original_before);
+			sqlparser_handle_destroy(fresh);
+			sqlparser_handle_destroy(clone);
+			if (!valid) {
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		if (sqlparser_parse_with_options(
+			    "INSERT ALL INTO APP.\"T\"@\"REMOTE\" (\"ID\") "
+			    "VALUES (1) SELECT 1 FROM DUAL",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(stderr, "FAIL: %s INSERT ALL link setup failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		{
+			static const char *const link_column_name[] = {"ID"};
+			static const int link_column_quote[] = {1};
+			sqlparser_graph_dml_t link_dml;
+			sqlparser_graph_dml_branch_t link_branch;
+			size_t link_branch_index;
+
+			memset(&link_dml, 0, sizeof(link_dml));
+			memset(&link_branch, 0, sizeof(link_branch));
+			memset(&expected, 0, sizeof(expected));
+			expected.schema_name = "APP";
+			expected.object_name = "T";
+			expected.link_name = "REMOTE";
+			expected.object_quoted_identifier = 1;
+			expected.link_quoted_identifier = 1;
+			if (sqlparser_query_graph_dml_at(
+				    &graph,
+				    0U,
+				    &link_dml,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    link_dml.insert_mode != SQLPARSER_GRAPH_INSERT_MODE_ALL ||
+			    link_dml.branches.count != 1U ||
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    link_dml.branches,
+				    0U,
+				    &link_branch_index,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    link_branch_index,
+				    &link_branch,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    !link_branch.has_target_relation ||
+			    !graph_relation_quote_flags_match(
+				    &graph,
+				    link_branch.target_relation_index,
+				    &expected,
+				    dialects[dialect_index].label) ||
+			    !graph_dml_column_quote_flags_match(
+				    &graph,
+				    link_branch.target_columns,
+				    link_column_name,
+				    link_column_quote,
+				    1U,
+				    dialects[dialect_index].label)) {
+				fprintf(stderr, "FAIL: %s INSERT ALL link contract failed: %s\n",
+					dialects[dialect_index].label, error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		if (sqlparser_parse_with_options(
+			    insert_all_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !oracle_multi_insert_quote_contract_matches(
+			    handle,
+			    SQLPARSER_GRAPH_INSERT_MODE_ALL,
+			    all_relation_quotes,
+			    dialects[dialect_index].label)) {
+			fprintf(stderr, "FAIL: %s INSERT ALL quote contract failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		{
+			static const char *const patched_names[] = {
+				"ID",
+				"NOTE",
+				"AddedQuoted"
+			};
+			static const int patched_quotes[] = {0, 1, 1};
+			sqlparser_graph_dml_t patched_dml;
+			sqlparser_graph_dml_branch_t patched_branch;
+			sqlparser_patch_list_t patch_list;
+			sqlparser_patch_t patch;
+			sqlparser_query_graph_view_t patched_graph;
+			size_t patched_branch_index;
+			unsigned long generation;
+
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patch.selector = "stmt[0].insert_branch_columns[1]";
+			patch.index = 2U;
+			patch.name = "\"AddedQuoted\"";
+			patch.default_sql = "'added'";
+			patch_list.items = &patch;
+			patch_list.count = 1U;
+			generation = handle->generation;
+			memset(&patched_graph, 0, sizeof(patched_graph));
+			memset(&patched_dml, 0, sizeof(patched_dml));
+			memset(&patched_branch, 0, sizeof(patched_branch));
+			if (sqlparser_apply_patch(handle, &patch_list, &error) !=
+				    SQLPARSER_STATUS_OK ||
+			    handle->generation != generation + 1UL ||
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &patched_graph,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_at(
+				    &patched_graph,
+				    0U,
+				    &patched_dml,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_span_index_at(
+				    &patched_graph,
+				    patched_dml.branches,
+				    1U,
+				    &patched_branch_index,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_branch_at(
+				    &patched_graph,
+				    patched_branch_index,
+				    &patched_branch,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    !graph_dml_column_quote_flags_match(
+				    &patched_graph,
+				    patched_branch.target_columns,
+				    patched_names,
+				    patched_quotes,
+				    3U,
+				    dialects[dialect_index].label)) {
+				fprintf(stderr, "FAIL: %s INSERT ALL column patch failed: %s\n",
+					dialects[dialect_index].label, error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		if (sqlparser_parse_with_options(
+			    insert_first_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !oracle_multi_insert_quote_contract_matches(
+			    handle,
+			    SQLPARSER_GRAPH_INSERT_MODE_FIRST,
+			    first_relation_quotes,
+			    dialects[dialect_index].label)) {
+			fprintf(stderr, "FAIL: %s INSERT FIRST quote contract failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_sqlserver_output_sink_quote_flags(void)
+{
+	static const char sql[] =
+		"INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) "
+		"OUTPUT INSERTED.[ID], INSERTED.NOTE "
+		"INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); "
+		"UPDATE AppDb.dbo.SourceB SET NOTE = 3 "
+		"OUTPUT INSERTED.[ID], INSERTED.NOTE "
+		"INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; "
+		"DELETE FROM AppDb.dbo.SourceC "
+		"OUTPUT DELETED.[ID], DELETED.NOTE "
+		"INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; "
+		"MERGE INTO AppDb.dbo.SourceD AS t "
+		"USING AppDb.dbo.StageD AS s ON t.ID = s.ID "
+		"WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE "
+		"WHEN NOT MATCHED BY TARGET THEN INSERT ([ID], NOTE) "
+		"VALUES (s.ID, s.NOTE) "
+		"OUTPUT INSERTED.[ID], INSERTED.NOTE "
+		"INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);";
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "Vastbase-SQL Server"}
+	};
+	static const char *const sink_names[] = {
+		"InsertSink",
+		"UpdateSink",
+		"DeleteSink",
+		"MergeSink"
+	};
+	static const int relation_quotes[4][3] = {
+		{1, 0, 0},
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 1, 1}
+	};
+	static const char *const column_names[] = {"ID", "NOTE"};
+	static const int column_quotes[] = {1, 0};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		size_t statement_index;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 4U) {
+			fprintf(stderr, "FAIL: %s OUTPUT sink setup failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		for (statement_index = 0U; statement_index < 4U; statement_index++) {
+			graph_relation_quote_expectation_t expected;
+			sqlparser_graph_dml_result_t result;
+			sqlparser_graph_dml_t dml;
+			sqlparser_query_graph_view_t graph;
+			size_t result_count;
+
+			memset(&graph, 0, sizeof(graph));
+			memset(&dml, 0, sizeof(dml));
+			memset(&result, 0, sizeof(result));
+			if (sqlparser_statement_query_graph(
+				    handle,
+				    statement_index,
+				    &graph,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    0U,
+				    &dml,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_result_count(
+				    &graph,
+				    dml.index,
+				    &result_count,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    result_count != 1U ||
+			    sqlparser_query_graph_dml_result_at(
+				    &graph,
+				    dml.index,
+				    0U,
+				    &result,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    result.kind != SQLPARSER_GRAPH_DML_RESULT_SINK ||
+			    !result.has_sink_relation) {
+				fprintf(stderr, "FAIL: %s OUTPUT sink %lu graph mismatch: %s\n",
+					dialects[dialect_index].label,
+					(unsigned long)statement_index,
+					error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			memset(&expected, 0, sizeof(expected));
+			expected.database_name = "AuditDb";
+			expected.schema_name = "audit";
+			expected.object_name = sink_names[statement_index];
+			expected.database_quoted_identifier =
+				relation_quotes[statement_index][0];
+			expected.schema_quoted_identifier =
+				relation_quotes[statement_index][1];
+			expected.object_quoted_identifier =
+				relation_quotes[statement_index][2];
+			if (!graph_relation_quote_flags_match(
+				    &graph,
+				    result.sink_relation_index,
+				    &expected,
+				    dialects[dialect_index].label) ||
+			    !graph_dml_column_quote_flags_match(
+				    &graph,
+				    result.sink_columns,
+				    column_names,
+				    column_quotes,
+				    2U,
+				    dialects[dialect_index].label)) {
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		{
+			static const char *const patched_column_names[] = {
+				"PlainID",
+				"QuotedNote"
+			};
+			static const int patched_column_quotes[] = {0, 1};
+			graph_relation_quote_expectation_t expected;
+			sqlparser_graph_dml_result_t result;
+			sqlparser_graph_dml_t dml;
+			sqlparser_patch_list_t patch_list;
+			sqlparser_patch_t patches[3];
+			sqlparser_query_graph_view_t graph;
+			unsigned long generation;
+
+			memset(patches, 0, sizeof(patches));
+			patches[0].op = SQLPARSER_PATCH_REPLACE;
+			patches[0].selector = "stmt[0].dml_result_sink[0][0]";
+			patches[0].sql = "AuditDb.[audit].[InsertSink]";
+			patches[1].op = SQLPARSER_PATCH_REPLACE;
+			patches[1].selector =
+				"stmt[0].dml_result_sink_column[0][0][0]";
+			patches[1].sql = "PlainID";
+			patches[2].op = SQLPARSER_PATCH_REPLACE;
+			patches[2].selector =
+				"stmt[0].dml_result_sink_column[0][0][1]";
+			patches[2].sql = "[QuotedNote]";
+			patch_list.items = patches;
+			patch_list.count = sizeof(patches) / sizeof(patches[0]);
+			generation = handle->generation;
+			memset(&graph, 0, sizeof(graph));
+			memset(&dml, 0, sizeof(dml));
+			memset(&result, 0, sizeof(result));
+			if (sqlparser_apply_patch(handle, &patch_list, &error) !=
+				    SQLPARSER_STATUS_OK ||
+			    handle->generation != generation + 1UL ||
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &graph,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    0U,
+				    &dml,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_result_at(
+				    &graph,
+				    dml.index,
+				    0U,
+				    &result,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    !result.has_sink_relation) {
+				fprintf(stderr, "FAIL: %s OUTPUT sink patch failed: %s\n",
+					dialects[dialect_index].label, error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			memset(&expected, 0, sizeof(expected));
+			expected.database_name = "AuditDb";
+			expected.schema_name = "audit";
+			expected.object_name = "InsertSink";
+			expected.schema_quoted_identifier = 1;
+			expected.object_quoted_identifier = 1;
+			if (!graph_relation_quote_flags_match(
+				    &graph,
+				    result.sink_relation_index,
+				    &expected,
+				    dialects[dialect_index].label) ||
+			    !graph_dml_column_quote_flags_match(
+				    &graph,
+				    result.sink_columns,
+				    patched_column_names,
+				    patched_column_quotes,
+				    2U,
+				    dialects[dialect_index].label)) {
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_mysql_set_quote_flags(void)
+{
+	static const char sql[] =
+		"INSERT INTO `DbName`.SchemaName.Target "
+		"SET `phone` = 5, phone = 6; "
+		"REPLACE INTO DbName.`SchemaName`.`Target` "
+		"SET `phone` = 7, phone = 8;";
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_MYSQL, "MySQL"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL"}
+	};
+	static const char *const column_names[] = {"phone", "phone"};
+	static const int column_quotes[] = {1, 0};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		size_t statement_index;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 2U) {
+			fprintf(stderr, "FAIL: %s SET setup failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		for (statement_index = 0U; statement_index < 2U; statement_index++) {
+			graph_relation_quote_expectation_t expected;
+			sqlparser_graph_dml_t dml;
+			sqlparser_query_graph_view_t graph;
+
+			memset(&graph, 0, sizeof(graph));
+			memset(&dml, 0, sizeof(dml));
+			if (sqlparser_statement_query_graph(
+				    handle,
+				    statement_index,
+				    &graph,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    0U,
+				    &dml,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    dml.kind != SQLPARSER_GRAPH_DML_INSERT ||
+			    dml.insert_mode !=
+				    (statement_index == 0U ?
+					    SQLPARSER_GRAPH_INSERT_MODE_SET :
+					    SQLPARSER_GRAPH_INSERT_MODE_REPLACE_SET) ||
+			    !dml.has_target_relation ||
+			    !graph_dml_column_quote_flags_match(
+				    &graph,
+				    dml.target_columns,
+				    column_names,
+				    column_quotes,
+				    2U,
+				    dialects[dialect_index].label)) {
+				fprintf(stderr, "FAIL: %s SET graph mismatch: %s\n",
+					dialects[dialect_index].label, error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			memset(&expected, 0, sizeof(expected));
+			expected.database_name = "DbName";
+			expected.schema_name = "SchemaName";
+			expected.object_name = "Target";
+			expected.database_quoted_identifier = statement_index == 0U;
+			expected.schema_quoted_identifier = statement_index == 1U;
+			expected.object_quoted_identifier = statement_index == 1U;
+			if (!graph_relation_quote_flags_match(
+				    &graph,
+				    dml.target_relation_index,
+				    &expected,
+				    dialects[dialect_index].label)) {
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
 static int session_identifier_semantics(void)
 {
 	static const struct {
@@ -5480,6 +6866,10 @@ int main(void)
 	sqlparser_handle_destroy(handle);
 	if (!query_graph_identifier_semantics() ||
 	    !query_graph_alias_output_quote_flags() ||
+	    !query_graph_relation_dml_quote_flags() ||
+	    !query_graph_oracle_special_quote_flags() ||
+	    !query_graph_sqlserver_output_sink_quote_flags() ||
+	    !query_graph_mysql_set_quote_flags() ||
 	    !session_identifier_semantics() ||
 	    !identifier_role_classifier_is_fail_closed() ||
 	    !defelem_context_classifier_is_fail_closed() ||

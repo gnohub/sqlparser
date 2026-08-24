@@ -1,14 +1,14 @@
 category,item,status,reason,official_url
-query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY 和 LIMIT 的代表性形态",https://www.postgresql.org/docs/17/sql-select.html
+query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY 和 LIMIT 的代表性形态；relation 的 database/schema/object 引号状态按段输出",https://www.postgresql.org/docs/17/sql-select.html
 query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属",https://www.postgresql.org/docs/17/queries-with.html
 query,set-operations,CURRENT,"已覆盖 UNION ALL、EXCEPT 和 INTERSECT",https://www.postgresql.org/docs/17/queries-union.html
 query,VALUES,CURRENT,"VALUES 可由当前 AST 承载，并在 INSERT VALUES 中验证",https://www.postgresql.org/docs/17/sql-values.html
 query,window-functions,CURRENT,"已覆盖窗口函数表达式",https://www.postgresql.org/docs/17/tutorial-window.html
 expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖当前 PostgreSQL 解析内核支持的 N'...' national 字符串字面量，公共输出保留 N 前缀",https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko
-dml,INSERT,CURRENT,"已覆盖单行、多行、INSERT SELECT、ON CONFLICT 和 RETURNING",https://www.postgresql.org/docs/17/sql-insert.html
+dml,INSERT,CURRENT,"已覆盖单行、多行、INSERT SELECT、ON CONFLICT 和 RETURNING；目标列独立输出 quoted_identifier",https://www.postgresql.org/docs/17/sql-insert.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE、UPDATE FROM 和 RETURNING",https://www.postgresql.org/docs/17/sql-update.html
 dml,DELETE,CURRENT,"已覆盖 DELETE、DELETE USING 和 RETURNING",https://www.postgresql.org/docs/17/sql-delete.html
-dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构、独立 WHEN MATCHED THEN DELETE action、column-only/value-only/paired 三态添加，以及省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换",https://www.postgresql.org/docs/17/sql-merge.html
+dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构、独立 WHEN MATCHED THEN DELETE action、column-only/value-only/paired 三态添加、省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://www.postgresql.org/docs/17/sql-merge.html
 dml,CALL,CURRENT,"已覆盖 CALL 语句解析",https://www.postgresql.org/docs/17/sql-call.html
 ddl,CREATE_TABLE,CURRENT,"已覆盖基础 CREATE TABLE 和列定义",https://www.postgresql.org/docs/17/sql-createtable.html
 ddl,CREATE_TABLE_AS,CURRENT,"已覆盖 CREATE TABLE AS SELECT",https://www.postgresql.org/docs/17/sql-createtableas.html

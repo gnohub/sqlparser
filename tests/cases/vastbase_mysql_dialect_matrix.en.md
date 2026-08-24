@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 263 cases with `status = "final"` and 841 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 264 cases with `status = "final"` and 846 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -30,6 +30,14 @@ The following final case defines a project `vastbase-mysql` compatibility-entry 
 ## Delimited Alias-State Regression
 
 `vastbase-mysql-quoted-alias-output-flags` and its two output-alias patches verify the Query Graph field contract: `alias_quoted_identifier: true` is emitted when the exact relation-alias token uses backticks; `output_quoted_identifier: true` is emitted when `output_name` comes from a backtick-delimited explicit alias, or from a backtick-delimited direct-field token when no explicit alias exists. The corresponding field is omitted for an undelimited source. This is a project compatibility-entry contract, not a claim about official Vastbase server syntax.
+
+## Delimited Relation-Segment and DML-Column State Regression
+
+The following final case contrasts identically spelled delimited and undelimited identifiers to verify the database, schema, and object segment state on relations and the DML target-column state. Five independent patches cover whole-relation replacement, MERGE INSERT target-column replacement and insertion, and insertion of a delimited `INSERT ... SET` target column; flags on the patched handle must match those on a reparsed handle. This case defines the project `vastbase-mysql` compatibility-entry contract and does not claim that the Vastbase server documentation defines the same syntax scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VM264` | `vastbase-mysql-quoted-identifier-segment-and-dml-column-inventory` | final | 5 | multi-statement SELECT, INSERT, UPDATE, DELETE, MERGE, `INSERT ... SET`, and `REPLACE ... SET` cover `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, and DML-column `quoted_identifier`; identically spelled undelimited segments omit the corresponding View keys |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

@@ -479,6 +479,9 @@ typedef struct {
 	const char *link_name;
 	size_t source_block_index;
 	int has_source_block;
+	unsigned char database_quoted_identifier;
+	unsigned char schema_quoted_identifier;
+	unsigned char link_quoted_identifier;
 	sqlparser_selector_t selector;
 	int has_selector;
 	int alias_quoted_identifier;
@@ -678,6 +681,7 @@ typedef struct {
 	const char *column_name;
 	sqlparser_selector_t selector;
 	int has_selector;
+	int quoted_identifier;
 } sqlparser_graph_dml_column_t;
 
 typedef struct {

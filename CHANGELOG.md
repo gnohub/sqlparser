@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.9
+
+### Query Graph 标识符分段定界状态
+
+- `sqlparser_graph_relation_t` 新增 `unsigned char database_quoted_identifier`、`schema_quoted_identifier` 和 `link_quoted_identifier`，`sqlparser_graph_dml_column_t` 新增 `int quoted_identifier`。每个标志仅描述对应名称段的精确来源 token；View JSON 仅在值为 `true` 时输出同名字段。
+- relation 分段状态覆盖普通 SELECT、INSERT、UPDATE、DELETE、MERGE，DML 目标列状态覆盖普通 INSERT、MERGE INSERT、Oracle-family `INSERT ALL/FIRST`、MySQL `INSERT ... SET` / `REPLACE ... SET` 和 SQL Server `OUTPUT ... INTO` sink。Oracle、Dameng 与 Vastbase-Oracle 的 multi-table INSERT database-link 分支完整投影 object、link 及对应定界状态。
+- multi-table INSERT 分支的 link name 与精确来源拼写由方言状态内部持有，并随 clone/destroy 深拷贝和释放；调用方的 Query Graph 所有权与生命周期规则不变。
+- 本版本新增公开结构体字段，但未新增公开导出符号。在 x86_64 与 AArch64 的 64 位布局中，新字段占用既有 padding，两个结构体的 `sizeof` 和全部旧字段 offset 保持不变；该结论不适用于 32 位布局。
+
+### 用例与验证
+
+- 新增 62 条 final case 和 103 个 patch；九套 fixture 当前合计 2,902 条 final case 和 9,266 个 patch。
+- 完整 `make test`、identifier 与 core API 定向测试、九套方言矩阵及相关 Valgrind 检查均通过。
+
 ## 2.16.8
 
 ### MERGE INSERT 列值独立 Patch

@@ -1187,6 +1187,7 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	sqlparser_postgresql_bind_fragment_ast_state,
 	sqlparser_postgresql_reconcile_ast_state,
 	sqlparser_postgresql_clone_ast_state,
+	NULL,
 	NULL
 };
 

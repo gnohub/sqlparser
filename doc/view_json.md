@@ -185,12 +185,15 @@ FROM (
 | `block` | 该关系所在查询块 |
 | `kind` | `base`、`derived`、`cte` 等 |
 | `database` | SQL 中出现的数据库名；未出现时省略 |
+| `database_quoted_identifier` | `database` 对应的精确 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `schema` | SQL 中出现的 schema；未出现时省略 |
+| `schema_quoted_identifier` | `schema` 对应的精确 token 显式使用上述三类定界符时为 `true`；否则省略 |
 | `table` | SQL 中出现的表名；派生表没有表名时省略 |
 | `quoted_identifier` | `table` 对应的对象名 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `alias` | SQL 中出现的别名；未出现时省略 |
 | `alias_quoted_identifier` | `alias` 对应的精确 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `link` | 远程对象引用中的 database link 名称；未出现时省略 |
+| `link_quoted_identifier` | `link` 对应的精确 token 显式使用上述三类定界符时为 `true`；否则省略 |
 | `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
 | `selector` | 可用于 patch 的关系 selector；没有可写节点时省略 |
 
@@ -400,9 +403,9 @@ item 字段：
 
 value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expression`。标识符、关键字和表达式使用 `text`；字面量使用 `literal`；bind 使用 `bind_key`、`bind_kind`、`bind_sql`，其 `bind_position` 从 `1` 开始，按同一 handle 内各 statement 中的 SQL 出现顺序编号。`identifier` 的原始 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时输出 `quoted_identifier: true`。各类 value 均可包含可选 `name`，用于区分同一 item 内具有独立语义的值；例如 `SET NAMES ... COLLATE ...` 的 collation value 使用 `"name": "collation"`。没有可用的独立语义标签时省略该字段。
 
-`quoted_identifier` 只表示精确来源 token 是否使用支持的标识符定界符，不表示定界符类型。Relation 中该字段只对应对象名，不覆盖 database、schema 或 alias；`alias_quoted_identifier` 单独对应 relation alias。Field 中 `quoted_identifier` 只对应列名。
+Relation 中 `database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别仅对应 `database`、`schema`、`table`、`alias` 和 `link`。Field 中 `quoted_identifier` 仍只对应列名；target 的 `output_quoted_identifier` 归属规则不变。DML 目标列对象中的 `quoted_identifier` 仅对应该对象的 `column`。
 
-`output_quoted_identifier` 优先描述显式输出 alias；没有显式 alias 时，仅当 `name` 由直接字段继承才描述字段 token。上述标志只识别 `"..."`、MySQL 反引号和 SQL Server `[...]`，仅为 `true` 时输出；PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会产生这些字段。
+`output_quoted_identifier` 优先描述显式输出 alias；没有显式 alias 时，仅当 `name` 由直接字段继承才描述字段 token。所有这类标志只表示各自的精确来源 token 是否使用 `"..."`、MySQL 反引号或 SQL Server `[...]`，不区分定界符类型，且仅为 `true` 时输出。PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会产生这些字段。
 
 ## DML
 
@@ -415,12 +418,23 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 | `kind` | `insert`、`update`、`delete`、`merge` |
 | `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first`、`set`、`replace_values`、`replace_select`、`replace_set` |
 | `target_relation` | 写入目标 relation 索引；没有稳定目标时省略 |
-| `target_columns` | INSERT 显式目标列索引数组；没有列列表时省略 |
+| `target_columns` | INSERT 显式目标列对象；没有列列表时省略 |
 | `rows` | `INSERT ... VALUES` 或 Oracle/Dameng multi-table INSERT branch 的 cell 索引数组 |
 | `source_block` | `INSERT ... SELECT` 或 Oracle/Dameng multi-table INSERT 末尾 source query 的 block 索引 |
 | `branches` | Oracle/Dameng `INSERT ALL/FIRST` 的 INTO 分支，或 MERGE 的有序 `WHEN` 分支；没有分支时省略 |
 | `result_channels` | DML 结果通道数组；没有结果输出时省略 |
 | `children` | 以当前 DML 为父节点的嵌套 DML 数组；没有嵌套 DML 时省略 |
+
+`target_columns`、`branches[].target_columns` 和 `result_channels[].sink_columns` 中的目标列对象共用同一结构：
+
+| 字段 | 说明 |
+| --- | --- |
+| `ordinal` | 目标列在当前列列表中的 0 基序号 |
+| `column` | 目标列名 |
+| `quoted_identifier` | `column` 的精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
+| `selector` | 单列 selector；没有可写节点时省略 |
+
+该 `quoted_identifier` 覆盖普通 INSERT、MERGE INSERT 分支、Oracle、Dameng 与 Vastbase-Oracle `INSERT ALL/FIRST` 分支和 SQL Server `OUTPUT ... INTO` relation-backed sink，并沿用上述 true-only 和 `U&"..."` 排除规则。
 
 MySQL 与 Vastbase-MySQL 的多目标 UPDATE 省略 `dml.target_relation`；每个 assignment 的 `target_field` 指向 `fields[]` 中具有独立 relation 的目标字段。对应的 `sqlparser_statement_target_relation()` 返回 `SQLPARSER_STATUS_UNSUPPORTED`。Dameng 多表 UPDATE 要求全部 SET assignment 指向同一个 table object，因此始终输出唯一的 `dml.target_relation`。
 
@@ -446,7 +460,7 @@ stmt[0].dml_result_sink[0][0]
 stmt[0].dml_result_sink_column[0][0][0]
 ```
 
-Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows` 和 `branch_kind`。`branch_kind` 取值为 `unconditional`、`when` 或 `else`；`WHEN` 条件通过 `condition_selector` 定位，该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows` 和 `branch_kind`。`branch_kind` 取值为 `unconditional`、`when` 或 `else`；`WHEN` 条件通过 `condition_selector` 定位，该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。Oracle、Dameng 和 Vastbase-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 恢复完整投影：`table`、`link` 以及对应的 `quoted_identifier` 和 `link_quoted_identifier` 都依据精确来源 token 输出。
 
 branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 `field`。当 `VALUES (id)` 这类 cell 直接引用末尾 source query 的输出字段时，`kind` 为 `field`，并通过 `source_target` 指向 `targets[]` 中对应的 source query 输出项；如果该 target 是直接字段，调用方可继续读取 `targets[].field` 定位到 `fields[]`。
 

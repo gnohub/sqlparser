@@ -1,9 +1,9 @@
-# v2.16.8 Release Notes
+# v2.16.9 Release Notes
 
-Existing `SQLPARSER_PATCH_INSERT_COLUMN` supports three MERGE INSERT payload shapes: name-only, value-only, and name plus value, which insert a target column, a VALUES cell, or both at the same position. Existing target columns and VALUES cells continue to support independent replacement. A branch with VALUES now exposes the existing `target_list_selector` even when its target-column list is omitted, allowing the list to be materialized or a cell to be inserted while the list remains omitted.
+Query Graph relations add delimiter-state fields for database, schema, and database-link segments, while DML columns add a target-column delimiter-state field. Each flag is derived only from its corresponding exact source token, and View JSON emits the matching field only when its value is `true`.
 
-Column and value counts may differ temporarily within one patch batch. Every touched branch that ends with an explicit target-column list is validated for equal widths before commit, and a mismatch rolls back the whole batch atomically. Deletion remains paired, and the three insertion shapes do not apply to `MERGE INSERT DEFAULT VALUES`. The contract covers successfully parsed MERGE statements through all nine project dialect entry points; it does not claim native support from every corresponding database server.
+The state covers ordinary SELECT, INSERT, UPDATE, DELETE, and MERGE relations, plus target columns in regular INSERT, MERGE INSERT, `INSERT ALL/FIRST`, MySQL SET forms, and SQL Server `OUTPUT ... INTO` sinks. Multi-table INSERT database-link branches in Oracle, Dameng, and Vastbase-Oracle fully project the object, link, and their delimiter state. Branch link data is owned internally by dialect state and is deep-copied and released through clone/destroy paths; caller ownership rules are unchanged.
 
-This release adds no public API, enum value, structure field, or View JSON field; it only expands the output range of an existing selector. With nine final cases and 27 patches added, the nine fixtures now contain 2,840 final cases and 9,163 patches. The full remote `make test` suite, targeted core-API test, all nine dialect matrices, and Valgrind passed.
+This release adds public structure fields but no public export symbol. Existing member offsets and `sizeof` remain unchanged on x86_64 and AArch64 64-bit layouts; no equivalent claim is made for 32-bit layouts. With 62 final cases and 103 patches added, the nine fixtures now contain 2,902 final cases and 9,266 patches. The full `make test` suite, targeted identifier and core-API tests, all nine dialect matrices, and the relevant Valgrind checks passed.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

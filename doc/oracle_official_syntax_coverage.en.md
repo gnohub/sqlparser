@@ -62,14 +62,21 @@ executable matrix contains 4 `final` cases and 20 independent patches; the
 reverse clause order with `CONNECT BY` before `START WITH` is outside the
 current boundary.
 
+Query Graph preserves delimiter state independently for relation database,
+schema, object, and database-link segments and for each DML target column; no
+true flag is emitted for an unquoted or absent segment. Eighteen cases and 19
+independent patches cover the five ordinary DML forms, quoted/unquoted database
+links, multi-branch `INSERT ALL/FIRST`, database-link targets, and post-patch
+recomputation.
+
 `RETURNING ... INTO` on `INSERT`, `UPDATE`, and `DELETE` supports `N >= 1`
 result targets with exactly N colon-prefixed host binds, paired by ordinal. It
 rejects `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal
 list lengths. A paired `insert_column` inserts both the target and receiver in
 the same patch rather than exposing one-sided operations. O198 through O200
 each verify eight pairs and nine pairs after insertion at the head, middle, or
-tail. The complete Oracle executable fixture contains 253 `final` cases and
-857 independent patches. The remaining Oracle gaps are mainly Oracle-specific
+tail. The complete Oracle executable fixture contains 271 `final` cases and
+876 independent patches. The remaining Oracle gaps are mainly Oracle-specific
 semantics that
 cannot be safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now
 cover basic statement parsing, keywords, and deparse output; full object

@@ -54,6 +54,13 @@ verify these boundaries; the three patches in the omitted-list case run
 independently. Core API unit tests verify final equal-width validation and
 whole-batch rollback.
 
+Query Graph preserves delimiter state independently for the database, schema,
+and object segments of a relation and for each DML target column; no true flag
+is emitted for an unquoted or absent segment. One executable case and four
+independent patches cover ordinary DML, MERGE INSERT, `DEFAULT VALUES`, and
+per-segment recomputation after patching. The PostgreSQL entry currently has no
+database-link relation.
+
 PostgreSQL is the default parser-kernel dialect. No hook-only coverage gap
 remains. The remaining gap is complete object attribution and option modeling
 for role, user, and database-management statements, which requires public model

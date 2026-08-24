@@ -190,12 +190,15 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 | `block` | Query block that owns the relation |
 | `kind` | `base`, `derived`, `cte`, or another relation kind |
 | `database` | Database name if present in SQL; omitted otherwise |
+| `database_quoted_identifier` | `true` when the exact token for `database` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `schema` | Schema name if present in SQL; omitted otherwise |
+| `schema_quoted_identifier` | `true` when the exact token for `schema` explicitly uses one of the three supported delimiter forms; omitted otherwise |
 | `table` | Table name if present in SQL; omitted for derived relations without a table name |
 | `quoted_identifier` | `true` when the object-name token for `table` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `alias` | Alias if present in SQL; omitted otherwise |
 | `alias_quoted_identifier` | `true` when the exact token for `alias` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `link` | Database link name for remote object references; omitted otherwise |
+| `link_quoted_identifier` | `true` when the exact token for `link` explicitly uses one of the three supported delimiter forms; omitted otherwise |
 | `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
 | `selector` | Relation selector for patching; omitted when no writable node exists |
 
@@ -432,16 +435,19 @@ semantics inside the same item. For example, the collation value in
 `SET NAMES ... COLLATE ...` uses `"name": "collation"`. The field is omitted
 when no distinct semantic label is available.
 
-`quoted_identifier` reports only whether the exact source token used a
-supported identifier delimiter; it does not classify the delimiter kind. On a
-relation it applies only to the object name, not the database, schema, or alias;
-`alias_quoted_identifier` separately applies to the relation alias. On a field,
-`quoted_identifier` applies only to the column name.
+On a relation, `database_quoted_identifier`, `schema_quoted_identifier`,
+`quoted_identifier`, `alias_quoted_identifier`, and `link_quoted_identifier`
+apply only to `database`, `schema`, `table`, `alias`, and `link`, respectively.
+On a field, `quoted_identifier` still applies only to the column name; the
+attribution rule for a target's `output_quoted_identifier` is unchanged. On a
+DML target-column object, `quoted_identifier` applies only to that object's
+`column`.
 
 `output_quoted_identifier` describes an explicit output alias when present.
 Without an explicit alias, it describes the field token only when `name` is
-inherited from a direct field. These flags recognize only `"..."`, MySQL
-backticks, and SQL Server `[...]`, and are emitted only when `true`.
+inherited from a direct field. Every flag in this family reports only whether
+its exact source token uses `"..."`, MySQL backticks, or SQL Server `[...]`;
+the flags do not classify the delimiter kind and are emitted only when `true`.
 PostgreSQL `U&"..."`, ordinary single-quoted strings, and quote styles generated
 internally by the parser do not emit these fields.
 
@@ -460,12 +466,27 @@ Common fields:
 | `kind` | `insert`, `update`, `delete`, or `merge` |
 | `insert_mode` | INSERT shape: `values`, `select`, `all`, `first`, `set`, `replace_values`, `replace_select`, or `replace_set` |
 | `target_relation` | Target relation index; omitted when no stable target exists |
-| `target_columns` | Explicit INSERT target-column indexes; omitted when no column list exists |
+| `target_columns` | Explicit INSERT target-column objects; omitted when no column list exists |
 | `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle/Dameng multi-table INSERT branch |
 | `source_block` | Source query block for `INSERT ... SELECT` or Oracle/Dameng multi-table INSERT source query |
 | `branches` | INTO branches for Oracle/Dameng `INSERT ALL/FIRST`, or ordered `WHEN` branches for MERGE; omitted when empty |
 | `result_channels` | DML result channels; omitted when the DML has no result output |
 | `children` | Nested DML nodes owned by this DML; omitted when empty |
+
+Target-column objects in `target_columns`, `branches[].target_columns`, and
+`result_channels[].sink_columns` share one shape:
+
+| Field | Description |
+| --- | --- |
+| `ordinal` | Zero-based target-column ordinal within the current column list |
+| `column` | Target-column name |
+| `quoted_identifier` | `true` when the exact source token for `column` uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
+| `selector` | Single-column selector; omitted when no writable node exists |
+
+This `quoted_identifier` covers regular INSERT, MERGE INSERT branches, Oracle,
+Dameng, and Vastbase-Oracle `INSERT ALL/FIRST` branches, and relation-backed SQL
+Server `OUTPUT ... INTO` sinks. It follows the same true-only rule and excludes
+`U&"..."` as described above.
 
 A MySQL or Vastbase-MySQL multi-target UPDATE omits `dml.target_relation`;
 each assignment's `target_field` identifies a target field in `fields[]` with
@@ -512,7 +533,11 @@ Each Oracle/Dameng multi-table INSERT branch owns its `target_relation`,
 `target_columns`, `rows`, and `branch_kind`. `branch_kind` is
 `unconditional`, `when`, or `else`. `WHEN` branch predicates are addressable
 through `condition_selector`; pass that selector to
-`sqlparser_selector_clause_sql()` to read the original predicate SQL.
+`sqlparser_selector_clause_sql()` to read the original predicate SQL. For
+Oracle, Dameng, and Vastbase-Oracle, an `INSERT ALL ... INTO ...@link` branch
+target relation restores complete projection: `table`, `link`, and the
+corresponding `quoted_identifier` and `link_quoted_identifier` are emitted from
+their exact source tokens.
 
 Branch cell `kind` can be `literal`, `bind`, `default`, `expression`, or
 `field`. For a cell such as `VALUES (id)` that directly references an output

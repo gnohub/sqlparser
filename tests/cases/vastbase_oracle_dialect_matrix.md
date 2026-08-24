@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 222 条用例和 796 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
+夹具包含 240 条用例和 815 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -30,6 +30,31 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 ## 定界别名状态回归
 
 `vastbase-oracle-quoted-relation-alias-and-target-output-contract` 及其 2 个 output alias patch 验证 Query Graph 字段合同：relation alias 的精确来源 token 使用双引号时输出 `alias_quoted_identifier: true`；target 的 `output_name` 来源于带双引号的显式 alias，或无显式 alias 时来源于带双引号的直接字段 token，则输出 `output_quoted_identifier: true`。未定界来源不输出对应字段。该合同属于项目兼容入口，不代表 Vastbase 服务端官方语法范围。
+
+## 定界关系分段与 DML 列状态回归
+
+以下 18 条 final 用例以真实 AST/View 路径验证 relation 的 database、schema、object、database link 分段状态和 DML 目标列状态。定界来源分别输出 `database_quoted_identifier`、`schema_quoted_identifier`、relation `quoted_identifier`、`link_quoted_identifier` 或 DML column `quoted_identifier`；未定界同名来源不输出对应 View 字段。19 个独立 patch 还验证 relation、field、value 与 DML 目标列改写后的标志会按新来源重新计算，patch handle 与重新解析 handle 必须一致。该组用例定义项目 `vastbase-oracle` 兼容入口合同，不声称 Vastbase 服务端官网定义了相同语法范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VO223` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-select` | final | 1 | 普通 SELECT 的三段 relation、定界 alias/field/output 及 relation 替换后分段状态 |
+| `VO224` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-insert` | final | 1 | 普通 INSERT 的定界 schema、object 与目标列状态 |
+| `VO225` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-update` | final | 1 | 普通 UPDATE 的三段目标 relation、alias 与赋值目标字段状态 |
+| `VO226` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-delete` | final | 1 | 普通 DELETE 的定界 schema、alias 与谓词字段状态 |
+| `VO227` | `vastbase-oracle-relation-dml-quoted-identifier-ordinary-merge` | final | 2 | MERGE target/source relation、UPDATE 目标字段及 INSERT 分支目标列；分别改写 relation 和 DML 列 |
+| `VO228` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-select-unquoted` | final | 1 | 未定界 SELECT database link 对照，relation 分段标志保持 false |
+| `VO229` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-select-quoted` | final | 1 | 定界 SELECT schema、object、link、alias、field 与 output 状态 |
+| `VO230` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-unquoted` | final | 1 | 未定界 remote INSERT relation 与目标列对照 |
+| `VO231` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-quoted` | final | 1 | 定界 remote INSERT schema、object、link 与目标列状态 |
+| `VO232` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-update-unquoted` | final | 1 | 未定界 remote UPDATE relation、alias 与字段对照 |
+| `VO233` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-update-quoted` | final | 1 | 定界 remote UPDATE schema、object、link、alias 与字段状态 |
+| `VO234` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-unquoted` | final | 1 | 未定界 remote DELETE relation、alias 与字段对照 |
+| `VO235` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-quoted` | final | 1 | 定界 remote DELETE schema、object、link、alias 与字段状态 |
+| `VO236` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-unquoted` | final | 1 | 未定界 remote MERGE target/source relation 与 INSERT 目标列对照 |
+| `VO237` | `vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-quoted` | final | 1 | 定界 remote MERGE 两侧 schema、object、link、alias、field 与 INSERT 目标列状态 |
+| `VO238` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | final | 1 | `INSERT ALL` 三分支交错定界 database/schema/object 与目标列状态 |
+| `VO239` | `vastbase-oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | final | 1 | `INSERT FIRST` WHEN/ELSE 三分支交错定界 relation 与目标列状态 |
+| `VO240` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | final | 1 | `INSERT ALL` remote branch 投影保留定界 object、link 与目标列状态 |
 
 ## 完整绑定占位符 occurrence 回归
 

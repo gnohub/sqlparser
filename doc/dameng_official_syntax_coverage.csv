@@ -1,5 +1,5 @@
 category,item,status,reason,official_url
-query,SELECT_CORE,CURRENT,"已覆盖 SELECT、别名、子查询和基本查询结构",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,SELECT_CORE,CURRENT,"已覆盖 SELECT、别名、子查询和基本查询结构；relation 的 database/schema/object 引号状态按段输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SELECT_JOIN_WHERE,CURRENT,"已覆盖 JOIN、ON、WHERE 条件和表归属输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SET_OPERATORS_MINUS,CURRENT,"已覆盖 MINUS 集合运算并在公共输出中保留 MINUS",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,LIMIT_OFFSET,CURRENT,"已覆盖 LIMIT n、LIMIT offset,n 和 LIMIT n OFFSET offset",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
@@ -13,11 +13,11 @@ expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖 N'...' national 字符串
 expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，公共输出恢复为 N 前缀字符串字面量",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 NVL 等常见函数和代表性分析函数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 embedded-sql,EXEC_SQL_PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 EXEC SQL PREPARE、EXECUTE 和 DEALLOCATE PREPARE",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
-dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES，目标列独立输出 quoted_identifier",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE，以及 JOIN 链、逗号 relation 列表和混合形态的多表单目标 UPDATE；全部 SET assignment 必须指向同一个 table object",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
-dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、column-only/value-only/paired 三态添加，以及省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、column-only/value-only/paired 三态添加、省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
@@ -36,4 +36,4 @@ query,SAMPLE_PARTITION_APPLY,MODEL_REQUIRED,"SAMPLE、PARTITION 和 APPLY 完整
 dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT/DELETE RETURNING 与 UPDATE RETURN 的 N>=1 target 和严格等长冒号宿主 bind，按序号一一配对；不包括 BULK COLLECT、非冒号 bind 接收项或不等长列表",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 program,DMSQL_BLOCK,MODEL_REQUIRED,"DMSQL block 超出当前 SQL 语句模型",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 DMSQL 程序单元",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
-remote,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名、DML target 和 quoted identifier 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+remote,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名和 DML target；schema/object/link 引号状态独立输出并有 quoted/unquoted 对照",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

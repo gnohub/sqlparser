@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 185 条 `status = "final"` 用例和 658 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 203 条 `status = "final"` 用例和 677 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -227,6 +227,31 @@
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | D161 | `dameng-merge-omitted-insert-column-value-independent` | 省略目标列列表的 `WHEN NOT MATCHED THEN INSERT VALUES (...)` | 省略状态仍输出 `target_list_selector`；3 个独立 patch 分别验证 column-only 物化列列表、value-only 追加 cell 和现有 `merge_insert_cell` 替换；与既有 paired 模式共同覆盖 `insert_column` 三态合同 |
+
+## Query Graph 分段引号标识合同
+
+relation 的限定名按段记录双引号状态：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier` 和 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`。每个标志只描述对应名称段，未定界或不存在的段不输出该键，不能由名称大小写推断。以下 18 条用例和 19 个独立 patch 覆盖普通五类 DML、quoted/unquoted database link 对照、`INSERT ALL/FIRST` 多分支及 database-link target；公共 C 结构生命周期由 `tests/unit/test_identifier_spelling.c` 验证。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| D162 | `dameng-relation-dml-quoted-identifier-ordinary-select` | 三段 SELECT relation 与双引号 alias/字段 | database、object 分段标志及 relation patch 后逐段重算 |
+| D163 | `dameng-relation-dml-quoted-identifier-ordinary-insert` | 三段 INSERT target 与 quoted/unquoted 目标列 | schema、object 与 `dml_column.quoted_identifier`，relation patch 保持列标志 |
+| D164 | `dameng-relation-dml-quoted-identifier-ordinary-update` | 三段 UPDATE target、alias 与 SET/WHERE 字段 | database、object、alias、field 标志及 relation patch 重算 |
+| D165 | `dameng-relation-dml-quoted-identifier-ordinary-delete` | 三段 DELETE target 与字段 | schema、object、alias、field 标志及 relation patch 重算 |
+| D166 | `dameng-relation-dml-quoted-identifier-ordinary-merge` | 三段 MERGE target/source、UPDATE 与 INSERT 分支 | 两侧 relation 分段标志、MERGE INSERT `dml_column.quoted_identifier`；2 个 patch 分别验证 relation 与列标志重算 |
+| D167 | `dameng-relation-dml-quoted-identifier-database-link-select-unquoted` | `APP.T@REMOTE` SELECT | unquoted link 对照不输出四个新增 true 标志，字段 patch 不改变 relation 状态 |
+| D168 | `dameng-relation-dml-quoted-identifier-database-link-select-quoted` | `"APP"."T"@"REMOTE"` SELECT | schema、object、link 与既有 alias/field/output 标志同时保留 |
+| D169 | `dameng-relation-dml-quoted-identifier-database-link-insert-unquoted` | unquoted database-link INSERT | unquoted relation 与目标列对照，value patch 不改变标志 |
+| D170 | `dameng-relation-dml-quoted-identifier-database-link-insert-quoted` | quoted database-link INSERT | schema、object、link 与目标列标志，value patch 后保持 |
+| D171 | `dameng-relation-dml-quoted-identifier-database-link-update-unquoted` | unquoted database-link UPDATE | unquoted relation 对照及 field patch 的独立重算边界 |
+| D172 | `dameng-relation-dml-quoted-identifier-database-link-update-quoted` | quoted database-link UPDATE | schema、object、link、alias 与 field 标志在 patch 后保持准确 |
+| D173 | `dameng-relation-dml-quoted-identifier-database-link-delete-unquoted` | unquoted database-link DELETE | unquoted relation 对照及 field patch 边界 |
+| D174 | `dameng-relation-dml-quoted-identifier-database-link-delete-quoted` | quoted database-link DELETE | schema、object、link、alias 与 field 标志在 patch 后保持准确 |
+| D175 | `dameng-relation-dml-quoted-identifier-database-link-merge-unquoted` | target/source 均为 unquoted database-link 的 MERGE | 两个 relation 的 false/省略对照；目标列 patch 为 quoted 后重新标记 |
+| D176 | `dameng-relation-dml-quoted-identifier-database-link-merge-quoted` | target/source 均为 quoted database-link 的 MERGE | 两个 relation 的 schema/object/link/alias 标志；目标列 patch 去引号后移除标志 |
+| D177 | `dameng-relation-dml-quoted-identifier-insert-all-multi-branch` | 3 个 `INSERT ALL` target 分别引用 database/schema/object 段 | 每分支 relation 和目标列逐段标志，分支 value patch 后保持 |
+| D178 | `dameng-relation-dml-quoted-identifier-insert-first-multi-branch` | WHEN/ELSE 的 3 个 `INSERT FIRST` target | 条件分支 relation 与目标列逐段标志，ELSE value patch 后保持 |
+| D179 | `dameng-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | `INSERT ALL INTO APP."T"@"REMOTE" ("ID")` | 多表插入专用 target 投影保留 object/link 与目标列标志，value patch 后保持 |
 
 ## 覆盖边界
 

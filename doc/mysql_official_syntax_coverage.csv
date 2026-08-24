@@ -1,13 +1,13 @@
 category,item,status,reason,official_url
 query,SELECT,CURRENT,已覆盖基础 SELECT、JOIN、WHERE 和查询列归属,https://dev.mysql.com/doc/refman/8.4/en/select.html
 query,LIMIT_OFFSET_COUNT,CURRENT,"已覆盖 MySQL LIMIT offset,count",https://dev.mysql.com/doc/refman/8.4/en/select.html
-query,BACKTICK_IDENTIFIERS,CURRENT,已覆盖反引号标识符,https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
+query,BACKTICK_IDENTIFIERS,CURRENT,"已覆盖反引号标识符；relation 的 database/schema/object 与 DML target column 分别输出定界状态，覆盖普通 INSERT、INSERT SET 和 REPLACE SET",https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
 query,HASH_COMMENTS,CURRENT,已覆盖 MySQL # 行注释,https://dev.mysql.com/doc/refman/8.4/en/comments.html
 query,DOUBLE_QUOTED_STRINGS,CURRENT,已覆盖兼容双引号字符串输入,https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
 expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖 N'...' national 字符串字面量，公共输出保留 N 前缀",https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
 expressions,PARAMETER_MARKERS,CURRENT,已覆盖 JDBC 风格 ? 位置参数,https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
 prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,已覆盖 PREPARE、EXECUTE、DEALLOCATE PREPARE 和 DROP PREPARE,https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
-dml,INSERT_VALUES,CURRENT,已覆盖 INSERT VALUES 和多行 VALUES,https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES，目标列独立输出 quoted_identifier",https://dev.mysql.com/doc/refman/8.4/en/insert.html
 dml,INSERT_SELECT,CURRENT,已覆盖 INSERT SELECT,https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
 dml,UPDATE,CURRENT,已覆盖 UPDATE SET WHERE,https://dev.mysql.com/doc/refman/8.4/en/update.html
 dml,DELETE,CURRENT,已覆盖 DELETE FROM WHERE,https://dev.mysql.com/doc/refman/8.4/en/delete.html

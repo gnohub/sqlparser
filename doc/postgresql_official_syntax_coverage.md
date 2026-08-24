@@ -42,4 +42,6 @@
 
 PostgreSQL `MERGE` 支持独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。可执行矩阵使用 2 条用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
+Query Graph 对 relation 的 database、schema、object 名称段分别保留引号状态，DML target column 也保留独立 `quoted_identifier`；未定界或不存在的段不输出 true 标志。1 条可执行用例和 4 个独立 patch 覆盖普通 DML、MERGE INSERT、`DEFAULT VALUES` 及 patch 后逐段重算。PostgreSQL 当前入口没有 database-link relation。
+
 PostgreSQL 是默认解析内核方言，当前没有只缺少 hook 或回归覆盖的语法组。剩余缺口为角色、用户、数据库对象管理类语句的完整对象归属和选项模型，需要扩展公共模型。

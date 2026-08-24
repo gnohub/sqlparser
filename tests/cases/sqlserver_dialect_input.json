@@ -996,6 +996,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1139,6 +1140,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1250,6 +1252,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1405,6 +1408,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1621,6 +1625,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1631,6 +1636,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -1812,6 +1818,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -1822,6 +1829,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "phones"
@@ -1947,10 +1955,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -1961,6 +1971,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -2056,10 +2067,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -2070,6 +2083,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -2139,10 +2153,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -2193,6 +2209,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "archive_users"
@@ -2201,6 +2218,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -2371,6 +2389,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -2516,6 +2535,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -2629,6 +2649,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -2802,6 +2823,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3071,6 +3093,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3214,6 +3237,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3332,6 +3356,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3461,6 +3486,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3469,6 +3495,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "archive_users"
@@ -3590,6 +3617,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3598,6 +3626,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "archive_users"
@@ -3719,6 +3748,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -3727,6 +3757,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "active_users"
@@ -3852,6 +3883,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4049,6 +4081,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4185,6 +4218,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4236,6 +4270,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -4360,6 +4395,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4492,6 +4528,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4594,6 +4631,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "Order Detail"
@@ -4742,11 +4780,13 @@
                     "target_columns": [
                       {
                         "column": "id",
+                        "quoted_identifier": true,
                         "ordinal": 0,
                         "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "name",
+                        "quoted_identifier": true,
                         "ordinal": 1,
                         "selector": "stmt[0].merge_insert_column[1][1]"
                       }
@@ -4827,6 +4867,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -4837,6 +4878,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "staging_users"
@@ -4958,6 +5000,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5101,6 +5144,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5217,6 +5261,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5325,6 +5370,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5447,6 +5493,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5576,6 +5623,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5695,6 +5743,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5790,6 +5839,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5885,6 +5935,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -5992,6 +6043,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -6013,6 +6065,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6106,6 +6159,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6193,6 +6247,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6280,6 +6335,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6488,6 +6544,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6646,6 +6703,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -6865,6 +6923,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7026,6 +7085,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7200,6 +7260,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7334,14 +7395,17 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   },
                   {
                     "column": "status",
+                    "quoted_identifier": true,
                     "ordinal": 2
                   }
                 ],
@@ -7352,6 +7416,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7449,10 +7514,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -7463,6 +7530,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7581,6 +7649,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7726,6 +7795,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7910,6 +7980,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8081,6 +8152,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8247,6 +8319,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8416,6 +8489,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8573,6 +8647,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "servers"
@@ -8691,6 +8766,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8836,6 +8912,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8981,6 +9058,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -9127,6 +9205,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -9259,6 +9338,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "table1"
@@ -9386,6 +9466,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -9575,6 +9656,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -9584,6 +9666,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -9754,6 +9837,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -9910,6 +9994,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10105,6 +10190,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10223,6 +10309,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10328,6 +10415,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10469,6 +10557,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10478,6 +10567,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -10673,6 +10763,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10682,6 +10773,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[2]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -10828,6 +10920,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -10986,6 +11079,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -11075,6 +11169,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -11459,6 +11554,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -11869,6 +11965,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12036,6 +12133,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12247,6 +12345,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12477,6 +12576,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12610,10 +12710,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "secret",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -12624,6 +12726,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12698,6 +12801,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -12856,6 +12960,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "dbp_crypto_test"
@@ -13002,6 +13107,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "dbp_crypto_test"
@@ -13121,6 +13227,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13259,6 +13366,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13398,6 +13506,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13537,6 +13646,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13710,6 +13820,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13855,6 +13966,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -13994,6 +14106,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14146,6 +14259,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14255,6 +14369,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14388,6 +14503,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14520,6 +14636,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14654,6 +14771,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14774,6 +14892,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -14908,6 +15027,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -15005,6 +15125,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -15056,6 +15177,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[1].relation[0]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -16482,6 +16604,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -16551,6 +16674,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -16620,6 +16744,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -16745,6 +16870,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "a"
@@ -16755,6 +16881,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "b"
@@ -16923,6 +17050,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "a"
@@ -16933,6 +17061,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "b"
@@ -17116,6 +17245,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "a"
@@ -17126,6 +17256,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "b"
@@ -17317,6 +17448,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "target"
@@ -17327,6 +17459,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[2]",
                   "quoted_identifier": true,
                   "table": "source"
@@ -17486,6 +17619,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "a"
@@ -17496,6 +17630,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "b"
@@ -18020,6 +18155,7 @@
                 "target_columns": [
                   {
                     "column": "payload",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -18030,6 +18166,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "binlog"
@@ -18096,6 +18233,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18183,6 +18321,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18258,6 +18397,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18327,6 +18467,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18396,6 +18537,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18465,6 +18607,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18552,6 +18695,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18644,6 +18788,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18718,6 +18863,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18787,6 +18933,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18856,6 +19003,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18925,6 +19073,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -18994,6 +19143,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19063,6 +19213,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19132,6 +19283,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19201,6 +19353,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19270,6 +19423,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19339,6 +19493,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19408,6 +19563,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19477,6 +19633,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19546,6 +19703,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19615,6 +19773,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19684,6 +19843,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19753,6 +19913,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19822,6 +19983,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19891,6 +20053,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -19960,6 +20123,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20029,6 +20193,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20098,6 +20263,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20167,6 +20333,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20236,6 +20403,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20305,6 +20473,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20374,6 +20543,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20443,6 +20613,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20512,6 +20683,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20581,6 +20753,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20650,6 +20823,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20719,6 +20893,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20788,6 +20963,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20857,6 +21033,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20926,6 +21103,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -20995,6 +21173,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21064,6 +21243,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21133,6 +21313,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21220,6 +21401,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21295,6 +21477,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21364,6 +21547,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21433,6 +21617,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21502,6 +21687,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21571,6 +21757,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21658,6 +21845,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21733,6 +21921,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21802,6 +21991,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21871,6 +22061,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -21940,6 +22131,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22009,6 +22201,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22078,6 +22271,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22147,6 +22341,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22216,6 +22411,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22285,6 +22481,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22354,6 +22551,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22423,6 +22621,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22510,6 +22709,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22603,6 +22803,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22678,6 +22879,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22747,6 +22949,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22816,6 +23019,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22885,6 +23089,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -22954,6 +23159,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23023,6 +23229,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23092,6 +23299,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23161,6 +23369,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23230,6 +23439,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23299,6 +23509,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23368,6 +23579,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23437,6 +23649,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23506,6 +23719,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23575,6 +23789,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23644,6 +23859,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23713,6 +23929,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23782,6 +23999,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23851,6 +24069,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23920,6 +24139,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -23989,6 +24209,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24058,6 +24279,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24127,6 +24349,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24196,6 +24419,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24265,6 +24489,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24334,6 +24559,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24403,6 +24629,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24472,6 +24699,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24541,6 +24769,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24610,6 +24839,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24679,6 +24909,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24748,6 +24979,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24817,6 +25049,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24886,6 +25119,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -24955,6 +25189,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25024,6 +25259,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25093,6 +25329,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25162,6 +25399,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25231,6 +25469,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25300,6 +25539,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25369,6 +25609,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25438,6 +25679,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25507,6 +25749,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25576,6 +25819,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25645,6 +25889,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25714,6 +25959,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25783,6 +26029,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25852,6 +26099,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -25921,6 +26169,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26008,6 +26257,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26101,6 +26351,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26176,6 +26427,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26263,6 +26515,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26338,6 +26591,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26407,6 +26661,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26494,6 +26749,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26603,6 +26859,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26678,6 +26935,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26747,6 +27005,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26816,6 +27075,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26885,6 +27145,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -26954,6 +27215,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27023,6 +27285,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27092,6 +27355,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27161,6 +27425,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27230,6 +27495,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27299,6 +27565,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27368,6 +27635,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27437,6 +27705,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27529,6 +27798,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27627,6 +27897,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27696,6 +27967,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27765,6 +28037,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27834,6 +28107,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27903,6 +28177,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -27972,6 +28247,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28056,6 +28332,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28125,6 +28402,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28194,6 +28472,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28263,6 +28542,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28332,6 +28612,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28401,6 +28682,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28470,6 +28752,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28539,6 +28822,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28608,6 +28892,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28677,6 +28962,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28746,6 +29032,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28815,6 +29102,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28884,6 +29172,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -28953,6 +29242,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29022,6 +29312,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29091,6 +29382,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29160,6 +29452,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29229,6 +29522,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29316,6 +29610,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29391,6 +29686,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29460,6 +29756,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29547,6 +29844,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29622,6 +29920,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29691,6 +29990,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29778,6 +30078,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29871,6 +30172,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -29964,6 +30266,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30124,6 +30427,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30217,6 +30521,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30292,6 +30597,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30361,6 +30667,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30430,6 +30737,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30499,6 +30807,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30568,6 +30877,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30637,6 +30947,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30706,6 +31017,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30775,6 +31087,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30844,6 +31157,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30913,6 +31227,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -30982,6 +31297,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31051,6 +31367,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31120,6 +31437,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31189,6 +31507,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31258,6 +31577,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31327,6 +31647,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31396,6 +31717,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31465,6 +31787,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31534,6 +31857,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31603,6 +31927,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31672,6 +31997,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31741,6 +32067,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31810,6 +32137,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31879,6 +32207,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -31948,6 +32277,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32017,6 +32347,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32086,6 +32417,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32155,6 +32487,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32224,6 +32557,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32293,6 +32627,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32362,6 +32697,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32431,6 +32767,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32500,6 +32837,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32569,6 +32907,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32638,6 +32977,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32707,6 +33047,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32776,6 +33117,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32845,6 +33187,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32914,6 +33257,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -32983,6 +33327,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33052,6 +33397,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33121,6 +33467,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33190,6 +33537,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33259,6 +33607,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33328,6 +33677,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33397,6 +33747,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33466,6 +33817,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33535,6 +33887,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33604,6 +33957,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33673,6 +34027,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33742,6 +34097,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33811,6 +34167,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33880,6 +34237,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -33949,6 +34307,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -34018,6 +34377,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -34087,6 +34447,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -34156,6 +34517,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -34225,6 +34587,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -34312,6 +34675,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35236,6 +35600,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35337,6 +35702,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35460,6 +35826,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35583,6 +35950,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35775,6 +36143,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -35930,6 +36299,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -36029,6 +36399,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -36187,6 +36558,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -36195,6 +36567,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -38199,6 +38572,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -38209,6 +38583,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "orders"
@@ -38348,6 +38723,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -38482,10 +38858,12 @@
                 "target_columns": [
                   {
                     "column": "Name",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "Secret",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -42806,6 +43184,7 @@
                 "target_columns": [
                   {
                     "column": "INSERTED",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -43415,6 +43794,7 @@
                 "target_columns": [
                   {
                     "column": "select",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -57147,18 +57527,22 @@
                 "target_columns": [
                   {
                     "column": "Customer_Id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "Status",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   },
                   {
                     "column": "Created_At",
+                    "quoted_identifier": true,
                     "ordinal": 2
                   },
                   {
                     "column": "Updated_At",
+                    "quoted_identifier": true,
                     "ordinal": 3
                   }
                 ],
@@ -57169,6 +57553,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "Bind_Mix"
@@ -57250,6 +57635,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -57337,6 +57723,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -57424,6 +57811,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -57597,6 +57985,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58106,6 +58495,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58220,6 +58610,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58339,6 +58730,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58444,6 +58836,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58563,6 +58956,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58672,6 +59066,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58814,6 +59209,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -58922,6 +59318,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59015,6 +59412,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59140,6 +59538,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59296,6 +59695,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59411,6 +59811,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59527,6 +59928,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59644,6 +60046,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -59731,6 +60134,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "quoted_identifier": true,
                   "table": "users",
                   "selector": "stmt[0].relation[0]"
@@ -59844,6 +60248,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "quoted_identifier": true,
                   "table": "users",
                   "selector": "stmt[0].relation[0]"
@@ -60315,6 +60720,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "quoted_identifier": true,
                   "table": "accounts"
@@ -60324,6 +60730,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[2]",
                   "quoted_identifier": true,
                   "table": "adjustments"
@@ -62661,6 +63068,1360 @@
           "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
           "value": "COALESCE([s].[ID], 0)",
           "deparse": "MERGE INTO [T] AS [t] USING [S] AS [s] ON ([t].[ID] = [s].[ID]) WHEN NOT MATCHED BY TARGET THEN INSERT VALUES (COALESCE([s].[ID], 0));"
+        }
+      ]
+    },
+    {
+      "name": "sqlserver-quoted-identifier-three-part-dml-matrix",
+      "sql": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED BY TARGET THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "SelectDb",
+                  "database_quoted_identifier": true,
+                  "schema": "dbo",
+                  "table": "Users",
+                  "alias": "q",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[1]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "InsertDb",
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Orders",
+                  "selector": "stmt[1].relation[0]"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "ID",
+                    "quoted_identifier": true
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "NOTE"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[1].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[1].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "u",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "UpdateDb",
+                  "schema": "hr",
+                  "table": "Employees",
+                  "quoted_identifier": true,
+                  "alias": "u",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[2].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "Phone",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[2].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[2].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 3
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "delete",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DeleteDb",
+                  "schema": "audit",
+                  "schema_quoted_identifier": true,
+                  "table": "Logs",
+                  "selector": "stmt[3].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[3].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[3].value[4]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "delete",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "delete_targets": [
+                  0
+                ]
+              }
+            }
+          },
+          {
+            "index": 4,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "MergeDb",
+                  "schema": "dbo",
+                  "table": "Target",
+                  "quoted_identifier": true,
+                  "alias": "t",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[4].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "SourceDb",
+                  "database_quoted_identifier": true,
+                  "schema": "stg",
+                  "table": "Source",
+                  "alias": "s",
+                  "selector": "stmt[4].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[4].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "selector": "stmt[4].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "Phone",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "Phone",
+                  "selector": "stmt[4].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[4].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "NOTE",
+                  "selector": "stmt[4].name[20]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "bind_kind": 0,
+                    "selector": "stmt[4].merge_assignment[0][0]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "field",
+                        "source_field": 3,
+                        "bind_kind": 0,
+                        "selector": "stmt[4].merge_assignment[0][0]"
+                      }
+                    ]
+                  },
+                  {
+                    "ordinal": 1,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[4].insert_branch_columns[1]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[4].merge_insert_column[1][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[4].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 1,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 4,
+                        "bind_kind": 0,
+                        "selector": "stmt[4].merge_insert_cell[1][0]"
+                      },
+                      {
+                        "row": 1,
+                        "column": 1,
+                        "kind": "field",
+                        "source_field": 5,
+                        "bind_kind": 0,
+                        "selector": "stmt[4].merge_insert_cell[1][1]"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedDb].PatchedSchema.[PatchedUsers]",
+          "deparse": "SELECT [q].[ID] FROM [PatchedDb].PatchedSchema.[PatchedUsers] AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/0/selector",
+          "value": "PatchedDb.PatchedSchema.[PatchedOrders]",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO PatchedDb.PatchedSchema.[PatchedOrders] ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/relations/1/selector",
+          "value": "[PatchedDb].[PatchedSchema].PatchedEmployees",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM [PatchedDb].[PatchedSchema].PatchedEmployees AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/3/query_graph/relations/0/selector",
+          "value": "[PatchedDb].PatchedSchema.[PatchedLogs]",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM [PatchedDb].PatchedSchema.[PatchedLogs] WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/relations/0/selector",
+          "value": "PatchedDb.[PatchedSchema].PatchedTarget",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO PatchedDb.[PatchedSchema].PatchedTarget AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/dml/branches/1/target_columns/0/selector",
+          "value": "PlainID",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED BY TARGET THEN INSERT (PlainID, NOTE) VALUES (s.ID, s.NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/dml/branches/1/target_columns/1/selector",
+          "value": "[PatchedNote]",
+          "deparse": "SELECT [q].[ID] FROM [SelectDb].dbo.Users AS [q]; INSERT INTO InsertDb.[sales].Orders ([ID], NOTE) VALUES (1, 2); UPDATE [u] SET [Phone] = 3 FROM UpdateDb.hr.[Employees] AS [u] WHERE [u].[ID] = 1; DELETE FROM DeleteDb.[audit].Logs WHERE ID = 1; MERGE INTO MergeDb.dbo.[Target] AS [t] USING [SourceDb].stg.Source AS s ON [t].ID = s.[ID] WHEN MATCHED THEN UPDATE SET [Phone] = s.Phone WHEN NOT MATCHED BY TARGET THEN INSERT ([ID], [PatchedNote]) VALUES (s.ID, s.NOTE);"
+        }
+      ]
+    },
+    {
+      "name": "sqlserver-output-into-quoted-identifier-sink-matrix",
+      "sql": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED BY TARGET THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "dbo",
+                  "table": "SourceA",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AuditDb",
+                  "database_quoted_identifier": true,
+                  "schema": "audit",
+                  "table": "InsertSink",
+                  "selector": "stmt[0].dml_result_sink[0][0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "NOTE",
+                  "field": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "NOTE",
+                  "target": 1,
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "ID",
+                    "quoted_identifier": true
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "NOTE"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ],
+                "result_channels": [
+                  {
+                    "kind": "sink",
+                    "block": 1,
+                    "sink_relation": 1,
+                    "sink_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[0].dml_result_sink_column[0][0][1]"
+                      }
+                    ],
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 0,
+                        "kind": "target_after",
+                        "relation": 0
+                      },
+                      {
+                        "target": 1,
+                        "field": 1,
+                        "kind": "target_after",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "dbo",
+                  "table": "SourceB",
+                  "selector": "stmt[1].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AuditDb",
+                  "schema": "audit",
+                  "schema_quoted_identifier": true,
+                  "table": "UpdateSink",
+                  "selector": "stmt[1].dml_result_sink[0][0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 2,
+                  "selector": "stmt[1].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[1].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "NOTE",
+                  "field": 3,
+                  "selector": "stmt[1].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[1].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "NOTE"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[1].name[4]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[1].name[6]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "NOTE",
+                  "target": 1,
+                  "selector": "stmt[1].name[8]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[1].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[1].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 3
+                    }
+                  }
+                ],
+                "result_channels": [
+                  {
+                    "kind": "sink",
+                    "block": 1,
+                    "sink_relation": 1,
+                    "sink_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[1].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[1].dml_result_sink_column[0][0][1]"
+                      }
+                    ],
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 2,
+                        "kind": "target_after",
+                        "relation": 0
+                      },
+                      {
+                        "target": 1,
+                        "field": 3,
+                        "kind": "target_after",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "delete",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "dbo",
+                  "table": "SourceC",
+                  "selector": "stmt[2].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AuditDb",
+                  "schema": "audit",
+                  "table": "DeleteSink",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].dml_result_sink[0][0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[2].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[2].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "NOTE",
+                  "field": 2,
+                  "selector": "stmt[2].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[2].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[2].name[3]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[2].name[5]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "NOTE",
+                  "target": 1,
+                  "selector": "stmt[2].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[2].value[4]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "delete",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "delete_targets": [
+                  0
+                ],
+                "result_channels": [
+                  {
+                    "kind": "sink",
+                    "block": 1,
+                    "sink_relation": 1,
+                    "sink_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[2].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[2].dml_result_sink_column[0][0][1]"
+                      }
+                    ],
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 1,
+                        "kind": "target_before",
+                        "relation": 0
+                      },
+                      {
+                        "target": 1,
+                        "field": 2,
+                        "kind": "target_before",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "dbo",
+                  "table": "SourceD",
+                  "alias": "t",
+                  "selector": "stmt[3].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "dbo",
+                  "table": "StageD",
+                  "alias": "s",
+                  "selector": "stmt[3].relation[1]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "AuditDb",
+                  "database_quoted_identifier": true,
+                  "schema": "audit",
+                  "schema_quoted_identifier": true,
+                  "table": "MergeSink",
+                  "quoted_identifier": true,
+                  "selector": "stmt[3].dml_result_sink[0][0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 6,
+                  "selector": "stmt[3].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[3].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "NOTE",
+                  "field": 7,
+                  "selector": "stmt[3].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[3].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[3].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[3].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "NOTE"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "NOTE",
+                  "selector": "stmt[3].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[3].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "NOTE",
+                  "selector": "stmt[3].name[20]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[3].name[22]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "NOTE",
+                  "target": 1,
+                  "selector": "stmt[3].name[24]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "bind_kind": 0,
+                    "selector": "stmt[3].merge_assignment[0][0]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "field",
+                        "source_field": 3,
+                        "bind_kind": 0,
+                        "selector": "stmt[3].merge_assignment[0][0]"
+                      }
+                    ]
+                  },
+                  {
+                    "ordinal": 1,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[3].insert_branch_columns[1]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[3].merge_insert_column[1][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[3].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 1,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 4,
+                        "bind_kind": 0,
+                        "selector": "stmt[3].merge_insert_cell[1][0]"
+                      },
+                      {
+                        "row": 1,
+                        "column": 1,
+                        "kind": "field",
+                        "source_field": 5,
+                        "bind_kind": 0,
+                        "selector": "stmt[3].merge_insert_cell[1][1]"
+                      }
+                    ]
+                  }
+                ],
+                "result_channels": [
+                  {
+                    "kind": "sink",
+                    "block": 1,
+                    "sink_relation": 2,
+                    "sink_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "quoted_identifier": true,
+                        "selector": "stmt[3].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "NOTE",
+                        "selector": "stmt[3].dml_result_sink_column[0][0][1]"
+                      }
+                    ],
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 6,
+                        "kind": "target_after",
+                        "relation": 0
+                      },
+                      {
+                        "target": 1,
+                        "field": 7,
+                        "kind": "target_after",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "PatchedDb.[PatchedSchema].[PatchedInsertSink]",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO PatchedDb.[PatchedSchema].[PatchedInsertSink] ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/1/selector",
+          "value": "[PatchedDb].PatchedSchema.[PatchedUpdateSink]",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [PatchedDb].PatchedSchema.[PatchedUpdateSink] ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/relations/1/selector",
+          "value": "[PatchedDb].[PatchedSchema].PatchedDeleteSink",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO [PatchedDb].[PatchedSchema].PatchedDeleteSink ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/3/query_graph/relations/2/selector",
+          "value": "PatchedDb.PatchedSchema.PatchedMergeSink",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO PatchedDb.PatchedSchema.PatchedMergeSink ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/result_channels/0/sink_columns/0/selector",
+          "value": "PlainID",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink (PlainID, NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/result_channels/0/sink_columns/1/selector",
+          "value": "[PatchedNote]",
+          "deparse": "INSERT INTO AppDb.dbo.SourceA ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], [PatchedNote]) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedAppDb].[PatchedSchema].[PatchedSourceA]",
+          "deparse": "INSERT INTO [PatchedAppDb].[PatchedSchema].[PatchedSourceA] ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
         }
       ]
     }

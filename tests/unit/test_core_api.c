@@ -29,6 +29,34 @@ typedef struct {
 	size_t index;
 	size_t statement_index;
 	size_t block_index;
+	sqlparser_graph_relation_kind_t kind;
+	int quoted_identifier;
+	const char *database_name;
+	const char *schema_name;
+	const char *object_name;
+	const char *alias_name;
+	const char *link_name;
+	size_t source_block_index;
+	int has_source_block;
+	sqlparser_selector_t selector;
+	int has_selector;
+	int alias_quoted_identifier;
+} sqlparser_graph_relation_2_16_8_abi_baseline_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t dml_index;
+	size_t ordinal;
+	const char *column_name;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_dml_column_2_16_8_abi_baseline_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
 	size_t ordinal;
 	sqlparser_graph_target_kind_t kind;
 	const char *output_name;
@@ -91,6 +119,105 @@ SQLPARSER_ASSERT_64BIT_ABI(
 		sizeof(((sqlparser_graph_relation_t *)0)->alias_quoted_identifier) ==
 		sizeof(sqlparser_graph_relation_2_16_5_abi_baseline_t),
 	"sqlparser_graph_relation_t new field exceeds 2.16.5 tail padding");
+
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(sqlparser_graph_relation_t) ==
+		sizeof(sqlparser_graph_relation_2_16_8_abi_baseline_t),
+	"sqlparser_graph_relation_t ABI size changed since 2.16.8");
+#define SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(field) \
+	SQLPARSER_ASSERT_64BIT_ABI( \
+		offsetof(sqlparser_graph_relation_t, field) == \
+			offsetof( \
+				sqlparser_graph_relation_2_16_8_abi_baseline_t, \
+				field), \
+		"sqlparser_graph_relation_t ABI offset changed since 2.16.8: " \
+		#field)
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(index);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(block_index);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(kind);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(database_name);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(schema_name);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(object_name);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(alias_name);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(link_name);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(source_block_index);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(has_source_block);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(selector);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(has_selector);
+SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET(alias_quoted_identifier);
+#undef SQLPARSER_ASSERT_RELATION_2_16_8_ABI_OFFSET
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(((sqlparser_graph_relation_t *)0)->database_quoted_identifier) ==
+		sizeof(unsigned char) &&
+		offsetof(sqlparser_graph_relation_t, database_quoted_identifier) ==
+			offsetof(
+				sqlparser_graph_relation_2_16_8_abi_baseline_t,
+				has_source_block) +
+				sizeof(
+					((sqlparser_graph_relation_2_16_8_abi_baseline_t *)0)
+						->has_source_block),
+	"sqlparser_graph_relation_t database quoted flag does not start in 2.16.8 padding");
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(((sqlparser_graph_relation_t *)0)->schema_quoted_identifier) ==
+		sizeof(unsigned char) &&
+		offsetof(sqlparser_graph_relation_t, schema_quoted_identifier) ==
+			offsetof(sqlparser_graph_relation_t, database_quoted_identifier) +
+				sizeof(
+					((sqlparser_graph_relation_t *)0)
+						->database_quoted_identifier),
+	"sqlparser_graph_relation_t schema quoted flag is not contiguous");
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(((sqlparser_graph_relation_t *)0)->link_quoted_identifier) ==
+		sizeof(unsigned char) &&
+		offsetof(sqlparser_graph_relation_t, link_quoted_identifier) ==
+			offsetof(sqlparser_graph_relation_t, schema_quoted_identifier) +
+				sizeof(
+					((sqlparser_graph_relation_t *)0)
+						->schema_quoted_identifier) &&
+		offsetof(sqlparser_graph_relation_t, link_quoted_identifier) +
+			sizeof(
+				((sqlparser_graph_relation_t *)0)->link_quoted_identifier) <=
+			offsetof(
+				sqlparser_graph_relation_2_16_8_abi_baseline_t,
+				selector),
+	"sqlparser_graph_relation_t quoted flags exceed 2.16.8 padding");
+
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(sqlparser_graph_dml_column_t) ==
+		sizeof(sqlparser_graph_dml_column_2_16_8_abi_baseline_t),
+	"sqlparser_graph_dml_column_t ABI size changed since 2.16.8");
+#define SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(field) \
+	SQLPARSER_ASSERT_64BIT_ABI( \
+		offsetof(sqlparser_graph_dml_column_t, field) == \
+			offsetof( \
+				sqlparser_graph_dml_column_2_16_8_abi_baseline_t, \
+				field), \
+		"sqlparser_graph_dml_column_t ABI offset changed since 2.16.8: " \
+		#field)
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(index);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(dml_index);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(ordinal);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(column_name);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(selector);
+SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET(has_selector);
+#undef SQLPARSER_ASSERT_DML_COLUMN_2_16_8_ABI_OFFSET
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(((sqlparser_graph_dml_column_t *)0)->quoted_identifier) ==
+		sizeof(int) &&
+		offsetof(sqlparser_graph_dml_column_t, quoted_identifier) ==
+			offsetof(
+				sqlparser_graph_dml_column_2_16_8_abi_baseline_t,
+				has_selector) +
+				sizeof(
+					((sqlparser_graph_dml_column_2_16_8_abi_baseline_t *)0)
+						->has_selector) &&
+		offsetof(sqlparser_graph_dml_column_t, quoted_identifier) +
+			sizeof(((sqlparser_graph_dml_column_t *)0)->quoted_identifier) ==
+			sizeof(sqlparser_graph_dml_column_2_16_8_abi_baseline_t),
+	"sqlparser_graph_dml_column_t quoted flag does not fill 2.16.8 tail padding");
 
 SQLPARSER_ASSERT_64BIT_ABI(
 	sizeof(sqlparser_graph_target_t) ==

@@ -16287,7 +16287,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 	sqlparser_sqlserver_bind_fragment_ast_state,
 	sqlparser_sqlserver_reconcile_ast_state,
 	sqlparser_sqlserver_clone_ast_state,
-	sqlparser_sqlserver_prepare_ast_state
+	sqlparser_sqlserver_prepare_ast_state,
+	NULL
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void)

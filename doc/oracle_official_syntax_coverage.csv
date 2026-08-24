@@ -1,5 +1,5 @@
 category,item,status,reason,official_url
-query,SELECT,CURRENT,"已覆盖 SELECT、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,SELECT,CURRENT,"已覆盖 SELECT、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING；relation 的 database/schema/object 引号状态按段输出",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MINUS,CURRENT,"已覆盖 Oracle MINUS 与核心集合运算双向转换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
 query,UNION_INTERSECT,CURRENT,"已覆盖 UNION ALL 和 INTERSECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
 query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET ... ROWS 与 FETCH FIRST/NEXT ... ROWS ONLY 的行数形态；不包含 FETCH ... PERCENT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
@@ -13,11 +13,11 @@ expressions,CASE_EXISTS,CURRENT,"已覆盖 CASE 和 EXISTS 子查询",https://do
 expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 DECODE、NVL、SYSDATE 等常见函数和伪列",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Single-Row-Functions.html
 expressions,ANALYTIC_FUNCTIONS,CURRENT,"已覆盖 ROW_NUMBER() OVER 代表性分析函数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Analytic-Functions.html
 dynamic-sql,EXECUTE_IMMEDIATE,CURRENT,"已覆盖 EXECUTE IMMEDIATE 动态 SQL 和 USING bind 参数",https://docs.oracle.com/en/database/oracle/oracle-database/18/lnpls/EXECUTE-IMMEDIATE-statement.html
-dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES，目标列独立输出 quoted_identifier",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/UPDATE.html
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DELETE.html
-dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、带条件的 not-matched INSERT、column-only/value-only/paired 三态添加，以及省略目标列列表时的 selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、带条件的 not-matched INSERT、column-only/value-only/paired 三态添加、省略目标列列表时的 selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
 ddl,CREATE_TABLE,CURRENT,"已覆盖常见类型名的 CREATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SEQUENCE.html
 ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-VIEW.html
@@ -35,7 +35,7 @@ session,ALTER_SESSION_OTHER,CURRENT,"已覆盖普通 ALTER SESSION SET 参数赋
 expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，公共输出恢复为 N 前缀字符串字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 query,CONNECT_BY,CURRENT,"已覆盖 START WITH、CONNECT BY、PRIOR、LEVEL、CONNECT_BY_ROOT、CONNECT_BY_ISLEAF、CONNECT_BY_ISCYCLE、NOCYCLE 和复合层次条件；CONNECT BY 位于 START WITH 之前的反向子句顺序不在当前范围",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
 query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
-dml,INSERT_ALL_FIRST,CURRENT,"已覆盖 INSERT ALL 和 INSERT FIRST 的分支、条件、目标表、目标列和值 cell 结构",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,INSERT_ALL_FIRST,CURRENT,"已覆盖 INSERT ALL 和 INSERT FIRST 的分支、条件、目标表、目标列和值 cell 结构，并逐分支保留 relation 分段及目标列 quoted_identifier",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT、UPDATE、DELETE 的 N>=1 个 RETURNING target 与严格等长的 N 个 INTO 冒号宿主 bind，按 ordinal 配对；同一 insert_column patch 成对插入两侧；不包含 BULK COLLECT、非冒号 bind receiver 或不等长列表",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/RETURNING-INTO-Clause.html
 program,PLSQL_BLOCK,MODEL_REQUIRED,"PL/SQL block 超出当前 SQL 语句模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/plsql-language-fundamentals.html
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 PL/SQL 程序单元",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/overview.html
@@ -44,5 +44,5 @@ query,MODEL_CLAUSE,MODEL_REQUIRED,"MODEL clause 需要 Oracle 专用查询模型
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MATCH_RECOGNIZE,MODEL_REQUIRED,"行模式识别语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 ddl,SYNONYM,MIXED_MODEL,"已覆盖 CREATE/DROP SYNONYM 基础语句的解析、keyword 和反解析；完整 synonym 对象属性需要 Oracle 专用对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SYNONYM.html
-schema,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名、DML target 和 quoted identifier 基础形态",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
+schema,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名和 DML target；schema/object/link 引号状态独立输出并有 quoted/unquoted 对照",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
 utility,EXPLAIN_PLAN_FOR,MIXED_MODEL,"已覆盖 EXPLAIN PLAN FOR 基础语句的解析、keyword 和反解析；计划表输出语义不进入共享对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/EXPLAIN-PLAN.html

@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 253 cases with `status = "final"` and 857 independent
+The fixture contains 271 cases with `status = "final"` and 876 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
@@ -284,6 +284,40 @@ bind at the corresponding ordinal.
 | Case ID | Case Name | Form | Verification Focus |
 | --- | --- | --- | --- |
 | O202 | `oracle-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
+
+## Query Graph Segmented Quoted-Identifier Contract
+
+Relation qualification records double-quote delimiter state per segment through
+`database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+`quoted_identifier`, and `link_quoted_identifier`. DML target columns use
+`dml_column.quoted_identifier`. Each flag describes only its corresponding name
+segment; View JSON omits the key for an unquoted or absent segment, so case
+cannot be inferred from identifier spelling. The following 18 cases and 19
+independent patches cover the five ordinary DML forms, quoted/unquoted
+database-link contrasts, multi-branch `INSERT ALL/FIRST`, and a database-link
+target. Batch, clone, patch-to-fresh-View, and public C-structure lifecycle
+coverage is maintained in `tests/unit/test_identifier_spelling.c`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| O203 | `oracle-relation-dml-quoted-identifier-ordinary-select` | three-part SELECT relation with quoted alias and field | database/object segment flags and per-segment recomputation after a relation patch |
+| O204 | `oracle-relation-dml-quoted-identifier-ordinary-insert` | three-part INSERT target with quoted and unquoted target columns | schema/object and `dml_column.quoted_identifier`; a relation patch preserves column state |
+| O205 | `oracle-relation-dml-quoted-identifier-ordinary-update` | three-part UPDATE target, alias, and SET/WHERE fields | database/object/alias/field flags and relation-patch recomputation |
+| O206 | `oracle-relation-dml-quoted-identifier-ordinary-delete` | three-part DELETE target and field | schema/object/alias/field flags and relation-patch recomputation |
+| O207 | `oracle-relation-dml-quoted-identifier-ordinary-merge` | three-part MERGE target/source with UPDATE and INSERT branches | both relations' segment flags and MERGE INSERT `dml_column.quoted_identifier`; two patches independently recompute relation and column flags |
+| O208 | `oracle-relation-dml-quoted-identifier-database-link-select-unquoted` | SELECT from `APP.T@REMOTE` | unquoted contrast omits all four new true flags; a field patch leaves relation state unchanged |
+| O209 | `oracle-relation-dml-quoted-identifier-database-link-select-quoted` | SELECT from `"APP"."T"@"REMOTE"` | schema/object/link plus existing alias/field/output flags remain present together |
+| O210 | `oracle-relation-dml-quoted-identifier-database-link-insert-unquoted` | unquoted database-link INSERT | unquoted relation and target-column contrast; a value patch does not change flags |
+| O211 | `oracle-relation-dml-quoted-identifier-database-link-insert-quoted` | quoted database-link INSERT | schema/object/link and target-column flags remain after a value patch |
+| O212 | `oracle-relation-dml-quoted-identifier-database-link-update-unquoted` | unquoted database-link UPDATE | unquoted relation contrast and independent field-patch boundary |
+| O213 | `oracle-relation-dml-quoted-identifier-database-link-update-quoted` | quoted database-link UPDATE | schema/object/link/alias and field flags remain exact after a patch |
+| O214 | `oracle-relation-dml-quoted-identifier-database-link-delete-unquoted` | unquoted database-link DELETE | unquoted relation contrast and field-patch boundary |
+| O215 | `oracle-relation-dml-quoted-identifier-database-link-delete-quoted` | quoted database-link DELETE | schema/object/link/alias and field flags remain exact after a patch |
+| O216 | `oracle-relation-dml-quoted-identifier-database-link-merge-unquoted` | MERGE with unquoted database-link target and source | false/omitted contrast on both relations; quoting a patched target column adds its flag |
+| O217 | `oracle-relation-dml-quoted-identifier-database-link-merge-quoted` | MERGE with quoted database-link target and source | schema/object/link/alias flags on both relations; unquoting a patched target column removes its flag |
+| O218 | `oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | three `INSERT ALL` targets independently quoting database/schema/object segments | per-branch relation and target-column flags remain after a branch-value patch |
+| O219 | `oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | three `INSERT FIRST` targets across WHEN/ELSE branches | per-branch relation and target-column flags remain after an ELSE-value patch |
+| O220 | `oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | `INSERT ALL INTO APP."T"@"REMOTE" ("ID")` | the multi-table-insert target projection retains object/link and target-column flags after a value patch |
 
 ## Coverage Boundary
 

@@ -50,7 +50,9 @@
 
 `MIXED_MODEL` 中已有 95 条基础 case 进入可执行回归，包括数据库、schema、role、application role、user、synonym、type、index、sequence、view、statistics、`SELECT INTO`、基础全文谓词、CTAS、别名、子查询、基础 `ALTER DATABASE`、基础 `ALTER TABLE`、`DROP TYPE`、`DROP USER` 公开形态恢复、`CREATE USER` 专属选项、`ALTER USER` 常见选项、`CREATE ROLE AUTHORIZATION`、`ALTER ROLE` 成员/重命名、`ALTER SCHEMA TRANSFER`、`ALTER AUTHORIZATION` 基础形态、`DROP SCHEMA IF EXISTS`、基础表提示和查询提示、基础 `SET` 会话/执行环境语句，以及 `IF...ELSE` 分支内的 `BEGIN...END`。完整官方语法仍按 `MIXED_MODEL` 统计。
 
-`OUTPUT` 条目由 32 条成功路径和 10 条错误路径覆盖，包含 `INSERT`、`UPDATE`、`DELETE`、`MERGE`、sink/client 双通道和嵌套 DML。具有显式非空 sink column list 且改写前 target/column 数量相等时，paired `insert_column` 可在同一序号原子插入两侧；原本合法的不等长 `OUTPUT ... INTO` 仍可解析和反解析，但不支持该成对改写。
+`OUTPUT` 条目由 33 条成功路径和 10 条错误路径覆盖，包含 `INSERT`、`UPDATE`、`DELETE`、`MERGE`、sink/client 双通道和嵌套 DML。具有显式非空 sink column list 且改写前 target/column 数量相等时，paired `insert_column` 可在同一序号原子插入两侧；原本合法的不等长 `OUTPUT ... INTO` 仍可解析和反解析，但不支持该成对改写。sink relation 的 database/schema/object 方括号状态按段保留，sink column 使用独立 `quoted_identifier`；1 条新增用例和 7 个独立 patch 覆盖四类 DML sink 与 patch 后重算。
+
+普通 relation 同样按 database、schema、object 名称段保留方括号状态，DML target column 独立保留定界状态；未定界或不存在的段不输出 true 标志。另一条新增用例和 7 个独立 patch 覆盖 SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE。
 
 `IF...ELSE` 条目由 36 条成功路径和 9 条错误路径覆盖，包含单语句分支、多语句块、`ELSE IF`、嵌套、条件查询、DML、DDL、事务和语法边界。
 

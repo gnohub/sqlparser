@@ -695,7 +695,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | 结构体 | 说明 |
 | --- | --- |
 | `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
-| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 和 `alias_quoted_identifier` 分别表示对象名和 relation alias 的定界符状态 |
+| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别表示 database、schema、对象名、relation alias 和 database link 的定界符状态 |
 | `sqlparser_graph_target_t` | 查询或 DML 结果输出项；`output_quoted_identifier` 表示 `output_name` 对应 token 的定界符状态 |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符，`pseudo` / `prior` 表示层次查询 occurrence 语义 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
@@ -708,17 +708,19 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、relation-backed sink 的可选 relation 和 columns，以及字段来源 span |
 | `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
 | `sqlparser_graph_dml_branch_t` | DML 分支的公共结构，包括目标 relation、目标列、行、分支条件、可选 MERGE 附属 DELETE 条件和分支序号 |
-| `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
+| `sqlparser_graph_dml_column_t` | INSERT 显式目标列或 relation-backed DML 结果 sink 目标列；`quoted_identifier` 表示 `column_name` 对应 token 的定界符状态 |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle/Dameng multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE 赋值项 |
 
 ### 归属规则
 
-- `sqlparser_graph_relation_t.quoted_identifier` 仅对应 `object_name`，`sqlparser_graph_field_t.quoted_identifier` 仅对应 `column_name`。精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时值为 `1`，否则为 `0`；该字段不区分定界符类型，也不表示 database 或 schema 的状态。
-- `sqlparser_graph_relation_t.alias_quoted_identifier` 仅对应 `alias_name`。存在 relation alias 且其精确来源 token 使用上述三类定界符时值为 `1`，没有 alias 或 alias 未定界时为 `0`。
-- `sqlparser_graph_target_t.output_quoted_identifier` 对应 `output_name`。存在显式输出 alias 时只依据 alias token；没有显式 alias 且 `output_name` 由直接字段继承时依据该字段 token。显式 alias 的状态优先于底层字段，其他情况为 `0`。
-- 上述标志不将 PostgreSQL `U&"..."` 计为受支持的定界符，也不会因解析器内部生成的引号样式而置为 `1`。两个新增标志不引入字符串或持久内存分配，query graph 的所有权和生命周期规则不变。
-- 在 x86_64 和 AArch64 的 64 位布局中，两个新增 `int` 字段占用 2.16.5 结构尾部的既有 padding；两个结构的 `sizeof` 和全部旧字段 offset 保持不变。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
+- `sqlparser_graph_relation_t.database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别仅对应 `database_name`、`schema_name`、`object_name`、`alias_name` 和 `link_name`。前两个和 `link_quoted_identifier` 的 C 类型为 `unsigned char`；已有的对象名和 alias 字段语义不变。
+- `sqlparser_graph_field_t.quoted_identifier` 仍仅对应字段 occurrence 的 `column_name`；`sqlparser_graph_target_t.output_quoted_identifier` 仍对应 `output_name`。存在显式输出 alias 时只依据 alias token；没有显式 alias 且 `output_name` 由直接字段继承时依据该字段 token。显式 alias 的状态优先于底层字段，其他情况为 `0`。
+- `sqlparser_graph_dml_column_t.quoted_identifier` 的 C 类型为 `int`，仅对应目标列的 `column_name`。该字段用于普通 INSERT、MERGE INSERT 分支、Oracle、Dameng 与 Vastbase-Oracle `INSERT ALL/FIRST` 分支和 SQL Server `OUTPUT ... INTO` relation-backed sink 中的目标列。
+- 上述标志只在各自的精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `1`，否则为 `0`；它们不区分定界符类型。PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会使这些标志置为 `1`。
+- relation 的五个组件标志覆盖普通 SELECT/INSERT/UPDATE/DELETE/MERGE relation、multi-table INSERT 分支目标、relation-backed DML 结果 sink 和远程对象。Oracle、Dameng 和 Vastbase-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 会完整投影 `object_name`、`link_name` 及对应的定界符标志。
+- 这些标量字段不产生需要调用方释放的独立分配；query graph 的所有权和生命周期规则不变。
+- 在 x86_64 和 AArch64 的 64 位布局中，relation 的三个新 `unsigned char` 字段占用 2.16.8 `sqlparser_graph_relation_t` 的既有 padding，`sqlparser_graph_dml_column_t.quoted_identifier` 占用该结构的既有尾部 padding；两个结构的 `sizeof` 和全部旧字段 offset 保持不变。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表或 CTE 来源。
 - 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。

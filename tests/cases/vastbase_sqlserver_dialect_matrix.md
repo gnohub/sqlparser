@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 607 条 `status = "final"` 用例和 1858 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 609 条 `status = "final"` 用例和 1872 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -30,6 +30,15 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 ## 定界别名状态回归
 
 `vastbase-sqlserver-graph-quoted-relation-alias-and-target-output` 及其 2 个 output alias patch 验证 Query Graph 字段合同：relation alias 的精确来源 token 使用方括号时输出 `alias_quoted_identifier: true`；target 的 `output_name` 来源于带方括号的显式 alias，或无显式 alias 时来源于带方括号的直接字段 token，则输出 `output_quoted_identifier: true`。未定界来源不输出对应字段。该合同属于项目兼容入口，不代表 Vastbase 服务端官方语法范围。
+
+## 定界关系分段与 DML 列状态回归
+
+以下 2 条 final 用例以同名定界/未定界标识符对照验证三段 relation 与 DML 列状态；14 个独立 patch 覆盖普通 DML、MERGE INSERT、`OUTPUT ... INTO` sink relation 和 sink column，且要求 patch handle 与重新解析 handle 的标志一致。该组用例定义项目 `vastbase-sqlserver` 兼容入口合同，不声称 Vastbase 服务端官网定义了相同语法范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VSH608` | `vastbase-sqlserver-quoted-identifier-three-part-dml-matrix` | final | 7 | SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE target/source 覆盖 `database_quoted_identifier`、`schema_quoted_identifier`、relation `quoted_identifier` 和 DML column `quoted_identifier`；relation 与 MERGE 列改写重新计算状态 |
+| `VSH609` | `vastbase-sqlserver-output-into-quoted-identifier-sink-matrix` | final | 7 | INSERT、UPDATE、DELETE、MERGE 的 `OUTPUT ... INTO` sink relation 三段状态及 `sink_columns[].quoted_identifier`；逐个 sink relation/column patch 与普通 DML relation patch 保持 fresh View 一致 |
 
 ## 完整绑定占位符 occurrence 回归
 

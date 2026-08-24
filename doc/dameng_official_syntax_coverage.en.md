@@ -72,6 +72,13 @@ orders for `START WITH` and `CONNECT BY`, two parent-child field orientations
 for unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, and `NOCYCLE`. The executable matrix
 contains 4 `final` cases and 20 independent patches.
 
+Query Graph preserves delimiter state independently for relation database,
+schema, object, and database-link segments and for each DML target column; no
+true flag is emitted for an unquoted or absent segment. Eighteen cases and 19
+independent patches cover the five ordinary DML forms, quoted/unquoted database
+links, multi-branch `INSERT ALL/FIRST`, database-link targets, and post-patch
+recomputation.
+
 The Dameng multi-table `UPDATE` `CURRENT` boundary always has one write target.
 Six `final` cases and 17 independent patches cover first, middle, and last
 relation targets, distinct aliases of the same table, JOIN chains, and mixed

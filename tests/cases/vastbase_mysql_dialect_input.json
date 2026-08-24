@@ -714,10 +714,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -1064,10 +1066,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "name",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -6873,6 +6877,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7003,6 +7008,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7142,6 +7148,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "products"
@@ -7561,6 +7568,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7758,6 +7766,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -7972,6 +7981,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8228,6 +8238,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "users"
@@ -8581,6 +8592,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "employees_uuid"
@@ -8994,6 +9006,7 @@
                   "block": 2,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "employees_uuid"
@@ -9297,6 +9310,7 @@
                   "block": 1,
                   "kind": "base",
                   "schema": "viq-test",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "employees_uuid"
@@ -11419,6 +11433,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -11490,6 +11505,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -11561,6 +11577,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -11632,6 +11649,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -11712,10 +11730,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -11784,6 +11804,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -12233,6 +12254,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -12333,10 +12355,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -12415,10 +12439,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -12602,10 +12628,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -12677,6 +12705,7 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   }
                 ],
@@ -12745,10 +12774,12 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   }
                 ],
@@ -18760,6 +18791,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "db-a",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "table-a"
@@ -23475,18 +23507,22 @@
                 "target_columns": [
                   {
                     "column": "id",
+                    "quoted_identifier": true,
                     "ordinal": 0
                   },
                   {
                     "column": "phone",
+                    "quoted_identifier": true,
                     "ordinal": 1
                   },
                   {
                     "column": "status",
+                    "quoted_identifier": true,
                     "ordinal": 2
                   },
                   {
                     "column": "created_at",
+                    "quoted_identifier": true,
                     "ordinal": 3
                   }
                 ],
@@ -23497,6 +23533,7 @@
                   "block": 0,
                   "kind": "base",
                   "schema": "audit_db",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "Bind_Mix"
@@ -28681,6 +28718,7 @@
                   "kind": "base",
                   "quoted_identifier": true,
                   "schema": "sales-db",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
                   "table": "account"
                 },
@@ -28691,6 +28729,7 @@
                   "kind": "base",
                   "quoted_identifier": true,
                   "schema": "ops-db",
+                  "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
                   "table": "ledger"
                 }
@@ -29118,6 +29157,672 @@
           "deparse": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT VALUES (COALESCE(s.ID, 0))"
         }
       ]
+    },
+    {
+      "name": "vastbase-mysql-quoted-identifier-segment-and-dml-column-inventory",
+      "sql": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "ObjName",
+                  "quoted_identifier": true,
+                  "alias": "AliasName",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "database_quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "ObjName",
+                  "alias": "AliasName",
+                  "selector": "stmt[0].relation[1]",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "Phone",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "Phone",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "candidate_relations": [
+                    0,
+                    1
+                  ],
+                  "column": "Phone",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "candidate_relations": [
+                    0,
+                    1
+                  ],
+                  "column": "Phone",
+                  "target": 1,
+                  "selector": "stmt[0].name[3]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "phone",
+                    "quoted_identifier": true
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "phone"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[1].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[1].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "alias": "AliasName",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[2].relation[0]",
+                  "database_quoted_identifier": true
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "phone",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "phone"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[2].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[2].value[9]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[2].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 3
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[2].assignment[1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 4
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "delete",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "quoted_identifier": true,
+                  "selector": "stmt[3].relation[0]",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[3].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[3].value[4]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 2
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "delete",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "delete_targets": [
+                  0
+                ]
+              }
+            }
+          },
+          {
+            "index": 4,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "quoted_identifier": true,
+                  "alias": "TargetAlias",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[4].relation[0]",
+                  "database_quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Source",
+                  "alias": "SourceAlias",
+                  "selector": "stmt[4].relation[1]",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[4].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[4].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "phone",
+                  "quoted_identifier": true,
+                  "selector": "stmt[4].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "phone",
+                  "selector": "stmt[4].name[17]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[4].insert_branch_columns[0]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "phone",
+                        "selector": "stmt[4].merge_insert_column[0][0]",
+                        "quoted_identifier": true
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "phone",
+                        "selector": "stmt[4].merge_insert_column[0][1]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 2,
+                        "bind_kind": 0,
+                        "selector": "stmt[4].merge_insert_cell[0][0]"
+                      },
+                      {
+                        "row": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "source_field": 3,
+                        "bind_kind": 0,
+                        "selector": "stmt[4].merge_insert_cell[0][1]"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 5,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "selector": "stmt[5].relation[0]",
+                  "database_quoted_identifier": true
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "set",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "phone",
+                    "quoted_identifier": true
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "phone"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[5].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 5
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[5].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 6
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 6,
+            "keyword": "replace",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "database": "DbName",
+                  "schema": "SchemaName",
+                  "table": "Target",
+                  "quoted_identifier": true,
+                  "selector": "stmt[6].relation[0]",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "replace_set",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "phone",
+                    "quoted_identifier": true
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "phone"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[6].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 7
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[6].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 8
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "DbName.`SchemaName`.ObjName",
+          "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM DbName.`SchemaName`.ObjName `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "`DbName`.SchemaName.`ObjName`",
+          "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, `DbName`.SchemaName.`ObjName` AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/dml/branches/0/target_columns/0/selector",
+          "value": "phone_new",
+          "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (phone_new, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/4/query_graph/dml/branches/0/target_list_selector",
+          "index": 2,
+          "name": "`note`",
+          "value": "SourceAlias.note",
+          "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone, `note`) VALUES (SourceAlias.`phone`, SourceAlias.phone, SourceAlias.note); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
+        },
+        {
+          "action": "insert_column",
+          "target": "stmt[5].insert_columns",
+          "index": 1,
+          "name": "`note`",
+          "value": "9",
+          "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, `note` = 9, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
+        }
+      ],
+      "status": "final"
     }
   ]
 }

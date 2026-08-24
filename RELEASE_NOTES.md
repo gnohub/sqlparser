@@ -1,9 +1,9 @@
-# v2.16.8 发布说明
+# v2.16.9 发布说明
 
-`SQLPARSER_PATCH_INSERT_COLUMN` 对 MERGE INSERT 支持 name-only、value-only 和 name + value 三种载荷，可分别增加目标列、增加 VALUES cell，或在同一位置成对增加；既有目标列和 VALUES cell 可继续分别替换。省略目标列清单但具有 VALUES 的分支现在输出既有 `target_list_selector`，可物化目标列清单或保持清单省略并单独增加 cell。
+Query Graph relation 新增 database、schema 和 database link 三个分段定界标志，DML column 新增目标列定界标志。每个标志仅依据对应名称段的精确来源 token；View JSON 仅在值为 `true` 时输出同名字段。
 
-同一 patch batch 中允许列和值暂时不等长；本批次触及且最终具有显式目标列清单的分支在提交前校验等宽，失败时整批原子回滚。删除仍保持列值成对，`MERGE INSERT DEFAULT VALUES` 不适用三态插入。合同覆盖九个项目方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。
+该状态覆盖普通 SELECT、INSERT、UPDATE、DELETE、MERGE，以及普通 INSERT、MERGE INSERT、`INSERT ALL/FIRST`、MySQL SET 形式和 SQL Server `OUTPUT ... INTO` sink 的目标列。Oracle、Dameng 与 Vastbase-Oracle 的 multi-table INSERT database-link 分支同时完整投影 object、link 及对应定界状态。分支 link 信息由方言状态内部持有并随 clone/destroy 深拷贝和释放，调用方所有权规则不变。
 
-本版本未新增公开 API、枚举、结构体字段或 View JSON 字段，仅扩展既有 selector 的输出范围。新增 9 条 final case 和 27 个 patch 后，九套 fixture 合计 2,840 条 final case 和 9,163 个 patch。远端完整 `make test`、定向核心 API、九套方言矩阵及 Valgrind 均通过。
+本版本新增公开结构体字段，但未新增公开导出符号。在 x86_64 与 AArch64 的 64 位布局中，相关结构体的旧字段 offset 和 `sizeof` 保持不变；该结论不适用于 32 位布局。新增 62 条 final case 和 103 个 patch 后，九套 fixture 合计 2,902 条 final case 和 9,266 个 patch。完整 `make test`、identifier 与 core API 定向测试、九套方言矩阵及相关 Valgrind 检查均通过。
 
 内置 `libpg_query` 标签：`17-6.2.2`；内置 Jansson 版本：`2.15`。

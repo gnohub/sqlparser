@@ -1986,6 +1986,17 @@ static const char *sqlparser_vastbase_relation_link_name_delegate(
 	return base_ops->relation_link_name(state, parser_object_name);
 }
 
+static const char *sqlparser_vastbase_relation_link_sql_delegate(
+	const sqlparser_dialect_ops_t *base_ops,
+	const void *state,
+	const char *parser_object_name)
+{
+	if (base_ops == NULL || base_ops->relation_link_sql == NULL) {
+		return NULL;
+	}
+	return base_ops->relation_link_sql(state, parser_object_name);
+}
+
 static sqlparser_status_t sqlparser_vastbase_postprocess_control_unit_delegate(
 	const sqlparser_dialect_ops_t *base_ops,
 	const char *core_sql,
@@ -2771,6 +2782,15 @@ static sqlparser_status_t sqlparser_vastbase_project_session_delegate(
 			state, \
 			parser_object_name); \
 	} \
+	static const char *sqlparser_vastbase_##TAG##_relation_link_sql( \
+		const void *state, \
+		const char *parser_object_name) \
+	{ \
+		return sqlparser_vastbase_relation_link_sql_delegate( \
+			BASE_OPS_FN(), \
+			state, \
+			parser_object_name); \
+	} \
 	static sqlparser_status_t sqlparser_vastbase_##TAG##_project_session( \
 		const sqlparser_handle_t *handle, \
 		const void *state, \
@@ -3086,7 +3106,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
 	sqlparser_vastbase_oracle_bind_fragment_ast_state,
 	sqlparser_vastbase_oracle_reconcile_ast_state,
 	sqlparser_vastbase_oracle_clone_ast_state,
-	sqlparser_vastbase_oracle_prepare_ast_state
+	sqlparser_vastbase_oracle_prepare_ast_state,
+	sqlparser_vastbase_oracle_relation_link_sql
 };
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_MYSQL_OPS = {
@@ -3110,7 +3131,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_MYSQL_OPS = {
 	sqlparser_vastbase_mysql_bind_fragment_ast_state,
 	sqlparser_vastbase_mysql_reconcile_ast_state,
 	sqlparser_vastbase_mysql_clone_ast_state,
-	sqlparser_vastbase_mysql_prepare_ast_state
+	sqlparser_vastbase_mysql_prepare_ast_state,
+	sqlparser_vastbase_mysql_relation_link_sql
 };
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_POSTGRESQL_OPS = {
@@ -3134,7 +3156,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_POSTGRESQL_OPS = {
 	sqlparser_vastbase_postgresql_bind_fragment_ast_state,
 	sqlparser_vastbase_postgresql_reconcile_ast_state,
 	sqlparser_vastbase_postgresql_clone_ast_state,
-	sqlparser_vastbase_postgresql_prepare_ast_state
+	sqlparser_vastbase_postgresql_prepare_ast_state,
+	sqlparser_vastbase_postgresql_relation_link_sql
 };
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_SQLSERVER_OPS = {
@@ -3158,7 +3181,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_SQLSERVER_OPS = {
 	sqlparser_vastbase_sqlserver_bind_fragment_ast_state,
 	sqlparser_vastbase_sqlserver_reconcile_ast_state,
 	sqlparser_vastbase_sqlserver_clone_ast_state,
-	sqlparser_vastbase_sqlserver_prepare_ast_state
+	sqlparser_vastbase_sqlserver_prepare_ast_state,
+	sqlparser_vastbase_sqlserver_relation_link_sql
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void)

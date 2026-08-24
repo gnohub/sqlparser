@@ -29004,7 +29004,8 @@
                   "link": "REMOTE_DB",
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
-                  "table": "USERS"
+                  "table": "USERS",
+                  "link_quoted_identifier": true
                 }
               ],
               "root": 0,
@@ -31346,19 +31347,23 @@
                 "target_columns": [
                   {
                     "column": "Customer_Id",
-                    "ordinal": 0
+                    "ordinal": 0,
+                    "quoted_identifier": true
                   },
                   {
                     "column": "Customer_Name",
-                    "ordinal": 1
+                    "ordinal": 1,
+                    "quoted_identifier": true
                   },
                   {
                     "column": "City",
-                    "ordinal": 2
+                    "ordinal": 2,
+                    "quoted_identifier": true
                   },
                   {
                     "column": "Created_At",
-                    "ordinal": 3
+                    "ordinal": 3,
+                    "quoted_identifier": true
                   }
                 ],
                 "target_relation": 0
@@ -31370,7 +31375,8 @@
                   "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
-                  "table": "Bind_Mix"
+                  "table": "Bind_Mix",
+                  "schema_quoted_identifier": true
                 }
               ],
               "root": 0
@@ -32690,11 +32696,13 @@
                 "target_columns": [
                   {
                     "column": "ID",
-                    "ordinal": 0
+                    "ordinal": 0,
+                    "quoted_identifier": true
                   },
                   {
                     "column": "PROTECTED_CLOB_3",
-                    "ordinal": 1
+                    "ordinal": 1,
+                    "quoted_identifier": true
                   }
                 ],
                 "target_relation": 0
@@ -32706,7 +32714,8 @@
                   "quoted_identifier": true,
                   "schema": "APP",
                   "selector": "stmt[0].relation[0]",
-                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS",
+                  "schema_quoted_identifier": true
                 }
               ],
               "root": 0,
@@ -32850,7 +32859,8 @@
                   "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
-                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS",
+                  "schema_quoted_identifier": true
                 }
               ],
               "root": 0,
@@ -32993,7 +33003,8 @@
                   "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
-                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS",
+                  "schema_quoted_identifier": true
                 }
               ],
               "root": 0,
@@ -34756,6 +34767,2131 @@
           "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
           "value": "COALESCE(s.ID, 0)",
           "deparse": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT VALUES (COALESCE(s.ID, 0))"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-ordinary-select",
+      "sql": "SELECT \"u\".\"PHONE\" FROM \"CAT\".APP.\"USERS\" \"u\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "PHONE",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "u",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "USERS",
+                  "database_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "PHONE",
+                  "ordinal": 0,
+                  "output_quoted_identifier": true,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_CAT\".APP.\"PATCH_USERS\"",
+          "deparse": "SELECT \"u\".\"PHONE\" FROM \"PATCH_CAT\".APP.\"PATCH_USERS\" \"u\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-ordinary-insert",
+      "sql": "INSERT INTO CAT.\"APP\".T (\"ID\", SECRET) VALUES (1, 'x')",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "ID",
+                    "ordinal": 0,
+                    "quoted_identifier": true
+                  },
+                  {
+                    "column": "SECRET",
+                    "ordinal": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "CAT.\"PATCH_APP\".\"PATCH_T\"",
+          "deparse": "INSERT INTO CAT.\"PATCH_APP\".\"PATCH_T\" (\"ID\", SECRET) VALUES (1, 'x')"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-ordinary-update",
+      "sql": "UPDATE \"CAT\".APP.\"T\" \"u\" SET \"u\".\"PHONE\" = 'x', \"u\".NOTE = 'n' WHERE \"u\".\"ID\" = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "n"
+                    },
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "PHONE",
+                  "quoted_identifier": true,
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "NOTE",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "u",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "database_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[11]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_CAT\".APP.\"PATCH_T\"",
+          "deparse": "UPDATE \"PATCH_CAT\".APP.\"PATCH_T\" \"u\" SET \"u\".\"PHONE\" = 'x', \"u\".NOTE = 'n' WHERE \"u\".\"ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-ordinary-delete",
+      "sql": "DELETE FROM CAT.\"APP\".T \"u\" WHERE \"u\".\"ID\" = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "delete_targets": [
+                  0
+                ],
+                "insert_mode": "unknown",
+                "kind": "delete",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "u",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[5]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "CAT.\"PATCH_APP\".\"PATCH_T\"",
+          "deparse": "DELETE FROM CAT.\"PATCH_APP\".\"PATCH_T\" \"u\" WHERE \"u\".\"ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-ordinary-merge",
+      "sql": "MERGE INTO \"CAT\".APP.\"T\" \"t\" USING CAT.\"APP\".S s ON (\"t\".\"ID\" = s.ID) WHEN MATCHED THEN UPDATE SET \"t\".\"PHONE\" = s.PHONE WHEN NOT MATCHED THEN INSERT (\"ID\", NOTE) VALUES (s.ID, s.NOTE)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].merge_assignment[0][0]",
+                    "source_field": 3,
+                    "target_field": 2
+                  }
+                ],
+                "branches": [
+                  {
+                    "assignments": [
+                      {
+                        "bind_kind": 0,
+                        "kind": "field",
+                        "selector": "stmt[0].merge_assignment[0][0]",
+                        "source_field": 3,
+                        "target_field": 2
+                      }
+                    ],
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "ordinal": 0,
+                    "target_relation": 0
+                  },
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 1,
+                        "selector": "stmt[0].merge_insert_cell[1][0]",
+                        "source_field": 4
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "row": 1,
+                        "selector": "stmt[0].merge_insert_cell[1][1]",
+                        "source_field": 5
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]",
+                        "quoted_identifier": true
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "PHONE",
+                  "quoted_identifier": true,
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "PHONE",
+                  "relation": 1,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[19]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "NOTE",
+                  "relation": 1,
+                  "selector": "stmt[0].name[21]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "t",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "database_quoted_identifier": true
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "S",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_CAT\".APP.\"PATCH_T\"",
+          "deparse": "MERGE INTO \"PATCH_CAT\".APP.\"PATCH_T\" \"t\" USING CAT.\"APP\".S s ON (\"t\".\"ID\" = s.ID) WHEN MATCHED THEN UPDATE SET \"t\".\"PHONE\" = s.PHONE WHEN NOT MATCHED THEN INSERT (\"ID\", NOTE) VALUES (s.ID, s.NOTE)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/1/target_columns/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "MERGE INTO \"CAT\".APP.\"T\" \"t\" USING CAT.\"APP\".S s ON (\"t\".\"ID\" = s.ID) WHEN MATCHED THEN UPDATE SET \"t\".\"PHONE\" = s.PHONE WHEN NOT MATCHED THEN INSERT (\"PATCH_ID\", NOTE) VALUES (s.ID, s.NOTE)"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-select-unquoted",
+      "sql": "SELECT r.ID FROM APP.T@REMOTE r",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "SELECT r.\"PATCH_ID\" FROM APP.T@REMOTE r"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-select-quoted",
+      "sql": "SELECT \"r\".\"ID\" FROM \"APP\".\"T\"@\"REMOTE\" \"r\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "ordinal": 0,
+                  "output_quoted_identifier": true,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "SELECT \"r\".\"PATCH_ID\" FROM \"APP\".\"T\"@\"REMOTE\" \"r\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-unquoted",
+      "sql": "INSERT INTO APP.T@REMOTE (ID) VALUES (1)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "ID",
+                    "ordinal": 0
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T"
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/0/selector",
+          "value": "10",
+          "deparse": "INSERT INTO APP.T@REMOTE (ID) VALUES (10)"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-insert-quoted",
+      "sql": "INSERT INTO \"APP\".\"T\"@\"REMOTE\" (\"ID\") VALUES (1)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "ID",
+                    "ordinal": 0,
+                    "quoted_identifier": true
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/0/selector",
+          "value": "10",
+          "deparse": "INSERT INTO \"APP\".\"T\"@\"REMOTE\" (\"ID\") VALUES (10)"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-update-unquoted",
+      "sql": "UPDATE APP.T@REMOTE r SET r.PHONE = 'x' WHERE r.ID = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "PHONE",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[8]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "UPDATE APP.T@REMOTE r SET r.PHONE = 'x' WHERE r.\"PATCH_ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-update-quoted",
+      "sql": "UPDATE \"APP\".\"T\"@\"REMOTE\" \"r\" SET \"r\".\"PHONE\" = 'x' WHERE \"r\".\"ID\" = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "PHONE",
+                  "quoted_identifier": true,
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[8]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "UPDATE \"APP\".\"T\"@\"REMOTE\" \"r\" SET \"r\".\"PHONE\" = 'x' WHERE \"r\".\"PATCH_ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-unquoted",
+      "sql": "DELETE FROM APP.T@REMOTE r WHERE r.ID = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "delete_targets": [
+                  0
+                ],
+                "insert_mode": "unknown",
+                "kind": "delete",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[5]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "DELETE FROM APP.T@REMOTE r WHERE r.\"PATCH_ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-delete-quoted",
+      "sql": "DELETE FROM \"APP\".\"T\"@\"REMOTE\" \"r\" WHERE \"r\".\"ID\" = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "delete_targets": [
+                  0
+                ],
+                "insert_mode": "unknown",
+                "kind": "delete",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "r",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[5]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "DELETE FROM \"APP\".\"T\"@\"REMOTE\" \"r\" WHERE \"r\".\"PATCH_ID\" = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-unquoted",
+      "sql": "MERGE INTO APP.T@REMOTE t USING APP.S@REMOTE s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID) VALUES (s.ID)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]",
+                        "source_field": 2
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[12]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "t",
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "S"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/target_columns/0/selector",
+          "value": "\"PATCH_ID\"",
+          "deparse": "MERGE INTO APP.T@REMOTE t USING APP.S@REMOTE s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT (\"PATCH_ID\") VALUES (s.ID)"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-database-link-merge-quoted",
+      "sql": "MERGE INTO \"APP\".\"T\"@\"REMOTE\" \"t\" USING \"APP\".\"S\"@\"REMOTE\" \"s\" ON (\"t\".\"ID\" = \"s\".\"ID\") WHEN NOT MATCHED THEN INSERT (\"ID\") VALUES (\"s\".\"ID\")",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]",
+                        "source_field": 2
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]",
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "selector": "stmt[0].name[12]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "t",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                },
+                {
+                  "alias": "s",
+                  "alias_quoted_identifier": true,
+                  "block": 0,
+                  "kind": "base",
+                  "link": "REMOTE",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "S",
+                  "schema_quoted_identifier": true,
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/target_columns/0/selector",
+          "value": "PATCH_ID",
+          "deparse": "MERGE INTO \"APP\".\"T\"@\"REMOTE\" \"t\" USING \"APP\".\"S\"@\"REMOTE\" \"s\" ON (\"t\".\"ID\" = \"s\".\"ID\") WHEN NOT MATCHED THEN INSERT (PATCH_ID) VALUES (\"s\".\"ID\")"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-insert-all-multi-branch",
+      "sql": "INSERT ALL INTO \"CAT\".APP.T (\"ID\", NOTE) VALUES (1, 'a') INTO CAT.\"APP\".\"T2\" (ID, \"NOTE\") VALUES (2, 'b') INTO CAT.APP.T3 (\"ID\", \"NOTE\") VALUES (3, 'c') SELECT 1 FROM DUAL",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    1,
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "unconditional",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 1,
+                          "kind": "integer"
+                        },
+                        "row": 0,
+                        "selector": "stmt[0].insert_cell[0][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "a"
+                        },
+                        "row": 0,
+                        "selector": "stmt[0].insert_cell[0][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "quoted_identifier": true
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1
+                      }
+                    ],
+                    "target_relation": 1
+                  },
+                  {
+                    "branch_kind": "unconditional",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 2,
+                          "kind": "integer"
+                        },
+                        "row": 1,
+                        "selector": "stmt[0].insert_cell[1][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "b"
+                        },
+                        "row": 1,
+                        "selector": "stmt[0].insert_cell[1][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1,
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_relation": 2
+                  },
+                  {
+                    "branch_kind": "unconditional",
+                    "ordinal": 2,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 3,
+                          "kind": "integer"
+                        },
+                        "row": 2,
+                        "selector": "stmt[0].insert_cell[2][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "c"
+                        },
+                        "row": 2,
+                        "selector": "stmt[0].insert_cell[2][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "quoted_identifier": true
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1,
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_relation": 3
+                  }
+                ],
+                "insert_mode": "all",
+                "kind": "insert",
+                "source_block": 1
+              },
+              "relations": [
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "DUAL"
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "T",
+                  "database_quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "table": "T2",
+                  "schema_quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "T3"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/1/rows/1/selector",
+          "value": "'patched'",
+          "deparse": "INSERT ALL INTO \"CAT\".APP.T (\"ID\", NOTE) VALUES (1, 'a') INTO CAT.\"APP\".\"T2\" (ID, \"NOTE\") VALUES (2, 'patched') INTO CAT.APP.T3 (\"ID\", \"NOTE\") VALUES (3, 'c') SELECT 1 FROM DUAL"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-insert-first-multi-branch",
+      "sql": "INSERT FIRST WHEN 1 = 1 THEN INTO \"CAT\".\"APP\".T1 (\"ID\", NOTE) VALUES (1, 'a') WHEN 1 = 2 THEN INTO CAT.APP.\"T2\" (ID, \"NOTE\") VALUES (2, 'b') ELSE INTO CAT.\"APP\".T3 (\"ID\", \"NOTE\") VALUES (3, 'c') SELECT 1 FROM DUAL",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    1,
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "when",
+                    "condition_selector": "stmt[0].insert_branch_condition[0]",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 1,
+                          "kind": "integer"
+                        },
+                        "row": 0,
+                        "selector": "stmt[0].insert_cell[0][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "a"
+                        },
+                        "row": 0,
+                        "selector": "stmt[0].insert_cell[0][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "quoted_identifier": true
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1
+                      }
+                    ],
+                    "target_relation": 1
+                  },
+                  {
+                    "branch_kind": "when",
+                    "condition_selector": "stmt[0].insert_branch_condition[1]",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 2,
+                          "kind": "integer"
+                        },
+                        "row": 1,
+                        "selector": "stmt[0].insert_cell[1][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "b"
+                        },
+                        "row": 1,
+                        "selector": "stmt[0].insert_cell[1][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1,
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_relation": 2
+                  },
+                  {
+                    "branch_kind": "else",
+                    "ordinal": 2,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 3,
+                          "kind": "integer"
+                        },
+                        "row": 2,
+                        "selector": "stmt[0].insert_cell[2][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "c"
+                        },
+                        "row": 2,
+                        "selector": "stmt[0].insert_cell[2][1]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "quoted_identifier": true
+                      },
+                      {
+                        "column": "NOTE",
+                        "ordinal": 1,
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_relation": 3
+                  }
+                ],
+                "insert_mode": "first",
+                "kind": "insert",
+                "source_block": 1
+              },
+              "relations": [
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "DUAL"
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "T1",
+                  "database_quoted_identifier": true,
+                  "schema_quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "table": "T2"
+                },
+                {
+                  "block": 0,
+                  "database": "CAT",
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "T3",
+                  "schema_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/2/rows/0/selector",
+          "value": "30",
+          "deparse": "INSERT FIRST WHEN 1 = 1 THEN INTO \"CAT\".\"APP\".T1 (\"ID\", NOTE) VALUES (1, 'a') WHEN 1 = 2 THEN INTO CAT.APP.\"T2\" (ID, \"NOTE\") VALUES (2, 'b') ELSE INTO CAT.\"APP\".T3 (\"ID\", \"NOTE\") VALUES (30, 'c') SELECT 1 FROM DUAL"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap",
+      "sql": "INSERT ALL INTO APP.\"T\"@\"REMOTE\" (\"ID\") VALUES (1) SELECT 1 FROM DUAL",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "unconditional",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "literal",
+                        "literal": {
+                          "integer_value": 1,
+                          "kind": "integer"
+                        },
+                        "row": 0,
+                        "selector": "stmt[0].insert_cell[0][0]"
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "quoted_identifier": true
+                      }
+                    ],
+                    "target_relation": 1
+                  }
+                ],
+                "insert_mode": "all",
+                "kind": "insert",
+                "source_block": 1
+              },
+              "relations": [
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "DUAL"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "T",
+                  "quoted_identifier": true,
+                  "link": "REMOTE",
+                  "link_quoted_identifier": true
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+          "value": "10",
+          "deparse": "INSERT ALL INTO APP.\"T\"@\"REMOTE\" (\"ID\") VALUES (10) SELECT 1 FROM DUAL"
         }
       ]
     }

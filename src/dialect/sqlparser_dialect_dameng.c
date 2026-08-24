@@ -550,6 +550,8 @@ static void sqlparser_dameng_relation_clear(sqlparser_dialect_multi_insert_relat
 	free(relation->database_name);
 	free(relation->schema_name);
 	free(relation->table_name);
+	free(relation->link_name);
+	free(relation->link_sql);
 	free(relation->sql);
 	memset(relation, 0, sizeof(*relation));
 }
@@ -6716,6 +6718,11 @@ static sqlparser_status_t sqlparser_dameng_relation_from_sql(
 	size_t part_end[3];
 	size_t count;
 	size_t pos;
+	size_t object_end;
+	size_t link_start;
+	size_t link_end;
+	int has_link;
+	sqlparser_status_t status;
 
 	if (relation == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation must not be NULL");
@@ -6732,6 +6739,10 @@ static sqlparser_status_t sqlparser_dameng_relation_from_sql(
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
 
+	object_end = end;
+	link_start = 0U;
+	link_end = 0U;
+	has_link = 0;
 	count = 0U;
 	part_start[count] = start;
 	pos = start;
@@ -6742,6 +6753,21 @@ static sqlparser_status_t sqlparser_dameng_relation_from_sql(
 		if (skipped > pos) {
 			pos = skipped;
 			continue;
+		}
+		if (sql[pos] == '@') {
+			object_end = sqlparser_dameng_trim_right(sql, start, pos);
+			link_start = sqlparser_dameng_trim_left(sql, pos + 1U, end);
+			link_end = sqlparser_dameng_identifier_token_end(sql, link_start);
+			if (object_end <= start || link_end <= link_start ||
+			    link_end != end ||
+			    sqlparser_dameng_public_identifier_is_empty(
+				    sql, link_start, link_end)) {
+				sqlparser_dameng_relation_clear(relation);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "invalid Dameng database link name");
+				return SQLPARSER_STATUS_PARSE_ERROR;
+			}
+			has_link = 1;
+			break;
 		}
 		if (sql[pos] == '.') {
 			if (count >= 2U) {
@@ -6755,25 +6781,55 @@ static sqlparser_status_t sqlparser_dameng_relation_from_sql(
 		}
 		pos++;
 	}
-	part_end[count] = end;
+	part_end[count] = object_end;
 	count++;
 
+	status = SQLPARSER_STATUS_OK;
 	if (count == 1U) {
-		return sqlparser_dameng_identifier_from_sql(sql, part_start[0], part_end[0], &relation->table_name, out_error);
-	}
-	if (count == 2U) {
-		if (sqlparser_dameng_identifier_from_sql(sql, part_start[0], part_end[0], &relation->schema_name, out_error) != SQLPARSER_STATUS_OK ||
-		    sqlparser_dameng_identifier_from_sql(sql, part_start[1], part_end[1], &relation->table_name, out_error) != SQLPARSER_STATUS_OK) {
-			sqlparser_dameng_relation_clear(relation);
-			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		status = sqlparser_dameng_identifier_from_sql(
+			sql, part_start[0], part_end[0],
+			&relation->table_name, out_error);
+	} else if (count == 2U) {
+		status = sqlparser_dameng_identifier_from_sql(
+			sql, part_start[0], part_end[0],
+			&relation->schema_name, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_identifier_from_sql(
+				sql, part_start[1], part_end[1],
+				&relation->table_name, out_error);
 		}
-		return SQLPARSER_STATUS_OK;
+	} else {
+		status = sqlparser_dameng_identifier_from_sql(
+			sql, part_start[0], part_end[0],
+			&relation->database_name, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_identifier_from_sql(
+				sql, part_start[1], part_end[1],
+				&relation->schema_name, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_identifier_from_sql(
+				sql, part_start[2], part_end[2],
+				&relation->table_name, out_error);
+		}
 	}
-	if (sqlparser_dameng_identifier_from_sql(sql, part_start[0], part_end[0], &relation->database_name, out_error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_dameng_identifier_from_sql(sql, part_start[1], part_end[1], &relation->schema_name, out_error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_dameng_identifier_from_sql(sql, part_start[2], part_end[2], &relation->table_name, out_error) != SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK && has_link) {
+		status = sqlparser_dameng_identifier_unquote(
+			sql, link_start, link_end, &relation->link_name, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			relation->link_sql = sqlparser_strndup(
+				sql + link_start, link_end - link_start);
+			if (relation->link_sql == NULL) {
+				sqlparser_error_set_message(
+					out_error, SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				status = SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
+	}
+	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_dameng_relation_clear(relation);
-		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		return status;
 	}
 	return SQLPARSER_STATUS_OK;
 }
@@ -9098,12 +9154,20 @@ static sqlparser_status_t sqlparser_dameng_multi_insert_clone(
 		if (src_branch->relation.table_name != NULL) {
 			dst_branch->relation.table_name = sqlparser_strdup(src_branch->relation.table_name);
 		}
+		if (src_branch->relation.link_name != NULL) {
+			dst_branch->relation.link_name = sqlparser_strdup(src_branch->relation.link_name);
+		}
+		if (src_branch->relation.link_sql != NULL) {
+			dst_branch->relation.link_sql = sqlparser_strdup(src_branch->relation.link_sql);
+		}
 		if (src_branch->relation.sql != NULL) {
 			dst_branch->relation.sql = sqlparser_strdup(src_branch->relation.sql);
 		}
 		if ((src_branch->relation.database_name != NULL && dst_branch->relation.database_name == NULL) ||
 		    (src_branch->relation.schema_name != NULL && dst_branch->relation.schema_name == NULL) ||
 		    (src_branch->relation.table_name != NULL && dst_branch->relation.table_name == NULL) ||
+		    (src_branch->relation.link_name != NULL && dst_branch->relation.link_name == NULL) ||
+		    (src_branch->relation.link_sql != NULL && dst_branch->relation.link_sql == NULL) ||
 		    (src_branch->relation.sql != NULL && dst_branch->relation.sql == NULL)) {
 			sqlparser_dameng_multi_insert_destroy(clone);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -9901,6 +9965,18 @@ static const char *sqlparser_dameng_relation_link_name(
 		(const sqlparser_dameng_state_t *)state,
 		parser_object_name);
 	return relation != NULL ? relation->public_link_name : NULL;
+}
+
+static const char *sqlparser_dameng_relation_link_sql(
+	const void *state,
+	const char *parser_object_name)
+{
+	const sqlparser_dameng_dblink_relation_t *relation;
+
+	relation = sqlparser_dameng_state_find_dblink_relation(
+		(const sqlparser_dameng_state_t *)state,
+		parser_object_name);
+	return relation != NULL ? relation->public_link_sql : NULL;
 }
 
 static sqlparser_status_t sqlparser_dameng_postprocess_literal_fragment(
@@ -11352,7 +11428,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {
 	sqlparser_dameng_bind_fragment_ast_state,
 	sqlparser_dameng_reconcile_ast_state,
 	sqlparser_dameng_clone_ast_state,
-	sqlparser_dameng_prepare_ast_state
+	sqlparser_dameng_prepare_ast_state,
+	sqlparser_dameng_relation_link_sql
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void)

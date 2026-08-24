@@ -73,6 +73,15 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
   aliases and `output_quoted_identifier` for explicit backtick-delimited output
   aliases or inherited backtick-delimited field names when no explicit alias
   exists. View JSON emits either key only when its value is `true`.
+- Relation qualification reports backtick delimiter state per segment through
+  `database_quoted_identifier`, `schema_quoted_identifier`, the existing object
+  `quoted_identifier`, and `link_quoted_identifier` when a database link exists.
+  DML target columns use `dml_column.quoted_identifier` for ordinary INSERT,
+  compatibility-entry MERGE INSERT, `INSERT ... SET`, and `REPLACE ... SET`.
+  Each flag describes only its corresponding segment; View JSON omits the key
+  for an unquoted or absent segment, so case cannot be inferred from identifier
+  spelling. The MySQL entry has no database-link relation, and MERGE is a
+  project compatibility contract rather than an official MySQL server claim.
 - A multi-target `UPDATE` omits a single `dml.target_relation`; each assignment
   identifies its write relation through the field referenced by `target_field`.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
@@ -87,5 +96,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 262 cases with `status = "final"` and 881
+The current MySQL matrix contains 263 cases with `status = "final"` and 886
 independent patches.

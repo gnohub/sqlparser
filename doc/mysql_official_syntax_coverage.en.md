@@ -55,3 +55,11 @@ basic public REPLACE forms, and `CREATE TABLE` column attributes, table options,
 and partition tails without query expressions are covered. Two groups have
 basic coverage but need a dedicated model for full official semantics; five
 groups require a MySQL-specific model.
+
+The executable backtick-identifier contract preserves delimiter state
+independently for relation database, schema, and object segments and for DML
+target columns, including `INSERT ... SET` and `REPLACE ... SET`; no true flag
+is emitted for an unquoted or absent segment. One case and five independent
+patches verify quoted/unquoted same-name contrasts and post-patch
+recomputation. MERGE in the fixture belongs only to the project's compatibility
+entry and is not an official MySQL syntax-coverage claim.

@@ -15,6 +15,8 @@ typedef struct {
 	char *database_name;
 	char *schema_name;
 	char *table_name;
+	char *link_name;
+	char *link_sql;
 	char *sql;
 } sqlparser_dialect_multi_insert_relation_t;
 

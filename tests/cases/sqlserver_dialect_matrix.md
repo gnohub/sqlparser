@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 627 条 `status = "final"` 用例和 1875 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 629 条 `status = "final"` 用例和 1889 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -404,6 +404,15 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | SH334 | `sqlserver-table-hints-join-alias` | 多表 JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | 多表表提示按表源顺序恢复，字段和 JOIN 归属保持不变 |
 | SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | 多查询提示参数按原 SQL 片段恢复，bind 归属保持不变 |
 | SH336 | `sqlserver-merge-cte-target-relation-binding` | `WITH cte AS (...) MERGE INTO cte ...` | MERGE 目标识别为 CTE 并关联来源块，底层 relation patch 同步更新限定列 |
+
+## Query Graph 分段引号标识合同
+
+relation 的限定名按段记录方括号定界状态：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列和 `OUTPUT ... INTO` sink column 共用 `dml_column.quoted_identifier`。每个标志只描述对应名称段，未定界或不存在的段不输出该键，不能由名称大小写推断。SQL Server 入口没有 database link，因此 `link_quoted_identifier` 不适用；公共 C 结构生命周期由 `tests/unit/test_identifier_spelling.c` 验证。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH431 | `sqlserver-quoted-identifier-three-part-dml-matrix` | 5 条语句覆盖 SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE 的三段 relation | database/schema/object 分段标志与普通/MERGE `dml_column.quoted_identifier`；7 个独立 patch 覆盖五类 relation 逐段重算和 MERGE 列 quoted↔unquoted 重算 |
+| SH432 | `sqlserver-output-into-quoted-identifier-sink-matrix` | INSERT、UPDATE、DELETE、MERGE 的 `OUTPUT ... INTO` 三段 sink relation 与 sink column | 四类 result channel 的 sink relation 分段标志及 `sink_columns[].quoted_identifier`；7 个独立 patch 覆盖四个 sink relation、两个 sink column 和源 INSERT relation 的 fresh View 重算 |
 
 ## 官方 hook 覆盖用例
 

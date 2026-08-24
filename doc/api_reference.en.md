@@ -858,7 +858,7 @@ from which it was read.
 | Struct | Meaning |
 | --- | --- |
 | `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
-| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` and `alias_quoted_identifier` report delimiter state for the object name and relation alias |
+| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `database_quoted_identifier`, `schema_quoted_identifier`, `quoted_identifier`, `alias_quoted_identifier`, and `link_quoted_identifier` report delimiter state for the database, schema, object name, relation alias, and database link, respectively |
 | `sqlparser_graph_target_t` | query or DML-result output target; `output_quoted_identifier` reports delimiter state for the token represented by `output_name` |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token, while `pseudo` / `prior` report hierarchical occurrence semantics |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
@@ -871,33 +871,47 @@ from which it was read.
 | `sqlparser_graph_dml_result_t` | DML result channel, output block, optional relation and columns for a relation-backed sink, and a field-reference span |
 | `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
 | `sqlparser_graph_dml_branch_t` | common DML-branch shape with target relation, target columns, rows, branch condition, optional MERGE attached-delete condition, and branch ordinal |
-| `sqlparser_graph_dml_column_t` | explicit INSERT target column |
+| `sqlparser_graph_dml_column_t` | target column for INSERT or a relation-backed DML result sink; `quoted_identifier` reports delimiter state for the token represented by `column_name` |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle/Dameng multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE assignment |
 
 ### Attribution Rules
 
-- `sqlparser_graph_relation_t.quoted_identifier` applies only to `object_name`,
-  and `sqlparser_graph_field_t.quoted_identifier` applies only to
-  `column_name`. It is `1` when the exact source token uses `"..."`, MySQL
-  backticks, or SQL Server `[...]`, and `0` otherwise. The flag does not
-  classify the delimiter kind or describe database or schema state.
-- `sqlparser_graph_relation_t.alias_quoted_identifier` applies only to
-  `alias_name`. It is `1` when a relation alias exists and its exact source
-  token uses one of the three supported delimiter forms, and `0` when the
-  alias is absent or unquoted.
-- `sqlparser_graph_target_t.output_quoted_identifier` applies to `output_name`.
-  An explicit output alias is authoritative and the flag describes its token.
-  Without an explicit alias, a name inherited from a direct field describes
-  that field token. The flag is `0` in other cases.
-- These flags do not treat PostgreSQL `U&"..."` as a supported delimiter and
-  are not set by quote styles generated internally by the parser. The two new
-  scalar flags add no string or persistent allocation and do not change query
-  graph ownership or lifetime rules.
-- On x86_64 and AArch64 64-bit layouts, the two new `int` fields occupy the
-  existing tail padding in the 2.16.5 structs; both `sizeof` values and all old
-  field offsets remain unchanged. This statement does not apply to 32-bit
-  layouts and is not a claim of unchanged ABI on every platform.
+- `sqlparser_graph_relation_t.database_quoted_identifier`,
+  `schema_quoted_identifier`, `quoted_identifier`, `alias_quoted_identifier`,
+  and `link_quoted_identifier` apply only to `database_name`, `schema_name`,
+  `object_name`, `alias_name`, and `link_name`, respectively. The first two
+  fields and `link_quoted_identifier` have C type `unsigned char`. The existing
+  object-name and alias field semantics are unchanged.
+- `sqlparser_graph_field_t.quoted_identifier` still applies only to the field
+  occurrence's `column_name`, and
+  `sqlparser_graph_target_t.output_quoted_identifier` still applies to
+  `output_name`. An explicit output alias is authoritative and the target flag
+  describes its token. Without an explicit alias, a name inherited from a
+  direct field describes that field token. The target flag is `0` in other
+  cases.
+- `sqlparser_graph_dml_column_t.quoted_identifier` has C type `int` and applies
+  only to a target `column_name`. The field is used for target columns in
+  regular INSERT, MERGE INSERT branches, Oracle, Dameng, and Vastbase-Oracle
+  `INSERT ALL/FIRST` branches, and relation-backed SQL Server `OUTPUT ... INTO`
+  sinks.
+- Each flag above is `1` only when its exact source token uses `"..."`, MySQL
+  backticks, or SQL Server `[...]`; it is `0` otherwise and does not classify
+  the delimiter kind. PostgreSQL `U&"..."`, ordinary single-quoted strings,
+  and quote styles generated internally by the parser do not set these flags.
+- The five relation-component flags cover ordinary SELECT/INSERT/UPDATE/DELETE
+  and MERGE relations, multi-table INSERT branch targets, relation-backed DML
+  result sinks, and remote objects. For Oracle, Dameng, and Vastbase-Oracle,
+  an `INSERT ALL ... INTO ...@link` branch target relation now fully projects
+  `object_name`, `link_name`, and their corresponding delimiter flags.
+- These scalar fields introduce no independently allocated object that callers
+  must release; query graph ownership and lifetime rules are unchanged.
+- On x86_64 and AArch64 64-bit layouts, the three new `unsigned char` relation
+  fields occupy existing padding in the 2.16.8 `sqlparser_graph_relation_t`,
+  while `sqlparser_graph_dml_column_t.quoted_identifier` occupies that
+  struct's existing tail padding. Both `sizeof` values and all old field
+  offsets remain unchanged. This statement does not apply to 32-bit layouts
+  and is not a claim of unchanged ABI on every platform.
 - `sqlparser_graph_relation_t.link_name` reports the database link for remote
   object references. It is `NULL` when the SQL has no database link.
 - `relations[].source_block_index` links a derived table or CTE to its source
