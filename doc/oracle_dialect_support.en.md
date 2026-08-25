@@ -35,15 +35,15 @@ current AST. The executable case matrix defines the support boundary:
   not-matched INSERT actions whose `insert_column` patches support column-only,
   value-only, and paired modes; existing VALUES cells can be replaced
   independently
-- common DDL: `CREATE TABLE`, `CREATE SEQUENCE`, `CREATE VIEW`, `DROP TABLE`,
-  and `TRUNCATE TABLE`
+- common DDL: `CREATE TABLE`, CTAS, `CREATE SEQUENCE`, `CREATE VIEW`,
+  `CREATE MATERIALIZED VIEW`, `DROP TABLE`, `DROP MATERIALIZED VIEW`, and
+  `TRUNCATE TABLE`
 - transaction control, `GRANT / REVOKE`, and `COMMENT ON`
 - `FOR UPDATE NOWAIT`
 - remote object references such as `schema.table@link`
 - common functions and analytic functions such as `DECODE`, `SYSDATE`, and
   `ROW_NUMBER() OVER (...)`
-- quoted identifiers, `ALTER TABLE ADD`, `CREATE INDEX`, and `DROP INDEX`
-- compatible materialized-view creation forms
+- quoted identifiers, `ALTER TABLE ADD/RENAME`, `CREATE INDEX`, and `DROP INDEX`
 - `CREATE SYNONYM` and `DROP SYNONYM`
 - session statements: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
   `ALTER SESSION SET CONTAINER = ...`,
@@ -106,6 +106,13 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   segment; View JSON omits the key for an unquoted or absent segment, so case
   cannot be inferred from identifier spelling. Database-link targets retain
   independent schema, object, and link state as well.
+- Relation DDL emits a root block with `kind = "ddl"` and uses
+  `ddl_role = "target"|"reference"` for changed objects and FK references.
+  VIEW, CTAS, and materialized-view targets point through `source_block` to a
+  SELECT block. DROP targets have no relation selector, and a RENAME's new name
+  is not represented as a second relation. This contract is proven only by the
+  current Oracle-entry fixture and is not automatically inherited by
+  compatibility entries.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -120,7 +127,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 271 cases and 876 independent patches, all
+The current Oracle matrix contains 281 cases and 889 independent patches, all
 with `status = "final"`. Four hierarchical-query cases contain 20 independent
 patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
 `UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

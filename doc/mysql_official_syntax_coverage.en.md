@@ -63,3 +63,12 @@ is emitted for an unquoted or absent segment. One case and five independent
 patches verify quoted/unquoted same-name contrasts and post-patch
 recomputation. MERGE in the fixture belongs only to the project's compatibility
 entry and is not an official MySQL syntax-coverage claim.
+
+The `CURRENT` contract for official MySQL relation DDL uses a root block with
+`kind = "ddl"` and `ddl_role = "target"|"reference"`. It covers FK references
+in CREATE/ALTER TABLE, CREATE INDEX, TRUNCATE, RENAME, multi-object DROP, and
+query-backed VIEW/CTAS. Query-backed targets point through `source_block` to a
+SELECT block. DROP targets have no relation selector; same-name quoted/unquoted
+segments retain exact source state. Three new final cases and eight independent patches verify these
+boundaries. This evidence is not automatically extended to project
+compatibility entries.

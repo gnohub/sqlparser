@@ -46,6 +46,27 @@ typedef struct {
 typedef struct {
 	size_t index;
 	size_t statement_index;
+	size_t block_index;
+	sqlparser_graph_relation_kind_t kind;
+	int quoted_identifier;
+	const char *database_name;
+	const char *schema_name;
+	const char *object_name;
+	const char *alias_name;
+	const char *link_name;
+	size_t source_block_index;
+	int has_source_block;
+	unsigned char database_quoted_identifier;
+	unsigned char schema_quoted_identifier;
+	unsigned char link_quoted_identifier;
+	sqlparser_selector_t selector;
+	int has_selector;
+	int alias_quoted_identifier;
+} sqlparser_graph_relation_2_16_9_abi_baseline_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
 	size_t dml_index;
 	size_t ordinal;
 	const char *column_name;
@@ -183,6 +204,66 @@ SQLPARSER_ASSERT_64BIT_ABI(
 				sqlparser_graph_relation_2_16_8_abi_baseline_t,
 				selector),
 	"sqlparser_graph_relation_t quoted flags exceed 2.16.8 padding");
+
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(sqlparser_graph_relation_t) ==
+		sizeof(sqlparser_graph_relation_2_16_9_abi_baseline_t),
+	"sqlparser_graph_relation_t ABI size changed since 2.16.9");
+#define SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(field) \
+	SQLPARSER_ASSERT_64BIT_ABI( \
+		offsetof(sqlparser_graph_relation_t, field) == \
+			offsetof( \
+				sqlparser_graph_relation_2_16_9_abi_baseline_t, \
+				field), \
+		"sqlparser_graph_relation_t ABI offset changed since 2.16.9: " \
+		#field)
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(index);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(block_index);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(kind);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(database_name);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(schema_name);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(object_name);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(alias_name);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(link_name);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(source_block_index);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(has_source_block);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(database_quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(schema_quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(link_quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(selector);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(has_selector);
+SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET(alias_quoted_identifier);
+#undef SQLPARSER_ASSERT_RELATION_2_16_9_ABI_OFFSET
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(((sqlparser_graph_relation_t *)0)->ddl_role) ==
+		sizeof(unsigned char) &&
+		offsetof(sqlparser_graph_relation_t, ddl_role) == 87U &&
+		offsetof(sqlparser_graph_relation_t, ddl_role) ==
+			offsetof(sqlparser_graph_relation_t, link_quoted_identifier) +
+				sizeof(
+					((sqlparser_graph_relation_t *)0)
+						->link_quoted_identifier) &&
+		offsetof(sqlparser_graph_relation_t, ddl_role) +
+			sizeof(((sqlparser_graph_relation_t *)0)->ddl_role) ==
+			offsetof(
+				sqlparser_graph_relation_2_16_9_abi_baseline_t,
+				selector),
+	"sqlparser_graph_relation_t DDL role does not fill the last 2.16.9 padding byte");
+
+_Static_assert(
+	SQLPARSER_GRAPH_BLOCK_DDL == 7,
+	"SQLPARSER_GRAPH_BLOCK_DDL public value changed");
+_Static_assert(
+	SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN == 0,
+	"SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN public value changed");
+_Static_assert(
+	SQLPARSER_GRAPH_DDL_RELATION_TARGET == 1,
+	"SQLPARSER_GRAPH_DDL_RELATION_TARGET public value changed");
+_Static_assert(
+	SQLPARSER_GRAPH_DDL_RELATION_REFERENCE == 2,
+	"SQLPARSER_GRAPH_DDL_RELATION_REFERENCE public value changed");
 
 SQLPARSER_ASSERT_64BIT_ABI(
 	sizeof(sqlparser_graph_dml_column_t) ==
@@ -1188,7 +1269,31 @@ static int test_statement_kind_walk(void)
 			    sqlparser_clause_kind_name(
 				    SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION),
 			    "window_partition") == 0,
-		    "clause kind name should be window_partition") != 0) {
+		    "clause kind name should be window_partition") != 0 ||
+	    expect_true(
+		    strcmp(
+			    sqlparser_graph_block_kind_name(
+				    SQLPARSER_GRAPH_BLOCK_DDL),
+			    "ddl") == 0,
+		    "DDL graph block kind name should be ddl") != 0 ||
+	    expect_true(
+		    strcmp(
+			    sqlparser_graph_ddl_relation_role_name(
+				    SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN),
+			    "unknown") == 0,
+		    "unknown DDL relation role name should match") != 0 ||
+	    expect_true(
+		    strcmp(
+			    sqlparser_graph_ddl_relation_role_name(
+				    SQLPARSER_GRAPH_DDL_RELATION_TARGET),
+			    "target") == 0,
+		    "target DDL relation role name should match") != 0 ||
+	    expect_true(
+		    strcmp(
+			    sqlparser_graph_ddl_relation_role_name(
+				    SQLPARSER_GRAPH_DDL_RELATION_REFERENCE),
+			    "reference") == 0,
+		    "reference DDL relation role name should match") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -25376,6 +25481,7 @@ static int test_query_graph_sqlserver_function_argument_roles(void)
 			sqlparser_handle_t *handle;
 			sqlparser_query_graph_view_t graph;
 			size_t field_index;
+			size_t source_relation_index;
 			int failed;
 
 			test = &cases[case_index];
@@ -25384,6 +25490,7 @@ static int test_query_graph_sqlserver_function_argument_roles(void)
 			}
 			handle = NULL;
 			failed = 0;
+			source_relation_index = case_index == 0U ? 1U : 0U;
 			memset(&error, 0, sizeof(error));
 			sqlparser_parse_options_default(&options);
 			options.dialect = dialects[dialect_index];
@@ -25395,12 +25502,129 @@ static int test_query_graph_sqlserver_function_argument_roles(void)
 				    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
 				    &error,
 				    "function argument role graph should be available") != 0 ||
-			    expect_true(graph.relation_count == 1U, "function argument role relation count mismatch") != 0 ||
+			    expect_true(
+				    graph.relation_count ==
+					    (case_index == 0U ? 2U : 1U),
+				    "function argument role relation count mismatch") != 0 ||
 			    expect_true(graph.target_count == test->target_count, "function argument role target count mismatch") != 0 ||
 			    expect_true(graph.field_count == test->field_count, "function argument role field count mismatch") != 0 ||
 			    expect_true(graph.value_count == test->value_count, "function argument role value count mismatch") != 0) {
 				sqlparser_handle_destroy(handle);
 				return 1;
+			}
+			if (case_index == 0U) {
+				sqlparser_graph_block_t ddl_block;
+				sqlparser_graph_block_t select_block;
+				sqlparser_graph_relation_t source_relation;
+				sqlparser_graph_relation_t target_relation;
+				size_t ddl_relation_index;
+				size_t select_relation_index;
+
+				memset(&ddl_block, 0, sizeof(ddl_block));
+				memset(&select_block, 0, sizeof(select_block));
+				memset(&source_relation, 0, sizeof(source_relation));
+				memset(&target_relation, 0, sizeof(target_relation));
+				ddl_relation_index = (size_t)-1;
+				select_relation_index = (size_t)-1;
+				if (expect_true(
+					    graph.has_root_block &&
+						    graph.root_block_index == 0U &&
+						    graph.block_count == 2U,
+					    "SELECT INTO DDL root contract mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_block_at(
+						    &graph,
+						    0U,
+						    &ddl_block,
+						    &error),
+					    &error,
+					    "SELECT INTO DDL block should be available") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_block_at(
+						    &graph,
+						    1U,
+						    &select_block,
+						    &error),
+					    &error,
+					    "SELECT INTO source block should be available") != 0 ||
+				    expect_true(
+					    ddl_block.kind == SQLPARSER_GRAPH_BLOCK_DDL &&
+						    ddl_block.relations.count == 1U &&
+						    select_block.kind ==
+							    SQLPARSER_GRAPH_BLOCK_SELECT &&
+						    select_block.relations.count == 1U,
+					    "SELECT INTO block relation spans mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_span_index_at(
+						    &graph,
+						    ddl_block.relations,
+						    0U,
+						    &ddl_relation_index,
+						    &error),
+					    &error,
+					    "SELECT INTO DDL relation span should resolve") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_span_index_at(
+						    &graph,
+						    select_block.relations,
+						    0U,
+						    &select_relation_index,
+						    &error),
+					    &error,
+					    "SELECT INTO source relation span should resolve") != 0 ||
+				    expect_true(
+					    ddl_relation_index == 0U &&
+						    select_relation_index ==
+							    source_relation_index,
+					    "SELECT INTO relation span indices mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_relation_at(
+						    &graph,
+						    0U,
+						    &target_relation,
+						    &error),
+					    &error,
+					    "SELECT INTO target relation should be available") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_relation_at(
+						    &graph,
+						    source_relation_index,
+						    &source_relation,
+						    &error),
+					    &error,
+					    "SELECT INTO source relation should be available") != 0 ||
+				    expect_true(
+					    target_relation.index == 0U &&
+						    target_relation.block_index == 0U &&
+						    target_relation.ddl_role ==
+							    SQLPARSER_GRAPH_DDL_RELATION_TARGET &&
+						    target_relation.object_name != NULL &&
+						    strcmp(target_relation.object_name,
+							   "NewTable") == 0 &&
+						    target_relation.has_source_block &&
+						    target_relation.source_block_index == 1U &&
+						    target_relation.has_selector &&
+						    target_relation.selector.kind ==
+							    SQLPARSER_SELECTOR_KIND_RELATION &&
+						    target_relation.selector.item_index == 0U,
+					    "SELECT INTO target relation contract mismatch") != 0 ||
+				    expect_true(
+					    source_relation.index == source_relation_index &&
+						    source_relation.block_index == 1U &&
+						    source_relation.ddl_role ==
+							    SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN &&
+						    source_relation.object_name != NULL &&
+						    strcmp(source_relation.object_name,
+							   "OldTable") == 0 &&
+						    !source_relation.has_source_block &&
+						    source_relation.has_selector &&
+						    source_relation.selector.kind ==
+							    SQLPARSER_SELECTOR_KIND_RELATION &&
+						    source_relation.selector.item_index == 1U,
+					    "SELECT INTO source relation contract mismatch") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
 			}
 			for (field_index = 0U; field_index < test->field_count; field_index++) {
 				const struct function_field_expectation *expected;
@@ -25415,7 +25639,10 @@ static int test_query_graph_sqlserver_function_argument_roles(void)
 				    expect_true(field.column_name != NULL && strcmp(field.column_name, expected->column_name) == 0,
 					    "function argument role field name mismatch") != 0 ||
 				    expect_true(field.clause == expected->clause, "function argument role clause mismatch") != 0 ||
-				    expect_true(field.has_relation && field.relation_index == 0U,
+				    expect_true(
+					    field.has_relation &&
+						    field.relation_index ==
+							    source_relation_index,
 					    "function argument role relation mismatch") != 0 ||
 				    expect_true(field.has_target == expected->has_target,
 					    "function argument role target presence mismatch") != 0 ||

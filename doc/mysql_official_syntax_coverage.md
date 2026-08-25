@@ -43,3 +43,5 @@
 MySQL 剩余未覆盖项主要集中在多表 DELETE 完整语义、REPLACE 分区变体、程序对象和管理类语句。已闭环多目标多表 UPDATE、INSERT/UPDATE/DELETE 修饰符、REPLACE 基础公开形态，以及 `CREATE TABLE` 列属性、表选项和无查询表达式的分区尾部；部分已覆盖但完整官方语义需要专用模型的为 2 组，占 28.57%；需要 MySQL 专用模型的为 5 组，占 71.43%。
 
 反引号标识符的可执行合同按 relation 的 database、schema、object 名称段及 DML target column 独立保留状态，并覆盖 `INSERT ... SET`、`REPLACE ... SET`；未定界或不存在的段不输出 true 标志。1 条用例和 5 个独立 patch 验证 quoted/unquoted 同名对照及 patch 后重算。夹具中的 MERGE 仅属于项目兼容入口，不作为 MySQL 官方语法覆盖声明。
+
+MySQL 官方 relation DDL 的 `CURRENT` 合同使用 `kind = "ddl"` 根 block 和 `ddl_role = "target"|"reference"`，覆盖 CREATE/ALTER TABLE 的 FK、CREATE INDEX、TRUNCATE、RENAME、多对象 DROP，以及查询支撑型 VIEW/CTAS。查询支撑型 target 通过 `source_block` 指向 SELECT block；DROP target 无 relation selector，同名 quoted/unquoted 分段按精确来源输出。3 条新增 final 用例和 8 个独立 patch 验证这些边界。该证据不自动外推到项目兼容入口。

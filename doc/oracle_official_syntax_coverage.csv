@@ -18,15 +18,15 @@ dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://docs.oracle.com/en/d
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/UPDATE.html
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DELETE.html
 dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、带条件的 not-matched INSERT、column-only/value-only/paired 三态添加、省略目标列列表时的 selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
-ddl,CREATE_TABLE,CURRENT,"已覆盖常见类型名的 CREATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
+ddl,CREATE_TABLE,CURRENT,"已覆盖常见类型名、FK reference 和 CTAS；DDL target/reference 保留分段引号状态，CTAS target 通过 source_block 指向 SELECT 来源块",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SEQUENCE.html
-ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-VIEW.html
-ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖兼容形态的物化视图创建语句",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW.html
-ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-TABLE.html
-ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-INDEX.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW；DDL target 通过 source_block 指向 SELECT 来源块",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-VIEW.html
+ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖兼容形态的物化视图创建及 DROP target；创建 target 通过 source_block 指向 SELECT 来源块，DROP target 当前无 relation selector",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW.html
+ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD、FK reference 和 RENAME 的 target/reference DDL graph",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-TABLE.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX，ON table 作为 DDL target",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-INDEX.html
 ddl,DROP_INDEX,CURRENT,"已覆盖 DROP INDEX",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DROP-INDEX.html
-ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DROP-TABLE.html
-ddl,TRUNCATE_TABLE,CURRENT,"已覆盖 TRUNCATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TRUNCATE-TABLE.html
+ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE target 和分段引号状态；DROP target 当前无 relation selector",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DROP-TABLE.html
+ddl,TRUNCATE_TABLE,CURRENT,"已覆盖 TRUNCATE TABLE，目标表作为 DDL target 并可通过 relation selector 改写",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TRUNCATE-TABLE.html
 transaction,SAVEPOINT_ROLLBACK_COMMIT,CURRENT,"已覆盖 SAVEPOINT、ROLLBACK TO SAVEPOINT 和 COMMIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/GRANT.html
 utility,COMMENT_ON,CURRENT,"已覆盖 COMMENT ON TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/COMMENT.html

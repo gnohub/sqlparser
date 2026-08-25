@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 219 cases with `status = "final"` and 738 independent
+The fixture contains 224 cases with `status = "final"` and 755 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -226,6 +226,18 @@ and public C-structure lifecycle coverage is maintained in
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | P171 | `postgresql-quoted-identifier-segment-and-dml-column-inventory` | six statements covering three-part relations, ordinary INSERT, UPDATE, DELETE, MERGE INSERT, and `DEFAULT VALUES` | quoted/unquoted same-name contrasts for `database_quoted_identifier`, `schema_quoted_identifier`, and ordinary/branch `dml_column.quoted_identifier`; four independent patches verify per-segment recomputation after relation replacement, MERGE-column replacement, and paired column insertion |
+
+## DDL Query Graph Relation Contract
+
+DDL relations enter a root block with `kind = "ddl"`; `ddl_role = "target"|"reference"` distinguishes the object being changed from constraint, inheritance, template, or partition references. A query-backed DDL target points through `source_block` to a separate SELECT block. Multi-object DROP targets retain segmented quoted flags but currently have no relation selector. Consumers must use the role rather than relation-array order.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| P172 | `postgresql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE, INDEX, DROP/TRUNCATE, and RENAME, including FK, LIKE, INHERITS, and multi-object DROP | DDL block, target/reference roles, complete segmented quoted flags, the no-selector DROP boundary, and eight relation patches |
+| P173 | `postgresql-ddl-relation-query-backed-inventory` | CREATE VIEW, CTAS, and CREATE MATERIALIZED VIEW | separate DDL-target and SELECT-source blocks, target `source_block` linkage, and three target/source relation patches |
+| P174 | `postgresql-ddl-relation-partition-operations` | ATTACH / DETACH PARTITION | changed table as target, partition table as reference, and three relation patches |
+| P175 | `postgresql-ddl-relation-select-into` | `SELECT ... INTO target FROM source` | DDL target block, SELECT source block, `source_block`, and two relation patches |
+| P176 | `postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | CREATE/ALTER/RENAME/DROP FOREIGN TABLE and identically spelled quoted/unquoted DROP targets | foreign-table target lifecycle, one relation patch, the `if` identifier boundary, and exact segment state after a U& identifier with `UESCAPE` |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

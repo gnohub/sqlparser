@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 264 条 `status = "final"` 用例和 846 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言，44 条用例的期望 View 包含非空 session 投影。
+夹具包含 267 条 `status = "final"` 用例和 854 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言，44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -38,6 +38,16 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | ID | 用例 | 状态 | 独立 patch | 验证重点 |
 | --- | --- | --- | ---: | --- |
 | `VM264` | `vastbase-mysql-quoted-identifier-segment-and-dml-column-inventory` | final | 5 | 多语句 SELECT、INSERT、UPDATE、DELETE、MERGE、`INSERT ... SET` 与 `REPLACE ... SET` 覆盖 `database_quoted_identifier`、`schema_quoted_identifier`、relation `quoted_identifier` 及 DML column `quoted_identifier`；未定界同名分段不输出对应 View 字段 |
+
+## DDL relation 投影回归
+
+以下 3 条 final 用例定义项目 `vastbase-mysql` 兼容入口的 DDL Query Graph 合同：DDL 根块使用 `kind = "ddl"`，relation 以 `ddl_role = "target"` 或 `"reference"` 区分操作对象与引用对象，并保留 database/object 来源分段的反引号定界状态。查询驱动的 CREATE 对象通过 `source_block` 指向独立 SELECT 块。语法形态以夹具中已验证的 MySQL 兼容语法为边界；该合同属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VM265` | `vastbase-mysql-ddl-relation-direct-inventory` | final | 6 | CREATE/ALTER TABLE FK target/reference、CREATE INDEX、多对象 DROP TABLE/VIEW、单对象 TRUNCATE 与 RENAME 旧对象；relation patch 重算反引号定界状态 |
+| `VM266` | `vastbase-mysql-ddl-relation-query-backed-inventory` | final | 2 | CREATE VIEW 与 CTAS 的 DDL target、SELECT 来源及 `source_block` 关联 |
+| `VM267` | `vastbase-mysql-ddl-drop-table-quoted-same-spelling` | final | 0 | 普通语句与 statement-level executable comment 内的 quoted/unquoted 同名 DROP target 均无 selector，schema/object 反引号状态按精确来源 token 分别输出 |
 
 ## 完整绑定占位符 occurrence 回归
 

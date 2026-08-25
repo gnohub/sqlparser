@@ -24,7 +24,7 @@
 - DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`；每个列表均为 `N >= 1` 项，严格等长并按序号一一配对
 - 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`，not-matched INSERT 的 `insert_column` 支持 column-only、value-only 和 paired 三态，现有 VALUES cell 可独立替换
 - `DATE`、`TIMESTAMP` 字面量
-- 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
+- 常见 DDL：`CREATE TABLE`、CTAS、`CREATE VIEW`、`CREATE MATERIALIZED VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD/RENAME`、`CREATE INDEX`、`DROP TABLE`、`DROP MATERIALIZED VIEW`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`
 - `FOR UPDATE NOWAIT`
 - 远程对象引用，例如 `schema.table@link`
@@ -55,6 +55,7 @@
 - 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier` 和 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`，覆盖普通 INSERT、MERGE INSERT 及 `INSERT ALL/FIRST` 的每个分支。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断；database-link target 同样保留 schema/object/link 的独立状态。
+- relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK 引用；VIEW、CTAS、物化视图 target 通过 `source_block` 指向 SELECT block。DROP target 没有 relation selector，新名称也不作为 RENAME 的第二个 relation。该合同仅由当前达梦入口 fixture 证明，不自动外推到兼容入口。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -68,4 +69,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 203 条用例，全部为 `status = "final"`，共包含 677 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前达梦方言矩阵包含 213 条用例，全部为 `status = "final"`，共包含 690 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。

@@ -31,10 +31,9 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - `USE/FORCE/IGNORE INDEX|KEY` 及 `FOR JOIN|ORDER BY|GROUP BY` scope
 - `LOCK IN SHARE MODE`、`FOR UPDATE/SHARE`、`NOWAIT`、`SKIP LOCKED`
 - 查询表的 `PARTITION(...)` 选择子句
-- `CREATE TABLE` 基础形态、列属性、表选项和无查询表达式的分区尾部
-- `ALTER TABLE ADD COLUMN`
-- `CREATE VIEW`
-- `DROP TABLE`
+- `CREATE TABLE` 基础形态、列属性、表选项、无查询表达式的分区尾部和 CTAS
+- `ALTER TABLE ADD COLUMN`、FK REFERENCES、RENAME
+- `CREATE VIEW`、`CREATE INDEX`、`DROP TABLE`、`DROP VIEW`、`TRUNCATE TABLE`
 - `START TRANSACTION`、`COMMIT`、`ROLLBACK`
 - `USE db_name`
 - `PREPARE`、`EXECUTE`、`DEALLOCATE PREPARE`、`DROP PREPARE`
@@ -53,6 +52,7 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记反引号 relation alias，以 `output_quoted_identifier` 标记反引号显式 output alias 或无显式别名时继承的反引号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的反引号状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`，覆盖普通 INSERT、兼容入口 MERGE INSERT、`INSERT ... SET` 和 `REPLACE ... SET`。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断。MySQL 入口没有 database-link relation；MERGE 仅为项目兼容入口合同，不表示 MySQL 官方服务端支持。
+- 当前入口经官方 MySQL 语法验证的 relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标与 FK 引用；VIEW/CTAS target 通过 `source_block` 指向 SELECT block。多对象 DROP target 没有 relation selector，quoted/unquoted 同名分段仍按精确来源 token 输出反引号状态。该合同不自动外推到任何兼容入口，各入口以自身 fixture 为准。
 - 多目标 `UPDATE` 不输出单一 `dml.target_relation`；各 assignment 通过 `target_field` 对应字段的 relation 表达写入目标。
 - 无法安全表达的 MySQL 专属语义不会降级为 PostgreSQL 语义。
 
@@ -65,4 +65,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 263 条 `status = "final"` 用例和 886 个独立 patch。
+当前 MySQL 方言矩阵包含 266 条 `status = "final"` 用例和 894 个独立 patch。

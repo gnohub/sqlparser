@@ -44,8 +44,9 @@ current AST. The executable case matrix defines the support boundary:
   not-matched INSERT supports column-only, value-only, and paired modes, and
   existing VALUES cells can be replaced independently
 - `DATE` and `TIMESTAMP` literals
-- common DDL: `CREATE TABLE`, `CREATE VIEW`, `CREATE SEQUENCE`,
-  `ALTER TABLE ADD`, `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
+- common DDL: `CREATE TABLE`, CTAS, `CREATE VIEW`,
+  `CREATE MATERIALIZED VIEW`, `CREATE SEQUENCE`, `ALTER TABLE ADD/RENAME`,
+  `CREATE INDEX`, `DROP TABLE`, `DROP MATERIALIZED VIEW`, and `TRUNCATE TABLE`
 - transaction control and `GRANT / REVOKE`
 - `FOR UPDATE NOWAIT`
 - remote object references such as `schema.table@link`
@@ -108,6 +109,13 @@ handle:
   segment; View JSON omits the key for an unquoted or absent segment, so case
   cannot be inferred from identifier spelling. Database-link targets retain
   independent schema, object, and link state as well.
+- Relation DDL emits a root block with `kind = "ddl"` and uses
+  `ddl_role = "target"|"reference"` for changed objects and FK references.
+  VIEW, CTAS, and materialized-view targets point through `source_block` to a
+  SELECT block. DROP targets have no relation selector, and a RENAME's new name
+  is not represented as a second relation. This contract is proven only by the
+  current Dameng-entry fixture and is not automatically inherited by
+  compatibility entries.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -123,8 +131,8 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 203 cases, all with `status = "final"`, and
-677 independent patches. Six cases cover multi-table single-target `UPDATE`.
+The current Dameng matrix contains 213 cases, all with `status = "final"`, and
+690 independent patches. Six cases cover multi-table single-target `UPDATE`.
 Three multi-return cases respectively verify INSERT
 `RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
 head, middle, and tail insertions that produce 9↔9 pairs.

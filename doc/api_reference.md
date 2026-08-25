@@ -297,6 +297,7 @@ query graph 中既有的 bind 字段规则：
 | `sqlparser_selector_kind_name()` | 返回 selector 类型名称 |
 | `sqlparser_clause_kind_name()` | 返回子句类型名称 |
 | `sqlparser_graph_block_kind_name()` | 返回 query graph block 类型名称 |
+| `sqlparser_graph_ddl_relation_role_name()` | 返回 DDL relation 角色名称；该函数是公开导出符号 |
 | `sqlparser_graph_relation_kind_name()` | 返回 query graph relation 类型名称 |
 | `sqlparser_graph_target_kind_name()` | 返回 query graph target 类型名称 |
 | `sqlparser_graph_value_kind_name()` | 返回 query graph value 类型名称 |
@@ -648,7 +649,7 @@ sqlparser_selector_replace_select_target_with_columns(
 
 ## query_graph C 结构化遍历
 
-`query_graph` 提供查询块、关系、输出项、字段引用、条件、DML 写入、会话状态和值绑定的结构化访问。
+`query_graph` 提供查询块、DDL 关系、查询关系、输出项、字段引用、条件、DML 写入、会话状态和值绑定的结构化访问。
 
 ### 获取入口
 
@@ -667,7 +668,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | 函数 | 摘要 |
 | --- | --- |
 | `sqlparser_query_graph_span_index_at()` | 从 span 中读取第 N 个全局索引 |
-| `sqlparser_query_graph_block_at()` | 读取 query block |
+| `sqlparser_query_graph_block_at()` | 读取 graph block |
 | `sqlparser_query_graph_relation_at()` | 读取 relation |
 | `sqlparser_query_graph_target_at()` | 读取 SELECT target |
 | `sqlparser_query_graph_field_at()` | 读取字段 occurrence |
@@ -694,8 +695,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 | 结构体 | 说明 |
 | --- | --- |
-| `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
-| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别表示 database、schema、对象名、relation alias 和 database link 的定界符状态 |
+| `sqlparser_graph_block_t` | graph block，持有 relation、target 和 predicate span；`SQLPARSER_GRAPH_BLOCK_DDL` 的公开值为 `7` |
+| `sqlparser_graph_relation_t` | SQL 中出现的 DDL target/reference 或 base、derived、cte、dual relation；`ddl_role` 表示直接 DDL relation 的角色，五个 quoted identifier 字段分别表示 database、schema、对象名、relation alias 和 database link 的定界符状态 |
 | `sqlparser_graph_target_t` | 查询或 DML 结果输出项；`output_quoted_identifier` 表示 `output_name` 对应 token 的定界符状态 |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符，`pseudo` / `prior` 表示层次查询 occurrence 语义 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
@@ -714,15 +715,17 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 ### 归属规则
 
+- `SQLPARSER_GRAPH_BLOCK_DDL` 的公开值为 `7`，`sqlparser_graph_block_kind_name(SQLPARSER_GRAPH_BLOCK_DDL)` 返回 `ddl`。`sqlparser_graph_ddl_relation_role_t` 的公开枚举值为 `SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN = 0`、`SQLPARSER_GRAPH_DDL_RELATION_TARGET = 1` 和 `SQLPARSER_GRAPH_DDL_RELATION_REFERENCE = 2`。`sqlparser_graph_ddl_relation_role_name()` 分别返回 `unknown`、`target` 和 `reference`，并作为公开 API 导出。
+- `sqlparser_graph_relation_t.ddl_role` 的 C 类型为 `unsigned char`。只有 DDL block 中由 DDL 节点直接表达的 relation 使用 `TARGET` 或 `REFERENCE`；普通查询/DML relation 以及 query-backed DDL 的来源查询 relation 使用 `UNKNOWN`。
 - `sqlparser_graph_relation_t.database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别仅对应 `database_name`、`schema_name`、`object_name`、`alias_name` 和 `link_name`。前两个和 `link_quoted_identifier` 的 C 类型为 `unsigned char`；已有的对象名和 alias 字段语义不变。
 - `sqlparser_graph_field_t.quoted_identifier` 仍仅对应字段 occurrence 的 `column_name`；`sqlparser_graph_target_t.output_quoted_identifier` 仍对应 `output_name`。存在显式输出 alias 时只依据 alias token；没有显式 alias 且 `output_name` 由直接字段继承时依据该字段 token。显式 alias 的状态优先于底层字段，其他情况为 `0`。
 - `sqlparser_graph_dml_column_t.quoted_identifier` 的 C 类型为 `int`，仅对应目标列的 `column_name`。该字段用于普通 INSERT、MERGE INSERT 分支、Oracle、Dameng 与 Vastbase-Oracle `INSERT ALL/FIRST` 分支和 SQL Server `OUTPUT ... INTO` relation-backed sink 中的目标列。
 - 上述标志只在各自的精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `1`，否则为 `0`；它们不区分定界符类型。PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会使这些标志置为 `1`。
-- relation 的五个组件标志覆盖普通 SELECT/INSERT/UPDATE/DELETE/MERGE relation、multi-table INSERT 分支目标、relation-backed DML 结果 sink 和远程对象。Oracle、Dameng 和 Vastbase-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 会完整投影 `object_name`、`link_name` 及对应的定界符标志。
+- relation 的五个组件标志覆盖直接 DDL relation、普通 SELECT/INSERT/UPDATE/DELETE/MERGE relation、multi-table INSERT 分支目标、relation-backed DML 结果 sink 和远程对象。Oracle、Dameng 和 Vastbase-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 会完整投影 `object_name`、`link_name` 及对应的定界符标志。
 - 这些标量字段不产生需要调用方释放的独立分配；query graph 的所有权和生命周期规则不变。
-- 在 x86_64 和 AArch64 的 64 位布局中，relation 的三个新 `unsigned char` 字段占用 2.16.8 `sqlparser_graph_relation_t` 的既有 padding，`sqlparser_graph_dml_column_t.quoted_identifier` 占用该结构的既有尾部 padding；两个结构的 `sizeof` 和全部旧字段 offset 保持不变。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
+- 在 x86_64 和 AArch64 的 64 位布局中，三个 relation 分段 quoted flag 占用 2.16.8 `sqlparser_graph_relation_t` 的既有 padding，`ddl_role` 继续占用 2.16.9 剩余的最后一个 padding 字节；relation 的 `sizeof` 和全部旧字段 offset 保持不变。`sqlparser_graph_dml_column_t.quoted_identifier` 同样占用该结构的既有尾部 padding。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
-- `relations[].source_block_index` 表达派生表或 CTE 来源。
+- `relations[].source_block_index` 表达派生表、CTE 或 query-backed DDL target 的来源。
 - 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。
 - `targets[].star_relations` 表达 `*` 或 `alias.*` 覆盖的 relation。
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
@@ -754,6 +757,18 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
 - 对于谓词，值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不将该谓词表达式内部的 bind/literal 暴露为 direct value。复合 DML assignment 右侧表达式不适用该限制，其内部值通过 `rhs_values` 归属。
 - `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 带显式 `ESCAPE` 时，pattern 对应的 `sqlparser_graph_value_t.like_escape` 保存 escape 结构；没有显式 `ESCAPE` 时 `kind` 为 `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`。反解析输出保持公开 SQL 形态，例如 `LIKE pattern ESCAPE escape`。
+
+### DDL relation
+
+- 受支持的 DDL 使用 `SQLPARSER_GRAPH_BLOCK_DDL = 7`。规范形态的根 block 索引为 `0`；直接 DDL relation 位于该 block，target 在 reference 之前。多个同类 target/reference 保持语法中的出现顺序，但调用方必须依据 `ddl_role`，不能依赖数组位置推断角色。
+- 直接投影分派到 `CreateStmt`、`CreateForeignTableStmt`、`AlterTableStmt`、`IndexStmt`、`TruncateStmt`、relation 类型的 `RenameStmt` 和 relation 类型的 `DropStmt`；query-backed 投影分派到 `ViewStmt`、`CreateTableAsStmt` 和指定方言带 `INTO` relation 的 `SelectStmt`。只有成功解析为这些节点的方言语法进入该合同，不表示每个方言都接受下列每种 SQL 表面形式。
+- `CREATE TABLE` 和 `CREATE FOREIGN TABLE` 将被创建对象标记为 `TARGET`；列级或表级 foreign key、`LIKE` 与 `INHERITS` relation 标记为 `REFERENCE`。`ALTER TABLE` 和 `ALTER FOREIGN TABLE` 将被操作对象标记为 `TARGET`；foreign key 及受支持的 `ATTACH/DETACH PARTITION` 对象标记为 `REFERENCE`。
+- `CREATE INDEX ... ON relation` 只将 `ON` 后的 relation 标记为 `TARGET`；index 名不是 relation。`TRUNCATE` 将每个 relation 标记为 `TARGET`。relation 类型的 `RENAME` 只投影旧对象，rename 后的新名称不伪装为第二个 relation。
+- `DROP TABLE`、`DROP VIEW`、`DROP MATERIALIZED VIEW` 和 `DROP FOREIGN TABLE` 将每个直接对象标记为 `TARGET`。Drop AST 使用对象名称列表而不是可写 relation 节点，因此这些 relation 没有 selector；quoted flags 仍依据各名称分段的精确来源 token 输出。
+- `CREATE VIEW`、`CREATE TABLE AS`、`CREATE MATERIALIZED VIEW`，以及 PostgreSQL/Vastbase-PostgreSQL、SQL Server/Vastbase-SQL Server 的 `SELECT ... INTO` 使用 query-backed DDL 形态：block `0` 是 DDL 根，目标 relation 为 `TARGET` 并通过 `source_block_index = 1` 指向来源查询入口。来源 SELECT relation 保留普通查询语义，`ddl_role = UNKNOWN`；它们位于来源查询 block 或其后代 block 中。
+- `CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不产生 DDL relation；方言 raw-surface DDL 只有在归一为上述受支持节点时才进入该投影。Oracle、Dameng 和 Vastbase-Oracle 的 `SELECT ... INTO` 仍是普通 SELECT，`INTO` 不是新建 relation。
+- 具有 relation selector 的 DDL target/reference 继续使用既有 `SQLPARSER_PATCH_REPLACE`。成功 patch 后 quoted flags、名称分段、DDL role 和 source block 在新 generation 中重新构建；旧 graph view 失效，clone 与原 handle 相互独立。Drop relation 没有 selector，不能通过该 relation 投影直接 patch。
+- DDL graph 中的字符串、span 和结构仍由 handle 持有，调用方不得释放；没有新增独立所有权或生命周期规则。
 
 ### 会话状态
 

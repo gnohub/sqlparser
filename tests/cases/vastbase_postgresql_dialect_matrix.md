@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 204 条 `status = "final"` 用例和 667 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
+夹具包含 209 条 `status = "final"` 用例和 684 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -38,6 +38,18 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | ID | 用例 | 状态 | 独立 patch | 验证重点 |
 | --- | --- | --- | ---: | --- |
 | `VPG204` | `vastbase-postgresql-quoted-identifier-segment-and-dml-column-inventory` | final | 4 | 多语句 SELECT、INSERT、UPDATE、DELETE、MERGE 与 `DEFAULT VALUES` 覆盖 `database_quoted_identifier`、`schema_quoted_identifier`、relation `quoted_identifier` 及 DML column `quoted_identifier`；未定界同名分段不输出对应 View 字段 |
+
+## DDL relation 投影回归
+
+以下 5 条 final 用例定义项目 `vastbase-postgresql` 兼容入口的 DDL Query Graph 合同：DDL 根块使用 `kind = "ddl"`，relation 以 `ddl_role = "target"` 或 `"reference"` 区分操作对象与引用对象，并保留每个 database/schema/object 来源分段的定界状态。查询驱动的 CREATE 对象和 `SELECT INTO` 将 DDL target 的 `source_block` 指向独立 SELECT 块。语法形态以夹具中已验证的 PostgreSQL 兼容语法为边界；该合同属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VPG205` | `vastbase-postgresql-ddl-relation-direct-inventory` | final | 8 | CREATE TABLE 的 FK、LIKE、INHERITS reference，ALTER TABLE FK，CREATE INDEX，多对象 DROP/TRUNCATE，RENAME 旧对象与 DROP VIEW/MATERIALIZED VIEW target；relation patch 重算定界状态 |
+| `VPG206` | `vastbase-postgresql-ddl-relation-partition-operations` | final | 3 | ATTACH/DETACH PARTITION 中被操作表为 target、分区表为 reference，两者可独立改写 |
+| `VPG207` | `vastbase-postgresql-ddl-relation-query-backed-inventory` | final | 3 | CREATE VIEW、CTAS 与 CREATE MATERIALIZED VIEW 的 DDL target、SELECT 来源及 `source_block` 关联 |
+| `VPG208` | `vastbase-postgresql-ddl-relation-select-into` | final | 2 | `SELECT INTO` 目标作为 DDL target，FROM relation 保留在独立 SELECT 块，两侧 selector 均可改写 |
+| `VPG209` | `vastbase-postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | final | 1 | CREATE/ALTER/RENAME/DROP FOREIGN TABLE target 生命周期与 patch；同名 DROP、`if` 标识符、U& identifier/`UESCAPE` 后续目标的精确分段状态 |
 
 ## 完整绑定占位符 occurrence 回归
 

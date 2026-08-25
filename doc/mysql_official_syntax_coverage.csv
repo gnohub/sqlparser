@@ -13,10 +13,10 @@ dml,UPDATE,CURRENT,已覆盖 UPDATE SET WHERE,https://dev.mysql.com/doc/refman/8
 dml,DELETE,CURRENT,已覆盖 DELETE FROM WHERE,https://dev.mysql.com/doc/refman/8.4/en/delete.html
 dml,UPDATE_JOIN,CURRENT,"已覆盖 JOIN 链、逗号 relation 列表和跨多个 relation 的 assignment；每个目标字段关联其写入 relation，多表形态不接受 ORDER BY 或 LIMIT",https://dev.mysql.com/doc/refman/8.4/en/update.html
 dml,DELETE_JOIN,MIXED_MODEL,已覆盖多表 DELETE JOIN 基础形态；完整外连接受影响行语义需要专用模型,https://dev.mysql.com/doc/refman/8.4/en/delete.html
-ddl,CREATE_TABLE_BASIC,CURRENT,已覆盖基础 CREATE TABLE,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
-ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,已覆盖 ALTER TABLE ADD COLUMN,https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
-ddl,CREATE_VIEW,CURRENT,已覆盖 CREATE VIEW AS SELECT,https://dev.mysql.com/doc/refman/8.4/en/create-view.html
-ddl,DROP_TABLE,CURRENT,已覆盖 DROP TABLE,https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
+ddl,CREATE_TABLE_BASIC,CURRENT,"已覆盖基础 CREATE TABLE、FK reference 和 CTAS；DDL target/reference 保留反引号分段状态，CTAS target 通过 source_block 指向 SELECT 来源块",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,"已覆盖 ALTER TABLE ADD COLUMN、FK reference 和 RENAME 的 target/reference DDL graph",https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT；DDL target 通过 source_block 指向 SELECT 来源块",https://dev.mysql.com/doc/refman/8.4/en/create-view.html
+ddl,DROP_TABLE,CURRENT,"已覆盖多对象 DROP TABLE target；同名 quoted/unquoted 分段按精确来源输出反引号状态，DROP target 无 relation selector",https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
 transaction,START_TRANSACTION,CURRENT,已覆盖 START TRANSACTION,https://dev.mysql.com/doc/refman/8.4/en/commit.html
 transaction,COMMIT,CURRENT,已覆盖 COMMIT,https://dev.mysql.com/doc/refman/8.4/en/commit.html
 session,USE_DATABASE,CURRENT,已覆盖 USE db_name 语句,https://dev.mysql.com/doc/refman/8.4/en/use.html

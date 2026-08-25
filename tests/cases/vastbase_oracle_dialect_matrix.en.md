@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 240 cases and 815 independent patches, all with
+The fixture contains 250 cases and 828 independent patches, all with
 `status = "final"`. The expected View contains a non-empty session projection
 in 41 cases.
 
@@ -57,6 +57,23 @@ The following 18 final cases use actual AST/View paths to verify database, schem
 | `VO238` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | final | 1 | interleaved delimited database/schema/object and target-column state across three `INSERT ALL` branches |
 | `VO239` | `vastbase-oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | final | 1 | interleaved delimited relation and target-column state across three `INSERT FIRST` WHEN/ELSE branches |
 | `VO240` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | final | 1 | remote `INSERT ALL` branch projection preserves delimited object, link, and target-column state |
+
+## DDL Relation Projection Regression
+
+The following ten final cases define the DDL Query Graph contract for the project's `vastbase-oracle` compatibility entry. A DDL root block uses `kind = "ddl"`; each relation uses `ddl_role = "target"` or `"reference"` to distinguish the operated object from a foreign-key reference and preserves double-quote delimiter state on schema/object source segments. CREATE VIEW, CTAS, and CREATE MATERIALIZED VIEW connect the DDL target to a separate SELECT block through `source_block`. The verified Oracle-compatible forms in the fixture are the syntax boundary. This is a project compatibility-entry contract, not a claim that the Vastbase server documentation defines the same scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VO241` | `vastbase-oracle-ddl-relation-create-table-foreign-key` | final | 2 | CREATE TABLE destination as target and FK table as reference, with independent delimiter segments and selectors |
+| `VO242` | `vastbase-oracle-ddl-relation-alter-table-foreign-key` | final | 2 | ALTER TABLE operated table as target and FK table as reference, with independent rewrites |
+| `VO243` | `vastbase-oracle-ddl-relation-create-index-on-table` | final | 1 | the table in `CREATE INDEX ... ON` is the DDL target; the index name is not represented as a relation |
+| `VO244` | `vastbase-oracle-ddl-relation-truncate-table-target` | final | 1 | TRUNCATE TABLE target schema/object delimiter state and relation rewrite |
+| `VO245` | `vastbase-oracle-ddl-relation-drop-table-target` | final | 0 | projects the single DROP TABLE object as a DDL target |
+| `VO246` | `vastbase-oracle-ddl-relation-alter-table-rename-target` | final | 1 | projects the old RENAME table as target without inventing a second relation for the new name |
+| `VO247` | `vastbase-oracle-ddl-relation-create-view-target-and-source` | final | 2 | CREATE VIEW target, SELECT source, and `source_block` linkage |
+| `VO248` | `vastbase-oracle-ddl-relation-create-table-as-target-and-source` | final | 2 | CTAS target, SELECT source, and `source_block` linkage |
+| `VO249` | `vastbase-oracle-ddl-relation-create-materialized-view-target-and-source` | final | 2 | CREATE MATERIALIZED VIEW target, SELECT source, and `source_block` linkage |
+| `VO250` | `vastbase-oracle-ddl-relation-drop-materialized-view-target` | final | 0 | projects the single DROP MATERIALIZED VIEW object as a DDL target |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

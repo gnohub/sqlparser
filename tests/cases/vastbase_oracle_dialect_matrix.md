@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 240 条用例和 815 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
+夹具包含 250 条用例和 828 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -55,6 +55,23 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO238` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | final | 1 | `INSERT ALL` 三分支交错定界 database/schema/object 与目标列状态 |
 | `VO239` | `vastbase-oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | final | 1 | `INSERT FIRST` WHEN/ELSE 三分支交错定界 relation 与目标列状态 |
 | `VO240` | `vastbase-oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | final | 1 | `INSERT ALL` remote branch 投影保留定界 object、link 与目标列状态 |
+
+## DDL relation 投影回归
+
+以下 10 条 final 用例定义项目 `vastbase-oracle` 兼容入口的 DDL Query Graph 合同：DDL 根块使用 `kind = "ddl"`，relation 以 `ddl_role = "target"` 或 `"reference"` 区分操作对象与外键引用对象，并保留 schema/object 来源分段的双引号定界状态。CREATE VIEW、CTAS 和 CREATE MATERIALIZED VIEW 将 DDL target 的 `source_block` 指向独立 SELECT 块。语法形态以夹具中已验证的 Oracle 兼容语法为边界；该合同属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VO241` | `vastbase-oracle-ddl-relation-create-table-foreign-key` | final | 2 | CREATE TABLE 目标为 target、FK 表为 reference，两侧定界分段与 selector 独立 |
+| `VO242` | `vastbase-oracle-ddl-relation-alter-table-foreign-key` | final | 2 | ALTER TABLE 操作表为 target、FK 表为 reference，两侧可独立改写 |
+| `VO243` | `vastbase-oracle-ddl-relation-create-index-on-table` | final | 1 | `CREATE INDEX ... ON` 的表作为 DDL target，index 名不伪装为 relation |
+| `VO244` | `vastbase-oracle-ddl-relation-truncate-table-target` | final | 1 | TRUNCATE TABLE target 的 schema/object 定界状态及 relation patch |
+| `VO245` | `vastbase-oracle-ddl-relation-drop-table-target` | final | 0 | DROP TABLE 单目标投影为 DDL target |
+| `VO246` | `vastbase-oracle-ddl-relation-alter-table-rename-target` | final | 1 | RENAME 投影旧表 target，新名不伪装为第二个 relation |
+| `VO247` | `vastbase-oracle-ddl-relation-create-view-target-and-source` | final | 2 | CREATE VIEW target、SELECT 来源与 `source_block` 关联 |
+| `VO248` | `vastbase-oracle-ddl-relation-create-table-as-target-and-source` | final | 2 | CTAS target、SELECT 来源与 `source_block` 关联 |
+| `VO249` | `vastbase-oracle-ddl-relation-create-materialized-view-target-and-source` | final | 2 | CREATE MATERIALIZED VIEW target、SELECT 来源与 `source_block` 关联 |
+| `VO250` | `vastbase-oracle-ddl-relation-drop-materialized-view-target` | final | 0 | DROP MATERIALIZED VIEW 单目标投影为 DDL target |
 
 ## 完整绑定占位符 occurrence 回归
 

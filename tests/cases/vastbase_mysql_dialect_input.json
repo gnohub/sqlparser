@@ -1511,107 +1511,162 @@
       "name": "vastbase-mysql-create-table-basic",
       "sql": "CREATE TABLE `users` (`id` INT, `name` VARCHAR(64))",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-alter-table-add-column",
       "sql": "ALTER TABLE `users` ADD COLUMN `age` INT",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "alter_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "alter_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-view",
       "sql": "CREATE VIEW `v_users` AS SELECT `id`, `name` FROM `users`",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_view",
-            "query_graph": {
-              "blocks": [
-                {
-                  "kind": "select",
-                  "relations": [
-                    0
-                  ],
-                  "targets": [
-                    0,
-                    1
-                  ]
-                }
-              ],
-              "fields": [
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "quoted_identifier": true,
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[1]",
-                  "target": 0
-                },
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "quoted_identifier": true,
-                  "column": "name",
-                  "relation": 0,
-                  "selector": "stmt[0].name[2]",
-                  "target": 1
-                }
-              ],
-              "relations": [
-                {
-                  "block": 0,
-                  "kind": "base",
-                  "selector": "stmt[0].relation[1]",
-                  "quoted_identifier": true,
-                  "table": "users"
-                }
-              ],
-              "root": 0,
-              "targets": [
-                {
-                  "block": 0,
-                  "field": 0,
-                  "kind": "field",
-                  "name": "id",
-                  "output_quoted_identifier": true,
-                  "ordinal": 0,
-                  "selector": "stmt[0].select_target[0][0]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                },
-                {
-                  "block": 0,
-                  "field": 1,
-                  "kind": "field",
-                  "name": "name",
-                  "output_quoted_identifier": true,
-                  "ordinal": 1,
-                  "selector": "stmt[0].select_target[0][1]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                }
-              ]
-            }
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        },
+                        {
+                          "kind": "select",
+                          "relations": [
+                            1
+                          ],
+                          "targets": [
+                            0,
+                            1
+                          ]
+                        }
+                      ],
+                      "fields": [
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "quoted_identifier": true,
+                          "relation": 1,
+                          "selector": "stmt[0].name[1]",
+                          "target": 0
+                        },
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "name",
+                          "quoted_identifier": true,
+                          "relation": 1,
+                          "selector": "stmt[0].name[2]",
+                          "target": 1
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "source_block": 1,
+                          "table": "v_users"
+                        },
+                        {
+                          "block": 1,
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[1]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0,
+                      "targets": [
+                        {
+                          "block": 1,
+                          "field": 0,
+                          "kind": "field",
+                          "name": "id",
+                          "ordinal": 0,
+                          "output_quoted_identifier": true,
+                          "selector": "stmt[0].select_target[0][0]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        },
+                        {
+                          "block": 1,
+                          "field": 1,
+                          "kind": "field",
+                          "name": "name",
+                          "ordinal": 1,
+                          "output_quoted_identifier": true,
+                          "selector": "stmt[0].select_target[0][1]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
       "patch": [
         {
           "action": "replace",
@@ -1621,7 +1676,7 @@
         },
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "`patched_table`",
           "deparse": "CREATE VIEW `v_users` AS SELECT `id`, `name` FROM `patched_table`"
         },
@@ -1645,14 +1700,33 @@
       "name": "vastbase-mysql-drop-table",
       "sql": "DROP TABLE `users`",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "drop_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "drop_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
@@ -6202,28 +6276,67 @@
       "name": "vastbase-mysql-create-table-if-not-exists",
       "sql": "CREATE TABLE IF NOT EXISTS `users` (`id` INT, `name` VARCHAR(64), `phone` TEXT)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-drop-view-if-exists",
       "sql": "DROP VIEW IF EXISTS `user_view`",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "drop_view",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "drop_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "table": "user_view"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
@@ -14037,98 +14150,238 @@
       "name": "vastbase-mysql-auto-increment",
       "sql": "CREATE TABLE `users` (`id` INT AUTO_INCREMENT)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-unsigned",
       "sql": "CREATE TABLE `users` (`id` INT UNSIGNED)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-zerofill",
       "sql": "CREATE TABLE `users` (`id` INT ZEROFILL)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-table-engine",
       "sql": "CREATE TABLE `users` (`id` INT) ENGINE=InnoDB",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-table-charset",
       "sql": "CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-table-character-set",
       "sql": "CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-table-collate",
       "sql": "CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
@@ -15608,14 +15861,33 @@
       "name": "vastbase-mysql-common-data-types",
       "sql": "CREATE TABLE users (id BIGINT, amount DECIMAL(10,2), created_at DATETIME, active BOOLEAN)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
@@ -15840,84 +16112,204 @@
       "name": "vastbase-mysql-create-table-column-and-table-options",
       "sql": "CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT, `score` INT ZEROFILL, `name` VARCHAR(64)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-table-official-column-attributes",
       "sql": "CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT 'pk', `name` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin INVISIBLE, `score` INT GENERATED ALWAYS AS (`id` + 1) STORED, `parent_id` INT REFERENCES `parents` (`id`) ON DELETE CASCADE)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-table-numeric-table-options",
       "sql": "CREATE TABLE `users` (`id` INT) AUTO_INCREMENT=100 AVG_ROW_LENGTH=64 CHECKSUM=1 DELAY_KEY_WRITE=1 KEY_BLOCK_SIZE=8 MAX_ROWS=1000 MIN_ROWS=1 PACK_KEYS=DEFAULT STATS_AUTO_RECALC=DEFAULT STATS_PERSISTENT=1 STATS_SAMPLE_PAGES=16",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-table-string-and-storage-table-options",
       "sql": "CREATE TABLE `users` (`id` INT) COMMENT='users table' COMPRESSION='ZLIB' CONNECTION='connect_string' DATA DIRECTORY='/tmp/data' INDEX DIRECTORY='/tmp/index' ENCRYPTION='Y' ENGINE_ATTRIBUTE='{\"tier\":\"hot\"}' SECONDARY_ENGINE_ATTRIBUTE='{}' INSERT_METHOD=NO PASSWORD='legacy' ROW_FORMAT=COMPRESSED TABLESPACE=innodb_file_per_table",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-table-partition-options",
       "sql": "CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
       "name": "vastbase-mysql-create-temporary-table-options",
       "sql": "CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "quoted_identifier": true,
+                          "selector": "stmt[0].relation[0]",
+                          "table": "tmp_users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final"
     },
     {
@@ -29822,6 +30214,508 @@
           "deparse": "SELECT `AliasName`.`Phone`, AliasName.Phone FROM `DbName`.SchemaName.`ObjName` `AliasName`, DbName.`SchemaName`.ObjName AliasName; INSERT INTO DbName.`SchemaName`.`Target` (`phone`, phone) VALUES (1, 2); UPDATE `DbName`.SchemaName.Target `AliasName` SET `phone` = 3, phone = 4 WHERE `AliasName`.ID = 1; DELETE FROM DbName.`SchemaName`.`Target` WHERE ID = 2; MERGE INTO `DbName`.SchemaName.`Target` `TargetAlias` USING DbName.`SchemaName`.Source SourceAlias ON (`TargetAlias`.ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (`phone`, phone) VALUES (SourceAlias.`phone`, SourceAlias.phone); INSERT INTO `DbName`.SchemaName.Target SET `phone` = 5, `note` = 9, phone = 6; REPLACE INTO DbName.`SchemaName`.`Target` SET `phone` = 7, phone = 8;"
         }
       ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-mysql-ddl-relation-direct-inventory",
+      "sql": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AppDb",
+                  "schema_quoted_identifier": true,
+                  "table": "ChildTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "RefDb",
+                  "schema_quoted_identifier": true,
+                  "table": "ParentTable",
+                  "selector": "stmt[0].relation[1]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AlterDb",
+                  "schema_quoted_identifier": true,
+                  "table": "AlterChild",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ref_db",
+                  "table": "AlterParent",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[1]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "IndexDb",
+                  "schema_quoted_identifier": true,
+                  "table": "IndexTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "DropDb",
+                  "schema_quoted_identifier": true,
+                  "table": "DropOne",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_db",
+                  "table": "drop_two",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 4,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "TruncDb",
+                  "schema_quoted_identifier": true,
+                  "table": "TruncOne",
+                  "quoted_identifier": true,
+                  "selector": "stmt[4].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 5,
+            "keyword": "rename",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "RenameDb",
+                  "schema_quoted_identifier": true,
+                  "table": "OldTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[5].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 6,
+            "keyword": "drop_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ViewDb",
+                  "schema_quoted_identifier": true,
+                  "table": "OldViewOne",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_db",
+                  "table": "old_view_two",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "`PatchedDb`.`PatchedChild`",
+          "deparse": "CREATE TABLE `PatchedDb`.`PatchedChild` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "patched_ref_db.`PatchedParent`",
+          "deparse": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES patched_ref_db.`PatchedParent`(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/1/selector",
+          "value": "`PatchedRef`.alter_parent_new",
+          "deparse": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES `PatchedRef`.alter_parent_new(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/relations/0/selector",
+          "value": "patched_index.`PatchedTable`",
+          "deparse": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON patched_index.`PatchedTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/relations/0/selector",
+          "value": "patched_trunc.`PatchedOne`",
+          "deparse": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE patched_trunc.`PatchedOne`; ALTER TABLE `RenameDb`.`OldTable` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/5/query_graph/relations/0/selector",
+          "value": "patched_rename.`PatchedOld`",
+          "deparse": "CREATE TABLE `AppDb`.`ChildTable` (id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) REFERENCES `RefDb`.ParentTable(id)); ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id); CREATE INDEX idx_child_ref ON `IndexDb`.`IndexTable` (ref_id); DROP TABLE `DropDb`.`DropOne`, plain_db.drop_two; TRUNCATE TABLE `TruncDb`.`TruncOne`; ALTER TABLE patched_rename.`PatchedOld` RENAME TO `NewTable`; DROP VIEW `ViewDb`.`OldViewOne`, plain_db.old_view_two"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-mysql-ddl-relation-query-backed-inventory",
+      "sql": "CREATE VIEW `ViewDb`.`CustomerView` AS SELECT id FROM `SourceDb`.customer; CREATE TABLE `CopyDb`.copy_table AS SELECT id FROM source_db.`SourceTable`",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ViewDb",
+                  "schema_quoted_identifier": true,
+                  "table": "CustomerView",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SourceDb",
+                  "schema_quoted_identifier": true,
+                  "table": "customer",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "create_table_as",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "CopyDb",
+                  "schema_quoted_identifier": true,
+                  "table": "copy_table",
+                  "selector": "stmt[1].relation[1]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "source_db",
+                  "table": "SourceTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[1].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_view.`PatchedCustomerView`",
+          "deparse": "CREATE VIEW patched_view.`PatchedCustomerView` AS SELECT id FROM `SourceDb`.customer; CREATE TABLE `CopyDb`.copy_table AS SELECT id FROM source_db.`SourceTable`"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/0/selector",
+          "value": "`PatchedCopy`.copy_table_new",
+          "deparse": "CREATE VIEW `ViewDb`.`CustomerView` AS SELECT id FROM `SourceDb`.customer; CREATE TABLE `PatchedCopy`.copy_table_new AS SELECT id FROM source_db.`SourceTable`"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-mysql-ddl-drop-table-quoted-same-spelling",
+      "sql": "DROP TABLE app.t, `app`.`t`; /*!50000 DROP TABLE app.t, `app`.`t` */",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "table": "t"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "schema_quoted_identifier": true,
+                  "table": "t",
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "table": "t"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "schema_quoted_identifier": true,
+                  "table": "t",
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [],
       "status": "final"
     }
   ]

@@ -9,23 +9,23 @@ dialect entry.
 
 | Mode | Official Reference | Fixture | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | [V3.0 Build 8](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/5e3842f9085a4fd5b491f3203651ff7d) | `tests/cases/vastbase_oracle_dialect_input.json` | 240 | 0 | 240 |
-| `vastbase-mysql` | [Backticks as identifiers](https://docs.vastdata.com.cn/zh/docs/VastbaseG100Ver2.2.14/doc/%E5%85%BC%E5%AE%B9%E6%80%A7%E6%89%8B%E5%86%8C/MySQL%E5%85%BC%E5%AE%B9%E6%80%A7/%E5%8F%8D%E5%BC%95%E5%8F%B7%E8%A7%A3%E9%87%8A%E4%B8%BA%E6%A0%87%E8%AF%86%E7%AC%A6.html) | `tests/cases/vastbase_mysql_dialect_input.json` | 264 | 0 | 264 |
-| `vastbase-postgresql` | [PostgreSQL compatibility](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/a9976158894e40398e9268181a597281) | `tests/cases/vastbase_postgresql_dialect_input.json` | 204 | 0 | 204 |
-| `vastbase-sqlserver` | [V3.0 Build 8](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/5e3842f9085a4fd5b491f3203651ff7d) | `tests/cases/vastbase_sqlserver_dialect_input.json` | 609 | 0 | 609 |
+| `vastbase-oracle` | [V3.0 Build 8](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/5e3842f9085a4fd5b491f3203651ff7d) | `tests/cases/vastbase_oracle_dialect_input.json` | 250 | 0 | 250 |
+| `vastbase-mysql` | [Backticks as identifiers](https://docs.vastdata.com.cn/zh/docs/VastbaseG100Ver2.2.14/doc/%E5%85%BC%E5%AE%B9%E6%80%A7%E6%89%8B%E5%86%8C/MySQL%E5%85%BC%E5%AE%B9%E6%80%A7/%E5%8F%8D%E5%BC%95%E5%8F%B7%E8%A7%A3%E9%87%8A%E4%B8%BA%E6%A0%87%E8%AF%86%E7%AC%A6.html) | `tests/cases/vastbase_mysql_dialect_input.json` | 267 | 0 | 267 |
+| `vastbase-postgresql` | [PostgreSQL compatibility](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/a9976158894e40398e9268181a597281) | `tests/cases/vastbase_postgresql_dialect_input.json` | 209 | 0 | 209 |
+| `vastbase-sqlserver` | [V3.0 Build 8](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/5e3842f9085a4fd5b491f3203651ff7d) | `tests/cases/vastbase_sqlserver_dialect_input.json` | 619 | 0 | 619 |
 
 ## Notes
 
 - The `vastbase` CLI alias is fixed to `vastbase-oracle`.
 - The library does not infer compatibility mode from SQL text.
-- All 264 `vastbase-mysql` cases have `status = "final"`, with 846 independent
+- All 267 `vastbase-mysql` cases have `status = "final"`, with 854 independent
   patches. The project compatibility-entry contract supports MySQL multi-target
   multi-table `UPDATE` across JOIN chains and comma-separated relation lists,
   with each assignment target field identifying its write relation. `ORDER BY`
   and `LIMIT` are rejected for this multi-table form. This boundary comes from
   the project's executable matrix and does not claim that the Vastbase server
   documentation defines the same syntax scope.
-- All 240 `vastbase-oracle` cases have `status = "final"`, with 815 independent
+- All 250 `vastbase-oracle` cases have `status = "final"`, with 828 independent
   patches. The project compatibility-entry contract includes
   `RETURNING ... INTO` on `INSERT ... VALUES`, `UPDATE`, and `DELETE` with
   `N >= 1` result targets paired by ordinal with exactly N colon-prefixed host
@@ -33,9 +33,9 @@ dialect entry.
   and unequal list lengths; the same `insert_column` patch inserts both sides.
   This boundary comes from the project's executable matrix and does not claim
   that the Vastbase server documentation defines the same syntax scope.
-- All 204 `vastbase-postgresql` cases have `status = "final"`, with 667
+- All 209 `vastbase-postgresql` cases have `status = "final"`, with 684
   independent patches.
-- All 609 `vastbase-sqlserver` cases have `status = "final"`, with 1872
+- All 619 `vastbase-sqlserver` cases have `status = "final"`, with 1884
   independent patches. The project compatibility-entry paired `insert_column`
   applies only to a sink `OUTPUT ... INTO` with an explicit non-empty
   sink-column list when the OUTPUT-target and sink-column counts are strictly
@@ -74,6 +74,21 @@ dialect entry.
   `U&"..."` is outside this contract. This is a project compatibility-entry
   contract, not a claim that Vastbase server documentation defines the same
   scope.
+- Twenty-eight final cases and 50 independent patches across the four entries
+  verify relation-bearing DDL Query Graphs. A `kind = "ddl"` root block uses
+  relation `ddl_role = "target"` / `"reference"` to distinguish operated and
+  referenced objects while preserving delimiter state for each
+  database/schema/object source segment. CREATE VIEW, CTAS, CREATE MATERIALIZED
+  VIEW, and `SELECT INTO` at verified entries link the DDL target to a separate
+  SELECT block through `source_block`; foreign keys and verified PostgreSQL
+  LIKE/INHERITS/partition objects are references. The PostgreSQL-compatible
+  entry also verifies the foreign-table target lifecycle; MySQL/PostgreSQL/SQL
+  Server-compatible entries verify exact source state for same-name
+  quoted/unquoted DROP segments, and the SQL Server-compatible entry also
+  verifies public-surface retention in an ordinary multi-statement batch. Only
+  dialect forms reconciled by the fixtures belong to this project contract.
+  This does not claim that Vastbase server documentation defines the same
+  syntax scope.
 - The `vastbase-sqlserver` hierarchical-query boundary contains only a basic
   `CONNECT BY` condition. `START WITH`, `PRIOR`, `NOCYCLE`, and
   `CONNECT_BY_ROOT` are outside this mode's current boundary.

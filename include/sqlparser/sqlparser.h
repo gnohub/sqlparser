@@ -117,8 +117,15 @@ typedef enum {
 	SQLPARSER_GRAPH_BLOCK_CTE = 3,
 	SQLPARSER_GRAPH_BLOCK_SET = 4,
 	SQLPARSER_GRAPH_BLOCK_DML_RESULT = 5,
-	SQLPARSER_GRAPH_BLOCK_CONDITION = 6
+	SQLPARSER_GRAPH_BLOCK_CONDITION = 6,
+	SQLPARSER_GRAPH_BLOCK_DDL = 7
 } sqlparser_graph_block_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN = 0,
+	SQLPARSER_GRAPH_DDL_RELATION_TARGET = 1,
+	SQLPARSER_GRAPH_DDL_RELATION_REFERENCE = 2
+} sqlparser_graph_ddl_relation_role_t;
 
 typedef enum {
 	SQLPARSER_CONTROL_NODE_IF = 1
@@ -482,6 +489,7 @@ typedef struct {
 	unsigned char database_quoted_identifier;
 	unsigned char schema_quoted_identifier;
 	unsigned char link_quoted_identifier;
+	unsigned char ddl_role;
 	sqlparser_selector_t selector;
 	int has_selector;
 	int alias_quoted_identifier;
@@ -796,6 +804,7 @@ const char *sqlparser_dialect_name(sqlparser_dialect_t dialect);
 const char *sqlparser_bool_operator_name(sqlparser_bool_operator_t bool_operator);
 const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind);
 const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind);
+const char *sqlparser_graph_ddl_relation_role_name(sqlparser_graph_ddl_relation_role_t role);
 const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t kind);
 const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind);
 const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind);

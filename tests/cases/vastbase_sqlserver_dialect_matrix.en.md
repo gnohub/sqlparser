@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 609 cases with `status = "final"` and 1872 independent
+The fixture contains 619 cases with `status = "final"` and 1884 independent
 patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
@@ -40,6 +40,23 @@ The following two final cases contrast identically spelled delimited and undelim
 | --- | --- | --- | ---: | --- |
 | `VSH608` | `vastbase-sqlserver-quoted-identifier-three-part-dml-matrix` | final | 7 | SELECT, INSERT, UPDATE FROM, DELETE, and MERGE target/source relations cover `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, and DML-column `quoted_identifier`; relation and MERGE-column rewrites recompute state |
 | `VSH609` | `vastbase-sqlserver-output-into-quoted-identifier-sink-matrix` | final | 7 | `OUTPUT ... INTO` sink-relation segment state and `sink_columns[].quoted_identifier` across INSERT, UPDATE, DELETE, and MERGE; per-sink relation/column patches and an ordinary DML-relation patch agree with fresh Views |
+
+## DDL Relation Projection Regression
+
+The following ten final cases define the DDL Query Graph contract for the project's `vastbase-sqlserver` compatibility entry. A DDL root block uses `kind = "ddl"`; each relation uses `ddl_role = "target"` or `"reference"` to distinguish the operated object from a foreign-key reference and preserves bracket-delimiter state on database/schema/object source segments. CREATE VIEW and `SELECT INTO` connect the DDL target to a separate SELECT block through `source_block`. The verified SQL Server-compatible forms in the fixture are the syntax boundary. This is a project compatibility-entry contract, not a claim that the Vastbase server documentation defines the same scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VSH610` | `vastbase-sqlserver-ddl-graph-create-table-fk-quoted-segments` | final | 2 | three-part CREATE TABLE target and FK reference, with independent bracket-delimiter segments and selectors |
+| `VSH611` | `vastbase-sqlserver-ddl-graph-alter-table-fk-quoted-segments` | final | 2 | three-part ALTER TABLE target and FK reference projections with independent rewrites |
+| `VSH612` | `vastbase-sqlserver-ddl-graph-create-index-three-part-target` | final | 1 | the three-part table in `CREATE INDEX ... ON` is the DDL target; the index name is not represented as a relation |
+| `VSH613` | `vastbase-sqlserver-ddl-graph-truncate-three-part-target` | final | 1 | three-part TRUNCATE TABLE target delimiter state and relation rewrite |
+| `VSH614` | `vastbase-sqlserver-ddl-graph-drop-table-multi-target` | final | 0 | projects multiple DROP TABLE targets in source order without inventing selectors |
+| `VSH615` | `vastbase-sqlserver-ddl-graph-drop-view-multi-target` | final | 0 | projects multiple DROP VIEW targets in source order with complete schema/object delimiter state |
+| `VSH616` | `vastbase-sqlserver-ddl-graph-create-view-target-source-block` | final | 2 | CREATE VIEW target, SELECT source, and `source_block` linkage |
+| `VSH617` | `vastbase-sqlserver-ddl-graph-select-into-target-source-block` | final | 2 | `SELECT INTO` exposes the destination as a DDL target and retains the FROM relation in a separate SELECT block; both selectors are independently rewritable |
+| `VSH618` | `vastbase-sqlserver-ddl-multistatement-surface-relation-patch` | final | 2 | relation patches in an ordinary CREATE INDEX/TRUNCATE TABLE two-statement batch neither add `USING btree` nor lose `TABLE` |
+| `VSH619` | `vastbase-sqlserver-ddl-drop-table-quoted-same-spelling` | final | 0 | selector-free, identically spelled quoted/unquoted DROP targets whose schema/object bracket states come from exact source tokens |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

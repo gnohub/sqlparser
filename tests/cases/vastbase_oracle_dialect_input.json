@@ -3582,7 +3582,26 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3615,9 +3634,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0,
@@ -3627,18 +3652,18 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[1]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "name",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 1
                 }
@@ -3646,6 +3671,14 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_users"
+                },
+                {
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "users"
@@ -3654,7 +3687,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
@@ -3663,7 +3696,7 @@
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 1,
                   "kind": "field",
                   "name": "name",
@@ -3680,7 +3713,7 @@
       "patch": [
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE OR REPLACE VIEW v_users AS SELECT id, name FROM \"PatchedTable\""
         },
@@ -3713,7 +3746,25 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3728,7 +3779,26 @@
           {
             "index": 0,
             "keyword": "ddl",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -4353,7 +4423,26 @@
           {
             "index": 0,
             "keyword": "alter_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -4368,7 +4457,26 @@
           {
             "index": 0,
             "keyword": "create_index",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -4631,9 +4739,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0,
@@ -4643,18 +4757,18 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[0]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "name",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[1]",
                   "target": 1
                 }
@@ -4662,6 +4776,14 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "source_block": 1,
+                  "table": "mv_users"
+                },
+                {
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
                   "table": "users"
@@ -4670,7 +4792,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
@@ -4679,7 +4801,7 @@
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 1,
                   "kind": "field",
                   "name": "name",
@@ -4696,7 +4818,7 @@
       "patch": [
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE MATERIALIZED VIEW mv_users AS SELECT id, name FROM \"PatchedTable\""
         },
@@ -9534,13 +9656,19 @@
             "query_graph": {
               "blocks": [
                 {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
                   "kind": "select",
                   "predicates": [
                     0
                   ],
                   "relations": [
-                    0,
-                    1
+                    1,
+                    2
                   ],
                   "targets": [
                     0,
@@ -9550,32 +9678,32 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[12]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "column": "user_id",
-                  "relation": 1,
+                  "relation": 2,
                   "selector": "stmt[0].name[14]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 1,
+                  "relation": 2,
                   "selector": "stmt[0].name[6]",
                   "target": 1,
                   "target_path": [
@@ -9587,16 +9715,16 @@
                   ]
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "group_by",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[16]"
                 }
               ],
               "predicates": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "bool_operator": "none",
                   "clause": "on",
                   "kind": "comparison",
@@ -9609,15 +9737,23 @@
               ],
               "relations": [
                 {
-                  "alias": "u",
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_user_orders"
+                },
+                {
+                  "alias": "u",
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "users"
                 },
                 {
                   "alias": "o",
-                  "block": 0,
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[2]",
                   "table": "orders"
@@ -9626,7 +9762,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 2,
                   "kind": "field",
                   "name": "id",
@@ -9635,7 +9771,7 @@
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "kind": "expression",
                   "name": "order_count",
                   "ordinal": 1,
@@ -9646,7 +9782,7 @@
               "values": [
                 {
                   "bind_kind": 0,
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "field": 0,
                   "field_match_kind": "direct_field",
@@ -9664,7 +9800,7 @@
       "patch": [
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE OR REPLACE VIEW v_user_orders AS SELECT u.id, COUNT(o.id) AS order_count FROM \"PatchedTable\" u JOIN orders o ON u.id = o.user_id GROUP BY u.id"
         },
@@ -31423,30 +31559,141 @@
             "query_graph": {
               "root": 0,
               "blocks": [
-                {"kind": "set"},
-                {"kind": "set"},
-                {"kind": "select", "relations": [0], "targets": [0]},
-                {"kind": "select", "relations": [1], "targets": [1]},
-                {"kind": "select", "relations": [2], "targets": [2]}
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2
+                  ]
+                }
               ],
               "relations": [
-                {"block": 2, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[0]"},
-                {"block": 3, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[1]"},
-                {"block": 4, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[2]"}
+                {
+                  "block": 2,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 4,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[2]"
+                }
               ],
               "targets": [
-                {"block": 2, "ordinal": 0, "kind": "literal", "name": "C", "value": 0, "selector": "stmt[0].select_target[0][0]", "target_list_selector": "stmt[0].select_targets[0]"},
-                {"block": 3, "ordinal": 0, "kind": "literal", "name": "C", "value": 1, "selector": "stmt[0].select_target[1][0]", "target_list_selector": "stmt[0].select_targets[1]"},
-                {"block": 4, "ordinal": 0, "kind": "literal", "name": "C", "value": 2, "selector": "stmt[0].select_target[2][0]", "target_list_selector": "stmt[0].select_targets[2]"}
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 4,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                }
               ],
               "values": [
-                {"block": 2, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[1]", "literal": {"kind": "integer", "integer_value": 1}},
-                {"block": 3, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[4]", "literal": {"kind": "integer", "integer_value": 2}},
-                {"block": 4, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[7]", "literal": {"kind": "integer", "integer_value": 3}}
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[4]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 2
+                  }
+                },
+                {
+                  "block": 4,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                }
               ],
               "sets": [
-                {"kind": "union_all", "result_block": 1, "branches": [2, 3]},
-                {"kind": "union_all", "result_block": 0, "branches": [1, 4]}
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "union_all",
+                  "result_block": 0,
+                  "branches": [
+                    1,
+                    4
+                  ]
+                }
               ]
             }
           }
@@ -31454,9 +31701,24 @@
       },
       "status": "final",
       "patch": [
-        {"action": "replace", "target": "/statements/0/query_graph/values/0/selector", "value": "11", "deparse": "(SELECT 11 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) UNION ALL SELECT 3 AS C FROM DUAL"},
-        {"action": "replace", "target": "/statements/0/query_graph/values/1/selector", "value": "22", "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 22 AS C FROM DUAL) UNION ALL SELECT 3 AS C FROM DUAL"},
-        {"action": "replace", "target": "/statements/0/query_graph/values/2/selector", "value": "33", "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) UNION ALL SELECT 33 AS C FROM DUAL"}
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "11",
+          "deparse": "(SELECT 11 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) UNION ALL SELECT 3 AS C FROM DUAL"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/1/selector",
+          "value": "22",
+          "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 22 AS C FROM DUAL) UNION ALL SELECT 3 AS C FROM DUAL"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/2/selector",
+          "value": "33",
+          "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) UNION ALL SELECT 33 AS C FROM DUAL"
+        }
       ]
     },
     {
@@ -31470,36 +31732,187 @@
             "query_graph": {
               "root": 0,
               "blocks": [
-                {"kind": "set"},
-                {"kind": "set"},
-                {"kind": "select", "relations": [0], "targets": [0]},
-                {"kind": "select", "relations": [1], "targets": [1]},
-                {"kind": "set"},
-                {"kind": "select", "relations": [2], "targets": [2]},
-                {"kind": "select", "relations": [3], "targets": [3]}
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    3
+                  ],
+                  "targets": [
+                    3
+                  ]
+                }
               ],
               "relations": [
-                {"block": 2, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[0]"},
-                {"block": 3, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[1]"},
-                {"block": 5, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[2]"},
-                {"block": 6, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[3]"}
+                {
+                  "block": 2,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 5,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[2]"
+                },
+                {
+                  "block": 6,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[3]"
+                }
               ],
               "targets": [
-                {"block": 2, "ordinal": 0, "kind": "literal", "name": "C", "value": 0, "selector": "stmt[0].select_target[0][0]", "target_list_selector": "stmt[0].select_targets[0]"},
-                {"block": 3, "ordinal": 0, "kind": "literal", "name": "C", "value": 1, "selector": "stmt[0].select_target[1][0]", "target_list_selector": "stmt[0].select_targets[1]"},
-                {"block": 5, "ordinal": 0, "kind": "literal", "name": "C", "value": 2, "selector": "stmt[0].select_target[2][0]", "target_list_selector": "stmt[0].select_targets[2]"},
-                {"block": 6, "ordinal": 0, "kind": "literal", "name": "C", "value": 3, "selector": "stmt[0].select_target[3][0]", "target_list_selector": "stmt[0].select_targets[3]"}
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 5,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 6,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 3,
+                  "selector": "stmt[0].select_target[3][0]",
+                  "target_list_selector": "stmt[0].select_targets[3]"
+                }
               ],
               "values": [
-                {"block": 2, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[1]", "literal": {"kind": "integer", "integer_value": 1}},
-                {"block": 3, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[4]", "literal": {"kind": "integer", "integer_value": 2}},
-                {"block": 5, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[7]", "literal": {"kind": "integer", "integer_value": 3}},
-                {"block": 6, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[10]", "literal": {"kind": "integer", "integer_value": 4}}
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[4]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 2
+                  }
+                },
+                {
+                  "block": 5,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                },
+                {
+                  "block": 6,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[10]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 4
+                  }
+                }
               ],
               "sets": [
-                {"kind": "union_all", "result_block": 1, "branches": [2, 3]},
-                {"kind": "union_all", "result_block": 4, "branches": [5, 6]},
-                {"kind": "intersect", "result_block": 0, "branches": [1, 4]}
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "union_all",
+                  "result_block": 4,
+                  "branches": [
+                    5,
+                    6
+                  ]
+                },
+                {
+                  "kind": "intersect",
+                  "result_block": 0,
+                  "branches": [
+                    1,
+                    4
+                  ]
+                }
               ]
             }
           }
@@ -31507,9 +31920,24 @@
       },
       "status": "final",
       "patch": [
-        {"action": "replace", "target": "/statements/0/query_graph/values/0/selector", "value": "11", "deparse": "(SELECT 11 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 3 AS C FROM DUAL UNION ALL SELECT 4 AS C FROM DUAL)"},
-        {"action": "replace", "target": "/statements/0/query_graph/values/2/selector", "value": "33", "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 33 AS C FROM DUAL UNION ALL SELECT 4 AS C FROM DUAL)"},
-        {"action": "replace", "target": "/statements/0/query_graph/values/3/selector", "value": "44", "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 3 AS C FROM DUAL UNION ALL SELECT 44 AS C FROM DUAL)"}
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "11",
+          "deparse": "(SELECT 11 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 3 AS C FROM DUAL UNION ALL SELECT 4 AS C FROM DUAL)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/2/selector",
+          "value": "33",
+          "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 33 AS C FROM DUAL UNION ALL SELECT 4 AS C FROM DUAL)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/3/selector",
+          "value": "44",
+          "deparse": "(SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 3 AS C FROM DUAL UNION ALL SELECT 44 AS C FROM DUAL)"
+        }
       ]
     },
     {
@@ -31523,30 +31951,128 @@
             "query_graph": {
               "root": 0,
               "blocks": [
-                {"kind": "set"},
-                {"kind": "select", "relations": [0], "targets": [1]},
-                {"kind": "cte", "relations": [1], "targets": [0]},
-                {"kind": "select", "relations": [2], "targets": [2]}
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2
+                  ]
+                }
               ],
               "relations": [
-                {"block": 1, "kind": "cte", "table": "src", "source_block": 2, "selector": "stmt[0].relation[1]"},
-                {"block": 2, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[0]"},
-                {"block": 3, "kind": "cte", "table": "src", "source_block": 2, "selector": "stmt[0].relation[2]"}
+                {
+                  "block": 1,
+                  "kind": "cte",
+                  "table": "src",
+                  "source_block": 2,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 2,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "cte",
+                  "table": "src",
+                  "source_block": 2,
+                  "selector": "stmt[0].relation[2]"
+                }
               ],
               "targets": [
-                {"block": 2, "ordinal": 0, "kind": "literal", "name": "C", "value": 0, "selector": "stmt[0].select_target[0][0]", "target_list_selector": "stmt[0].select_targets[0]"},
-                {"block": 1, "ordinal": 0, "kind": "field", "name": "C", "field": 0, "selector": "stmt[0].select_target[1][0]", "target_list_selector": "stmt[0].select_targets[1]"},
-                {"block": 3, "ordinal": 0, "kind": "field", "name": "C", "field": 1, "selector": "stmt[0].select_target[2][0]", "target_list_selector": "stmt[0].select_targets[2]"}
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "C",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "C",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "C",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                }
               ],
               "fields": [
-                {"block": 1, "clause": "select_list", "relation": 0, "column": "C", "target": 1, "selector": "stmt[0].name[3]"},
-                {"block": 3, "clause": "select_list", "relation": 2, "column": "C", "target": 2, "selector": "stmt[0].name[5]"}
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "C",
+                  "target": 1,
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "C",
+                  "target": 2,
+                  "selector": "stmt[0].name[5]"
+                }
               ],
               "values": [
-                {"block": 2, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[3]", "literal": {"kind": "integer", "integer_value": 1}}
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
               ],
               "sets": [
-                {"kind": "union_all", "result_block": 0, "branches": [1, 3]}
+                {
+                  "kind": "union_all",
+                  "result_block": 0,
+                  "branches": [
+                    1,
+                    3
+                  ]
+                }
               ]
             }
           }
@@ -31554,9 +32080,24 @@
       },
       "status": "final",
       "patch": [
-        {"action": "replace", "target": "/statements/0/query_graph/values/0/selector", "value": "11", "deparse": "WITH src AS (SELECT 11 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT C FROM src"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/0/selector", "value": "\"C1\"", "deparse": "WITH src AS (SELECT 1 AS C FROM DUAL) SELECT \"C1\" FROM src UNION ALL SELECT C FROM src"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/1/selector", "value": "\"C2\"", "deparse": "WITH src AS (SELECT 1 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT \"C2\" FROM src"}
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "11",
+          "deparse": "WITH src AS (SELECT 11 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT C FROM src"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"C1\"",
+          "deparse": "WITH src AS (SELECT 1 AS C FROM DUAL) SELECT \"C1\" FROM src UNION ALL SELECT C FROM src"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "\"C2\"",
+          "deparse": "WITH src AS (SELECT 1 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT \"C2\" FROM src"
+        }
       ]
     },
     {
@@ -31570,36 +32111,174 @@
             "query_graph": {
               "root": 0,
               "blocks": [
-                {"kind": "set"},
-                {"kind": "set"},
-                {"kind": "select", "relations": [0], "targets": [1]},
-                {"kind": "cte", "relations": [1], "targets": [0]},
-                {"kind": "select", "relations": [2], "targets": [2]},
-                {"kind": "select", "relations": [3], "targets": [3]}
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    3
+                  ],
+                  "targets": [
+                    3
+                  ]
+                }
               ],
               "relations": [
-                {"block": 2, "kind": "cte", "table": "src", "source_block": 3, "selector": "stmt[0].relation[1]"},
-                {"block": 3, "kind": "dual", "table": "DUAL", "selector": "stmt[0].relation[0]"},
-                {"block": 4, "kind": "base", "schema": "app", "table": "src", "alias": "s", "selector": "stmt[0].relation[2]"},
-                {"block": 5, "kind": "base", "table": "src", "alias": "r", "link": "remote_db", "selector": "stmt[0].relation[3]"}
+                {
+                  "block": 2,
+                  "kind": "cte",
+                  "table": "src",
+                  "source_block": 3,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 3,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 4,
+                  "kind": "base",
+                  "schema": "app",
+                  "table": "src",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[2]"
+                },
+                {
+                  "block": 5,
+                  "kind": "base",
+                  "table": "src",
+                  "alias": "r",
+                  "link": "remote_db",
+                  "selector": "stmt[0].relation[3]"
+                }
               ],
               "targets": [
-                {"block": 3, "ordinal": 0, "kind": "literal", "name": "id", "value": 0, "selector": "stmt[0].select_target[0][0]", "target_list_selector": "stmt[0].select_targets[0]"},
-                {"block": 2, "ordinal": 0, "kind": "field", "name": "id", "field": 0, "selector": "stmt[0].select_target[1][0]", "target_list_selector": "stmt[0].select_targets[1]"},
-                {"block": 4, "ordinal": 0, "kind": "field", "name": "id", "field": 1, "selector": "stmt[0].select_target[2][0]", "target_list_selector": "stmt[0].select_targets[2]"},
-                {"block": 5, "ordinal": 0, "kind": "field", "name": "id", "field": 2, "selector": "stmt[0].select_target[3][0]", "target_list_selector": "stmt[0].select_targets[3]"}
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "id",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 4,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 5,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[3][0]",
+                  "target_list_selector": "stmt[0].select_targets[3]"
+                }
               ],
               "fields": [
-                {"block": 2, "clause": "select_list", "relation": 0, "column": "id", "target": 1, "selector": "stmt[0].name[4]"},
-                {"block": 4, "clause": "select_list", "relation": 2, "column": "id", "target": 2, "selector": "stmt[0].name[7]"},
-                {"block": 5, "clause": "select_list", "relation": 3, "column": "id", "target": 3, "selector": "stmt[0].name[12]"}
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 1,
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 4,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "id",
+                  "target": 2,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 5,
+                  "clause": "select_list",
+                  "relation": 3,
+                  "column": "id",
+                  "target": 3,
+                  "selector": "stmt[0].name[12]"
+                }
               ],
               "values": [
-                {"block": 3, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[3]", "literal": {"kind": "integer", "integer_value": 1}}
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
               ],
               "sets": [
-                {"kind": "union_all", "result_block": 1, "branches": [2, 4]},
-                {"kind": "union_all", "result_block": 0, "branches": [1, 5]}
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    4
+                  ]
+                },
+                {
+                  "kind": "union_all",
+                  "result_block": 0,
+                  "branches": [
+                    1,
+                    5
+                  ]
+                }
               ]
             }
           }
@@ -31607,10 +32286,30 @@
       },
       "status": "final",
       "patch": [
-        {"action": "replace", "target": "/statements/0/query_graph/values/0/selector", "value": "11", "deparse": "WITH src AS (SELECT 11 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/0/selector", "value": "\"left_id\"", "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.\"left_id\" FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/1/selector", "value": "\"schema_id\"", "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.\"schema_id\" FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/2/selector", "value": "\"remote_id\"", "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.\"remote_id\" FROM src@remote_db r"}
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "11",
+          "deparse": "WITH src AS (SELECT 11 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"left_id\"",
+          "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.\"left_id\" FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "\"schema_id\"",
+          "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.\"schema_id\" FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/2/selector",
+          "value": "\"remote_id\"",
+          "deparse": "WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.\"remote_id\" FROM src@remote_db r"
+        }
       ]
     },
     {
@@ -31624,41 +32323,219 @@
             "query_graph": {
               "root": 0,
               "blocks": [
-                {"kind": "select", "relations": [0], "targets": [0], "predicates": [0]},
-                {"kind": "set"},
-                {"kind": "select", "relations": [1], "targets": [1], "predicates": [1]},
-                {"kind": "select", "relations": [2], "targets": [2], "predicates": [2]}
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ],
+                  "predicates": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2
+                  ],
+                  "predicates": [
+                    2
+                  ]
+                }
               ],
               "relations": [
-                {"block": 0, "kind": "base", "table": "orders", "alias": "o", "selector": "stmt[0].relation[0]"},
-                {"block": 2, "kind": "base", "table": "order_items", "alias": "i", "selector": "stmt[0].relation[1]"},
-                {"block": 3, "kind": "base", "table": "archived_order_items", "alias": "a", "selector": "stmt[0].relation[2]"}
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "orders",
+                  "alias": "o",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 2,
+                  "kind": "base",
+                  "table": "order_items",
+                  "alias": "i",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 3,
+                  "kind": "base",
+                  "table": "archived_order_items",
+                  "alias": "a",
+                  "selector": "stmt[0].relation[2]"
+                }
               ],
               "targets": [
-                {"block": 0, "ordinal": 0, "kind": "field", "name": "id", "field": 0, "selector": "stmt[0].select_target[0][0]", "target_list_selector": "stmt[0].select_targets[0]"},
-                {"block": 2, "ordinal": 0, "kind": "literal", "value": 0, "selector": "stmt[0].select_target[1][0]", "target_list_selector": "stmt[0].select_targets[1]"},
-                {"block": 3, "ordinal": 0, "kind": "literal", "value": 2, "selector": "stmt[0].select_target[2][0]", "target_list_selector": "stmt[0].select_targets[2]"}
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                }
               ],
               "fields": [
-                {"block": 0, "clause": "select_list", "relation": 0, "column": "id", "target": 0, "selector": "stmt[0].name[1]"},
-                {"block": 2, "clause": "where", "relation": 1, "column": "order_id", "selector": "stmt[0].name[7]"},
-                {"block": 2, "clause": "where", "relation": 0, "column": "id", "selector": "stmt[0].name[9]"},
-                {"block": 3, "clause": "where", "relation": 2, "column": "order_id", "selector": "stmt[0].name[13]"},
-                {"block": 3, "clause": "where", "relation": 0, "column": "id", "selector": "stmt[0].name[15]"}
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 2,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "order_id",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 2,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "relation": 2,
+                  "column": "order_id",
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[15]"
+                }
               ],
               "values": [
-                {"block": 2, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[8]", "literal": {"kind": "integer", "integer_value": 1}},
-                {"block": 2, "clause": "where", "operator": "=", "operator_kind": "unknown", "field": 1, "source_field": 2, "field_match_kind": "direct_field", "kind": "field", "bind_kind": 0},
-                {"block": 3, "clause": "select_list", "kind": "literal", "bind_kind": 0, "selector": "stmt[0].value[19]", "literal": {"kind": "integer", "integer_value": 1}},
-                {"block": 3, "clause": "where", "operator": "=", "operator_kind": "unknown", "field": 3, "source_field": 4, "field_match_kind": "direct_field", "kind": "field", "bind_kind": 0}
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 2,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "source_field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[19]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 3,
+                  "source_field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
               ],
               "sets": [
-                {"kind": "union_all", "result_block": 1, "branches": [2, 3]}
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
               ],
               "predicates": [
-                {"block": 0, "clause": "where", "kind": "exists", "bool_operator": "none"},
-                {"block": 2, "clause": "where", "kind": "comparison", "bool_operator": "none", "operator": "=", "operator_kind": "unknown", "left_field": 1, "right_field": 2, "value": 1},
-                {"block": 3, "clause": "where", "kind": "comparison", "bool_operator": "none", "operator": "=", "operator_kind": "unknown", "left_field": 3, "right_field": 4, "value": 3}
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "exists",
+                  "bool_operator": "none"
+                },
+                {
+                  "block": 2,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "right_field": 2,
+                  "value": 1
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 3,
+                  "right_field": 4,
+                  "value": 3
+                }
               ]
             }
           }
@@ -31666,9 +32543,24 @@
       },
       "status": "final",
       "patch": [
-        {"action": "replace", "target": "/statements/0/query_graph/fields/1/selector", "value": "\"local_order_id\"", "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.\"local_order_id\" = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id)"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/2/selector", "value": "\"first_outer_id\"", "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.\"first_outer_id\" UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id)"},
-        {"action": "replace", "target": "/statements/0/query_graph/fields/4/selector", "value": "\"second_outer_id\"", "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.\"second_outer_id\")"}
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "\"local_order_id\"",
+          "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.\"local_order_id\" = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/2/selector",
+          "value": "\"first_outer_id\"",
+          "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.\"first_outer_id\" UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"second_outer_id\"",
+          "deparse": "SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.\"second_outer_id\")"
+        }
       ]
     },
     {
@@ -36892,6 +37784,596 @@
           "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
           "value": "10",
           "deparse": "INSERT ALL INTO APP.\"T\"@\"REMOTE\" (\"ID\") VALUES (10) SELECT 1 FROM DUAL"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-create-table-foreign-key",
+      "sql": "CREATE TABLE \"APP\".CHILD (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES REF.\"PARENT\" (\"ID\"))",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "REF",
+                  "table": "PARENT",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES REF.\"PARENT\" (\"ID\"))"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"APP\".CHILD (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\"))"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-alter-table-foreign-key",
+      "sql": "ALTER TABLE APP.\"CHILD\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"REF\".PARENT (\"ID\")",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "REF",
+                  "table": "PARENT",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"REF\".PARENT (\"ID\")"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE APP.\"CHILD\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\")"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-create-index-on-table",
+      "sql": "CREATE INDEX \"IDX_CHILD\" ON \"APP\".CHILD (\"PARENT_ID\")",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE INDEX \"IDX_CHILD\" ON \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"PARENT_ID\")"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-drop-table-target",
+      "sql": "DROP TABLE \"APP\".OLD_T",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "OLD_T",
+                  "schema_quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": []
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-drop-materialized-view-target",
+      "sql": "DROP MATERIALIZED VIEW \"APP\".\"MV_OLD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "MV_OLD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": []
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-truncate-table-target",
+      "sql": "TRUNCATE TABLE APP.\"STAGE_T\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "STAGE_T",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "TRUNCATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-alter-table-rename-target",
+      "sql": "ALTER TABLE \"APP\".OLD_T RENAME TO \"NEW_T\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "rename",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "OLD_T",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" RENAME TO \"NEW_T\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-create-view-target-and-source",
+      "sql": "CREATE VIEW \"APP\".V_CHILD AS SELECT \"ID\" FROM SRC.\"CHILD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "V_CHILD",
+                  "schema_quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE VIEW \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM SRC.\"CHILD\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE VIEW \"APP\".V_CHILD AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-create-table-as-target-and-source",
+      "sql": "CREATE TABLE APP.\"CHILD_COPY\" AS SELECT \"ID\" FROM \"SRC\".CHILD",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table_as",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD_COPY",
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM \"SRC\".CHILD"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE APP.\"CHILD_COPY\" AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-ddl-relation-create-materialized-view-target-and-source",
+      "sql": "CREATE MATERIALIZED VIEW \"APP\".\"MV_CHILD\" AS SELECT \"ID\" FROM \"SRC\".\"CHILD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_materialized_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "MV_CHILD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE MATERIALIZED VIEW \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM \"SRC\".\"CHILD\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE MATERIALIZED VIEW \"APP\".\"MV_CHILD\" AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
         }
       ]
     }

@@ -19,11 +19,12 @@ current parser kernel. The executable case matrix defines the support boundary:
 - `MERGE`, including an independent `WHEN MATCHED ... THEN DELETE` action;
   `insert_column` on a not-matched INSERT supports column-only, value-only, and
   paired modes, and existing VALUES cells can be replaced independently
-- common DDL: `CREATE TABLE`, `CREATE TABLE AS`, `CREATE VIEW`, and
-  `CREATE MATERIALIZED VIEW`
-- `ALTER TABLE RENAME`, `ALTER TABLE ADD COLUMN`, and
-  `ALTER TABLE DROP COLUMN`
-- `CREATE INDEX`, `DROP INDEX`, `DROP TABLE`, and `DROP VIEW`
+- common relation DDL: `CREATE TABLE`, `CREATE FOREIGN TABLE`,
+  `CREATE TABLE AS`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `SELECT INTO`
+- `ALTER TABLE` and `ALTER FOREIGN TABLE` RENAME and ADD/DROP COLUMN, plus FK,
+  LIKE, INHERITS, and ATTACH/DETACH PARTITION
+- `CREATE INDEX`, `DROP INDEX`, `DROP TABLE`, `DROP VIEW`,
+  `DROP MATERIALIZED VIEW`, and `TRUNCATE TABLE`
 - `CREATE SCHEMA` and `DROP SCHEMA`
 - `COMMENT ON`, `GRANT`, and `REVOKE`
 - `EXPLAIN`, `COPY`, `LOCK`, `ANALYZE`, and `VACUUM`
@@ -67,6 +68,14 @@ exposed by the public query graph.
   absent segment, so case cannot be inferred from identifier spelling. The
   PostgreSQL entry currently has no database-link relation, so the link flag is
   not applicable.
+- Relation DDL emits a root block with `kind = "ddl"` and uses
+  `ddl_role = "target"|"reference"` to distinguish changed objects from FK,
+  LIKE, INHERITS, and partition references. Query-backed targets point through
+  `source_block` to a SELECT block. CREATE/ALTER/RENAME/DROP FOREIGN TABLE uses
+  the same target-role contract. Multi-object DROP targets have no relation
+  selector; identically spelled quoted/unquoted segments retain exact
+  source-token delimiter state. This contract is proven by the current entry's
+  fixture and is not automatically inherited by compatibility entries.
 
 ## Regression Cases
 
@@ -78,5 +87,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 219 cases and 738 independent patches,
+The current PostgreSQL matrix contains 224 cases and 755 independent patches,
 all with `status = "final"`.

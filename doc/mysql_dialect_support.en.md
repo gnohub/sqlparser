@@ -39,10 +39,10 @@ current AST. The executable case matrix defines the support boundary:
 - `USE/FORCE/IGNORE INDEX|KEY` with `FOR JOIN|ORDER BY|GROUP BY` scopes
 - `LOCK IN SHARE MODE`, `FOR UPDATE/SHARE`, `NOWAIT`, and `SKIP LOCKED`
 - query-table `PARTITION(...)` selection clauses
-- basic `CREATE TABLE`, column attributes, table options, and partition tails without query expressions
-- `ALTER TABLE ADD COLUMN`
-- `CREATE VIEW`
-- `DROP TABLE`
+- basic `CREATE TABLE`, column attributes, table options, partition tails
+  without query expressions, and CTAS
+- `ALTER TABLE ADD COLUMN`, FK REFERENCES, and RENAME
+- `CREATE VIEW`, `CREATE INDEX`, `DROP TABLE`, `DROP VIEW`, and `TRUNCATE TABLE`
 - `START TRANSACTION`, `COMMIT`, and `ROLLBACK`
 - `USE db_name`
 - `PREPARE`, `EXECUTE`, `DEALLOCATE PREPARE`, and `DROP PREPARE`
@@ -82,6 +82,13 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
   for an unquoted or absent segment, so case cannot be inferred from identifier
   spelling. The MySQL entry has no database-link relation, and MERGE is a
   project compatibility contract rather than an official MySQL server claim.
+- Relation DDL verified against official MySQL syntax emits a root block with
+  `kind = "ddl"` and uses `ddl_role = "target"|"reference"` for changed
+  objects and FK references. VIEW and CTAS targets point through `source_block`
+  to a SELECT block. Multi-object DROP targets have no relation selector;
+  identically spelled quoted/unquoted segments retain exact source-token
+  backtick state. This contract does not automatically apply to compatibility
+  entries; each entry's fixture is authoritative.
 - A multi-target `UPDATE` omits a single `dml.target_relation`; each assignment
   identifies its write relation through the field referenced by `target_field`.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
@@ -96,5 +103,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 263 cases with `status = "final"` and 886
+The current MySQL matrix contains 266 cases with `status = "final"` and 894
 independent patches.

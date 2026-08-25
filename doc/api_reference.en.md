@@ -322,6 +322,7 @@ Defined dialects:
 | `sqlparser_selector_kind_name()` | returns the selector-kind name |
 | `sqlparser_clause_kind_name()` | returns the clause-kind name |
 | `sqlparser_graph_block_kind_name()` | returns the query graph block-kind name |
+| `sqlparser_graph_ddl_relation_role_name()` | returns the DDL relation-role name; this function is a public export |
 | `sqlparser_graph_relation_kind_name()` | returns the query graph relation-kind name |
 | `sqlparser_graph_target_kind_name()` | returns the query graph target-kind name |
 | `sqlparser_graph_value_kind_name()` | returns the query graph value-kind name |
@@ -807,9 +808,9 @@ the original handle.
 
 ## query_graph C Traversal
 
-`query_graph` provides structured access to query blocks, relations, output
-targets, field references, predicates, DML writes, session state, and bound
-values.
+`query_graph` provides structured access to query blocks, DDL relations, query
+relations, output targets, field references, predicates, DML writes, session
+state, and bound values.
 
 ### Entry Point
 
@@ -830,7 +831,7 @@ from which it was read.
 | Function | Summary |
 | --- | --- |
 | `sqlparser_query_graph_span_index_at()` | reads the Nth global index from a span |
-| `sqlparser_query_graph_block_at()` | reads a query block |
+| `sqlparser_query_graph_block_at()` | reads a graph block |
 | `sqlparser_query_graph_relation_at()` | reads a relation |
 | `sqlparser_query_graph_target_at()` | reads a SELECT target |
 | `sqlparser_query_graph_field_at()` | reads a field occurrence |
@@ -857,8 +858,8 @@ from which it was read.
 
 | Struct | Meaning |
 | --- | --- |
-| `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
-| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `database_quoted_identifier`, `schema_quoted_identifier`, `quoted_identifier`, `alias_quoted_identifier`, and `link_quoted_identifier` report delimiter state for the database, schema, object name, relation alias, and database link, respectively |
+| `sqlparser_graph_block_t` | graph block with relation, target, and predicate spans; the public value of `SQLPARSER_GRAPH_BLOCK_DDL` is `7` |
+| `sqlparser_graph_relation_t` | DDL target/reference or base, derived, CTE, or dual relation visible in SQL; `ddl_role` identifies a direct DDL relation, while the five quoted-identifier fields report delimiter state for the database, schema, object name, relation alias, and database link |
 | `sqlparser_graph_target_t` | query or DML-result output target; `output_quoted_identifier` reports delimiter state for the token represented by `output_name` |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token, while `pseudo` / `prior` report hierarchical occurrence semantics |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
@@ -877,6 +878,18 @@ from which it was read.
 
 ### Attribution Rules
 
+- The public value of `SQLPARSER_GRAPH_BLOCK_DDL` is `7`, and
+  `sqlparser_graph_block_kind_name(SQLPARSER_GRAPH_BLOCK_DDL)` returns `ddl`.
+  The public values of `sqlparser_graph_ddl_relation_role_t` are
+  `SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN = 0`,
+  `SQLPARSER_GRAPH_DDL_RELATION_TARGET = 1`, and
+  `SQLPARSER_GRAPH_DDL_RELATION_REFERENCE = 2`.
+  `sqlparser_graph_ddl_relation_role_name()` returns `unknown`, `target`, and
+  `reference`, respectively, and is exported as a public API.
+- `sqlparser_graph_relation_t.ddl_role` has C type `unsigned char`. Only a
+  relation represented directly by a DDL node in a DDL block uses `TARGET` or
+  `REFERENCE`. Ordinary query/DML relations and source-query relations in a
+  query-backed DDL use `UNKNOWN`.
 - `sqlparser_graph_relation_t.database_quoted_identifier`,
   `schema_quoted_identifier`, `quoted_identifier`, `alias_quoted_identifier`,
   and `link_quoted_identifier` apply only to `database_name`, `schema_name`,
@@ -899,23 +912,25 @@ from which it was read.
   backticks, or SQL Server `[...]`; it is `0` otherwise and does not classify
   the delimiter kind. PostgreSQL `U&"..."`, ordinary single-quoted strings,
   and quote styles generated internally by the parser do not set these flags.
-- The five relation-component flags cover ordinary SELECT/INSERT/UPDATE/DELETE
-  and MERGE relations, multi-table INSERT branch targets, relation-backed DML
-  result sinks, and remote objects. For Oracle, Dameng, and Vastbase-Oracle,
-  an `INSERT ALL ... INTO ...@link` branch target relation now fully projects
-  `object_name`, `link_name`, and their corresponding delimiter flags.
+- The five relation-component flags cover direct DDL relations, ordinary
+  SELECT/INSERT/UPDATE/DELETE and MERGE relations, multi-table INSERT branch
+  targets, relation-backed DML result sinks, and remote objects. For Oracle,
+  Dameng, and Vastbase-Oracle, an `INSERT ALL ... INTO ...@link` branch target
+  relation fully projects `object_name`, `link_name`, and their corresponding
+  delimiter flags.
 - These scalar fields introduce no independently allocated object that callers
   must release; query graph ownership and lifetime rules are unchanged.
-- On x86_64 and AArch64 64-bit layouts, the three new `unsigned char` relation
-  fields occupy existing padding in the 2.16.8 `sqlparser_graph_relation_t`,
-  while `sqlparser_graph_dml_column_t.quoted_identifier` occupies that
-  struct's existing tail padding. Both `sizeof` values and all old field
-  offsets remain unchanged. This statement does not apply to 32-bit layouts
-  and is not a claim of unchanged ABI on every platform.
+- On x86_64 and AArch64 64-bit layouts, the three segmented relation quote
+  flags occupy existing padding in the 2.16.8
+  `sqlparser_graph_relation_t`, and `ddl_role` occupies the final padding byte
+  left in the 2.16.9 struct. The relation `sizeof` and every old field offset
+  remain unchanged. `sqlparser_graph_dml_column_t.quoted_identifier` likewise
+  occupies existing tail padding in that struct. This statement does not apply
+  to 32-bit layouts and is not a claim of unchanged ABI on every platform.
 - `sqlparser_graph_relation_t.link_name` reports the database link for remote
   object references. It is `NULL` when the SQL has no database link.
-- `relations[].source_block_index` links a derived table or CTE to its source
-  block.
+- `relations[].source_block_index` links a derived table, CTE, or query-backed
+  DDL target to its source block.
 - A CTE definition is built once. Multiple references share its
   `source_block_index`, and an unreferenced CTE definition remains present in
   the graph.
@@ -1057,6 +1072,54 @@ from which it was read.
   Without an explicit `ESCAPE`, the kind is `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`.
   Deparse output keeps the public SQL form, for example
   `LIKE pattern ESCAPE escape`.
+
+### DDL Relations
+
+- Supported DDL uses `SQLPARSER_GRAPH_BLOCK_DDL = 7`. Its canonical root block
+  is block `0`. Direct DDL relations belong to that block, with targets before
+  references. Peer targets/references retain source order, but callers must use
+  `ddl_role` rather than infer a role from an array position.
+- Direct projection dispatches `CreateStmt`, `CreateForeignTableStmt`,
+  `AlterTableStmt`, `IndexStmt`, `TruncateStmt`, relation-kind `RenameStmt`,
+  and relation-kind `DropStmt`.
+  Query-backed projection dispatches `ViewStmt`, `CreateTableAsStmt`, and a
+  `SelectStmt` with an `INTO` relation for the specified dialects. Only dialect
+  syntax successfully parsed into these nodes enters this contract; it does
+  not imply that every dialect accepts every SQL surface listed below.
+- `CREATE TABLE` and `CREATE FOREIGN TABLE` mark the created object as
+  `TARGET`. Column-level and table-level foreign keys, `LIKE`, and `INHERITS`
+  relations are `REFERENCE`.
+  `ALTER TABLE` and `ALTER FOREIGN TABLE` mark the altered object as `TARGET`;
+  foreign keys and supported `ATTACH PARTITION`/`DETACH PARTITION` objects are
+  `REFERENCE`.
+- `CREATE INDEX ... ON relation` marks only the relation after `ON` as
+  `TARGET`; the index name is not a relation. `TRUNCATE` marks every relation
+  as `TARGET`. A relation-kind `RENAME` projects only the old object; the new
+  name is not represented as a second relation.
+- `DROP TABLE`, `DROP VIEW`, `DROP MATERIALIZED VIEW`, and `DROP FOREIGN TABLE`
+  mark every direct object as `TARGET`. The Drop AST uses object-name lists
+  rather than writable relation nodes, so these relations have no selector;
+  quoted flags are still derived from the exact token for each name segment.
+- `CREATE VIEW`, `CREATE TABLE AS`, `CREATE MATERIALIZED VIEW`, and
+  `SELECT ... INTO` for PostgreSQL/Vastbase-PostgreSQL and SQL
+  Server/Vastbase-SQL Server use a query-backed DDL shape. Block `0` is the DDL
+  root; its target relation is `TARGET` and points to source query entry block
+  `1` through `source_block_index`. Source SELECT relations keep ordinary query
+  semantics with `ddl_role = UNKNOWN` and belong to the source block or one of
+  its descendant blocks.
+- Non-relation DDL such as `CREATE SCHEMA`, `CREATE SEQUENCE`,
+  `CREATE SYNONYM`, and `DROP INDEX` does not produce a DDL relation. A dialect raw
+  surface enters this projection only when it is normalized into one of the
+  supported nodes above. Oracle, Dameng, and Vastbase-Oracle `SELECT ... INTO`
+  remains an ordinary SELECT; `INTO` does not create a relation.
+- A DDL target/reference with a relation selector continues to support the
+  existing `SQLPARSER_PATCH_REPLACE`. After a successful patch, quote flags,
+  name segments, DDL role, and source block are rebuilt in the new generation;
+  old graph views become stale, and a clone remains independent of its source
+  handle. Drop relations have no selector and cannot be patched directly
+  through this projection.
+- Strings, spans, and structs in a DDL graph remain owned by the handle and
+  must not be freed by the caller. No ownership or lifetime rule is added.
 
 ### Session State
 

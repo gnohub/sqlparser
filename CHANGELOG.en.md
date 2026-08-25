@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.10
+
+### DDL Query Graph Relation Projection
+
+- Added `SQLPARSER_GRAPH_BLOCK_DDL`, `sqlparser_graph_ddl_relation_role_t`, and `sqlparser_graph_relation_t.ddl_role`. Supported DDL objects and references are marked as `TARGET` and `REFERENCE`, while query-backed DDL targets point through `source_block` to a separate SELECT source block.
+- Relation projection covers successfully parsed CREATE/ALTER TABLE, CREATE INDEX, TRUNCATE, relation RENAME/DROP, CREATE VIEW, CTAS, CREATE MATERIALIZED VIEW, and dialect-specific `SELECT INTO` forms. PostgreSQL-compatible entries also cover FOREIGN TABLE and partition references.
+- Multi-object DROP relations remain selector-free and derive delimiter state from each exact object and name segment in statement order. Regressions cover identically spelled quoted/unquoted names, MySQL statement-level executable comments, the `if` identifier boundary, and PostgreSQL U&/`UESCAPE` sequencing. CREATE INDEX/TRUNCATE relation patches in ordinary SQL Server multi-statement input preserve the public SQL surface.
+- Added the public export `sqlparser_graph_ddl_relation_role_name()`. On x86_64 and AArch64 64-bit layouts, `ddl_role` occupies the final padding byte in the 2.16.9 structure, preserving `sizeof(sqlparser_graph_relation_t)` and every old member offset. Ownership and lifetime rules are unchanged.
+
+### Cases and Validation
+
+- Sixty-six final cases and 113 patches were added. The nine fixtures now contain 2,968 final cases and 9,379 patches.
+- The full `make test` suite, all nine dialect matrices, and the ABI export check passed with 155 public symbols. The targeted identifier Valgrind check reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.9
 
 ### Query Graph Identifier Segment Delimiter State

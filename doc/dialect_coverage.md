@@ -6,23 +6,24 @@
 
 | 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 219 | 0 | 219 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 263 | 0 | 263 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 271 | 0 | 271 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 629 | 0 | 629 | 100.00% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 203 | 0 | 203 | 100.00% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 204 | 0 | 204 | 100.00% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 264 | 0 | 264 | 100.00% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 240 | 0 | 240 | 100.00% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 609 | 0 | 609 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 224 | 0 | 224 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 266 | 0 | 266 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 281 | 0 | 281 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 639 | 0 | 639 | 100.00% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 213 | 0 | 213 | 100.00% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 209 | 0 | 209 | 100.00% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 267 | 0 | 267 | 100.00% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 250 | 0 | 250 | 100.00% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 619 | 0 | 619 | 100.00% |
 
-九个夹具合计 2902 条 final 用例和 9266 个独立 patch。
+九个夹具合计 2968 条 final 用例和 9379 个独立 patch。
 
 ## 口径
 
 - `成功用例` 表示输入成功生成 handle，并通过解析、View JSON、未修改 handle 的 deparse 原文逐字节一致性和适用的结构断言。
 - `预期失败用例` 表示 fixture 明确期望 `SQLPARSER_STATUS_UNSUPPORTED`、解析错误或其他失败状态，不返回可用 handle。
 - 预期失败用例包括非法 SQL，以及当前方言到 AST 的映射尚未表示其必要语义的用例。该夹具统计不代表官方语法覆盖率。
+- 基础五入口新增的 DDL Query Graph 合同只由各自 fixture 证明；不能由基础入口统计推断 Vastbase 兼容入口具有相同语法范围或 patch 能力，兼容入口仍以自身 fixture 为准。
 
 ## 维护要求
 

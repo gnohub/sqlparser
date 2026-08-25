@@ -1,5 +1,5 @@
 category,item,status,reason,official_url
-query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY 和 LIMIT 的代表性形态；relation 的 database/schema/object 引号状态按段输出",https://www.postgresql.org/docs/17/sql-select.html
+query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY、LIMIT 和 SELECT INTO 代表形态；SELECT INTO target 位于 DDL block 并通过 source_block 指向 SELECT 来源块；relation 的 database/schema/object 引号状态按段输出",https://www.postgresql.org/docs/17/sql-select.html
 query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属",https://www.postgresql.org/docs/17/queries-with.html
 query,set-operations,CURRENT,"已覆盖 UNION ALL、EXCEPT 和 INTERSECT",https://www.postgresql.org/docs/17/queries-union.html
 query,VALUES,CURRENT,"VALUES 可由当前 AST 承载，并在 INSERT VALUES 中验证",https://www.postgresql.org/docs/17/sql-values.html
@@ -10,15 +10,15 @@ dml,UPDATE,CURRENT,"已覆盖 UPDATE、UPDATE FROM 和 RETURNING",https://www.po
 dml,DELETE,CURRENT,"已覆盖 DELETE、DELETE USING 和 RETURNING",https://www.postgresql.org/docs/17/sql-delete.html
 dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构、独立 WHEN MATCHED THEN DELETE action、column-only/value-only/paired 三态添加、省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://www.postgresql.org/docs/17/sql-merge.html
 dml,CALL,CURRENT,"已覆盖 CALL 语句解析",https://www.postgresql.org/docs/17/sql-call.html
-ddl,CREATE_TABLE,CURRENT,"已覆盖基础 CREATE TABLE 和列定义",https://www.postgresql.org/docs/17/sql-createtable.html
-ddl,CREATE_TABLE_AS,CURRENT,"已覆盖 CREATE TABLE AS SELECT",https://www.postgresql.org/docs/17/sql-createtableas.html
-ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://www.postgresql.org/docs/17/sql-createview.html
-ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖 CREATE MATERIALIZED VIEW AS SELECT",https://www.postgresql.org/docs/17/sql-creatematerializedview.html
-ddl,ALTER_TABLE,CURRENT,"已覆盖 RENAME、ADD COLUMN 和 DROP COLUMN 代表性形态",https://www.postgresql.org/docs/17/sql-altertable.html
-ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://www.postgresql.org/docs/17/sql-createindex.html
+ddl,CREATE_TABLE,CURRENT,"已覆盖基础 CREATE TABLE、列定义、FK/LIKE/INHERITS reference；target/reference 位于 DDL block 并保留分段引号状态",https://www.postgresql.org/docs/17/sql-createtable.html
+ddl,CREATE_TABLE_AS,CURRENT,"已覆盖 CREATE TABLE AS SELECT；DDL target 通过 source_block 指向 SELECT 来源块",https://www.postgresql.org/docs/17/sql-createtableas.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT；DDL target 通过 source_block 指向 SELECT 来源块",https://www.postgresql.org/docs/17/sql-createview.html
+ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖 CREATE MATERIALIZED VIEW AS SELECT；DDL target 通过 source_block 指向 SELECT 来源块",https://www.postgresql.org/docs/17/sql-creatematerializedview.html
+ddl,ALTER_TABLE,CURRENT,"已覆盖 RENAME、ADD/DROP COLUMN、FK reference 和 ATTACH/DETACH PARTITION 的 target/reference DDL graph",https://www.postgresql.org/docs/17/sql-altertable.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX，ON table 作为 DDL target",https://www.postgresql.org/docs/17/sql-createindex.html
 ddl,DROP_INDEX,CURRENT,"已覆盖 DROP INDEX",https://www.postgresql.org/docs/17/sql-dropindex.html
-ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://www.postgresql.org/docs/17/sql-droptable.html
-ddl,DROP_VIEW,CURRENT,"已覆盖 DROP VIEW",https://www.postgresql.org/docs/17/sql-dropview.html
+ddl,DROP_TABLE,CURRENT,"已覆盖多对象 DROP TABLE target、同名 quoted/unquoted 分段、if 标识符和 U&/UESCAPE 后续目标的精确状态；DROP target 无 relation selector",https://www.postgresql.org/docs/17/sql-droptable.html
+ddl,DROP_VIEW,CURRENT,"已覆盖多对象 DROP VIEW target 和分段引号状态；DROP target 当前无 relation selector",https://www.postgresql.org/docs/17/sql-dropview.html
 ddl,CREATE_SCHEMA,CURRENT,"已覆盖 CREATE SCHEMA",https://www.postgresql.org/docs/17/sql-createschema.html
 ddl,DROP_SCHEMA,CURRENT,"已覆盖 DROP SCHEMA",https://www.postgresql.org/docs/17/sql-dropschema.html
 utility,EXPLAIN,CURRENT,"已覆盖 EXPLAIN SELECT",https://www.postgresql.org/docs/17/sql-explain.html

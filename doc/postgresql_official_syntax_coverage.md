@@ -44,4 +44,6 @@ PostgreSQL `MERGE` 支持独立的 `WHEN MATCHED ... THEN DELETE` action；`inse
 
 Query Graph 对 relation 的 database、schema、object 名称段分别保留引号状态，DML target column 也保留独立 `quoted_identifier`；未定界或不存在的段不输出 true 标志。1 条可执行用例和 4 个独立 patch 覆盖普通 DML、MERGE INSERT、`DEFAULT VALUES` 及 patch 后逐段重算。PostgreSQL 当前入口没有 database-link relation。
 
+relation DDL 的 `CURRENT` 合同使用 `kind = "ddl"` 根 block 和 `ddl_role = "target"|"reference"`，覆盖 FK、LIKE、INHERITS、partition 引用、多对象 DROP、TRUNCATE、查询支撑型 VIEW/CTAS/物化视图及 `SELECT INTO`。DROP target 无 relation selector，同名 quoted/unquoted 分段、`if` 标识符与 U&/`UESCAPE` 边界均按精确来源处理。5 条新增 final 用例和 17 个独立 patch 验证这些边界。该证据只属于 PostgreSQL 基础入口，不自动代表兼容入口。
+
 PostgreSQL 是默认解析内核方言，当前没有只缺少 hook 或回归覆盖的语法组。剩余缺口为角色、用户、数据库对象管理类语句的完整对象归属和选项模型，需要扩展公共模型。

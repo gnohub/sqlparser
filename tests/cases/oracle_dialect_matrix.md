@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 271 条 `status = "final"` 用例和 876 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 281 条 `status = "final"` 用例和 889 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -282,6 +282,23 @@ relation 的限定名按段记录双引号状态：`database_quoted_identifier`�
 | O218 | `oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | 3 个 `INSERT ALL` target 分别引用 database/schema/object 段 | 每分支 relation 和目标列逐段标志，分支 value patch 后保持 |
 | O219 | `oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | WHEN/ELSE 的 3 个 `INSERT FIRST` target | 条件分支 relation 与目标列逐段标志，ELSE value patch 后保持 |
 | O220 | `oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | `INSERT ALL INTO APP."T"@"REMOTE" ("ID")` | 多表插入专用 target 投影保留 object/link 与目标列标志，value patch 后保持 |
+
+## DDL Query Graph relation 合同
+
+以下 SQL 均收敛到 Oracle 官方可用形态并经当前入口逐字节反解析验证。DDL relation 位于 `kind = "ddl"` 根 block，操作对象和 FK 引用分别以 `ddl_role = "target"`、`"reference"` 表达；查询支撑型 target 通过 `source_block` 指向 SELECT block。DROP target 保留完整分段引号标志，但当前不提供 relation selector。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| O221 | `oracle-ddl-relation-create-table-foreign-key` | CREATE TABLE + FK REFERENCES | target/reference role、分段引号标志及 2 个 relation patch |
+| O222 | `oracle-ddl-relation-alter-table-foreign-key` | ALTER TABLE ADD FK | target/reference role 及 2 个 relation patch |
+| O223 | `oracle-ddl-relation-create-index-on-table` | CREATE INDEX ON table | ON table 为 DDL target，1 个 relation patch |
+| O224 | `oracle-ddl-relation-drop-table-target` | DROP TABLE | DDL target 与 DROP 无 selector 边界 |
+| O225 | `oracle-ddl-relation-drop-materialized-view-target` | DROP MATERIALIZED VIEW | DDL target 与 DROP 无 selector 边界 |
+| O226 | `oracle-ddl-relation-truncate-table-target` | TRUNCATE TABLE | DDL target、分段引号标志及 1 个 relation patch |
+| O227 | `oracle-ddl-relation-alter-table-rename-target` | ALTER TABLE RENAME TO | 旧表为唯一 DDL target，新名称不伪装为 relation；1 个 patch |
+| O228 | `oracle-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target、SELECT source、`source_block` 及 2 个 relation patch |
+| O229 | `oracle-ddl-relation-create-table-as-target-and-source` | CTAS | DDL target 与 SELECT source 分块，2 个 relation patch |
+| O230 | `oracle-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | DDL target 与 SELECT source 分块，2 个 relation patch |
 
 ## 覆盖边界
 

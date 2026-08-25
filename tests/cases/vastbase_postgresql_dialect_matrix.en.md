@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 204 cases with `status = "final"` and 667 independent patches. The expected View contains a non-empty session projection in 35 cases.
+The fixture contains 209 cases with `status = "final"` and 684 independent patches. The expected View contains a non-empty session projection in 35 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -38,6 +38,18 @@ The following final case contrasts identically spelled delimited and undelimited
 | ID | Case | Status | Independent Patches | Validation Focus |
 | --- | --- | --- | ---: | --- |
 | `VPG204` | `vastbase-postgresql-quoted-identifier-segment-and-dml-column-inventory` | final | 4 | multi-statement SELECT, INSERT, UPDATE, DELETE, MERGE, and `DEFAULT VALUES` cover `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, and DML-column `quoted_identifier`; identically spelled undelimited segments omit the corresponding View keys |
+
+## DDL Relation Projection Regression
+
+The following five final cases define the DDL Query Graph contract for the project's `vastbase-postgresql` compatibility entry. A DDL root block uses `kind = "ddl"`; each relation uses `ddl_role = "target"` or `"reference"` to distinguish the operated object from a referenced object and preserves the delimiter state of each database/schema/object source segment. Query-backed CREATE objects and `SELECT INTO` connect the DDL target to a separate SELECT block through `source_block`. The verified PostgreSQL-compatible forms in the fixture are the syntax boundary. This is a project compatibility-entry contract, not a claim that the Vastbase server documentation defines the same scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VPG205` | `vastbase-postgresql-ddl-relation-direct-inventory` | final | 8 | CREATE TABLE FK, LIKE, and INHERITS references; ALTER TABLE FK; CREATE INDEX; multi-object DROP/TRUNCATE; the old RENAME object; and DROP VIEW/MATERIALIZED VIEW targets, with delimiter-state recomputation after relation patches |
+| `VPG206` | `vastbase-postgresql-ddl-relation-partition-operations` | final | 3 | ATTACH/DETACH PARTITION keeps the operated table as target and the partition table as reference, with independent rewrites |
+| `VPG207` | `vastbase-postgresql-ddl-relation-query-backed-inventory` | final | 3 | DDL targets, SELECT sources, and `source_block` links for CREATE VIEW, CTAS, and CREATE MATERIALIZED VIEW |
+| `VPG208` | `vastbase-postgresql-ddl-relation-select-into` | final | 2 | `SELECT INTO` exposes the destination as a DDL target and retains the FROM relation in a separate SELECT block; both selectors are independently rewritable |
+| `VPG209` | `vastbase-postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | final | 1 | CREATE/ALTER/RENAME/DROP FOREIGN TABLE target lifecycle and patch; exact segment state for same-name DROP, the `if` identifier boundary, and a target following a U& identifier with `UESCAPE` |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

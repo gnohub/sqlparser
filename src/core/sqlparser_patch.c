@@ -318,7 +318,11 @@ static int sqlparser_patch_sqlserver_control_surface_eligible(
 		raw_stmt->stmt->node_case ==
 			PG_QUERY__NODE__NODE_DELETE_STMT ||
 		raw_stmt->stmt->node_case ==
-			PG_QUERY__NODE__NODE_MERGE_STMT);
+			PG_QUERY__NODE__NODE_MERGE_STMT ||
+		raw_stmt->stmt->node_case ==
+			PG_QUERY__NODE__NODE_INDEX_STMT ||
+		raw_stmt->stmt->node_case ==
+			PG_QUERY__NODE__NODE_TRUNCATE_STMT);
 }
 
 static int sqlparser_patch_control_surface_span_is_local(
@@ -890,6 +894,7 @@ static int sqlparser_patch_sqlserver_transaction_batch_surface_eligible(
 
 static sqlparser_status_t sqlparser_patch_sqlserver_surface_eligible(
 	sqlparser_handle_t *handle,
+	size_t statement_index,
 	int *out_eligible,
 	sqlparser_error_t *out_error)
 {
@@ -916,7 +921,18 @@ static sqlparser_status_t sqlparser_patch_sqlserver_surface_eligible(
 	    handle->control != NULL || handle->ast == NULL ||
 	    handle->statement_count != handle->ast->n_stmts ||
 	    handle->ast->n_stmts == 0U ||
-	    handle->ast->stmts == NULL || handle->ast->stmts[0] == NULL) {
+	    handle->ast->stmts == NULL ||
+	    statement_index >= handle->ast->n_stmts ||
+	    handle->ast->stmts[statement_index] == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	raw_stmt = handle->ast->stmts[statement_index];
+	if (raw_stmt->stmt != NULL &&
+	    (raw_stmt->stmt->node_case ==
+		     PG_QUERY__NODE__NODE_INDEX_STMT ||
+	     raw_stmt->stmt->node_case ==
+		     PG_QUERY__NODE__NODE_TRUNCATE_STMT)) {
+		*out_eligible = 1;
 		return SQLPARSER_STATUS_OK;
 	}
 	if (handle->ast->n_stmts != 1U) {
@@ -925,7 +941,6 @@ static sqlparser_status_t sqlparser_patch_sqlserver_surface_eligible(
 				handle);
 		return SQLPARSER_STATUS_OK;
 	}
-	raw_stmt = handle->ast->stmts[0];
 	odbc_function_seen = sqlparser_sqlserver_state_has_odbc_function(
 		handle->dialect_state,
 		0U);
@@ -5066,6 +5081,7 @@ static sqlparser_status_t sqlparser_patch_plan_relation_surface_edits(
 		} else {
 			status = sqlparser_patch_sqlserver_surface_eligible(
 				handle,
+				statement_index,
 				&surface_eligible,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -7771,6 +7787,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		} else {
 			status = sqlparser_patch_sqlserver_surface_eligible(
 				handle,
+				selector.statement_index,
 				&surface_eligible,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {

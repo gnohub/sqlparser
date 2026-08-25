@@ -3593,6 +3593,21 @@ const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind)
 			return "dml_result";
 		case SQLPARSER_GRAPH_BLOCK_CONDITION:
 			return "condition";
+		case SQLPARSER_GRAPH_BLOCK_DDL:
+			return "ddl";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_ddl_relation_role_name(sqlparser_graph_ddl_relation_role_t role)
+{
+	switch (role) {
+		case SQLPARSER_GRAPH_DDL_RELATION_TARGET:
+			return "target";
+		case SQLPARSER_GRAPH_DDL_RELATION_REFERENCE:
+			return "reference";
+		case SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN:
 		default:
 			return "unknown";
 	}

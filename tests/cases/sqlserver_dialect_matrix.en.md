@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 629 cases with `status = "final"` and 1889 independent
+The fixture contains 639 cases with `status = "final"` and 1901 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -451,6 +451,23 @@ C-structure lifecycle coverage is maintained in
 | --- | --- | --- | --- |
 | SH431 | `sqlserver-quoted-identifier-three-part-dml-matrix` | five statements covering three-part relations in SELECT, INSERT, UPDATE FROM, DELETE, and MERGE | database/schema/object segment flags and ordinary/MERGE `dml_column.quoted_identifier`; seven independent patches cover per-segment recomputation for all five relation forms and quoted-to-unquoted MERGE-column changes |
 | SH432 | `sqlserver-output-into-quoted-identifier-sink-matrix` | three-part `OUTPUT ... INTO` sink relations and sink columns for INSERT, UPDATE, DELETE, and MERGE | segment flags on all four result-channel sink relations and `sink_columns[].quoted_identifier`; seven independent patches cover four sink relations, two sink columns, and fresh-View recomputation for the source INSERT relation |
+
+## DDL Query Graph Relation Contract
+
+These cases use official SQL Server T-SQL forms. DDL targets and references live in a root block with `kind = "ddl"`; CREATE VIEW and `SELECT ... INTO` targets point through `source_block` to a separate SELECT block. Multi-object DROP targets retain database/schema/object bracket state but have no relation selector. CREATE INDEX and TRUNCATE relation patches also lock the public SQL surface: no PostgreSQL `USING btree` is introduced and `TRUNCATE TABLE` is retained. Compatibility entries must not be inferred from this section; their own fixtures are authoritative.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH433 | `sqlserver-ddl-graph-create-table-fk-quoted-segments` | three-part CREATE TABLE with FK REFERENCES | target/reference roles, segmented bracket flags, and two relation patches |
+| SH434 | `sqlserver-ddl-graph-alter-table-fk-quoted-segments` | three-part ALTER TABLE ADD FK | target/reference roles and two relation patches |
+| SH435 | `sqlserver-ddl-graph-create-index-three-part-target` | CREATE INDEX ON a three-part table | ON-table as DDL target; a patch does not add `USING btree` |
+| SH436 | `sqlserver-ddl-graph-truncate-three-part-target` | TRUNCATE TABLE with a three-part target | DDL target; a patch retains the `TRUNCATE TABLE` surface |
+| SH437 | `sqlserver-ddl-graph-drop-table-multi-target` | multi-object DROP TABLE IF EXISTS | two DDL targets, complete segmented flags, and the no-selector boundary |
+| SH438 | `sqlserver-ddl-graph-drop-view-multi-target` | multi-object DROP VIEW IF EXISTS | two DDL targets and the no-selector boundary |
+| SH439 | `sqlserver-ddl-graph-create-view-target-source-block` | CREATE VIEW AS SELECT | DDL target, SELECT source, `source_block`, and two relation patches |
+| SH440 | `sqlserver-ddl-graph-select-into-target-source-block` | `SELECT ... INTO target FROM source` | separate DDL-target and SELECT-source blocks, `source_block`, and two relation patches |
+| SH441 | `sqlserver-ddl-multistatement-surface-relation-patch` | ordinary two-statement CREATE INDEX / TRUNCATE TABLE batch | two relation patches preserve SQL Server's public surface: no `USING btree` is added and `TABLE` is retained |
+| SH442 | `sqlserver-ddl-drop-table-quoted-same-spelling` | multi-object DROP TABLE with identically spelled quoted/unquoted names | selector-free DROP targets whose schema/object bracket states come from their exact source tokens |
 
 ## Official Hook Coverage Cases
 

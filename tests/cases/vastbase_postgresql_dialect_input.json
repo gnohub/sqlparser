@@ -1507,14 +1507,33 @@
       "name": "vastbase-postgresql-drop-table",
       "sql": "DROP TABLE public.users",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "drop_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "drop_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1522,14 +1541,33 @@
       "name": "vastbase-postgresql-drop-view",
       "sql": "DROP VIEW public.v_users",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "drop_view",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "drop_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "table": "v_users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1537,75 +1575,90 @@
       "name": "vastbase-postgresql-create-view",
       "sql": "CREATE VIEW public.v_users AS SELECT id, name FROM public.users",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_view",
-            "query_graph": {
-              "blocks": [
-                {
-                  "kind": "select",
-                  "relations": [
-                    0
-                  ],
-                  "targets": [
-                    0,
-                    1
-                  ]
-                }
-              ],
-              "fields": [
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[2]",
-                  "target": 0
-                },
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "name",
-                  "relation": 0,
-                  "selector": "stmt[0].name[3]",
-                  "target": 1
-                }
-              ],
-              "relations": [
-                {
-                  "block": 0,
-                  "kind": "base",
-                  "schema": "public",
-                  "selector": "stmt[0].relation[1]",
-                  "table": "users"
-                }
-              ],
-              "root": 0,
-              "targets": [
-                {
-                  "block": 0,
-                  "field": 0,
-                  "kind": "field",
-                  "name": "id",
-                  "ordinal": 0,
-                  "selector": "stmt[0].select_target[0][0]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                },
-                {
-                  "block": 0,
-                  "field": 1,
-                  "kind": "field",
-                  "name": "name",
-                  "ordinal": 1,
-                  "selector": "stmt[0].select_target[0][1]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                }
-              ]
-            }
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        },
+                        {
+                          "kind": "select",
+                          "relations": [
+                            1
+                          ],
+                          "targets": [
+                            0,
+                            1
+                          ]
+                        }
+                      ],
+                      "fields": [
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[2]",
+                          "target": 0
+                        },
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "name",
+                          "relation": 1,
+                          "selector": "stmt[0].name[3]",
+                          "target": 1
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "source_block": 1,
+                          "table": "v_users"
+                        },
+                        {
+                          "block": 1,
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[1]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0,
+                      "targets": [
+                        {
+                          "block": 1,
+                          "field": 0,
+                          "kind": "field",
+                          "name": "id",
+                          "ordinal": 0,
+                          "selector": "stmt[0].select_target[0][0]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        },
+                        {
+                          "block": 1,
+                          "field": 1,
+                          "kind": "field",
+                          "name": "name",
+                          "ordinal": 1,
+                          "selector": "stmt[0].select_target[0][1]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": [
         {
@@ -1616,7 +1669,7 @@
         },
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE VIEW public.v_users AS SELECT id, name FROM \"PatchedTable\""
         },
@@ -1639,14 +1692,34 @@
       "name": "vastbase-postgresql-truncate-table",
       "sql": "TRUNCATE TABLE public.users",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "ddl",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "ddl",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1669,14 +1742,34 @@
       "name": "vastbase-postgresql-rename-table",
       "sql": "ALTER TABLE public.users RENAME TO users_archive",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "rename",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "rename",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1684,14 +1777,34 @@
       "name": "vastbase-postgresql-alter-table-add-column",
       "sql": "ALTER TABLE public.users ADD COLUMN age integer",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "alter_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "alter_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1699,14 +1812,34 @@
       "name": "vastbase-postgresql-create-index",
       "sql": "CREATE INDEX idx_users_name ON public.users (name)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_index",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_index",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -1804,96 +1937,111 @@
       "name": "vastbase-postgresql-create-table-as",
       "sql": "CREATE TABLE public.active_users AS SELECT id FROM public.users WHERE status = 'active'",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table_as",
-            "query_graph": {
-              "blocks": [
-                {
-                  "kind": "select",
-                  "predicates": [
-                    0
-                  ],
-                  "relations": [
-                    0
-                  ],
-                  "targets": [
-                    0
-                  ]
-                }
-              ],
-              "fields": [
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[0]",
-                  "target": 0
-                },
-                {
-                  "block": 0,
-                  "clause": "where",
-                  "column": "status",
-                  "relation": 0,
-                  "selector": "stmt[0].name[3]"
-                }
-              ],
-              "predicates": [
-                {
-                  "block": 0,
-                  "bool_operator": "none",
-                  "clause": "where",
-                  "kind": "comparison",
-                  "left_field": 1,
-                  "operator": "=",
-                  "operator_kind": "unknown",
-                  "value": 0
-                }
-              ],
-              "relations": [
-                {
-                  "block": 0,
-                  "kind": "base",
-                  "schema": "public",
-                  "selector": "stmt[0].relation[0]",
-                  "table": "users"
-                }
-              ],
-              "root": 0,
-              "targets": [
-                {
-                  "block": 0,
-                  "field": 0,
-                  "kind": "field",
-                  "name": "id",
-                  "ordinal": 0,
-                  "selector": "stmt[0].select_target[0][0]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                }
-              ],
-              "values": [
-                {
-                  "bind_kind": 0,
-                  "block": 0,
-                  "clause": "where",
-                  "field": 1,
-                  "field_match_kind": "direct_field",
-                  "kind": "literal",
-                  "literal": {
-                    "kind": "string",
-                    "string_value": "active"
-                  },
-                  "operator": "=",
-                  "operator_kind": "unknown",
-                  "selector": "stmt[0].value[9]"
-                }
-              ]
-            }
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table_as",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        },
+                        {
+                          "kind": "select",
+                          "predicates": [
+                            0
+                          ],
+                          "relations": [
+                            1
+                          ],
+                          "targets": [
+                            0
+                          ]
+                        }
+                      ],
+                      "fields": [
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[0]",
+                          "target": 0
+                        },
+                        {
+                          "block": 1,
+                          "clause": "where",
+                          "column": "status",
+                          "relation": 1,
+                          "selector": "stmt[0].name[3]"
+                        }
+                      ],
+                      "predicates": [
+                        {
+                          "block": 1,
+                          "bool_operator": "none",
+                          "clause": "where",
+                          "kind": "comparison",
+                          "left_field": 1,
+                          "operator": "=",
+                          "operator_kind": "unknown",
+                          "value": 0
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[1]",
+                          "source_block": 1,
+                          "table": "active_users"
+                        },
+                        {
+                          "block": 1,
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0,
+                      "targets": [
+                        {
+                          "block": 1,
+                          "field": 0,
+                          "kind": "field",
+                          "name": "id",
+                          "ordinal": 0,
+                          "selector": "stmt[0].select_target[0][0]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        }
+                      ],
+                      "values": [
+                        {
+                          "bind_kind": 0,
+                          "block": 1,
+                          "clause": "where",
+                          "field": 1,
+                          "field_match_kind": "direct_field",
+                          "kind": "literal",
+                          "literal": {
+                            "kind": "string",
+                            "string_value": "active"
+                          },
+                          "operator": "=",
+                          "operator_kind": "unknown",
+                          "selector": "stmt[0].value[9]"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": [
         {
@@ -1904,7 +2052,7 @@
         },
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE TABLE public.active_users AS SELECT id FROM \"PatchedTable\" WHERE status = 'active'"
         },
@@ -3966,75 +4114,90 @@
       "name": "vastbase-postgresql-create-materialized-view",
       "sql": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM public.users",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_materialized_view",
-            "query_graph": {
-              "blocks": [
-                {
-                  "kind": "select",
-                  "relations": [
-                    0
-                  ],
-                  "targets": [
-                    0,
-                    1
-                  ]
-                }
-              ],
-              "fields": [
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[0]",
-                  "target": 0
-                },
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "name",
-                  "relation": 0,
-                  "selector": "stmt[0].name[1]",
-                  "target": 1
-                }
-              ],
-              "relations": [
-                {
-                  "block": 0,
-                  "kind": "base",
-                  "schema": "public",
-                  "selector": "stmt[0].relation[0]",
-                  "table": "users"
-                }
-              ],
-              "root": 0,
-              "targets": [
-                {
-                  "block": 0,
-                  "field": 0,
-                  "kind": "field",
-                  "name": "id",
-                  "ordinal": 0,
-                  "selector": "stmt[0].select_target[0][0]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                },
-                {
-                  "block": 0,
-                  "field": 1,
-                  "kind": "field",
-                  "name": "name",
-                  "ordinal": 1,
-                  "selector": "stmt[0].select_target[0][1]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                }
-              ]
-            }
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_materialized_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        },
+                        {
+                          "kind": "select",
+                          "relations": [
+                            1
+                          ],
+                          "targets": [
+                            0,
+                            1
+                          ]
+                        }
+                      ],
+                      "fields": [
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[0]",
+                          "target": 0
+                        },
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "name",
+                          "relation": 1,
+                          "selector": "stmt[0].name[1]",
+                          "target": 1
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[1]",
+                          "source_block": 1,
+                          "table": "mv_users"
+                        },
+                        {
+                          "block": 1,
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0,
+                      "targets": [
+                        {
+                          "block": 1,
+                          "field": 0,
+                          "kind": "field",
+                          "name": "id",
+                          "ordinal": 0,
+                          "selector": "stmt[0].select_target[0][0]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        },
+                        {
+                          "block": 1,
+                          "field": 1,
+                          "kind": "field",
+                          "name": "name",
+                          "ordinal": 1,
+                          "selector": "stmt[0].select_target[0][1]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": [
         {
@@ -4045,7 +4208,7 @@
         },
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM \"PatchedTable\""
         },
@@ -4068,14 +4231,34 @@
       "name": "vastbase-postgresql-alter-table-drop-column",
       "sql": "ALTER TABLE public.users DROP COLUMN age",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "alter_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "alter_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -7593,14 +7776,34 @@
       "name": "vastbase-postgresql-postgresql-create-table-if-not-exists-types",
       "sql": "CREATE TABLE IF NOT EXISTS public.secure_users (id BIGINT, name VARCHAR(64), phone TEXT, payload JSONB, created_at TIMESTAMP)",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_table",
-            "query_graph": {}
-          }
-        ]
-      },
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_table",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "table": "secure_users"
+                        }
+                      ],
+                      "root": 0
+                    }
+                  }
+                ]
+              },
       "status": "final",
       "patch": []
     },
@@ -8942,141 +9145,156 @@
       "name": "vastbase-postgresql-postgresql-create-view-join-aggregate",
       "sql": "CREATE VIEW public.v_user_order_count AS SELECT u.id, COUNT(o.id) AS order_count FROM public.users u JOIN public.orders o ON u.id = o.user_id GROUP BY u.id",
       "view": {
-        "statements": [
-          {
-            "index": 0,
-            "keyword": "create_view",
-            "query_graph": {
-              "blocks": [
-                {
-                  "kind": "select",
-                  "predicates": [
-                    0
-                  ],
-                  "relations": [
-                    0,
-                    1
-                  ],
-                  "targets": [
-                    0,
-                    1
-                  ]
-                }
-              ],
-              "fields": [
-                {
-                  "block": 0,
-                  "clause": "on",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[15]"
-                },
-                {
-                  "block": 0,
-                  "clause": "on",
-                  "column": "user_id",
-                  "relation": 1,
-                  "selector": "stmt[0].name[17]"
-                },
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[3]",
-                  "target": 0
-                },
-                {
-                  "block": 0,
-                  "clause": "select_list",
-                  "column": "id",
-                  "relation": 1,
-                  "selector": "stmt[0].name[7]",
-                  "target": 1,
-                  "target_path": [
-                    {
-                      "arg_index": 0,
-                      "kind": "function",
-                      "name": "COUNT"
+                "statements": [
+                  {
+                    "index": 0,
+                    "keyword": "create_view",
+                    "query_graph": {
+                      "blocks": [
+                        {
+                          "kind": "ddl",
+                          "relations": [
+                            0
+                          ]
+                        },
+                        {
+                          "kind": "select",
+                          "predicates": [
+                            0
+                          ],
+                          "relations": [
+                            1,
+                            2
+                          ],
+                          "targets": [
+                            0,
+                            1
+                          ]
+                        }
+                      ],
+                      "fields": [
+                        {
+                          "block": 1,
+                          "clause": "on",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[15]"
+                        },
+                        {
+                          "block": 1,
+                          "clause": "on",
+                          "column": "user_id",
+                          "relation": 2,
+                          "selector": "stmt[0].name[17]"
+                        },
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[3]",
+                          "target": 0
+                        },
+                        {
+                          "block": 1,
+                          "clause": "select_list",
+                          "column": "id",
+                          "relation": 2,
+                          "selector": "stmt[0].name[7]",
+                          "target": 1,
+                          "target_path": [
+                            {
+                              "arg_index": 0,
+                              "kind": "function",
+                              "name": "COUNT"
+                            }
+                          ]
+                        },
+                        {
+                          "block": 1,
+                          "clause": "group_by",
+                          "column": "id",
+                          "relation": 1,
+                          "selector": "stmt[0].name[19]"
+                        }
+                      ],
+                      "predicates": [
+                        {
+                          "block": 1,
+                          "bool_operator": "none",
+                          "clause": "on",
+                          "kind": "comparison",
+                          "left_field": 0,
+                          "operator": "=",
+                          "operator_kind": "unknown",
+                          "right_field": 1,
+                          "value": 0
+                        }
+                      ],
+                      "relations": [
+                        {
+                          "block": 0,
+                          "ddl_role": "target",
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[0]",
+                          "source_block": 1,
+                          "table": "v_user_order_count"
+                        },
+                        {
+                          "alias": "u",
+                          "block": 1,
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[1]",
+                          "table": "users"
+                        },
+                        {
+                          "alias": "o",
+                          "block": 1,
+                          "kind": "base",
+                          "schema": "public",
+                          "selector": "stmt[0].relation[2]",
+                          "table": "orders"
+                        }
+                      ],
+                      "root": 0,
+                      "targets": [
+                        {
+                          "block": 1,
+                          "field": 2,
+                          "kind": "field",
+                          "name": "id",
+                          "ordinal": 0,
+                          "selector": "stmt[0].select_target[0][0]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        },
+                        {
+                          "block": 1,
+                          "kind": "expression",
+                          "name": "order_count",
+                          "ordinal": 1,
+                          "selector": "stmt[0].select_target[0][1]",
+                          "target_list_selector": "stmt[0].select_targets[0]"
+                        }
+                      ],
+                      "values": [
+                        {
+                          "bind_kind": 0,
+                          "block": 1,
+                          "clause": "on",
+                          "field": 0,
+                          "field_match_kind": "direct_field",
+                          "kind": "field",
+                          "operator": "=",
+                          "operator_kind": "unknown",
+                          "source_field": 1
+                        }
+                      ]
                     }
-                  ]
-                },
-                {
-                  "block": 0,
-                  "clause": "group_by",
-                  "column": "id",
-                  "relation": 0,
-                  "selector": "stmt[0].name[19]"
-                }
-              ],
-              "predicates": [
-                {
-                  "block": 0,
-                  "bool_operator": "none",
-                  "clause": "on",
-                  "kind": "comparison",
-                  "left_field": 0,
-                  "operator": "=",
-                  "operator_kind": "unknown",
-                  "right_field": 1,
-                  "value": 0
-                }
-              ],
-              "relations": [
-                {
-                  "alias": "u",
-                  "block": 0,
-                  "kind": "base",
-                  "schema": "public",
-                  "selector": "stmt[0].relation[1]",
-                  "table": "users"
-                },
-                {
-                  "alias": "o",
-                  "block": 0,
-                  "kind": "base",
-                  "schema": "public",
-                  "selector": "stmt[0].relation[2]",
-                  "table": "orders"
-                }
-              ],
-              "root": 0,
-              "targets": [
-                {
-                  "block": 0,
-                  "field": 2,
-                  "kind": "field",
-                  "name": "id",
-                  "ordinal": 0,
-                  "selector": "stmt[0].select_target[0][0]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                },
-                {
-                  "block": 0,
-                  "kind": "expression",
-                  "name": "order_count",
-                  "ordinal": 1,
-                  "selector": "stmt[0].select_target[0][1]",
-                  "target_list_selector": "stmt[0].select_targets[0]"
-                }
-              ],
-              "values": [
-                {
-                  "bind_kind": 0,
-                  "block": 0,
-                  "clause": "on",
-                  "field": 0,
-                  "field_match_kind": "direct_field",
-                  "kind": "field",
-                  "operator": "=",
-                  "operator_kind": "unknown",
-                  "source_field": 1
-                }
-              ]
-            }
-          }
-        ]
-      },
+                  }
+                ]
+              },
       "status": "final",
       "patch": [
         {
@@ -9093,7 +9311,7 @@
         },
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE VIEW public.v_user_order_count AS SELECT u.id, COUNT(o.id) AS order_count FROM \"PatchedTable\" u JOIN public.orders o ON u.id = o.user_id GROUP BY u.id"
         },
@@ -26416,6 +26634,995 @@
           "name": "\"note\"",
           "value": "SourceAlias.note",
           "deparse": "SELECT \"AliasName\".\"Phone\", AliasName.Phone FROM \"DbName\".SchemaName.\"ObjName\" \"AliasName\", DbName.\"SchemaName\".ObjName AliasName; INSERT INTO DbName.\"SchemaName\".\"Target\" (\"phone\", phone) VALUES (1, 2); UPDATE \"DbName\".SchemaName.Target \"AliasName\" SET \"phone\" = 3, phone = 4 WHERE \"AliasName\".ID = 1; DELETE FROM DbName.\"SchemaName\".\"Target\" AliasName WHERE AliasName.ID = 2; MERGE INTO \"DbName\".SchemaName.\"Target\" \"TargetAlias\" USING DbName.\"SchemaName\".Source SourceAlias ON (\"TargetAlias\".ID = SourceAlias.ID) WHEN NOT MATCHED THEN INSERT (\"phone\", phone, \"note\") VALUES (SourceAlias.\"phone\", SourceAlias.phone, SourceAlias.note); INSERT INTO DbName.\"SchemaName\".\"Defaults\" DEFAULT VALUES;"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-postgresql-ddl-relation-direct-inventory",
+      "sql": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AppSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ChildTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "RefSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ParentTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]",
+                  "ddl_role": "reference"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "LikeSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "template_table",
+                  "selector": "stmt[0].relation[2]",
+                  "ddl_role": "reference"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "base_schema",
+                  "table": "BaseTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[3]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AppSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "alter_child",
+                  "selector": "stmt[1].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ref_schema",
+                  "table": "AlterParent",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[1]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "IndexSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "IndexTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "DropSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "DropOne",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_schema",
+                  "table": "drop_two",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 4,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "TruncSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "TruncOne",
+                  "quoted_identifier": true,
+                  "selector": "stmt[4].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_schema",
+                  "table": "trunc_two",
+                  "selector": "stmt[4].relation[1]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 5,
+            "keyword": "rename",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "RenameSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "OldTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[5].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 6,
+            "keyword": "drop_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ViewSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "OldViewOne",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_schema",
+                  "table": "old_view_two",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 7,
+            "keyword": "drop",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "MvSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "OldMvOne",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "plain_schema",
+                  "table": "old_mv_two",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedSchema\".\"PatchedChild\"",
+          "deparse": "CREATE TABLE \"PatchedSchema\".\"PatchedChild\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "patched_ref.\"PatchedParent\"",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES patched_ref.\"PatchedParent\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/2/selector",
+          "value": "patched_like.\"PatchedTemplate\"",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE patched_like.\"PatchedTemplate\" INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/3/selector",
+          "value": "\"PatchedBase\".base_table_new",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (\"PatchedBase\".base_table_new); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/1/selector",
+          "value": "\"PatchedRef\".alter_parent_new",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES \"PatchedRef\".alter_parent_new(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/relations/0/selector",
+          "value": "patched_index.\"PatchedTable\"",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON patched_index.\"PatchedTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/4/query_graph/relations/1/selector",
+          "value": "patched_trunc.\"PatchedTwo\"",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", patched_trunc.\"PatchedTwo\"; ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/5/query_graph/relations/0/selector",
+          "value": "patched_rename.\"PatchedOld\"",
+          "deparse": "CREATE TABLE \"AppSchema\".\"ChildTable\" (id integer, ref_id integer REFERENCES \"RefSchema\".\"ParentTable\"(id), LIKE \"LikeSchema\".template_table INCLUDING ALL) INHERITS (base_schema.\"BaseTable\"); ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; ALTER TABLE patched_rename.\"PatchedOld\" RENAME TO \"NewTable\"; DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", plain_schema.old_mv_two"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-postgresql-ddl-relation-query-backed-inventory",
+      "sql": "CREATE VIEW \"ViewSchema\".\"CustomerView\" AS SELECT id FROM \"SourceSchema\".customer; CREATE TABLE \"CopySchema\".copy_table AS SELECT id FROM source_schema.\"SourceTable\"; CREATE MATERIALIZED VIEW \"MvSchema\".\"CustomerMv\" AS SELECT id FROM mv_source.customer",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ViewSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "CustomerView",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SourceSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "customer",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "create_table_as",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "CopySchema",
+                  "schema_quoted_identifier": true,
+                  "table": "copy_table",
+                  "selector": "stmt[1].relation[1]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "source_schema",
+                  "table": "SourceTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[1].name[0]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "create_materialized_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "MvSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "CustomerMv",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].relation[1]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "mv_source",
+                  "table": "customer",
+                  "selector": "stmt[2].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[2].select_target[0][0]",
+                  "target_list_selector": "stmt[2].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[2].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_view.\"PatchedCustomerView\"",
+          "deparse": "CREATE VIEW patched_view.\"PatchedCustomerView\" AS SELECT id FROM \"SourceSchema\".customer; CREATE TABLE \"CopySchema\".copy_table AS SELECT id FROM source_schema.\"SourceTable\"; CREATE MATERIALIZED VIEW \"MvSchema\".\"CustomerMv\" AS SELECT id FROM mv_source.customer"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/0/selector",
+          "value": "\"PatchedCopy\".copy_table_new",
+          "deparse": "CREATE VIEW \"ViewSchema\".\"CustomerView\" AS SELECT id FROM \"SourceSchema\".customer; CREATE TABLE \"PatchedCopy\".copy_table_new AS SELECT id FROM source_schema.\"SourceTable\"; CREATE MATERIALIZED VIEW \"MvSchema\".\"CustomerMv\" AS SELECT id FROM mv_source.customer"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/relations/0/selector",
+          "value": "patched_mv.\"PatchedMv\"",
+          "deparse": "CREATE VIEW \"ViewSchema\".\"CustomerView\" AS SELECT id FROM \"SourceSchema\".customer; CREATE TABLE \"CopySchema\".copy_table AS SELECT id FROM source_schema.\"SourceTable\"; CREATE MATERIALIZED VIEW patched_mv.\"PatchedMv\" AS SELECT id FROM mv_source.customer"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-postgresql-ddl-relation-partition-operations",
+      "sql": "ALTER TABLE \"AppSchema\".\"PartitionedTable\" ATTACH PARTITION \"PartSchema\".\"PartitionTable\" FOR VALUES FROM (1) TO (100); ALTER TABLE \"AppSchema\".\"PartitionedTable\" DETACH PARTITION \"PartSchema\".\"PartitionTable\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AppSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "PartitionedTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "PartSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "PartitionTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "AppSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "PartitionedTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "PartSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "PartitionTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[1]",
+                  "ddl_role": "reference"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_parent.\"PatchedPartitioned\"",
+          "deparse": "ALTER TABLE patched_parent.\"PatchedPartitioned\" ATTACH PARTITION \"PartSchema\".\"PartitionTable\" FOR VALUES FROM (1) TO (100); ALTER TABLE \"AppSchema\".\"PartitionedTable\" DETACH PARTITION \"PartSchema\".\"PartitionTable\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PatchedPart\".partition_new",
+          "deparse": "ALTER TABLE \"AppSchema\".\"PartitionedTable\" ATTACH PARTITION \"PatchedPart\".partition_new FOR VALUES FROM (1) TO (100); ALTER TABLE \"AppSchema\".\"PartitionedTable\" DETACH PARTITION \"PartSchema\".\"PartitionTable\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/1/selector",
+          "value": "\"DetachedSchema\".detached_part",
+          "deparse": "ALTER TABLE \"AppSchema\".\"PartitionedTable\" ATTACH PARTITION \"PartSchema\".\"PartitionTable\" FOR VALUES FROM (1) TO (100); ALTER TABLE \"AppSchema\".\"PartitionedTable\" DETACH PARTITION \"DetachedSchema\".detached_part"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-postgresql-ddl-relation-select-into",
+      "sql": "SELECT id INTO \"TargetSchema\".\"TargetTable\" FROM \"SourceSchema\".\"SourceTable\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "TargetSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "TargetTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SourceSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "SourceTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_target.\"PatchedInto\"",
+          "deparse": "SELECT id INTO patched_target.\"PatchedInto\" FROM \"SourceSchema\".\"SourceTable\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PatchedSource\".source_table_new",
+          "deparse": "SELECT id INTO \"TargetSchema\".\"TargetTable\" FROM \"PatchedSource\".source_table_new"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-postgresql-ddl-relation-foreign-table-and-exact-drop-spelling",
+      "sql": "CREATE FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" (id integer) SERVER foreign_server; ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" ADD COLUMN note text; ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" RENAME COLUMN id TO id_new; DROP FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\"; DROP TABLE app.t, \"app\".\"t\"; DROP TABLE if.\"t\", \"if\".\"t\"; DROP TABLE U&\"d!0061t\" UESCAPE '!', \"bar\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "other",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ForeignSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ForeignTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ForeignSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ForeignTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "rename",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ForeignSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ForeignTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].relation[0]",
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "drop",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "ForeignSchema",
+                  "schema_quoted_identifier": true,
+                  "table": "ForeignTable",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 4,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "table": "t",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "schema_quoted_identifier": true,
+                  "table": "t",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 5,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "if",
+                  "table": "t",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "if",
+                  "schema_quoted_identifier": true,
+                  "table": "t",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          },
+          {
+            "index": 6,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "dat",
+                  "ddl_role": "target"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "bar",
+                  "quoted_identifier": true,
+                  "ddl_role": "target"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_foreign.\"PatchedForeign\"",
+          "deparse": "CREATE FOREIGN TABLE patched_foreign.\"PatchedForeign\" (id integer) SERVER foreign_server; ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" ADD COLUMN note text; ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" RENAME COLUMN id TO id_new; DROP FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\"; DROP TABLE app.t, \"app\".\"t\"; DROP TABLE if.\"t\", \"if\".\"t\"; DROP TABLE U&\"d!0061t\" UESCAPE '!', \"bar\""
         }
       ],
       "status": "final"

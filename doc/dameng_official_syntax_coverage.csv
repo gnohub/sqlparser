@@ -18,12 +18,12 @@ dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://eco.dameng.com/docum
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE，以及 JOIN 链、逗号 relation 列表和混合形态的多表单目标 UPDATE；全部 SET assignment 必须指向同一个 table object",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、column-only/value-only/paired 三态添加、省略目标列列表的 not-matched INSERT selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换，以及 INSERT 目标列 quoted_identifier",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
-ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态、FK reference 和 CTAS；DDL target/reference 保留分段引号状态，CTAS target 通过 source_block 指向 SELECT 来源块",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW 和物化视图查询支撑形态；DDL target 通过 source_block 指向 SELECT 来源块",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-ddl,DROP_TRUNCATE_TABLE,CURRENT,"已覆盖 DROP TABLE 和 TRUNCATE TABLE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD、FK reference 和 RENAME 的 target/reference DDL graph",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX，ON table 作为 DDL target",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,DROP_TRUNCATE_TABLE,CURRENT,"已覆盖 DROP TABLE、DROP MATERIALIZED VIEW 和 TRUNCATE TABLE target；DROP target 当前无 relation selector，TRUNCATE target 可改写",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 transaction,TRANSACTION_CONTROL,CURRENT,"已覆盖 BEGIN、COMMIT 和 ROLLBACK 代表性事务控制语句",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 语句",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

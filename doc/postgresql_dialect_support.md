@@ -13,9 +13,9 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 - `ON CONFLICT DO UPDATE`、`RETURNING`
 - `UPDATE`、`UPDATE FROM`、`DELETE`、`DELETE USING`
 - `MERGE`，包括独立的 `WHEN MATCHED ... THEN DELETE` action；not-matched INSERT 的 `insert_column` 支持 column-only、value-only 和 paired 三态，现有 VALUES cell 可独立替换
-- 常见 DDL：`CREATE TABLE`、`CREATE TABLE AS`、`CREATE VIEW`、`CREATE MATERIALIZED VIEW`
-- `ALTER TABLE RENAME`、`ALTER TABLE ADD COLUMN`、`ALTER TABLE DROP COLUMN`
-- `CREATE INDEX`、`DROP INDEX`、`DROP TABLE`、`DROP VIEW`
+- 常见 relation DDL：`CREATE TABLE`、`CREATE FOREIGN TABLE`、`CREATE TABLE AS`、`CREATE VIEW`、`CREATE MATERIALIZED VIEW`、`SELECT INTO`
+- `ALTER TABLE`、`ALTER FOREIGN TABLE` 的 RENAME 和 ADD/DROP COLUMN，以及 FK、LIKE、INHERITS、ATTACH/DETACH PARTITION
+- `CREATE INDEX`、`DROP INDEX`、`DROP TABLE`、`DROP VIEW`、`DROP MATERIALIZED VIEW`、`TRUNCATE TABLE`
 - `CREATE SCHEMA`、`DROP SCHEMA`
 - `COMMENT ON`、`GRANT`、`REVOKE`
 - `EXPLAIN`、`COPY`、`LOCK`、`ANALYZE`、`VACUUM`
@@ -40,6 +40,7 @@ PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败
 - 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断。PostgreSQL 当前入口没有 database-link relation，因此 link 标志不适用。
+- relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK、LIKE、INHERITS、partition 等引用；查询支撑型 target 通过 `source_block` 指向 SELECT block。CREATE/ALTER/RENAME/DROP FOREIGN TABLE 使用同一 target 角色合同。多对象 DROP target 没有 relation selector，quoted/unquoted 同名分段仍按精确来源 token 输出定界状态。该合同仅由当前入口 fixture 证明，不自动外推到兼容入口。
 
 ## 回归用例
 
@@ -51,4 +52,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 219 条用例和 738 个独立 patch，全部为 `status = "final"`。
+当前 PostgreSQL 矩阵包含 224 条用例和 755 个独立 patch，全部为 `status = "final"`。

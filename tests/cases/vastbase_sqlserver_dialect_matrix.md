@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 609 条 `status = "final"` 用例和 1872 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 619 条 `status = "final"` 用例和 1884 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -39,6 +39,23 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | --- | --- | --- | ---: | --- |
 | `VSH608` | `vastbase-sqlserver-quoted-identifier-three-part-dml-matrix` | final | 7 | SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE target/source 覆盖 `database_quoted_identifier`、`schema_quoted_identifier`、relation `quoted_identifier` 和 DML column `quoted_identifier`；relation 与 MERGE 列改写重新计算状态 |
 | `VSH609` | `vastbase-sqlserver-output-into-quoted-identifier-sink-matrix` | final | 7 | INSERT、UPDATE、DELETE、MERGE 的 `OUTPUT ... INTO` sink relation 三段状态及 `sink_columns[].quoted_identifier`；逐个 sink relation/column patch 与普通 DML relation patch 保持 fresh View 一致 |
+
+## DDL relation 投影回归
+
+以下 10 条 final 用例定义项目 `vastbase-sqlserver` 兼容入口的 DDL Query Graph 合同：DDL 根块使用 `kind = "ddl"`，relation 以 `ddl_role = "target"` 或 `"reference"` 区分操作对象与外键引用对象，并保留 database/schema/object 来源分段的方括号定界状态。CREATE VIEW 和 `SELECT INTO` 将 DDL target 的 `source_block` 指向独立 SELECT 块。语法形态以夹具中已验证的 SQL Server 兼容语法为边界；该合同属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VSH610` | `vastbase-sqlserver-ddl-graph-create-table-fk-quoted-segments` | final | 2 | 三段 CREATE TABLE target 与 FK reference，方括号定界分段和 selector 独立 |
+| `VSH611` | `vastbase-sqlserver-ddl-graph-alter-table-fk-quoted-segments` | final | 2 | ALTER TABLE target 与 FK reference 的三段投影及独立改写 |
+| `VSH612` | `vastbase-sqlserver-ddl-graph-create-index-three-part-target` | final | 1 | `CREATE INDEX ... ON` 的三段表作为 DDL target，index 名不伪装为 relation |
+| `VSH613` | `vastbase-sqlserver-ddl-graph-truncate-three-part-target` | final | 1 | TRUNCATE TABLE 三段 target 的定界状态及 relation patch |
+| `VSH614` | `vastbase-sqlserver-ddl-graph-drop-table-multi-target` | final | 0 | DROP TABLE 多目标按源码顺序投影，不伪造 selector |
+| `VSH615` | `vastbase-sqlserver-ddl-graph-drop-view-multi-target` | final | 0 | DROP VIEW 多目标按源码顺序投影，完整保留 schema/object 定界状态 |
+| `VSH616` | `vastbase-sqlserver-ddl-graph-create-view-target-source-block` | final | 2 | CREATE VIEW target、SELECT 来源与 `source_block` 关联 |
+| `VSH617` | `vastbase-sqlserver-ddl-graph-select-into-target-source-block` | final | 2 | `SELECT INTO` 目标作为 DDL target，FROM relation 保留在独立 SELECT 块，两侧 selector 均可改写 |
+| `VSH618` | `vastbase-sqlserver-ddl-multistatement-surface-relation-patch` | final | 2 | CREATE INDEX/TRUNCATE TABLE 普通双语句 batch 的 relation patch 不增加 `USING btree`，不丢失 `TABLE` |
+| `VSH619` | `vastbase-sqlserver-ddl-drop-table-quoted-same-spelling` | final | 0 | quoted/unquoted 同名 DROP target 无 selector，schema/object 方括号状态按精确来源 token 分别输出 |
 
 ## 完整绑定占位符 occurrence 回归
 

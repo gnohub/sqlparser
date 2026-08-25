@@ -79,6 +79,15 @@ independent patches cover the five ordinary DML forms, quoted/unquoted database
 links, multi-branch `INSERT ALL/FIRST`, database-link targets, and post-patch
 recomputation.
 
+The `CURRENT` relation-DDL contract uses a root block with `kind = "ddl"` and
+`ddl_role = "target"|"reference"`. It covers FK references in CREATE/ALTER
+TABLE, CREATE INDEX, TRUNCATE, RENAME, DROP, and query-backed
+VIEW/CTAS/materialized views. Query-backed targets point through `source_block`
+to a SELECT block; DROP targets currently have no relation selector. Ten new
+final cases and 13 independent patches verify these boundaries. This evidence
+belongs only to the base Dameng entry and does not automatically cover
+compatibility entries.
+
 The Dameng multi-table `UPDATE` `CURRENT` boundary always has one write target.
 Six `final` cases and 17 independent patches cover first, middle, and last
 relation targets, distinct aliases of the same table, JOIN chains, and mixed

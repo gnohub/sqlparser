@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 264 cases with `status = "final"` and 846 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 267 cases with `status = "final"` and 854 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -38,6 +38,16 @@ The following final case contrasts identically spelled delimited and undelimited
 | ID | Case | Status | Independent Patches | Validation Focus |
 | --- | --- | --- | ---: | --- |
 | `VM264` | `vastbase-mysql-quoted-identifier-segment-and-dml-column-inventory` | final | 5 | multi-statement SELECT, INSERT, UPDATE, DELETE, MERGE, `INSERT ... SET`, and `REPLACE ... SET` cover `database_quoted_identifier`, `schema_quoted_identifier`, relation `quoted_identifier`, and DML-column `quoted_identifier`; identically spelled undelimited segments omit the corresponding View keys |
+
+## DDL Relation Projection Regression
+
+The following three final cases define the DDL Query Graph contract for the project's `vastbase-mysql` compatibility entry. A DDL root block uses `kind = "ddl"`; each relation uses `ddl_role = "target"` or `"reference"` to distinguish the operated object from a referenced object and preserves backtick-delimiter state on database/object source segments. Query-backed CREATE objects point to a separate SELECT block through `source_block`. The verified MySQL-compatible forms in the fixture are the syntax boundary. This is a project compatibility-entry contract, not a claim that the Vastbase server documentation defines the same scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VM265` | `vastbase-mysql-ddl-relation-direct-inventory` | final | 6 | CREATE/ALTER TABLE FK targets and references, CREATE INDEX, multi-object DROP TABLE/VIEW, single-object TRUNCATE, and the old RENAME object, with backtick-state recomputation after relation patches |
+| `VM266` | `vastbase-mysql-ddl-relation-query-backed-inventory` | final | 2 | DDL targets, SELECT sources, and `source_block` links for CREATE VIEW and CTAS |
+| `VM267` | `vastbase-mysql-ddl-drop-table-quoted-same-spelling` | final | 0 | selector-free, identically spelled quoted/unquoted DROP targets in ordinary SQL and a statement-level executable comment; schema/object backtick states come from exact source tokens |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

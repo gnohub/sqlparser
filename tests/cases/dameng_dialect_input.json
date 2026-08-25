@@ -2029,7 +2029,26 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -2047,9 +2066,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0,
@@ -2059,18 +2084,18 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[1]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "name",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 1
                 }
@@ -2078,6 +2103,14 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_users"
+                },
+                {
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "users"
@@ -2086,7 +2119,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
@@ -2095,7 +2128,7 @@
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 1,
                   "kind": "field",
                   "name": "name",
@@ -2112,7 +2145,7 @@
       "patch": [
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE OR REPLACE VIEW v_users AS SELECT id, name FROM \"PatchedTable\""
         },
@@ -2160,7 +2193,26 @@
           {
             "index": 0,
             "keyword": "alter_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -2175,7 +2227,26 @@
           {
             "index": 0,
             "keyword": "create_index",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -2190,12 +2261,49 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "table": "old_users"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 1,
             "keyword": "ddl",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[1].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -6357,13 +6465,19 @@
             "query_graph": {
               "blocks": [
                 {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
                   "kind": "select",
                   "predicates": [
                     0
                   ],
                   "relations": [
-                    0,
-                    1
+                    1,
+                    2
                   ],
                   "targets": [
                     0,
@@ -6373,32 +6487,32 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[12]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "column": "user_id",
-                  "relation": 1,
+                  "relation": 2,
                   "selector": "stmt[0].name[14]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
                   "column": "id",
-                  "relation": 1,
+                  "relation": 2,
                   "selector": "stmt[0].name[6]",
                   "target": 1,
                   "target_path": [
@@ -6410,16 +6524,16 @@
                   ]
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "group_by",
                   "column": "id",
-                  "relation": 0,
+                  "relation": 1,
                   "selector": "stmt[0].name[16]"
                 }
               ],
               "predicates": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "bool_operator": "none",
                   "clause": "on",
                   "kind": "comparison",
@@ -6432,15 +6546,23 @@
               ],
               "relations": [
                 {
-                  "alias": "u",
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_user_orders"
+                },
+                {
+                  "alias": "u",
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "users"
                 },
                 {
                   "alias": "o",
-                  "block": 0,
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[2]",
                   "table": "orders"
@@ -6449,7 +6571,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 2,
                   "kind": "field",
                   "name": "id",
@@ -6458,7 +6580,7 @@
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "kind": "expression",
                   "name": "order_count",
                   "ordinal": 1,
@@ -6469,7 +6591,7 @@
               "values": [
                 {
                   "bind_kind": 0,
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "field": 0,
                   "field_match_kind": "direct_field",
@@ -6487,7 +6609,7 @@
       "patch": [
         {
           "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
+          "target": "/statements/0/query_graph/relations/1/selector",
           "value": "\"PatchedTable\"",
           "deparse": "CREATE OR REPLACE VIEW v_user_orders AS SELECT u.id, COUNT(o.id) AS order_count FROM \"PatchedTable\" u JOIN orders o ON u.id = o.user_id GROUP BY u.id"
         },
@@ -29690,7 +29812,12 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "updated_at",
+          "sql": ":updated_at"
+        }
       ],
       "patch": [
         {
@@ -29699,8 +29826,18 @@
           "value": "a.balance = b.delta + :offset",
           "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta + :offset, a.updated_at = :updated_at WHERE b.active = 1",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "offset", "sql": ":offset"},
-            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "offset",
+              "sql": ":offset"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -29709,8 +29846,18 @@
           "value": "a.status = :status",
           "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta, a.status = :status, a.updated_at = :updated_at WHERE b.active = 1",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
-            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -29718,7 +29865,12 @@
           "target": "stmt[0].assignment[0]",
           "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.updated_at = :updated_at WHERE b.active = 1",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -29727,7 +29879,12 @@
           "value": "app.accounts_v2",
           "deparse": "UPDATE app.accounts_v2 a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta, a.updated_at = :updated_at WHERE b.active = 1",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         }
       ]
@@ -29914,8 +30071,18 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
-        {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "applied",
+          "sql": ":applied"
+        },
+        {
+          "position": 2,
+          "kind": "named",
+          "key": "updated_at",
+          "sql": ":updated_at"
+        }
       ],
       "patch": [
         {
@@ -29924,9 +30091,24 @@
           "value": "b.note = :note",
           "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = :applied, b.note = :note, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
-            {"position": 2, "kind": "named", "key": "note", "sql": ":note"},
-            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "applied",
+              "sql": ":applied"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "note",
+              "sql": ":note"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -29935,9 +30117,24 @@
           "value": "b.applied = CASE WHEN c.success = 1 THEN :yes ELSE :no END",
           "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = CASE WHEN c.success = 1 THEN :yes ELSE :no END, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "yes", "sql": ":yes"},
-            {"position": 2, "kind": "named", "key": "no", "sql": ":no"},
-            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "yes",
+              "sql": ":yes"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "no",
+              "sql": ":no"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -29945,7 +30142,12 @@
           "target": "stmt[0].assignment[1]",
           "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = :applied WHERE a.id = b.account_id AND c.account_id = a.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "applied",
+              "sql": ":applied"
+            }
           ]
         },
         {
@@ -29954,8 +30156,18 @@
           "value": "app.adjustments_v2",
           "deparse": "UPDATE app.accounts a, app.adjustments_v2 b, app.audit_log c SET b.applied = :applied, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
-            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "applied",
+              "sql": ":applied"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         }
       ]
@@ -30194,7 +30406,12 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "region_name",
+          "sql": ":region_name"
+        }
       ],
       "patch": [
         {
@@ -30203,8 +30420,18 @@
           "value": "r.code = :region_code",
           "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.code = :region_code, r.name = :region_name, r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "region_code", "sql": ":region_code"},
-            {"position": 2, "kind": "named", "key": "region_name", "sql": ":region_name"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "region_code",
+              "sql": ":region_code"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "region_name",
+              "sql": ":region_name"
+            }
           ]
         },
         {
@@ -30213,8 +30440,18 @@
           "value": "r.updated_at = :updated_at",
           "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.name = :region_name, r.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"},
-            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "region_name",
+              "sql": ":region_name"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -30229,7 +30466,12 @@
           "value": "\"APP\".\"REGIONS_V2\"",
           "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS_V2\" r SET r.name = :region_name, r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "region_name",
+              "sql": ":region_name"
+            }
           ]
         }
       ]
@@ -30416,8 +30658,18 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
-        {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "status",
+          "sql": ":status"
+        },
+        {
+          "position": 2,
+          "kind": "named",
+          "key": "updated_at",
+          "sql": ":updated_at"
+        }
       ],
       "patch": [
         {
@@ -30426,9 +30678,24 @@
           "value": "current_row.note = :note",
           "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = :status, current_row.note = :note, current_row.updated_at = :updated_at WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
-            {"position": 2, "kind": "named", "key": "note", "sql": ":note"},
-            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "note",
+              "sql": ":note"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -30437,9 +30704,24 @@
           "value": "current_row.status = CASE WHEN prior_row.status = :old_status THEN :new_status ELSE current_row.status END",
           "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = CASE WHEN prior_row.status = :old_status THEN :new_status ELSE current_row.status END, current_row.updated_at = :updated_at WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "old_status", "sql": ":old_status"},
-            {"position": 2, "kind": "named", "key": "new_status", "sql": ":new_status"},
-            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "old_status",
+              "sql": ":old_status"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "new_status",
+              "sql": ":new_status"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "updated_at",
+              "sql": ":updated_at"
+            }
           ]
         },
         {
@@ -30447,7 +30729,12 @@
           "target": "stmt[0].assignment[1]",
           "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = :status WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            }
           ]
         }
       ]
@@ -30731,7 +31018,12 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "status",
+          "sql": ":status"
+        }
       ],
       "patch": [
         {
@@ -30740,7 +31032,12 @@
           "value": "c.status = COALESCE(:status, c.status)",
           "deparse": "UPDATE app.accounts a LEFT JOIN app.orders b ON a.id = b.account_id INNER JOIN app.payments c ON b.id = c.order_id RIGHT JOIN app.audit_log d ON c.id = d.payment_id SET c.status = COALESCE(:status, c.status) WHERE a.active = 1 AND d.ready = 1",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            }
           ]
         }
       ]
@@ -30901,7 +31198,12 @@
       },
       "status": "final",
       "bind_occurrences": [
-        {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "status",
+          "sql": ":status"
+        }
       ],
       "patch": [
         {
@@ -30910,7 +31212,12 @@
           "value": "b.status = COALESCE(:status, b.status)",
           "deparse": "UPDATE app.accounts a JOIN app.orders b ON a.id = b.account_id, app.audit_log c SET b.status = COALESCE(:status, b.status) WHERE c.account_id = a.id",
           "bind_occurrences": [
-            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            }
           ]
         }
       ]
@@ -33386,6 +33693,596 @@
           "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
           "value": "10",
           "deparse": "INSERT ALL INTO APP.\"T\"@\"REMOTE\" (\"ID\") VALUES (10) SELECT 1 FROM DUAL"
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-create-table-foreign-key",
+      "sql": "CREATE TABLE \"APP\".CHILD (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES REF.\"PARENT\" (\"ID\"))",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "REF",
+                  "table": "PARENT",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES REF.\"PARENT\" (\"ID\"))"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"APP\".CHILD (\"ID\" NUMBER, \"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\"))"
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-alter-table-foreign-key",
+      "sql": "ALTER TABLE APP.\"CHILD\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"REF\".PARENT (\"ID\")",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "REF",
+                  "table": "PARENT",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"REF\".PARENT (\"ID\")"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE APP.\"CHILD\" ADD CONSTRAINT \"FK_CHILD\" FOREIGN KEY (\"PARENT_ID\") REFERENCES \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"ID\")"
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-create-index-on-table",
+      "sql": "CREATE INDEX \"IDX_CHILD\" ON \"APP\".CHILD (\"PARENT_ID\")",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE INDEX \"IDX_CHILD\" ON \"PATCH_SCHEMA\".\"PATCH_TABLE\" (\"PARENT_ID\")"
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-drop-table-target",
+      "sql": "DROP TABLE \"APP\".OLD_T",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "OLD_T",
+                  "schema_quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": []
+    },
+    {
+      "name": "dameng-ddl-relation-drop-materialized-view-target",
+      "sql": "DROP MATERIALIZED VIEW \"APP\".\"MV_OLD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "MV_OLD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": []
+    },
+    {
+      "name": "dameng-ddl-relation-truncate-table-target",
+      "sql": "TRUNCATE TABLE APP.\"STAGE_T\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "STAGE_T",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "TRUNCATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-alter-table-rename-target",
+      "sql": "ALTER TABLE \"APP\".OLD_T RENAME TO \"NEW_T\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "rename",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "OLD_T",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "ALTER TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" RENAME TO \"NEW_T\""
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-create-view-target-and-source",
+      "sql": "CREATE VIEW \"APP\".V_CHILD AS SELECT \"ID\" FROM SRC.\"CHILD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "V_CHILD",
+                  "schema_quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE VIEW \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM SRC.\"CHILD\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE VIEW \"APP\".V_CHILD AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-create-table-as-target-and-source",
+      "sql": "CREATE TABLE APP.\"CHILD_COPY\" AS SELECT \"ID\" FROM \"SRC\".CHILD",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table_as",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "CHILD_COPY",
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM \"SRC\".CHILD"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE TABLE APP.\"CHILD_COPY\" AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
+        }
+      ]
+    },
+    {
+      "name": "dameng-ddl-relation-create-materialized-view-target-and-source",
+      "sql": "CREATE MATERIALIZED VIEW \"APP\".\"MV_CHILD\" AS SELECT \"ID\" FROM \"SRC\".\"CHILD\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_materialized_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "APP",
+                  "table": "MV_CHILD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "SRC",
+                  "table": "CHILD",
+                  "schema_quoted_identifier": true,
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE MATERIALIZED VIEW \"PATCH_SCHEMA\".\"PATCH_TABLE\" AS SELECT \"ID\" FROM \"SRC\".\"CHILD\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "\"PATCH_SCHEMA\".\"PATCH_TABLE\"",
+          "deparse": "CREATE MATERIALIZED VIEW \"APP\".\"MV_CHILD\" AS SELECT \"ID\" FROM \"PATCH_SCHEMA\".\"PATCH_TABLE\""
         }
       ]
     }

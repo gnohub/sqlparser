@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 629 条 `status = "final"` 用例和 1889 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 639 条 `status = "final"` 用例和 1901 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -413,6 +413,23 @@ relation 的限定名按段记录方括号定界状态：`database_quoted_identi
 | --- | --- | --- | --- |
 | SH431 | `sqlserver-quoted-identifier-three-part-dml-matrix` | 5 条语句覆盖 SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE 的三段 relation | database/schema/object 分段标志与普通/MERGE `dml_column.quoted_identifier`；7 个独立 patch 覆盖五类 relation 逐段重算和 MERGE 列 quoted↔unquoted 重算 |
 | SH432 | `sqlserver-output-into-quoted-identifier-sink-matrix` | INSERT、UPDATE、DELETE、MERGE 的 `OUTPUT ... INTO` 三段 sink relation 与 sink column | 四类 result channel 的 sink relation 分段标志及 `sink_columns[].quoted_identifier`；7 个独立 patch 覆盖四个 sink relation、两个 sink column 和源 INSERT relation 的 fresh View 重算 |
+
+## DDL Query Graph relation 合同
+
+以下用例使用 SQL Server 官方 T-SQL 形态。DDL target/reference 位于 `kind = "ddl"` 根 block；CREATE VIEW 和 `SELECT ... INTO` 的 target 通过 `source_block` 指向独立 SELECT block。多对象 DROP target 保留 database/schema/object 方括号状态，但不提供 relation selector。CREATE INDEX 和 TRUNCATE 的 relation patch 还分别锁定不引入 PostgreSQL `USING btree`、不丢失 `TRUNCATE TABLE` 的公开 SQL surface。兼容入口不得由本节推断，以各自 fixture 为准。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH433 | `sqlserver-ddl-graph-create-table-fk-quoted-segments` | 三段 CREATE TABLE + FK REFERENCES | target/reference role、方括号分段标志及 2 个 relation patch |
+| SH434 | `sqlserver-ddl-graph-alter-table-fk-quoted-segments` | 三段 ALTER TABLE ADD FK | target/reference role 及 2 个 relation patch |
+| SH435 | `sqlserver-ddl-graph-create-index-three-part-target` | CREATE INDEX ON 三段表 | ON table 为 DDL target；patch 后不增加 `USING btree` |
+| SH436 | `sqlserver-ddl-graph-truncate-three-part-target` | TRUNCATE TABLE 三段表 | DDL target；patch 后保留 `TRUNCATE TABLE` surface |
+| SH437 | `sqlserver-ddl-graph-drop-table-multi-target` | DROP TABLE IF EXISTS 多对象 | 两个 DDL target、完整分段标志及无 selector 边界 |
+| SH438 | `sqlserver-ddl-graph-drop-view-multi-target` | DROP VIEW IF EXISTS 多对象 | 两个 DDL target 与无 selector 边界 |
+| SH439 | `sqlserver-ddl-graph-create-view-target-source-block` | CREATE VIEW AS SELECT | DDL target、SELECT source、`source_block` 及 2 个 relation patch |
+| SH440 | `sqlserver-ddl-graph-select-into-target-source-block` | `SELECT ... INTO target FROM source` | DDL target 与 SELECT source 分块、`source_block` 及 2 个 relation patch |
+| SH441 | `sqlserver-ddl-multistatement-surface-relation-patch` | CREATE INDEX 与 TRUNCATE TABLE 普通双语句 batch | 2 个 relation patch 分别保留 SQL Server 公开 surface：不增加 `USING btree`，不丢失 `TABLE` |
+| SH442 | `sqlserver-ddl-drop-table-quoted-same-spelling` | quoted/unquoted 同名多对象 DROP TABLE | DROP target 无 selector，schema/object 方括号状态按精确来源 token 分别输出 |
 
 ## 官方 hook 覆盖用例
 

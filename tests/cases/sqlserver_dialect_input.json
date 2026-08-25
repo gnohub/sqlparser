@@ -3830,7 +3830,29 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3848,9 +3870,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0,
@@ -3860,20 +3888,20 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "name",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[3]",
                   "target": 1
                 }
@@ -3881,33 +3909,44 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
                   "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_users"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "quoted_identifier": true,
                   "schema": "dbo",
                   "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
-                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 1,
                   "kind": "field",
                   "name": "name",
-                  "output_quoted_identifier": true,
                   "ordinal": 1,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 }
@@ -3928,7 +3967,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "CREATE VIEW [dbo].[v_users] AS SELECT [id], [name] FROM [PatchedTable]"
+          "deparse": "CREATE VIEW [PatchedTable] AS SELECT [id], [name] FROM [dbo].[users]"
         },
         {
           "action": "replace",
@@ -3953,7 +3992,29 @@
           {
             "index": 0,
             "keyword": "alter_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3968,7 +4029,29 @@
           {
             "index": 0,
             "keyword": "create_index",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3983,7 +4066,28 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -3998,7 +4102,29 @@
           {
             "index": 0,
             "keyword": "ddl",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -4330,7 +4456,29 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "payments"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -10679,13 +10827,19 @@
             "query_graph": {
               "blocks": [
                 {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
                   "kind": "select",
                   "predicates": [
                     0
                   ],
                   "relations": [
-                    0,
-                    1
+                    1,
+                    2
                   ],
                   "targets": [
                     0,
@@ -10695,36 +10849,36 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[15]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
-                  "quoted_identifier": true,
                   "column": "user_id",
-                  "relation": 1,
+                  "quoted_identifier": true,
+                  "relation": 2,
                   "selector": "stmt[0].name[17]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[3]",
                   "target": 0
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 1,
+                  "quoted_identifier": true,
+                  "relation": 2,
                   "selector": "stmt[0].name[7]",
                   "target": 1,
                   "target_path": [
@@ -10736,17 +10890,17 @@
                   ]
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "group_by",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[19]"
                 }
               ],
               "predicates": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "bool_operator": "none",
                   "clause": "on",
                   "kind": "comparison",
@@ -10759,44 +10913,55 @@
               ],
               "relations": [
                 {
-                  "alias": "u",
                   "block": 0,
+                  "ddl_role": "target",
                   "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "v_user_orders"
+                },
+                {
+                  "alias": "u",
+                  "block": 1,
+                  "kind": "base",
+                  "quoted_identifier": true,
                   "schema": "dbo",
                   "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
-                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
                   "alias": "o",
-                  "block": 0,
+                  "block": 1,
                   "kind": "base",
+                  "quoted_identifier": true,
                   "schema": "dbo",
                   "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[2]",
-                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 2,
                   "kind": "field",
                   "name": "id",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 },
                 {
-                  "block": 0,
+                  "block": 1,
                   "kind": "expression",
                   "name": "order_count",
-                  "output_quoted_identifier": true,
                   "ordinal": 1,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 }
@@ -10804,7 +10969,7 @@
               "values": [
                 {
                   "bind_kind": 0,
-                  "block": 0,
+                  "block": 1,
                   "clause": "on",
                   "field": 0,
                   "field_match_kind": "direct_field",
@@ -10836,7 +11001,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "CREATE VIEW [dbo].[v_user_orders] AS SELECT u.[id], COUNT(o.[id]) AS [order_count] FROM [PatchedTable] u JOIN [dbo].[orders] o ON u.[id] = o.[user_id] GROUP BY u.[id]"
+          "deparse": "CREATE VIEW [PatchedTable] AS SELECT u.[id], COUNT(o.[id]) AS [order_count] FROM [dbo].[users] u JOIN [dbo].[orders] o ON u.[id] = o.[user_id] GROUP BY u.[id]"
         },
         {
           "action": "replace",
@@ -15240,9 +15405,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0
@@ -15252,6 +15423,14 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "NewTable"
+                },
+                {
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "OldTable"
@@ -15260,7 +15439,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "kind": "expression",
                   "name": "ID_Num",
                   "ordinal": 0,
@@ -15278,7 +15457,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "SELECT IDENTITY(int) AS ID_Num INTO NewTable FROM [PatchedTable]"
+          "deparse": "SELECT IDENTITY(int) AS ID_Num INTO [PatchedTable] FROM OldTable"
         },
         {
           "action": "replace",
@@ -15306,9 +15485,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0
@@ -15318,6 +15503,14 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "NewTable"
+                },
+                {
+                  "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
                   "table": "OldTable"
@@ -15326,7 +15519,7 @@
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "kind": "expression",
                   "name": "ID_Num",
                   "ordinal": 0,
@@ -15344,7 +15537,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "SELECT IDENTITY(int, 1, 1) AS ID_Num INTO NewTable FROM [PatchedTable]"
+          "deparse": "SELECT IDENTITY(int, 1, 1) AS ID_Num INTO [PatchedTable] FROM OldTable"
         },
         {
           "action": "replace",
@@ -18201,7 +18394,29 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "events"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -28300,7 +28515,29 @@
           {
             "index": 0,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "sequential_ids"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -34734,7 +34971,29 @@
           {
             "index": 0,
             "keyword": "rename",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "old_users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -35542,7 +35801,28 @@
           {
             "index": 0,
             "keyword": "drop_view",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "v_users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -35575,9 +35855,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0
@@ -35586,11 +35872,11 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[2]",
                   "target": 0
                 }
@@ -35598,23 +35884,34 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
                   "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "source_block": 1,
+                  "table": "users_copy"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "quoted_identifier": true,
                   "schema": "dbo",
                   "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[1]",
-                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 }
@@ -35635,7 +35932,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "SELECT [id] INTO [dbo].[users_copy] FROM [PatchedTable]"
+          "deparse": "SELECT [id] INTO [PatchedTable] FROM [dbo].[users]"
         },
         {
           "action": "replace",
@@ -36274,9 +36571,15 @@
             "query_graph": {
               "blocks": [
                 {
-                  "kind": "select",
+                  "kind": "ddl",
                   "relations": [
                     0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
                   ],
                   "targets": [
                     0
@@ -36285,11 +36588,11 @@
               ],
               "fields": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "clause": "select_list",
-                  "quoted_identifier": true,
                   "column": "id",
-                  "relation": 0,
+                  "quoted_identifier": true,
+                  "relation": 1,
                   "selector": "stmt[0].name[0]",
                   "target": 0
                 }
@@ -36297,23 +36600,34 @@
               "relations": [
                 {
                   "block": 0,
+                  "ddl_role": "target",
                   "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]",
+                  "source_block": 1,
+                  "table": "users_copy"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "quoted_identifier": true,
                   "schema": "dbo",
                   "schema_quoted_identifier": true,
                   "selector": "stmt[0].relation[0]",
-                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
               "root": 0,
               "targets": [
                 {
-                  "block": 0,
+                  "block": 1,
                   "field": 0,
                   "kind": "field",
                   "name": "id",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
                 }
@@ -36334,7 +36648,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "CREATE TABLE [dbo].[users_copy] AS SELECT [id] FROM [PatchedTable]"
+          "deparse": "CREATE TABLE [PatchedTable] AS SELECT [id] FROM [dbo].[users]"
         },
         {
           "action": "replace",
@@ -36671,7 +36985,29 @@
           {
             "index": 0,
             "keyword": "alter_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -48681,12 +49017,51 @@
           {
             "index": 1,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "old_t"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 2,
             "keyword": "create_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[2].relation[0]",
+                  "table": "new_t"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -52005,7 +52380,26 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "old_t"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 1,
@@ -52215,7 +52609,26 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "old_t"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 1,
@@ -52425,7 +52838,26 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "old_t"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 1,
@@ -52707,7 +53139,26 @@
           {
             "index": 0,
             "keyword": "drop_table",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "old_t"
+                }
+              ],
+              "root": 0
+            }
           },
           {
             "index": 1,
@@ -54301,7 +54752,26 @@
           {
             "index": 2,
             "keyword": "drop_view",
-            "query_graph": {}
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "ddl_role": "target",
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "v_active"
+                }
+              ],
+              "root": 0
+            }
           }
         ]
       },
@@ -64424,6 +64894,661 @@
           "deparse": "INSERT INTO [PatchedAppDb].[PatchedSchema].[PatchedSourceA] ([ID], NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].audit.InsertSink ([ID], NOTE) VALUES (1, 2); UPDATE AppDb.dbo.SourceB SET NOTE = 3 OUTPUT INSERTED.[ID], INSERTED.NOTE INTO AuditDb.[audit].UpdateSink ([ID], NOTE) WHERE ID = 1; DELETE FROM AppDb.dbo.SourceC OUTPUT DELETED.[ID], DELETED.NOTE INTO AuditDb.audit.[DeleteSink] ([ID], NOTE) WHERE ID = 1; MERGE INTO AppDb.dbo.SourceD AS t USING AppDb.dbo.StageD AS s ON t.ID = s.ID WHEN MATCHED THEN UPDATE SET NOTE = s.NOTE WHEN NOT MATCHED THEN INSERT ([ID], NOTE) VALUES (s.ID, s.NOTE) OUTPUT INSERTED.[ID], INSERTED.NOTE INTO [AuditDb].[audit].[MergeSink] ([ID], NOTE);"
         }
       ]
+    },
+    {
+      "name": "sqlserver-ddl-graph-create-table-fk-quoted-segments",
+      "sql": "CREATE TABLE [AppDb].sales.[Child] ([ID] INT NOT NULL, [ParentID] INT, CONSTRAINT [FK_Child_Parent] FOREIGN KEY ([ParentID]) REFERENCES sales.[Parent] ([ID]))",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "sales",
+                  "table": "Parent",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedDb].[patch].[ChildNew]",
+          "deparse": "CREATE TABLE [PatchedDb].[patch].[ChildNew] ([ID] INT NOT NULL, [ParentID] INT, CONSTRAINT [FK_Child_Parent] FOREIGN KEY ([ParentID]) REFERENCES sales.[Parent] ([ID]))"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "[patch].[ParentNew]",
+          "deparse": "CREATE TABLE [AppDb].sales.[Child] ([ID] INT NOT NULL, [ParentID] INT, CONSTRAINT [FK_Child_Parent] FOREIGN KEY ([ParentID]) REFERENCES [patch].[ParentNew] ([ID]))"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-alter-table-fk-quoted-segments",
+      "sql": "ALTER TABLE AppDb.[sales].Child ADD CONSTRAINT [FK_Child_Parent2] FOREIGN KEY ([ParentID]) REFERENCES [sales].Parent2 ([ID])",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "alter_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Child",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "reference",
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Parent2",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "PatchedDb.patch.[ChildNew]",
+          "deparse": "ALTER TABLE PatchedDb.patch.[ChildNew] ADD CONSTRAINT [FK_Child_Parent2] FOREIGN KEY ([ParentID]) REFERENCES [sales].Parent2 ([ID])"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "[patch].ParentNew",
+          "deparse": "ALTER TABLE AppDb.[sales].Child ADD CONSTRAINT [FK_Child_Parent2] FOREIGN KEY ([ParentID]) REFERENCES [patch].ParentNew ([ID])"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-create-index-three-part-target",
+      "sql": "CREATE INDEX [IX_Child_Name] ON [AppDb].[sales].[Child] ([Name])",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedDb].patch.ChildNew",
+          "deparse": "CREATE INDEX [IX_Child_Name] ON [PatchedDb].patch.ChildNew ([Name])"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-truncate-three-part-target",
+      "sql": "TRUNCATE TABLE [AppDb].sales.[Child]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "PatchedDb.[patch].[ChildNew]",
+          "deparse": "TRUNCATE TABLE PatchedDb.[patch].[ChildNew]"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-drop-table-multi-target",
+      "sql": "DROP TABLE IF EXISTS [AppDb].sales.[Child], ArchiveDb.[history].OldChild",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "table": "Child",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "ArchiveDb",
+                  "schema": "history",
+                  "schema_quoted_identifier": true,
+                  "table": "OldChild"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-drop-view-multi-target",
+      "sql": "DROP VIEW IF EXISTS [reporting].[V_Child], archive.[V_OldChild]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "reporting",
+                  "schema_quoted_identifier": true,
+                  "table": "V_Child",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "archive",
+                  "table": "V_OldChild",
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-create-view-target-source-block",
+      "sql": "CREATE VIEW [reporting].[V_Child] AS SELECT c.[ID], c.[Name] FROM [AppDb].[sales].[Child] AS c",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "reporting",
+                  "schema_quoted_identifier": true,
+                  "table": "V_Child",
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "alias": "c",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "Name",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "target": 0,
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "column": "Name",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "target": 1,
+                  "selector": "stmt[0].name[5]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[patch].[V_Child_New]",
+          "deparse": "CREATE VIEW [patch].[V_Child_New] AS SELECT c.[ID], c.[Name] FROM [AppDb].[sales].[Child] AS c"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "PatchedDb.patch.[ChildSource]",
+          "deparse": "CREATE VIEW [reporting].[V_Child] AS SELECT c.[ID], c.[Name] FROM PatchedDb.patch.[ChildSource] AS c"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-graph-select-into-target-source-block",
+      "sql": "SELECT c.[ID], c.[Name] INTO [WarehouseDb].sales.[ChildCopy] FROM AppDb.[sales].Child AS c",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "WarehouseDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "table": "ChildCopy",
+                  "quoted_identifier": true,
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "database": "AppDb",
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Child",
+                  "alias": "c",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "ID",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "Name",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "column": "ID",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "target": 0,
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "column": "Name",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "target": 1,
+                  "selector": "stmt[0].name[6]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedWarehouse].[patch].[ChildCopyNew]",
+          "deparse": "SELECT c.[ID], c.[Name] INTO [PatchedWarehouse].[patch].[ChildCopyNew] FROM AppDb.[sales].Child AS c"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "[PatchedApp].[patch].[ChildSource]",
+          "deparse": "SELECT c.[ID], c.[Name] INTO [WarehouseDb].sales.[ChildCopy] FROM [PatchedApp].[patch].[ChildSource] AS c"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-multistatement-surface-relation-patch",
+      "sql": "CREATE INDEX [IX_Child_Name] ON [AppDb].[sales].[Child] ([Name]); TRUNCATE TABLE [AppDb].sales.[Child]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_index",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "schema_quoted_identifier": true,
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "ddl",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "database": "AppDb",
+                  "database_quoted_identifier": true,
+                  "schema": "sales",
+                  "table": "Child",
+                  "quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "[PatchedDb].patch.ChildNew",
+          "deparse": "CREATE INDEX [IX_Child_Name] ON [PatchedDb].patch.ChildNew ([Name]); TRUNCATE TABLE [AppDb].sales.[Child]"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/0/selector",
+          "value": "PatchedDb.[patch].[ChildNew]",
+          "deparse": "CREATE INDEX [IX_Child_Name] ON [AppDb].[sales].[Child] ([Name]); TRUNCATE TABLE PatchedDb.[patch].[ChildNew]"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-ddl-drop-table-quoted-same-spelling",
+      "sql": "DROP TABLE app.t, [app].[t]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "drop_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "table": "t"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "schema": "app",
+                  "schema_quoted_identifier": true,
+                  "table": "t",
+                  "quoted_identifier": true
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [],
+      "status": "final"
     }
   ]
 }

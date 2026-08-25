@@ -93,4 +93,15 @@ API unit tests verify final equal-width validation and whole-batch rollback.
 
 ## Conclusion
 
+The current base relation-DDL contract uses a root block with `kind = "ddl"`
+and `ddl_role = "target"|"reference"`. It covers FK references in CREATE/ALTER
+TABLE, CREATE INDEX, TRUNCATE, multi-object DROP, CREATE VIEW, and official
+`SELECT INTO`. Query-backed targets point through `source_block` to a SELECT
+block. DROP targets have no relation selector, and same-name quoted/unquoted
+segments retain exact source state. Ten new final cases and 12 independent
+patches also verify that relation patches in single statements and ordinary
+multi-statement batches do not add `USING btree` to CREATE INDEX and retain the
+public `TRUNCATE TABLE` surface. This base-entry evidence does not automatically
+cover compatibility entries.
+
 The SQL Server dialect now covers all official items that can be represented by the existing AST and dialect hooks. Of the remaining 453 uncovered items, 336 require a SQL Server-specific model and 117 are mixed entries where basic forms can be covered but full official syntax still requires model work.

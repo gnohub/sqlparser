@@ -125,9 +125,9 @@ copied subtree.
 
 | Field | Description |
 | --- | --- |
-| `root` | Root query block index; omitted for statements without a query block |
-| `blocks` | Query blocks, including SELECT blocks, derived tables, CTEs, set operations, and scalar subqueries; present when non-empty |
-| `relations` | Base tables, derived tables, and CTE references visible in the SQL; present when non-empty |
+| `root` | Root graph-block index; omitted for statements without a graph block |
+| `blocks` | Graph blocks, including DDL, SELECT blocks, derived tables, CTEs, set operations, and scalar subqueries; present when non-empty |
+| `relations` | Direct DDL targets/references, base tables, derived tables, and CTE references visible in the SQL; present when non-empty |
 | `targets` | SELECT output items, star targets, and DML output sources; present when non-empty |
 | `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
 | `values` | Values associated with fields or SELECT targets, plus literal, bind, and DEFAULT occurrences within compound DML assignment right-hand expressions; pagination and pseudo-column binds are excluded; present when non-empty |
@@ -187,8 +187,9 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 
 | Field | Description |
 | --- | --- |
-| `block` | Query block that owns the relation |
+| `block` | Graph block that owns the relation |
 | `kind` | `base`, `derived`, `cte`, or another relation kind |
+| `ddl_role` | Direct DDL relation role: `target` or `reference`; omitted for other relations |
 | `database` | Database name if present in SQL; omitted otherwise |
 | `database_quoted_identifier` | `true` when the exact token for `database` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `schema` | Schema name if present in SQL; omitted otherwise |
@@ -199,11 +200,89 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 | `alias_quoted_identifier` | `true` when the exact token for `alias` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `link` | Database link name for remote object references; omitted otherwise |
 | `link_quoted_identifier` | `true` when the exact token for `link` explicitly uses one of the three supported delimiter forms; omitted otherwise |
-| `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
+| `source_block` | Source query block for derived tables, CTEs, or a query-backed DDL target; omitted otherwise |
 | `selector` | Relation selector for patching; omitted when no writable node exists |
 
 A CTE definition creates one source block. Multiple references share that
 `source_block`, and an unreferenced CTE definition remains in `blocks[]`.
+
+## DDL Relations
+
+The canonical direct-DDL projection uses block `0` as its root with block
+`kind = "ddl"`. A direct DDL relation emits only `target` or `reference` as its
+`ddl_role`. Targets precede references, and peers retain source order. Callers
+should still use `ddl_role` instead of inferring a role from an array position.
+Only syntax successfully parsed and normalized into a supported node for the
+selected dialect enters this contract; it does not imply that every dialect
+accepts every SQL surface listed below.
+
+```json
+{
+  "root": 0,
+  "blocks": [
+    {"kind": "ddl", "relations": [0, 1]}
+  ],
+  "relations": [
+    {
+      "block": 0,
+      "kind": "base",
+      "ddl_role": "target",
+      "schema": "APP",
+      "schema_quoted_identifier": true,
+      "table": "CHILD",
+      "selector": "stmt[0].relation[0]"
+    },
+    {
+      "block": 0,
+      "kind": "base",
+      "ddl_role": "reference",
+      "schema": "REF",
+      "table": "PARENT",
+      "quoted_identifier": true,
+      "selector": "stmt[0].relation[1]"
+    }
+  ]
+}
+```
+
+Direct DDL relations currently cover:
+
+- the created target of `CREATE TABLE` / `CREATE FOREIGN TABLE`, plus
+  column-level or table-level foreign-key, `LIKE`, and `INHERITS` references;
+- the altered target of `ALTER TABLE`/`ALTER FOREIGN TABLE`, plus foreign-key
+  and supported `ATTACH/DETACH PARTITION` references;
+- the relation target in `CREATE INDEX ... ON relation`; the index name is not
+  a relation;
+- every `TRUNCATE` target;
+- the old target of a relation-kind `RENAME`; the new name is not emitted as a
+  second relation; and
+- every target in `DROP TABLE`, `DROP VIEW`, `DROP MATERIALIZED VIEW`, and
+  `DROP FOREIGN TABLE`.
+
+The Drop AST represents objects as name lists rather than writable relation
+nodes, so Drop relations do not emit `selector`. Quoted flags for
+database/schema/table are still derived from each exact source token.
+
+`CREATE VIEW`, `CREATE TABLE AS`, `CREATE MATERIALIZED VIEW`, and
+`SELECT ... INTO` for PostgreSQL/Vastbase-PostgreSQL and SQL
+Server/Vastbase-SQL Server use a query-backed DDL shape. The DDL root is block
+`0`; its target relation emits `ddl_role = "target"` and `source_block = 1`,
+with source query entry block `1`. Source SELECT relations retain ordinary
+query semantics and omit `ddl_role`, corresponding to `UNKNOWN` in the C
+struct.
+
+Non-relation DDL such as `CREATE SCHEMA`, `CREATE SEQUENCE`, `CREATE SYNONYM`,
+and `DROP INDEX` does not create a DDL block/relation. A dialect raw surface
+enters this projection only after normalization to one of the supported nodes
+above. Oracle, Dameng, and Vastbase-Oracle `SELECT ... INTO` remains an ordinary
+SELECT; `INTO` does not create a target relation.
+
+A DDL target/reference that has a `selector` continues to support relation
+`REPLACE` patches. A View exported after a successful patch recomputes name
+segments, quoted flags, `ddl_role`, and `source_block` for the new generation.
+Old C graph views become stale under the existing generation rule, and a clone
+remains independent of its source handle. This feature adds no selector, patch
+kind, or ownership rule.
 
 ## target
 

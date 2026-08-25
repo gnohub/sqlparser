@@ -12,6 +12,7 @@ SQLPARSER_0 {
 		sqlparser_bool_operator_name;
 		sqlparser_clause_kind_name;
 		sqlparser_graph_block_kind_name;
+		sqlparser_graph_ddl_relation_role_name;
 		sqlparser_graph_relation_kind_name;
 		sqlparser_graph_target_kind_name;
 		sqlparser_graph_value_kind_name;

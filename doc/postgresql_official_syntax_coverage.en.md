@@ -61,6 +61,15 @@ independent patches cover ordinary DML, MERGE INSERT, `DEFAULT VALUES`, and
 per-segment recomputation after patching. The PostgreSQL entry currently has no
 database-link relation.
 
+The `CURRENT` relation-DDL contract uses a root block with `kind = "ddl"` and
+`ddl_role = "target"|"reference"`. It covers FK, LIKE, INHERITS, and partition
+references, multi-object DROP, TRUNCATE, query-backed VIEW/CTAS/materialized
+views, and `SELECT INTO`. DROP targets have no relation selector; same-name
+quoted/unquoted segments, an `if` identifier, and U&/`UESCAPE` boundaries use
+exact source state. Five new final cases and 17 independent patches verify
+these boundaries. This evidence belongs only to the base PostgreSQL entry and
+does not automatically cover compatibility entries.
+
 PostgreSQL is the default parser-kernel dialect. No hook-only coverage gap
 remains. The remaining gap is complete object attribution and option modeling
 for role, user, and database-management statements, which requires public model

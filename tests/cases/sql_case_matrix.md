@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 219 条 `status = "final"` 用例和 738 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 224 条 `status = "final"` 用例和 755 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -210,6 +210,18 @@ relation 的限定名按段记录引号状态：`database_quoted_identifier`、`
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | P171 | `postgresql-quoted-identifier-segment-and-dml-column-inventory` | 6 条语句覆盖三段 relation、普通 INSERT、UPDATE、DELETE、MERGE INSERT 与 `DEFAULT VALUES` | `database_quoted_identifier`、`schema_quoted_identifier`、普通/分支 `dml_column.quoted_identifier` 的 quoted/unquoted 同名对照；4 个独立 patch 验证 relation 分段重算、MERGE 列替换及 paired 列插入后标志重算 |
+
+## DDL Query Graph relation 合同
+
+DDL 的 relation 进入 `kind = "ddl"` 根 block，并通过 `ddl_role = "target"|"reference"` 区分操作目标与约束、继承、模板或分区引用。查询支撑型 DDL 的 target 使用 `source_block` 指向独立 SELECT block；DROP 多对象 target 保留完整分段引号标志，但当前没有 relation selector。relation 数组顺序不作为角色判断依据。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| P172 | `postgresql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE、INDEX、DROP/TRUNCATE、RENAME，含 FK、LIKE、INHERITS 和多对象 DROP | DDL block、target/reference role、完整分段引号标志、DROP 无 selector 边界及 8 个 relation patch |
+| P173 | `postgresql-ddl-relation-query-backed-inventory` | CREATE VIEW、CTAS、CREATE MATERIALIZED VIEW | DDL target 与 SELECT source 分块，target `source_block` 连接来源查询，3 个 target/source relation patch |
+| P174 | `postgresql-ddl-relation-partition-operations` | ATTACH / DETACH PARTITION | 被修改表为 target、分区表为 reference，3 个 relation patch |
+| P175 | `postgresql-ddl-relation-select-into` | `SELECT ... INTO target FROM source` | DDL target block、SELECT source block、`source_block` 及 2 个 relation patch |
+| P176 | `postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | CREATE/ALTER/RENAME/DROP FOREIGN TABLE 与 quoted/unquoted 同名 DROP target | foreign-table target 生命周期、1 个 relation patch、`if` 标识符边界，以及 U& identifier/`UESCAPE` 后续目标的精确分段状态 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.10
+
+### DDL Query Graph relation 投影
+
+- 新增 `SQLPARSER_GRAPH_BLOCK_DDL`、`sqlparser_graph_ddl_relation_role_t` 和 `sqlparser_graph_relation_t.ddl_role`，将受支持 DDL 中的操作对象与引用对象分别标记为 `TARGET` 和 `REFERENCE`。查询支撑型 DDL target 通过 `source_block` 连接独立 SELECT 来源块。
+- relation 投影覆盖各方言入口成功解析的 CREATE/ALTER TABLE、CREATE INDEX、TRUNCATE、relation RENAME/DROP，以及 CREATE VIEW、CTAS、CREATE MATERIALIZED VIEW 和指定方言的 `SELECT INTO`；PostgreSQL-compatible 入口同时覆盖 FOREIGN TABLE 与分区引用。
+- DROP 多对象 relation 保持无 selector 边界，并按语句内对象及名称分段的精确来源输出定界状态；同名 quoted/unquoted、MySQL statement-level executable comment、`if` 标识符和 PostgreSQL U&/`UESCAPE` 顺序均纳入回归。SQL Server 普通多语句中的 CREATE INDEX/TRUNCATE relation patch 保持原公开 SQL surface。
+- 新增公开导出 `sqlparser_graph_ddl_relation_role_name()`。在 x86_64 与 AArch64 的 64 位布局中，`ddl_role` 使用 2.16.9 结构体的最后一个 padding 字节，`sqlparser_graph_relation_t` 的 `sizeof` 和全部旧字段 offset 保持不变；所有权与生命周期规则不变。
+
+### 用例与验证
+
+- 新增 66 条 final case 和 113 个 patch；九套 fixture 当前合计 2,968 条 final case 和 9,379 个 patch。
+- 完整 `make test`、九套方言矩阵和 ABI 导出检查通过；公开符号共 155 个。identifier 定向 Valgrind 检查为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.9
 
 ### Query Graph 标识符分段定界状态

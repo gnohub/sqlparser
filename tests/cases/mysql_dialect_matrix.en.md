@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 263 cases with `status = "final"` and 886 independent
+The fixture contains 266 cases with `status = "final"` and 894 independent
 patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -240,6 +240,16 @@ lifecycle coverage is maintained in `tests/unit/test_identifier_spelling.c`.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | M261 | `mysql-quoted-identifier-segment-and-dml-column-inventory` | seven statements covering three-part relations, ordinary INSERT, UPDATE, DELETE, compatibility-entry MERGE INSERT, MySQL `INSERT ... SET`, and `REPLACE ... SET` | quoted/unquoted same-name contrasts for `database_quoted_identifier`, `schema_quoted_identifier`, and ordinary/branch/SET `dml_column.quoted_identifier`; five independent patches verify recomputation after relation replacement, MERGE-column replacement, paired insertion, and INSERT SET column insertion |
+
+## DDL Query Graph Relation Contract
+
+This section records only forms defined by MySQL's official syntax and verified by the current entry. DDL targets and references enter a root block with `kind = "ddl"`; a query-backed DDL target points through `source_block` to a SELECT block. Multi-object DROP targets have no relation selector. Behavior not listed here must not be inferred for compatibility entries; their own fixtures are authoritative.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M262 | `mysql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE, INDEX, DROP/TRUNCATE, and RENAME, including FK and multi-object DROP | target/reference roles, segmented backtick flags, the no-selector DROP boundary, and six relation patches |
+| M263 | `mysql-ddl-relation-query-backed-inventory` | CREATE VIEW and CTAS | separate DDL-target and SELECT-source blocks, target `source_block`, and two target/source relation patches |
+| M264 | `mysql-ddl-drop-table-quoted-same-spelling` | multi-object DROP TABLE with identically spelled quoted/unquoted names, including a statement-level executable comment | selector-free DROP targets whose schema/object backtick states come from their exact source tokens |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

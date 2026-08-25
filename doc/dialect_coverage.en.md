@@ -8,17 +8,17 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Successful Cases | Expected-Failure Cases | Total Cases | Fixture Success Rate |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 219 | 0 | 219 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 263 | 0 | 263 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 271 | 0 | 271 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 629 | 0 | 629 | 100.00% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 203 | 0 | 203 | 100.00% |
-| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 204 | 0 | 204 | 100.00% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 264 | 0 | 264 | 100.00% |
-| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 240 | 0 | 240 | 100.00% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 609 | 0 | 609 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 224 | 0 | 224 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 266 | 0 | 266 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 281 | 0 | 281 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 639 | 0 | 639 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 213 | 0 | 213 | 100.00% |
+| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 209 | 0 | 209 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 267 | 0 | 267 | 100.00% |
+| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 250 | 0 | 250 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 619 | 0 | 619 | 100.00% |
 
-The nine fixtures contain 2902 final cases and 9266 independent patches in
+The nine fixtures contain 2968 final cases and 9379 independent patches in
 total.
 
 ## Counting Rules
@@ -31,6 +31,10 @@ total.
 - Expected-failure cases include invalid SQL and cases whose required semantics
   are not represented by the current dialect-to-AST mapping. These fixture
   counts do not measure official syntax coverage.
+- The DDL Query Graph contracts added to the five base entries are proven only
+  by those fixtures. Their counts do not imply the same syntax or patch surface
+  for Vastbase compatibility entries; each compatibility fixture remains
+  authoritative.
 
 ## Maintenance
 

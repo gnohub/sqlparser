@@ -120,9 +120,9 @@ IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
 
 | 字段 | 说明 |
 | --- | --- |
-| `root` | 根查询块编号；没有查询块时省略 |
-| `blocks` | 查询块数组，包含普通 SELECT、派生表、CTE、集合运算和标量子查询；非空时存在 |
-| `relations` | SQL 中出现的基础表、派生表或 CTE 引用；非空时存在 |
+| `root` | 根 graph block 编号；没有 graph block 时省略 |
+| `blocks` | graph block 数组，包含 DDL、普通 SELECT、派生表、CTE、集合运算和标量子查询；非空时存在 |
+| `relations` | SQL 中出现的直接 DDL target/reference、基础表、派生表或 CTE 引用；非空时存在 |
 | `targets` | SELECT 输出项、星号输出、DML 输出来源等；非空时存在 |
 | `fields` | SQL 文本中出现的字段引用 occurrence；非空时存在 |
 | `values` | 与字段或 SELECT target 关联的值，以及复合 DML assignment 右侧表达式中的 literal、bind 和 DEFAULT occurrence；分页或伪列 bind 不进入该数组；非空时存在 |
@@ -182,8 +182,9 @@ FROM (
 
 | 字段 | 说明 |
 | --- | --- |
-| `block` | 该关系所在查询块 |
+| `block` | 该关系所在 graph block |
 | `kind` | `base`、`derived`、`cte` 等 |
+| `ddl_role` | 直接 DDL relation 的角色：`target` 或 `reference`；其他 relation 省略 |
 | `database` | SQL 中出现的数据库名；未出现时省略 |
 | `database_quoted_identifier` | `database` 对应的精确 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `schema` | SQL 中出现的 schema；未出现时省略 |
@@ -194,10 +195,60 @@ FROM (
 | `alias_quoted_identifier` | `alias` 对应的精确 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `link` | 远程对象引用中的 database link 名称；未出现时省略 |
 | `link_quoted_identifier` | `link` 对应的精确 token 显式使用上述三类定界符时为 `true`；否则省略 |
-| `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
+| `source_block` | 派生表、CTE 或 query-backed DDL target 指向的来源查询块；没有来源块时省略 |
 | `selector` | 可用于 patch 的关系 selector；没有可写节点时省略 |
 
 同一个 CTE 定义只生成一个来源 block。多次 CTE 引用共享 `source_block`，未被引用的 CTE 定义也保留在 `blocks[]` 中。
+
+## DDL relation
+
+规范的直接 DDL 投影以 block `0` 作为根，block `kind` 为 `ddl`。直接 DDL relation 的 `ddl_role` 只输出 `target` 或 `reference`：target 排在 reference 之前，同类 relation 保持源码顺序；调用方仍应依据 `ddl_role`，不能依赖数组位置推断角色。只有对应方言成功解析并归一为受支持节点的语法进入该合同，不表示每个方言都接受下列每种 SQL 表面形式。
+
+```json
+{
+  "root": 0,
+  "blocks": [
+    {"kind": "ddl", "relations": [0, 1]}
+  ],
+  "relations": [
+    {
+      "block": 0,
+      "kind": "base",
+      "ddl_role": "target",
+      "schema": "APP",
+      "schema_quoted_identifier": true,
+      "table": "CHILD",
+      "selector": "stmt[0].relation[0]"
+    },
+    {
+      "block": 0,
+      "kind": "base",
+      "ddl_role": "reference",
+      "schema": "REF",
+      "table": "PARENT",
+      "quoted_identifier": true,
+      "selector": "stmt[0].relation[1]"
+    }
+  ]
+}
+```
+
+当前直接 DDL relation 覆盖：
+
+- `CREATE TABLE` / `CREATE FOREIGN TABLE` 的新建 target，以及列级或表级 foreign key、`LIKE`、`INHERITS` reference；
+- `ALTER TABLE`/`ALTER FOREIGN TABLE` 的操作 target，以及 foreign key、受支持的 `ATTACH/DETACH PARTITION` reference；
+- `CREATE INDEX ... ON relation` 的 relation target；index 名不是 relation；
+- `TRUNCATE` 的全部 target；
+- relation 类型 `RENAME` 的旧对象 target；新名称不输出为第二个 relation；
+- `DROP TABLE`、`DROP VIEW`、`DROP MATERIALIZED VIEW`、`DROP FOREIGN TABLE` 的全部 target。
+
+Drop AST 中的对象由名称列表表示，没有可写 relation 节点，因此 Drop relation 不输出 `selector`；database/schema/table 的 quoted flags 仍按各自的精确来源 token 输出。
+
+`CREATE VIEW`、`CREATE TABLE AS`、`CREATE MATERIALIZED VIEW`，以及 PostgreSQL/Vastbase-PostgreSQL、SQL Server/Vastbase-SQL Server 的 `SELECT ... INTO` 使用 query-backed DDL 形态：DDL 根为 block `0`，target relation 输出 `ddl_role = "target"` 和 `source_block = 1`；来源查询入口是 block `1`。来源 SELECT relation 保持普通查询语义，不输出 `ddl_role`，即 C 结构中的 `UNKNOWN`。
+
+`CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不生成 DDL block/relation；方言 raw-surface DDL 只有归一为上述受支持节点后才进入该投影。Oracle、Dameng 和 Vastbase-Oracle 的 `SELECT ... INTO` 仍按普通 SELECT 输出，`INTO` 不产生 target relation。
+
+具有 `selector` 的 DDL target/reference 可以继续使用 relation `REPLACE` patch。成功 patch 后重新导出的 View 会按新 generation 重算名称分段、quoted flags、`ddl_role` 和 `source_block`；旧 C graph view 按既有 generation 规则失效，clone 与原 handle 保持独立。该能力不增加新的 selector、patch 类型或所有权规则。
 
 ## target
 

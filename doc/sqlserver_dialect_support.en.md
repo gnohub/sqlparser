@@ -42,8 +42,8 @@ The executable case matrix defines the SQL Server dialect support boundary:
   `WHEN MATCHED ... THEN DELETE` action; `insert_column` on a not-matched INSERT
   supports column-only, value-only, and paired modes, and existing VALUES cells
   can be replaced independently
-- common DDL: `CREATE TABLE`, `ALTER TABLE ADD`, `CREATE VIEW`,
-  `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
+- common relation DDL: `CREATE TABLE`, `ALTER TABLE ADD`, `CREATE VIEW`,
+  `CREATE INDEX`, `DROP TABLE`, `DROP VIEW`, `TRUNCATE TABLE`, and `SELECT INTO`
 - compatible mapping for the `IDENTITY` column property
 - transaction control, `SAVE TRANSACTION`, and `GRANT / REVOKE`
 - `GO` batch separators
@@ -131,6 +131,15 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   segment; View JSON omits the key for an unquoted or absent segment, so case
   cannot be inferred from identifier spelling. The SQL Server entry has no
   database-link relation, so the link flag is not applicable.
+- Relation DDL emits a root block with `kind = "ddl"` and uses
+  `ddl_role = "target"|"reference"` for changed objects and FK references.
+  VIEW and `SELECT INTO` targets point through `source_block` to a SELECT block.
+  Multi-object DROP targets have no relation selector; identically spelled
+  quoted/unquoted segments retain exact source-token bracket state. Relation
+  patches retain SQL Server's public surface in single statements and ordinary
+  multi-statement batches: CREATE INDEX does not gain `USING btree`, and
+  TRUNCATE does not lose `TABLE`. This contract is not automatically inherited
+  by compatibility entries.
 - Control conditions and branch SQL are emitted as ordered statement units;
   View JSON `control_flow` mirrors the public read-only control structures.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -145,7 +154,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 629 cases, all with `status = "final"`, and 1889
+The SQL Server matrix contains 639 cases, all with `status = "final"`, and 1901
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.

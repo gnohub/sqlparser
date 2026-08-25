@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 263 条 `status = "final"` 用例和 886 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 266 条 `status = "final"` 用例和 894 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -222,6 +222,16 @@ relation 的限定名按段记录反引号状态：`database_quoted_identifier`�
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | M261 | `mysql-quoted-identifier-segment-and-dml-column-inventory` | 7 条语句覆盖三段 relation、普通 INSERT、UPDATE、DELETE、兼容入口 MERGE INSERT、MySQL `INSERT ... SET` 与 `REPLACE ... SET` | `database_quoted_identifier`、`schema_quoted_identifier`、普通/分支/SET `dml_column.quoted_identifier` 的 quoted/unquoted 同名对照；5 个独立 patch 验证 relation 分段重算、MERGE 列替换、paired 列插入及 INSERT SET 列插入后的标志重算 |
+
+## DDL Query Graph relation 合同
+
+本节只登记 MySQL 官方语法可表达且当前入口真实通过的形态。DDL target/reference 进入 `kind = "ddl"` 根 block；查询支撑型 DDL 的 target 通过 `source_block` 指向 SELECT block。DROP 多对象 target 不提供 relation selector。未登记的兼容入口行为不能由本节推断，必须以对应兼容入口 fixture 为准。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M262 | `mysql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE、INDEX、DROP/TRUNCATE、RENAME，含 FK 和多对象 DROP | target/reference role、反引号分段标志、DROP 无 selector 边界及 6 个 relation patch |
+| M263 | `mysql-ddl-relation-query-backed-inventory` | CREATE VIEW 与 CTAS | DDL target 与 SELECT source 分块、target `source_block` 及 2 个 target/source relation patch |
+| M264 | `mysql-ddl-drop-table-quoted-same-spelling` | quoted/unquoted 同名多对象 DROP TABLE，含 statement-level executable comment | DROP target 无 selector，schema/object 反引号状态按精确来源 token 分别输出 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

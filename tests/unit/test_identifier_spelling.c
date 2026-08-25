@@ -933,6 +933,7 @@ typedef struct {
 	int object_quoted_identifier;
 	int alias_quoted_identifier;
 	int link_quoted_identifier;
+	sqlparser_graph_ddl_relation_role_t ddl_role;
 } graph_relation_quote_expectation_t;
 
 static int graph_relation_quote_flags_match(
@@ -987,7 +988,8 @@ static int graph_relation_quote_flags_match(
 		    expected->schema_quoted_identifier ||
 	    relation.quoted_identifier != expected->object_quoted_identifier ||
 	    relation.alias_quoted_identifier != expected->alias_quoted_identifier ||
-	    relation.link_quoted_identifier != expected->link_quoted_identifier) {
+	    relation.link_quoted_identifier != expected->link_quoted_identifier ||
+	    relation.ddl_role != expected->ddl_role) {
 		fprintf(
 			stderr,
 			"FAIL: %s relation quote contract mismatch: %s\n",
@@ -2306,6 +2308,2124 @@ static int query_graph_mysql_set_quote_flags(void)
 		sqlparser_handle_destroy(handle);
 	}
 	return 1;
+}
+
+typedef struct {
+	graph_relation_quote_expectation_t spelling;
+	size_t block_index;
+	int has_source_block;
+	size_t source_block_index;
+	const char *selector;
+} ddl_graph_relation_expectation_t;
+
+static int ddl_graph_relation_matches(
+	const sqlparser_query_graph_view_t *graph,
+	size_t relation_index,
+	size_t statement_index,
+	const ddl_graph_relation_expectation_t *expected,
+	const char *label)
+{
+	sqlparser_graph_relation_t relation;
+	sqlparser_error_t error;
+	char *selector;
+	int valid;
+
+	selector = NULL;
+	valid = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	if (!graph_relation_quote_flags_match(
+		    graph,
+		    relation_index,
+		    &expected->spelling,
+		    label) ||
+	    sqlparser_query_graph_relation_at(
+		    graph,
+		    relation_index,
+		    &relation,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    relation.index != relation_index ||
+	    relation.statement_index != statement_index ||
+	    relation.block_index != expected->block_index ||
+	    relation.kind != SQLPARSER_GRAPH_REL_BASE ||
+	    relation.has_source_block != expected->has_source_block ||
+	    (expected->has_source_block &&
+	     relation.source_block_index != expected->source_block_index) ||
+	    relation.has_selector != (expected->selector != NULL)) {
+		fprintf(stderr, "FAIL: %s DDL relation metadata mismatch: %s\n",
+			label, error.message);
+		goto cleanup;
+	}
+	if (expected->selector != NULL &&
+	    (relation.selector.kind != SQLPARSER_SELECTOR_KIND_RELATION ||
+	     sqlparser_selector_format(
+		     &relation.selector,
+		     &selector,
+		     &error) != SQLPARSER_STATUS_OK ||
+	     selector == NULL ||
+	     strcmp(selector, expected->selector) != 0)) {
+		fprintf(stderr, "FAIL: %s DDL relation selector mismatch: %s\n",
+			label, error.message);
+		goto cleanup;
+	}
+	valid = 1;
+
+cleanup:
+	sqlparser_string_free(selector);
+	return valid;
+}
+
+static int ddl_graph_single_block_matches(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const ddl_graph_relation_expectation_t *expected_relations,
+	size_t expected_relation_count,
+	const char *label)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_block_t block;
+	sqlparser_query_graph_view_t graph;
+	size_t index;
+	size_t relation_index;
+
+	memset(&error, 0, sizeof(error));
+	memset(&block, 0, sizeof(block));
+	memset(&graph, 0, sizeof(graph));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    statement_index,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !graph.has_root_block ||
+	    graph.root_block_index != 0U ||
+	    graph.block_count != 1U ||
+	    graph.relation_count != expected_relation_count ||
+	    graph.target_count != 0U ||
+	    graph.field_count != 0U ||
+	    graph.value_count != 0U ||
+	    graph.set_count != 0U ||
+	    graph.predicate_count != 0U ||
+	    graph.has_dml ||
+	    sqlparser_query_graph_block_at(
+		    &graph,
+		    0U,
+		    &block,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    block.index != 0U ||
+	    block.statement_index != statement_index ||
+	    block.kind != SQLPARSER_GRAPH_BLOCK_DDL ||
+	    block.relations.count != expected_relation_count ||
+	    block.targets.count != 0U ||
+	    block.predicates.count != 0U) {
+		fprintf(stderr, "FAIL: %s DDL root block mismatch: %s\n",
+			label, error.message);
+		return 0;
+	}
+	for (index = 0U; index < expected_relation_count; index++) {
+		if (sqlparser_query_graph_span_index_at(
+			    &graph,
+			    block.relations,
+			    index,
+			    &relation_index,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    relation_index != index ||
+		    !ddl_graph_relation_matches(
+			    &graph,
+			    relation_index,
+			    statement_index,
+			    &expected_relations[index],
+			    label)) {
+			fprintf(stderr, "FAIL: %s DDL relation %lu mismatch: %s\n",
+				label, (unsigned long)index, error.message);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int query_graph_ddl_direct_nine_dialects(void)
+{
+#define DDL_GRAPH_RELATION(db, schema, object, db_quoted, schema_quoted, object_quoted, role, selector_text) \
+	{ \
+		{ \
+			.database_name = (db), \
+			.schema_name = (schema), \
+			.object_name = (object), \
+			.database_quoted_identifier = (db_quoted), \
+			.schema_quoted_identifier = (schema_quoted), \
+			.object_quoted_identifier = (object_quoted), \
+			.ddl_role = (role) \
+		}, \
+		0U, 0, 0U, (selector_text) \
+	}
+	static const struct {
+		const char *create_sql;
+		ddl_graph_relation_expectation_t create_relations[4];
+		size_t create_relation_count;
+		const char *alter_sql;
+		ddl_graph_relation_expectation_t alter_relations[2];
+	} syntax[] = {
+		{
+			"CREATE TABLE \"AppSchema\".\"ChildTable\" "
+			"(id integer, ref_id integer REFERENCES "
+			"\"RefSchema\".\"ParentTable\"(id), LIKE "
+			"\"LikeSchema\".template_table INCLUDING ALL) "
+			"INHERITS (base_schema.\"BaseTable\")",
+			{
+				DDL_GRAPH_RELATION(NULL, "AppSchema", "ChildTable", 0, 1, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "RefSchema", "ParentTable", 0, 1, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]"),
+				DDL_GRAPH_RELATION(NULL, "LikeSchema", "template_table", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[2]"),
+				DDL_GRAPH_RELATION(NULL, "base_schema", "BaseTable", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[3]")
+			},
+			4U,
+			"ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter "
+			"FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id)",
+			{
+				DDL_GRAPH_RELATION(NULL, "AppSchema", "alter_child", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "ref_schema", "AlterParent", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			}
+		},
+		{
+			"CREATE TABLE `AppDb`.`ChildTable` "
+			"(id INT, ref_id INT, CONSTRAINT fk_ref FOREIGN KEY (ref_id) "
+			"REFERENCES `RefDb`.ParentTable(id))",
+			{
+				DDL_GRAPH_RELATION(NULL, "AppDb", "ChildTable", 0, 1, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "RefDb", "ParentTable", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			},
+			2U,
+			"ALTER TABLE `AlterDb`.`AlterChild` ADD CONSTRAINT fk_alter "
+			"FOREIGN KEY (ref_id) REFERENCES ref_db.`AlterParent`(id)",
+			{
+				DDL_GRAPH_RELATION(NULL, "AlterDb", "AlterChild", 0, 1, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "ref_db", "AlterParent", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			}
+		},
+		{
+			"CREATE TABLE \"APP\".CHILD (\"ID\" NUMBER, "
+			"\"PARENT_ID\" NUMBER, CONSTRAINT \"FK_CHILD\" FOREIGN KEY "
+			"(\"PARENT_ID\") REFERENCES REF.\"PARENT\" (\"ID\"))",
+			{
+				DDL_GRAPH_RELATION(NULL, "APP", "CHILD", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "REF", "PARENT", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			},
+			2U,
+			"ALTER TABLE APP.\"CHILD\" ADD CONSTRAINT \"FK_CHILD\" "
+			"FOREIGN KEY (\"PARENT_ID\") REFERENCES \"REF\".PARENT (\"ID\")",
+			{
+				DDL_GRAPH_RELATION(NULL, "APP", "CHILD", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "REF", "PARENT", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			}
+		},
+		{
+			"CREATE TABLE [AppDb].sales.[Child] ([ID] INT NOT NULL, "
+			"[ParentID] INT, CONSTRAINT [FK_Child_Parent] FOREIGN KEY "
+			"([ParentID]) REFERENCES sales.[Parent] ([ID]))",
+			{
+				DDL_GRAPH_RELATION("AppDb", "sales", "Child", 1, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "sales", "Parent", 0, 0, 1,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			},
+			2U,
+			"ALTER TABLE AppDb.[sales].Child ADD CONSTRAINT "
+			"[FK_Child_Parent2] FOREIGN KEY ([ParentID]) "
+			"REFERENCES [sales].Parent2 ([ID])",
+			{
+				DDL_GRAPH_RELATION("AppDb", "sales", "Child", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_TARGET,
+					"stmt[0].relation[0]"),
+				DDL_GRAPH_RELATION(NULL, "sales", "Parent2", 0, 1, 0,
+					SQLPARSER_GRAPH_DDL_RELATION_REFERENCE,
+					"stmt[0].relation[1]")
+			}
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+		size_t syntax_index;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL", 0U},
+		{SQLPARSER_DIALECT_MYSQL, "MySQL", 1U},
+		{SQLPARSER_DIALECT_ORACLE, "Oracle", 2U},
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server", 3U},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng", 2U},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle", 2U},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL", 1U},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL, "Vastbase-PostgreSQL", 0U},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "Vastbase-SQL Server", 3U}
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		const size_t syntax_index = dialects[dialect_index].syntax_index;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    syntax[syntax_index].create_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    syntax[syntax_index].create_relations,
+			    syntax[syntax_index].create_relation_count,
+			    dialects[dialect_index].label)) {
+			fprintf(stderr, "FAIL: %s CREATE TABLE DDL graph failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse_with_options(
+			    syntax[syntax_index].alter_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    syntax[syntax_index].alter_relations,
+			    2U,
+			    dialects[dialect_index].label)) {
+			fprintf(stderr, "FAIL: %s ALTER TABLE DDL graph failed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+#undef DDL_GRAPH_RELATION
+	return 1;
+}
+
+static int query_graph_ddl_partition_relations(void)
+{
+	static const ddl_graph_relation_expectation_t relations[] = {
+		{
+			{
+				.schema_name = "AppSchema",
+				.object_name = "PartitionedTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.schema_name = "PartSchema",
+				.object_name = "PartitionTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[1]"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"Vastbase-PostgreSQL"}
+	};
+	static const struct {
+		const char *sql;
+		const char *label;
+	} operations[] = {
+		{
+			"ALTER TABLE \"AppSchema\".\"PartitionedTable\" "
+			"ATTACH PARTITION \"PartSchema\".\"PartitionTable\" "
+			"FOR VALUES FROM (1) TO (100)",
+			"ATTACH PARTITION"
+		},
+		{
+			"ALTER TABLE \"AppSchema\".\"PartitionedTable\" "
+			"DETACH PARTITION \"PartSchema\".\"PartitionTable\"",
+			"DETACH PARTITION"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+	size_t operation_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		for (operation_index = 0U;
+		     operation_index < sizeof(operations) / sizeof(operations[0]);
+		     operation_index++) {
+			sqlparser_error_t error;
+			sqlparser_handle_t *handle;
+
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index].dialect;
+			if (sqlparser_parse_with_options(
+				    operations[operation_index].sql,
+				    &options,
+				    &handle,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    !ddl_graph_single_block_matches(
+				    handle,
+				    0U,
+				    relations,
+				    2U,
+				    operations[operation_index].label)) {
+				fprintf(stderr, "FAIL: %s %s graph failed: %s\n",
+					dialects[dialect_index].label,
+					operations[operation_index].label,
+					error.message);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return 1;
+}
+
+static int query_graph_ddl_mysql_like_parse_boundary(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_status_t status;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		status = sqlparser_parse_with_options(
+			"CREATE TABLE `CopyDb`.`ChildCopy` LIKE "
+			"`SourceDb`.`Child`",
+			&options,
+			&handle,
+			&error);
+		if (status != SQLPARSER_STATUS_PARSE_ERROR || handle != NULL) {
+			fprintf(stderr,
+				"FAIL: MySQL-family CREATE TABLE LIKE boundary changed\n");
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int query_graph_ddl_foreign_table_lifecycle(void)
+{
+	static const char sql[] =
+		"CREATE FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" "
+		"(id integer) SERVER foreign_server; "
+		"ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" "
+		"ADD COLUMN note text; "
+		"ALTER FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\" "
+		"RENAME COLUMN id TO id_new; "
+		"DROP FOREIGN TABLE \"ForeignSchema\".\"ForeignTable\"";
+	static const ddl_graph_relation_expectation_t create_relation[] = {
+		{
+			{
+				.schema_name = "ForeignSchema",
+				.object_name = "ForeignTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[0].relation[0]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t alter_relation[] = {
+		{
+			{
+				.schema_name = "ForeignSchema",
+				.object_name = "ForeignTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[1].relation[0]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t drop_relation[] = {
+		{
+			{
+				.schema_name = "ForeignSchema",
+				.object_name = "ForeignTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t rename_relation[] = {
+		{
+			{
+				.schema_name = "ForeignSchema",
+				.object_name = "ForeignTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[2].relation[0]"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"Vastbase-PostgreSQL"}
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 4U ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    create_relation,
+			    1U,
+			    "CREATE FOREIGN TABLE") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    1U,
+			    alter_relation,
+			    1U,
+			    "ALTER FOREIGN TABLE") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    2U,
+			    rename_relation,
+			    1U,
+			    "ALTER FOREIGN TABLE RENAME COLUMN") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    3U,
+			    drop_relation,
+			    1U,
+			    "DROP FOREIGN TABLE")) {
+			fprintf(stderr,
+				"FAIL: %s foreign table lifecycle graph failed: %s\n",
+				dialects[dialect_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_drop_same_name_quote_flags(void)
+{
+	static const ddl_graph_relation_expectation_t relations[] = {
+		{
+			{
+				.schema_name = "app",
+				.object_name = "t",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "app",
+				.object_name = "t",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t unicode_relation[] = {
+		{
+			{
+				.schema_name = "app",
+				.object_name = "t",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t if_relations[] = {
+		{
+			{
+				.schema_name = "if",
+				.object_name = "t",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "if",
+				.object_name = "t",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t unicode_escape_relations[] = {
+		{
+			{
+				.object_name = "dat",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.object_name = "bar",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *label;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"DROP TABLE app.t, \"app\".\"t\"",
+			"PostgreSQL"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"DROP TABLE app.t, \"app\".\"t\"",
+			"Vastbase-PostgreSQL"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"DROP TABLE app.t, `app`.`t`",
+			"MySQL"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"DROP TABLE app.t, `app`.`t`",
+			"Vastbase-MySQL"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"DROP TABLE app.t, [app].[t]",
+			"SQL Server"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"DROP TABLE app.t, [app].[t]",
+			"Vastbase-SQL Server"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    relations,
+			    2U,
+			    cases[case_index].label)) {
+			fprintf(stderr,
+				"FAIL: %s same-name DROP quote graph failed: %s\n",
+				cases[case_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	for (case_index = 0U; case_index < 2U; case_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = case_index == 0U ?
+			SQLPARSER_DIALECT_POSTGRESQL :
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+		if (sqlparser_parse_with_options(
+			    "DROP TABLE U&\"app\".U&\"t\"",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    unicode_relation,
+			    1U,
+			    "PostgreSQL-family U& DROP")) {
+			fprintf(stderr,
+				"FAIL: PostgreSQL-family U& DROP quote graph failed: %s\n",
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	for (case_index = 0U; case_index < 2U; case_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = case_index == 0U ?
+			SQLPARSER_DIALECT_POSTGRESQL :
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+		if (sqlparser_parse_with_options(
+			    "DROP TABLE if.\"t\", \"if\".\"t\"; "
+			    "DROP TABLE U&\"d!0061t\" UESCAPE '!', \"bar\"",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 2U ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    if_relations,
+			    2U,
+			    "PostgreSQL-family IF relation") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    1U,
+			    unicode_escape_relations,
+			    2U,
+			    "PostgreSQL-family UESCAPE DROP")) {
+			fprintf(stderr,
+				"FAIL: PostgreSQL-family DROP scanner boundary failed: %s\n",
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_drop_executable_comment_lifecycle(void)
+{
+	static const ddl_graph_relation_expectation_t relations[] = {
+		{
+			{
+				.schema_name = "app",
+				.object_name = "t",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "app",
+				.object_name = "t",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_MYSQL, "MySQL"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL"}
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_handle_t *reparsed;
+		char *deparsed;
+
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "/*!50000 DROP TABLE app.t, `app`.`t` */; "
+			    "SELECT old_col FROM source_table",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 2U ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    relations,
+			    2U,
+			    "executable-comment DROP initial") ||
+		    sqlparser_select_set_target_sql(
+			    handle,
+			    1U,
+			    0U,
+			    0U,
+			    "new_col",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    relations,
+			    2U,
+			    "executable-comment DROP after patch") ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strstr(
+			    deparsed,
+			    "/*!50000 DROP TABLE app.t, `app`.`t` */") == NULL ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    reparsed,
+			    0U,
+			    relations,
+			    2U,
+			    "executable-comment DROP reparsed")) {
+			fprintf(stderr,
+				"FAIL: %s executable-comment DROP lifecycle failed: %s\n",
+				dialects[dialect_index].label,
+				error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+	}
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "DROP /*!50000 TEMPORARY */ TABLE "
+			    "/*!50000 IF EXISTS */ app.t, `app`.`t` "
+			    "/*!50000 CASCADE */",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    0U,
+			    relations,
+			    2U,
+			    "inline executable-comment DROP")) {
+			fprintf(stderr,
+				"FAIL: %s inline executable-comment DROP failed: %s\n",
+				dialects[dialect_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_direct_inventory(void)
+{
+	static const char sql[] =
+		"CREATE TABLE \"AppSchema\".\"ChildTable\" "
+		"(id integer, ref_id integer REFERENCES "
+		"\"RefSchema\".\"ParentTable\"(id), LIKE "
+		"\"LikeSchema\".template_table INCLUDING ALL) "
+		"INHERITS (base_schema.\"BaseTable\"); "
+		"ALTER TABLE \"AppSchema\".alter_child ADD CONSTRAINT fk_alter "
+		"FOREIGN KEY (ref_id) REFERENCES ref_schema.\"AlterParent\"(id); "
+		"CREATE INDEX idx_child_ref ON \"IndexSchema\".\"IndexTable\" (ref_id); "
+		"DROP TABLE \"DropSchema\".\"DropOne\", plain_schema.drop_two; "
+		"TRUNCATE TABLE \"TruncSchema\".\"TruncOne\", plain_schema.trunc_two; "
+		"ALTER TABLE \"RenameSchema\".\"OldTable\" RENAME TO \"NewTable\"; "
+		"DROP VIEW \"ViewSchema\".\"OldViewOne\", plain_schema.old_view_two; "
+		"DROP MATERIALIZED VIEW \"MvSchema\".\"OldMvOne\", "
+		"plain_schema.old_mv_two";
+	static const ddl_graph_relation_expectation_t index_relations[] = {
+		{
+			{
+				.schema_name = "IndexSchema",
+				.object_name = "IndexTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[2].relation[0]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t drop_relations[] = {
+		{
+			{
+				.schema_name = "DropSchema",
+				.object_name = "DropOne",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "plain_schema",
+				.object_name = "drop_two",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t truncate_relations[] = {
+		{
+			{
+				.schema_name = "TruncSchema",
+				.object_name = "TruncOne",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[4].relation[0]"
+		},
+		{
+			{
+				.schema_name = "plain_schema",
+				.object_name = "trunc_two",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[4].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t rename_relations[] = {
+		{
+			{
+				.schema_name = "RenameSchema",
+				.object_name = "OldTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[5].relation[0]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t drop_view_relations[] = {
+		{
+			{
+				.schema_name = "ViewSchema",
+				.object_name = "OldViewOne",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "plain_schema",
+				.object_name = "old_view_two",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const ddl_graph_relation_expectation_t drop_mview_relations[] = {
+		{
+			{
+				.schema_name = "MvSchema",
+				.object_name = "OldMvOne",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		},
+		{
+			{
+				.schema_name = "plain_schema",
+				.object_name = "old_mv_two",
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, NULL
+		}
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		if (sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 8U ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    2U,
+			    index_relations,
+			    1U,
+			    "PostgreSQL-family CREATE INDEX") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    3U,
+			    drop_relations,
+			    2U,
+			    "PostgreSQL-family DROP TABLE") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    4U,
+			    truncate_relations,
+			    2U,
+			    "PostgreSQL-family TRUNCATE TABLE") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    5U,
+			    rename_relations,
+			    1U,
+			    "PostgreSQL-family ALTER TABLE RENAME") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    6U,
+			    drop_view_relations,
+			    2U,
+			    "PostgreSQL-family DROP VIEW") ||
+		    !ddl_graph_single_block_matches(
+			    handle,
+			    7U,
+			    drop_mview_relations,
+			    2U,
+			    "PostgreSQL-family DROP MATERIALIZED VIEW")) {
+			fprintf(stderr,
+				"FAIL: PostgreSQL-family direct DDL inventory failed: %s\n",
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int ddl_graph_query_backed_matches(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const ddl_graph_relation_expectation_t expected_relations[2],
+	const char *label)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_block_t ddl_block;
+	sqlparser_graph_block_t select_block;
+	sqlparser_query_graph_view_t graph;
+	size_t relation_index;
+
+	memset(&error, 0, sizeof(error));
+	memset(&ddl_block, 0, sizeof(ddl_block));
+	memset(&select_block, 0, sizeof(select_block));
+	memset(&graph, 0, sizeof(graph));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    statement_index,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !graph.has_root_block ||
+	    graph.root_block_index != 0U ||
+	    graph.block_count != 2U ||
+	    graph.relation_count != 2U ||
+	    graph.target_count == 0U ||
+	    graph.has_dml ||
+	    sqlparser_query_graph_block_at(
+		    &graph,
+		    0U,
+		    &ddl_block,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_query_graph_block_at(
+		    &graph,
+		    1U,
+		    &select_block,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    ddl_block.index != 0U ||
+	    ddl_block.statement_index != statement_index ||
+	    ddl_block.kind != SQLPARSER_GRAPH_BLOCK_DDL ||
+	    ddl_block.relations.count != 1U ||
+	    select_block.index != 1U ||
+	    select_block.statement_index != statement_index ||
+	    select_block.kind != SQLPARSER_GRAPH_BLOCK_SELECT ||
+	    select_block.relations.count != 1U ||
+	    sqlparser_query_graph_span_index_at(
+		    &graph,
+		    ddl_block.relations,
+		    0U,
+		    &relation_index,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    relation_index != 0U ||
+	    sqlparser_query_graph_span_index_at(
+		    &graph,
+		    select_block.relations,
+		    0U,
+		    &relation_index,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    relation_index != 1U ||
+	    !ddl_graph_relation_matches(
+		    &graph,
+		    0U,
+		    statement_index,
+		    &expected_relations[0],
+		    label) ||
+	    !ddl_graph_relation_matches(
+		    &graph,
+		    1U,
+		    statement_index,
+		    &expected_relations[1],
+		    label)) {
+		fprintf(stderr, "FAIL: %s query-backed DDL graph mismatch: %s\n",
+			label, error.message);
+		return 0;
+	}
+	return 1;
+}
+
+static int query_graph_ddl_query_backed_inventory(void)
+{
+	static const char sql[] =
+		"CREATE VIEW \"ViewSchema\".\"CustomerView\" AS "
+		"SELECT id FROM \"SourceSchema\".customer; "
+		"CREATE TABLE \"CopySchema\".copy_table AS "
+		"SELECT id FROM source_schema.\"SourceTable\"; "
+		"CREATE MATERIALIZED VIEW \"MvSchema\".\"CustomerMv\" AS "
+		"SELECT id FROM mv_source.customer";
+	static const ddl_graph_relation_expectation_t relations[][2] = {
+		{
+			{
+				{
+					.schema_name = "ViewSchema",
+					.object_name = "CustomerView",
+					.schema_quoted_identifier = 1,
+					.object_quoted_identifier = 1,
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+				},
+				0U, 1, 1U, "stmt[0].relation[0]"
+			},
+			{
+				{
+					.schema_name = "SourceSchema",
+					.object_name = "customer",
+					.schema_quoted_identifier = 1,
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+				},
+				1U, 0, 0U, "stmt[0].relation[1]"
+			}
+		},
+		{
+			{
+				{
+					.schema_name = "CopySchema",
+					.object_name = "copy_table",
+					.schema_quoted_identifier = 1,
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+				},
+				0U, 1, 1U, "stmt[1].relation[1]"
+			},
+			{
+				{
+					.schema_name = "source_schema",
+					.object_name = "SourceTable",
+					.object_quoted_identifier = 1,
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+				},
+				1U, 0, 0U, "stmt[1].relation[0]"
+			}
+		},
+		{
+			{
+				{
+					.schema_name = "MvSchema",
+					.object_name = "CustomerMv",
+					.schema_quoted_identifier = 1,
+					.object_quoted_identifier = 1,
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+				},
+				0U, 1, 1U, "stmt[2].relation[1]"
+			},
+			{
+				{
+					.schema_name = "mv_source",
+					.object_name = "customer",
+					.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+				},
+				1U, 0, 0U, "stmt[2].relation[0]"
+			}
+		}
+	};
+	static const char *const labels[] = {
+		"PostgreSQL-family CREATE VIEW",
+		"PostgreSQL-family CTAS",
+		"PostgreSQL-family CREATE MATERIALIZED VIEW"
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+	size_t statement_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		if (sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 3U) {
+			fprintf(stderr,
+				"FAIL: PostgreSQL-family query-backed DDL setup failed: %s\n",
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		for (statement_index = 0U; statement_index < 3U;
+		     statement_index++) {
+			if (!ddl_graph_query_backed_matches(
+				    handle,
+				    statement_index,
+				    relations[statement_index],
+				    labels[statement_index])) {
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_select_into_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const ddl_graph_relation_expectation_t initial_relations[2],
+	const ddl_graph_relation_expectation_t patched_relations[2],
+	const char *target_patch,
+	const char *source_patch,
+	const char *label)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_relation_t stale_relation;
+	sqlparser_handle_t *clone;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patches[2];
+	sqlparser_query_graph_view_t stale_graph;
+	char *clone_view;
+	char *original_after;
+	char *original_before;
+	char *patched_sql;
+	char *reparsed_view;
+	unsigned long generation;
+	int valid;
+
+	handle = NULL;
+	clone = NULL;
+	reparsed = NULL;
+	clone_view = NULL;
+	original_after = NULL;
+	original_before = NULL;
+	patched_sql = NULL;
+	reparsed_view = NULL;
+	valid = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&stale_graph, 0, sizeof(stale_graph));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	if (sqlparser_parse_with_options(
+		    sql,
+		    &options,
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !ddl_graph_query_backed_matches(
+		    handle,
+		    0U,
+		    initial_relations,
+		    label) ||
+	    sqlparser_deparse(handle, &original_before, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_handle_clone(handle, &clone, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_query_graph(
+		    clone,
+		    0U,
+		    &stale_graph,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: SELECT INTO DDL setup failed: %s\n",
+			error.message);
+		goto cleanup;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].relation[0]";
+	patches[0].sql = target_patch;
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].relation[1]";
+	patches[1].sql = source_patch;
+	patch_list.items = patches;
+	patch_list.count = sizeof(patches) / sizeof(patches[0]);
+	generation = clone->generation;
+	if (sqlparser_apply_patch(clone, &patch_list, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    clone->generation != generation + 1UL ||
+	    sqlparser_query_graph_relation_at(
+		    &stale_graph,
+		    0U,
+		    &stale_relation,
+		    &error) != SQLPARSER_STATUS_INVALID_ARGUMENT ||
+	    !ddl_graph_query_backed_matches(
+		    clone,
+		    0U,
+		    patched_relations,
+		    label) ||
+	    !ddl_graph_query_backed_matches(
+		    handle,
+		    0U,
+		    initial_relations,
+		    label) ||
+	    sqlparser_deparse(handle, &original_after, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    original_before == NULL ||
+	    original_after == NULL ||
+	    strcmp(original_before, original_after) != 0 ||
+	    sqlparser_deparse(clone, &patched_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_parse_with_options(
+		    patched_sql,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !ddl_graph_query_backed_matches(
+		    reparsed,
+		    0U,
+		    patched_relations,
+		    label) ||
+	    sqlparser_export_view_json(
+		    clone,
+		    0,
+		    &clone_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_export_view_json(
+		    reparsed,
+		    0,
+		    &reparsed_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    clone_view == NULL ||
+	    reparsed_view == NULL ||
+	    strcmp(clone_view, reparsed_view) != 0) {
+		fprintf(stderr, "FAIL: SELECT INTO DDL lifecycle failed: %s\n",
+			error.message);
+		goto cleanup;
+	}
+	valid = 1;
+
+cleanup:
+	sqlparser_string_free(reparsed_view);
+	sqlparser_string_free(clone_view);
+	sqlparser_string_free(patched_sql);
+	sqlparser_string_free(original_after);
+	sqlparser_string_free(original_before);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return valid;
+}
+
+static int query_graph_ddl_select_into(void)
+{
+	static const ddl_graph_relation_expectation_t pg_initial[] = {
+		{
+			{
+				.schema_name = "WarehouseSchema",
+				.object_name = "ChildCopy",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.schema_name = "SourceSchema",
+				.object_name = "Child",
+				.alias_name = "c",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[0].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t pg_patched[] = {
+		{
+			{
+				.schema_name = "patched_target",
+				.object_name = "ChildCopyNew",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.schema_name = "PatchedSource",
+				.object_name = "child_new",
+				.alias_name = "c",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[0].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t sqlserver_initial[] = {
+		{
+			{
+				.database_name = "WarehouseDb",
+				.schema_name = "sales",
+				.object_name = "ChildCopy",
+				.database_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.database_name = "AppDb",
+				.schema_name = "sales",
+				.object_name = "Child",
+				.alias_name = "c",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[0].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t sqlserver_patched[] = {
+		{
+			{
+				.database_name = "PatchedWarehouse",
+				.schema_name = "patch",
+				.object_name = "ChildCopyNew",
+				.database_quoted_identifier = 1,
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.database_name = "PatchedApp",
+				.schema_name = "patch",
+				.object_name = "ChildSource",
+				.alias_name = "c",
+				.database_quoted_identifier = 1,
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[0].relation[1]"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const ddl_graph_relation_expectation_t *initial;
+		const ddl_graph_relation_expectation_t *patched;
+		const char *target_patch;
+		const char *source_patch;
+		const char *label;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT c.\"ID\", c.\"Name\" INTO "
+			"\"WarehouseSchema\".\"ChildCopy\" FROM "
+			"\"SourceSchema\".\"Child\" c",
+			pg_initial,
+			pg_patched,
+			"patched_target.\"ChildCopyNew\"",
+			"\"PatchedSource\".child_new",
+			"PostgreSQL SELECT INTO"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"SELECT c.\"ID\", c.\"Name\" INTO "
+			"\"WarehouseSchema\".\"ChildCopy\" FROM "
+			"\"SourceSchema\".\"Child\" c",
+			pg_initial,
+			pg_patched,
+			"patched_target.\"ChildCopyNew\"",
+			"\"PatchedSource\".child_new",
+			"Vastbase-PostgreSQL SELECT INTO"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT c.[ID], c.[Name] INTO "
+			"[WarehouseDb].sales.[ChildCopy] FROM "
+			"AppDb.[sales].Child AS c",
+			sqlserver_initial,
+			sqlserver_patched,
+			"[PatchedWarehouse].[patch].[ChildCopyNew]",
+			"[PatchedApp].[patch].[ChildSource]",
+			"SQL Server SELECT INTO"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT c.[ID], c.[Name] INTO "
+			"[WarehouseDb].sales.[ChildCopy] FROM "
+			"AppDb.[sales].Child AS c",
+			sqlserver_initial,
+			sqlserver_patched,
+			"[PatchedWarehouse].[patch].[ChildCopyNew]",
+			"[PatchedApp].[patch].[ChildSource]",
+			"Vastbase-SQL Server SELECT INTO"
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		if (!query_graph_ddl_select_into_case(
+			    cases[case_index].dialect,
+			    cases[case_index].sql,
+			    cases[case_index].initial,
+			    cases[case_index].patched,
+			    cases[case_index].target_patch,
+			    cases[case_index].source_patch,
+			    cases[case_index].label)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int query_graph_oracle_select_into_boundary(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} dialects[] = {
+		{SQLPARSER_DIALECT_ORACLE, "Oracle SELECT INTO"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng SELECT INTO"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"Vastbase-Oracle SELECT INTO"}
+	};
+	static const ddl_graph_relation_expectation_t source_relation = {
+		{
+			.schema_name = "SourceSchema",
+			.object_name = "Child",
+			.alias_name = "c",
+			.schema_quoted_identifier = 1,
+			.object_quoted_identifier = 1,
+			.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+		},
+		0U, 0, 0U, "stmt[0].relation[1]"
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_graph_block_t block;
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_statement_kind_t statement_kind;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&block, 0, sizeof(block));
+		memset(&graph, 0, sizeof(graph));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT c.\"ID\", c.\"Name\" INTO "
+			    "\"WarehouseSchema\".\"ChildCopy\" FROM "
+			    "\"SourceSchema\".\"Child\" c",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_kind(
+			    handle,
+			    0U,
+			    &statement_kind,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    statement_kind != SQLPARSER_STATEMENT_KIND_SELECT ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !graph.has_root_block ||
+		    graph.root_block_index != 0U ||
+		    graph.block_count != 1U ||
+		    graph.relation_count != 1U ||
+		    graph.target_count != 2U ||
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    0U,
+			    &block,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    block.kind != SQLPARSER_GRAPH_BLOCK_SELECT ||
+		    block.relations.count != 1U ||
+		    !ddl_graph_relation_matches(
+			    &graph,
+			    0U,
+			    0U,
+			    &source_relation,
+			    dialects[dialect_index].label)) {
+			fprintf(stderr, "FAIL: %s boundary changed: %s\n",
+				dialects[dialect_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_non_relation_boundaries(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *label;
+	} cases[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "CREATE SCHEMA analytics",
+			"PostgreSQL CREATE SCHEMA"},
+		{SQLPARSER_DIALECT_POSTGRESQL, "DROP INDEX public.idx_users_name",
+			"PostgreSQL DROP INDEX"},
+		{SQLPARSER_DIALECT_ORACLE, "CREATE SEQUENCE user_seq START WITH 1 INCREMENT BY 1",
+			"Oracle CREATE SEQUENCE"},
+		{SQLPARSER_DIALECT_ORACLE, "CREATE SYNONYM u FOR users",
+			"Oracle CREATE SYNONYM"},
+		{SQLPARSER_DIALECT_SQLSERVER, "CREATE SCHEMA [audit]",
+			"SQL Server CREATE SCHEMA"}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&graph, 0, sizeof(graph));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    graph.has_root_block ||
+		    graph.block_count != 0U ||
+		    graph.relation_count != 0U ||
+		    graph.target_count != 0U ||
+		    graph.field_count != 0U ||
+		    graph.value_count != 0U ||
+		    graph.set_count != 0U ||
+		    graph.predicate_count != 0U ||
+		    graph.has_dml ||
+		    graph.dml_branch_count != 0U) {
+			fprintf(stderr, "FAIL: %s became a DDL relation: %s\n",
+				cases[case_index].label, error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int query_graph_ddl_clone_patch_lifecycle_for_dialect(
+	sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"CREATE TABLE \"AppSchema\".\"ChildTable\" "
+		"(id integer, ref_id integer REFERENCES "
+		"\"RefSchema\".\"ParentTable\"(id), LIKE "
+		"\"LikeSchema\".template_table INCLUDING ALL) "
+		"INHERITS (base_schema.\"BaseTable\"); "
+		"CREATE VIEW \"ViewSchema\".\"CustomerView\" AS "
+		"SELECT id FROM \"SourceSchema\".customer; "
+		"CREATE TABLE \"CopySchema\".copy_table AS "
+		"SELECT id FROM source_schema.\"SourceTable\"";
+	static const ddl_graph_relation_expectation_t create_initial[] = {
+		{
+			{
+				.schema_name = "AppSchema",
+				.object_name = "ChildTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.schema_name = "RefSchema",
+				.object_name = "ParentTable",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[1]"
+		},
+		{
+			{
+				.schema_name = "LikeSchema",
+				.object_name = "template_table",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[2]"
+		},
+		{
+			{
+				.schema_name = "base_schema",
+				.object_name = "BaseTable",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[3]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t create_patched[] = {
+		{
+			{
+				.schema_name = "PatchedSchema",
+				.object_name = "PatchedChild",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 0, 0U, "stmt[0].relation[0]"
+		},
+		{
+			{
+				.schema_name = "patched_ref",
+				.object_name = "PatchedParent",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[1]"
+		},
+		{
+			{
+				.schema_name = "patched_like",
+				.object_name = "PatchedTemplate",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[2]"
+		},
+		{
+			{
+				.schema_name = "PatchedBase",
+				.object_name = "base_table_new",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_REFERENCE
+			},
+			0U, 0, 0U, "stmt[0].relation[3]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t view_initial[] = {
+		{
+			{
+				.schema_name = "ViewSchema",
+				.object_name = "CustomerView",
+				.schema_quoted_identifier = 1,
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[1].relation[0]"
+		},
+		{
+			{
+				.schema_name = "SourceSchema",
+				.object_name = "customer",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[1].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t view_patched[] = {
+		{
+			{
+				.schema_name = "patched_view",
+				.object_name = "PatchedView",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[1].relation[0]"
+		},
+		{
+			{
+				.schema_name = "SourceSchema",
+				.object_name = "customer",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[1].relation[1]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t ctas_initial[] = {
+		{
+			{
+				.schema_name = "CopySchema",
+				.object_name = "copy_table",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[2].relation[1]"
+		},
+		{
+			{
+				.schema_name = "source_schema",
+				.object_name = "SourceTable",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[2].relation[0]"
+		}
+	};
+	static const ddl_graph_relation_expectation_t ctas_patched[] = {
+		{
+			{
+				.schema_name = "PatchedCopy",
+				.object_name = "copy_table_new",
+				.schema_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_TARGET
+			},
+			0U, 1, 1U, "stmt[2].relation[1]"
+		},
+		{
+			{
+				.schema_name = "source_schema",
+				.object_name = "SourceTable",
+				.object_quoted_identifier = 1,
+				.ddl_role = SQLPARSER_GRAPH_DDL_RELATION_UNKNOWN
+			},
+			1U, 0, 0U, "stmt[2].relation[0]"
+		}
+	};
+	sqlparser_error_t error;
+	sqlparser_graph_relation_t stale_relation;
+	sqlparser_handle_t *clone;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patches[6];
+	sqlparser_query_graph_view_t stale_graphs[3];
+	char *clone_view;
+	char *original_after;
+	char *original_before;
+	char *patched_sql;
+	char *reparsed_view;
+	unsigned long generation;
+	size_t statement_index;
+	int valid;
+
+	handle = NULL;
+	clone = NULL;
+	reparsed = NULL;
+	clone_view = NULL;
+	original_after = NULL;
+	original_before = NULL;
+	patched_sql = NULL;
+	reparsed_view = NULL;
+	valid = 0;
+	memset(&error, 0, sizeof(error));
+	memset(stale_graphs, 0, sizeof(stale_graphs));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	if (sqlparser_parse_with_options(
+		    sql,
+		    &options,
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !ddl_graph_single_block_matches(
+		    handle, 0U, create_initial, 4U, "DDL original CREATE TABLE") ||
+	    !ddl_graph_query_backed_matches(
+		    handle, 1U, view_initial, "DDL original CREATE VIEW") ||
+	    !ddl_graph_query_backed_matches(
+		    handle, 2U, ctas_initial, "DDL original CTAS") ||
+	    sqlparser_deparse(handle, &original_before, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_handle_clone(handle, &clone, &error) !=
+		    SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: DDL clone lifecycle setup failed: %s\n",
+			error.message);
+		goto cleanup;
+	}
+	for (statement_index = 0U; statement_index < 3U; statement_index++) {
+		if (sqlparser_statement_query_graph(
+			    clone,
+			    statement_index,
+			    &stale_graphs[statement_index],
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(stderr, "FAIL: DDL stale graph setup failed: %s\n",
+				error.message);
+			goto cleanup;
+		}
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].relation[0]";
+	patches[0].sql = "\"PatchedSchema\".\"PatchedChild\"";
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].relation[1]";
+	patches[1].sql = "patched_ref.\"PatchedParent\"";
+	patches[2].op = SQLPARSER_PATCH_REPLACE;
+	patches[2].selector = "stmt[0].relation[2]";
+	patches[2].sql = "patched_like.\"PatchedTemplate\"";
+	patches[3].op = SQLPARSER_PATCH_REPLACE;
+	patches[3].selector = "stmt[0].relation[3]";
+	patches[3].sql = "\"PatchedBase\".base_table_new";
+	patches[4].op = SQLPARSER_PATCH_REPLACE;
+	patches[4].selector = "stmt[1].relation[0]";
+	patches[4].sql = "patched_view.\"PatchedView\"";
+	patches[5].op = SQLPARSER_PATCH_REPLACE;
+	patches[5].selector = "stmt[2].relation[1]";
+	patches[5].sql = "\"PatchedCopy\".copy_table_new";
+	patch_list.items = patches;
+	patch_list.count = sizeof(patches) / sizeof(patches[0]);
+	generation = clone->generation;
+	if (sqlparser_apply_patch(clone, &patch_list, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    clone->generation != generation + 1UL) {
+		fprintf(stderr, "FAIL: DDL clone patch batch failed: %s\n",
+			error.message);
+		goto cleanup;
+	}
+	for (statement_index = 0U; statement_index < 3U; statement_index++) {
+		if (sqlparser_query_graph_relation_at(
+			    &stale_graphs[statement_index],
+			    0U,
+			    &stale_relation,
+			    &error) != SQLPARSER_STATUS_INVALID_ARGUMENT) {
+			fprintf(stderr, "FAIL: DDL graph %lu did not become stale\n",
+				(unsigned long)statement_index);
+			goto cleanup;
+		}
+	}
+	if (!ddl_graph_single_block_matches(
+		    clone, 0U, create_patched, 4U, "DDL patched CREATE TABLE") ||
+	    !ddl_graph_query_backed_matches(
+		    clone, 1U, view_patched, "DDL patched CREATE VIEW") ||
+	    !ddl_graph_query_backed_matches(
+		    clone, 2U, ctas_patched, "DDL patched CTAS") ||
+	    !ddl_graph_single_block_matches(
+		    handle, 0U, create_initial, 4U, "DDL unchanged CREATE TABLE") ||
+	    !ddl_graph_query_backed_matches(
+		    handle, 1U, view_initial, "DDL unchanged CREATE VIEW") ||
+	    !ddl_graph_query_backed_matches(
+		    handle, 2U, ctas_initial, "DDL unchanged CTAS") ||
+	    sqlparser_deparse(handle, &original_after, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    original_before == NULL ||
+	    original_after == NULL ||
+	    strcmp(original_before, original_after) != 0 ||
+	    sqlparser_validate_ast_identifier_spelling(clone, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_deparse(clone, &patched_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_parse_with_options(
+		    patched_sql,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !ddl_graph_single_block_matches(
+		    reparsed, 0U, create_patched, 4U, "DDL fresh CREATE TABLE") ||
+	    !ddl_graph_query_backed_matches(
+		    reparsed, 1U, view_patched, "DDL fresh CREATE VIEW") ||
+	    !ddl_graph_query_backed_matches(
+		    reparsed, 2U, ctas_patched, "DDL fresh CTAS") ||
+	    sqlparser_export_view_json(
+		    clone,
+		    0,
+		    &clone_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_export_view_json(
+		    reparsed,
+		    0,
+		    &reparsed_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    clone_view == NULL ||
+	    reparsed_view == NULL ||
+	    strcmp(clone_view, reparsed_view) != 0) {
+		fprintf(stderr, "FAIL: DDL clone lifecycle contract failed: %s\n",
+			error.message);
+		goto cleanup;
+	}
+	valid = 1;
+
+cleanup:
+	sqlparser_string_free(reparsed_view);
+	sqlparser_string_free(clone_view);
+	sqlparser_string_free(patched_sql);
+	sqlparser_string_free(original_after);
+	sqlparser_string_free(original_before);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return valid;
+}
+
+static int query_graph_ddl_clone_patch_lifecycle(void)
+{
+	return query_graph_ddl_clone_patch_lifecycle_for_dialect(
+		       SQLPARSER_DIALECT_POSTGRESQL) &&
+	       query_graph_ddl_clone_patch_lifecycle_for_dialect(
+		       SQLPARSER_DIALECT_VASTBASE_POSTGRESQL);
 }
 
 static int session_identifier_semantics(void)
@@ -6870,6 +8990,18 @@ int main(void)
 	    !query_graph_oracle_special_quote_flags() ||
 	    !query_graph_sqlserver_output_sink_quote_flags() ||
 	    !query_graph_mysql_set_quote_flags() ||
+	    !query_graph_ddl_direct_nine_dialects() ||
+	    !query_graph_ddl_partition_relations() ||
+	    !query_graph_ddl_mysql_like_parse_boundary() ||
+	    !query_graph_ddl_foreign_table_lifecycle() ||
+	    !query_graph_ddl_drop_same_name_quote_flags() ||
+	    !query_graph_ddl_drop_executable_comment_lifecycle() ||
+	    !query_graph_ddl_direct_inventory() ||
+	    !query_graph_ddl_query_backed_inventory() ||
+	    !query_graph_ddl_select_into() ||
+	    !query_graph_oracle_select_into_boundary() ||
+	    !query_graph_ddl_non_relation_boundaries() ||
+	    !query_graph_ddl_clone_patch_lifecycle() ||
 	    !session_identifier_semantics() ||
 	    !identifier_role_classifier_is_fail_closed() ||
 	    !defelem_context_classifier_is_fail_closed() ||

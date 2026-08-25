@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 271 cases with `status = "final"` and 876 independent
+The fixture contains 281 cases with `status = "final"` and 889 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
@@ -318,6 +318,23 @@ coverage is maintained in `tests/unit/test_identifier_spelling.c`.
 | O218 | `oracle-relation-dml-quoted-identifier-insert-all-multi-branch` | three `INSERT ALL` targets independently quoting database/schema/object segments | per-branch relation and target-column flags remain after a branch-value patch |
 | O219 | `oracle-relation-dml-quoted-identifier-insert-first-multi-branch` | three `INSERT FIRST` targets across WHEN/ELSE branches | per-branch relation and target-column flags remain after an ELSE-value patch |
 | O220 | `oracle-relation-dml-quoted-identifier-insert-all-database-link-projection-gap` | `INSERT ALL INTO APP."T"@"REMOTE" ("ID")` | the multi-table-insert target projection retains object/link and target-column flags after a value patch |
+
+## DDL Query Graph Relation Contract
+
+Every SQL form below is converged on Oracle's official syntax and verified by byte-exact deparse in the current entry. DDL relations live in a root block with `kind = "ddl"`; changed objects and FK references use `ddl_role = "target"` and `"reference"`. A query-backed target points through `source_block` to a SELECT block. DROP targets retain complete segmented quoted flags but currently have no relation selector.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| O221 | `oracle-ddl-relation-create-table-foreign-key` | CREATE TABLE with FK REFERENCES | target/reference roles, segmented quoted flags, and two relation patches |
+| O222 | `oracle-ddl-relation-alter-table-foreign-key` | ALTER TABLE ADD FK | target/reference roles and two relation patches |
+| O223 | `oracle-ddl-relation-create-index-on-table` | CREATE INDEX ON table | ON-table as DDL target and one relation patch |
+| O224 | `oracle-ddl-relation-drop-table-target` | DROP TABLE | DDL target and the no-selector DROP boundary |
+| O225 | `oracle-ddl-relation-drop-materialized-view-target` | DROP MATERIALIZED VIEW | DDL target and the no-selector DROP boundary |
+| O226 | `oracle-ddl-relation-truncate-table-target` | TRUNCATE TABLE | DDL target, segmented quoted flags, and one relation patch |
+| O227 | `oracle-ddl-relation-alter-table-rename-target` | ALTER TABLE RENAME TO | old table as the sole DDL target without representing the new name as a relation; one patch |
+| O228 | `oracle-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target, SELECT source, `source_block`, and two relation patches |
+| O229 | `oracle-ddl-relation-create-table-as-target-and-source` | CTAS | separate DDL-target and SELECT-source blocks with two relation patches |
+| O230 | `oracle-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | separate DDL-target and SELECT-source blocks with two relation patches |
 
 ## Coverage Boundary
 

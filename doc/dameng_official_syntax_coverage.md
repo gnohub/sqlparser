@@ -50,6 +50,8 @@
 
 Query Graph 对 relation 的 database、schema、object、database-link 名称段分别保留引号状态，DML target column 也保留独立 `quoted_identifier`；未定界或不存在的段不输出 true 标志。18 条用例和 19 个独立 patch 覆盖普通五类 DML、quoted/unquoted database link、`INSERT ALL/FIRST` 多分支和 database-link target，并验证 patch 后重算。
 
+relation DDL 的 `CURRENT` 合同使用 `kind = "ddl"` 根 block 和 `ddl_role = "target"|"reference"`，覆盖 CREATE/ALTER TABLE 的 FK、CREATE INDEX、TRUNCATE、RENAME、DROP，以及查询支撑型 VIEW/CTAS/物化视图。查询支撑型 target 通过 `source_block` 指向 SELECT block；DROP target 当前没有 relation selector。10 条新增 final 用例和 13 个独立 patch 验证这些边界。该证据只属于达梦基础入口，不自动代表兼容入口。
+
 达梦多表 `UPDATE` 的 `CURRENT` 边界始终只有一个写入目标。可执行矩阵包含 6 条 `final` 用例和 17 个独立 patch，覆盖首、中、末 relation 目标、同表不同 alias、JOIN 链及 JOIN/逗号混合形态。
 
 达梦当前已覆盖常用查询、DML、DDL、事务、权限、`SET SCHEMA`、代表性会话参数设置语句、远程对象引用基础形态，以及上述 `N >= 1` 严格等长、按序配对的 `RETURN`/`RETURNING ... INTO` 形态。可执行矩阵使用 3 条用例覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾原子插入后的 9↔9 配对。其余 5 个语法组依赖达梦专属查询模型或程序单元语义，当前不纳入 PostgreSQL 兼容转换。

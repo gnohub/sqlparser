@@ -26,7 +26,7 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 - `IF...ELSE` 单语句分支、`BEGIN...END` 多语句分支、`ELSE IF` 和嵌套控制流；条件支持布尔表达式、bind、`EXISTS` 和括号子查询
 - `CASE`、窗口函数、`UNION ALL`、`EXCEPT`、`INTERSECT`
 - 可映射的 `MERGE`，包括独立的 `WHEN MATCHED ... THEN DELETE` action；not-matched INSERT 的 `insert_column` 支持 column-only、value-only 和 paired 三态，现有 VALUES cell 可独立替换
-- 常见 DDL：`CREATE TABLE`、`ALTER TABLE ADD`、`CREATE VIEW`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
+- 常见 relation DDL：`CREATE TABLE`、`ALTER TABLE ADD`、`CREATE VIEW`、`CREATE INDEX`、`DROP TABLE`、`DROP VIEW`、`TRUNCATE TABLE`、`SELECT INTO`
 - `IDENTITY` 列属性的兼容映射
 - 事务控制、`SAVE TRANSACTION`、`GRANT / REVOKE`
 - `GO` 批处理分隔符
@@ -77,6 +77,7 @@ SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不�
 - 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记方括号 relation alias，以 `output_quoted_identifier` 标记方括号显式 output alias 或无显式别名时继承的方括号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的方括号定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列与 `OUTPUT ... INTO` sink column 共用 `dml_column.quoted_identifier`。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断。SQL Server 入口没有 database-link relation，因此 link 标志不适用。
+- relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK 引用；VIEW 与 `SELECT INTO` target 通过 `source_block` 指向 SELECT block。多对象 DROP target 没有 relation selector，quoted/unquoted 同名分段仍按精确来源 token 输出方括号状态。relation patch 在单语句和普通多语句 batch 中均保持 SQL Server 公开 surface：CREATE INDEX 不增加 `USING btree`，TRUNCATE 不丢失 `TABLE`。该合同不自动外推到兼容入口。
 - 控制流条件和分支 SQL 作为有序 statement unit 输出；View JSON 的 `control_flow` 与公共控制流只读结构一致。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、参数映射和 deparse 输出保持可用。
 
@@ -89,4 +90,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 629 条用例，全部为 `status = "final"`，共包含 1889 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前 SQL Server 矩阵包含 639 条用例，全部为 `status = "final"`，共包含 1901 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。
