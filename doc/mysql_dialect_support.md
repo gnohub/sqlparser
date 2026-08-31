@@ -56,6 +56,8 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - 多目标 `UPDATE` 不输出单一 `dml.target_relation`；各 assignment 通过 `target_field` 对应字段的 relation 表达写入目标。
 - 无法安全表达的 MySQL 专属语义不会降级为 PostgreSQL 语义。
 
+- CTE 显式列名数量必须与结果宽度相等；来源 block 直接可枚举 targets 按 ordinal 覆盖输出名与反引号状态，重复引用共享该来源，UPDATE assignment 可按覆盖后名称解析 `source_target`。SET/recursive branch 与 star 不伪造输出列。
+
 ## 回归用例
 
 MySQL 支持范围以以下文件为准：
@@ -65,4 +67,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 266 条 `status = "final"` 用例和 894 个独立 patch。
+当前 MySQL 方言矩阵包含 270 条 `status = "final"` 用例和 898 个独立 patch。

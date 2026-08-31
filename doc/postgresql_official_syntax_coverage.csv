@@ -1,6 +1,6 @@
 category,item,status,reason,official_url
 query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY、LIMIT 和 SELECT INTO 代表形态；SELECT INTO target 位于 DDL block 并通过 source_block 指向 SELECT 来源块；relation 的 database/schema/object 引号状态按段输出",https://www.postgresql.org/docs/17/sql-select.html
-query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属",https://www.postgresql.org/docs/17/queries-with.html
+query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属；显式列名对直接可枚举且不含星号的 source targets 按 ordinal 覆盖名称与定界状态，短列表仅覆盖前缀；SET/递归分支保留自身输出，星号及列名多于直接 targets 时不推测映射",https://www.postgresql.org/docs/17/queries-with.html
 query,set-operations,CURRENT,"已覆盖 UNION ALL、EXCEPT 和 INTERSECT",https://www.postgresql.org/docs/17/queries-union.html
 query,VALUES,CURRENT,"VALUES 可由当前 AST 承载，并在 INSERT VALUES 中验证",https://www.postgresql.org/docs/17/sql-values.html
 query,window-functions,CURRENT,"已覆盖窗口函数表达式",https://www.postgresql.org/docs/17/tutorial-window.html

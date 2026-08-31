@@ -65549,6 +65549,1038 @@
       },
       "patch": [],
       "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-column-ordinal-quoted-state",
+      "sql": "WITH cte (plain_name, [QuotedName]) AS (SELECT s.[id], s.[value] FROM [dbo].[source] AS s) SELECT plain_name, [QuotedName] FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "source",
+                  "quoted_identifier": true,
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "plain_name",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "QuotedName",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "plain_name",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "QuotedName",
+                  "output_quoted_identifier": true,
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "value",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "plain_name",
+                  "target": 2,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "QuotedName",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "s.[source_id]",
+          "deparse": "WITH cte(plain_name, [QuotedName]) AS (SELECT s.[source_id], s.[value] FROM [dbo].[source] AS s) SELECT plain_name, [QuotedName] FROM cte"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "s.value_plain",
+          "deparse": "WITH cte(plain_name, [QuotedName]) AS (SELECT s.[id], s.value_plain FROM [dbo].[source] AS s) SELECT plain_name, [QuotedName] FROM cte"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-columns-duplicate-references",
+      "sql": "WITH cte ([key_id], [payload]) AS (SELECT [id], [value] FROM [dbo].[source]) SELECT a.[key_id], b.[payload] FROM cte AS a JOIN cte AS b ON a.[key_id] = b.[key_id]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    2
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "alias": "a",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "source",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[2]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "alias": "b",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "key_id",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "payload",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "key_id",
+                  "output_quoted_identifier": true,
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "payload",
+                  "output_quoted_identifier": true,
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "value",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "key_id",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "key_id",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "key_id",
+                  "quoted_identifier": true,
+                  "target": 2,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "payload",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "[source_key]",
+          "deparse": "WITH cte([key_id], [payload]) AS (SELECT [source_key], [value] FROM [dbo].[source]) SELECT a.[key_id], b.[payload] FROM cte AS a JOIN cte AS b ON a.[key_id] = b.[key_id]"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-columns-update-lineage",
+      "sql": "WITH cte ([key_id], [payload]) AS (SELECT [id], [value] FROM [dbo].[source]) UPDATE t SET t.[value] = c.[payload] FROM [dbo].[target] AS t JOIN cte AS c ON t.[id] = c.[key_id]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    3
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "target",
+                  "quoted_identifier": true,
+                  "alias": "t",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "alias": "c",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[2]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "source",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[3]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "key_id",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "payload",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 3,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[17]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 3,
+                  "column": "value",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "key_id",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "value",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 2,
+                  "column": "payload",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 4,
+                    "kind": "field",
+                    "source_field": 5,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "source_target": 1
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "[payload_source]",
+          "deparse": "WITH cte([key_id], [payload]) AS (SELECT [id], [payload_source] FROM [dbo].[source]) UPDATE t SET t.[value] = c.[payload] FROM [dbo].[target] AS t JOIN cte AS c ON t.[id] = c.[key_id]"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-column-recursive-union-all",
+      "sql": "WITH cte ([n]) AS (SELECT 1 UNION ALL SELECT [n] + 1 FROM cte WHERE [n] < 3) SELECT [n] FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "expression",
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "n",
+                  "output_quoted_identifier": true,
+                  "field": 2,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "n",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[4]",
+                  "target_path": [
+                    {
+                      "kind": "expression",
+                      "name": "+",
+                      "arg_index": 0
+                    }
+                  ]
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "n",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "n",
+                  "quoted_identifier": true,
+                  "target": 2,
+                  "selector": "stmt[0].name[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[20]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "2",
+          "deparse": "WITH cte([n]) AS (SELECT 2 UNION ALL SELECT [n] + 1 FROM cte WHERE [n] < 3) SELECT [n] FROM cte"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "[n] + 2",
+          "deparse": "WITH cte([n]) AS (SELECT 1 UNION ALL SELECT [n] + 2 FROM cte WHERE [n] < 3) SELECT [n] FROM cte"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-columns-union-all-branches",
+      "sql": "WITH cte ([key_id], [payload]) AS (SELECT [id], [value] FROM [dbo].[source_a] UNION ALL SELECT [id], [value] FROM [dbo].[source_b]) SELECT [key_id], [payload] FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 2,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "source_a",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 3,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "table": "source_b",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "output_quoted_identifier": true,
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 2,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "value",
+                  "output_quoted_identifier": true,
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "output_quoted_identifier": true,
+                  "field": 2,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "value",
+                  "output_quoted_identifier": true,
+                  "field": 3,
+                  "selector": "stmt[0].select_target[2][1]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "key_id",
+                  "output_quoted_identifier": true,
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "payload",
+                  "output_quoted_identifier": true,
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "value",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "target": 2,
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "value",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "key_id",
+                  "quoted_identifier": true,
+                  "target": 4,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "payload",
+                  "quoted_identifier": true,
+                  "target": 5,
+                  "selector": "stmt[0].name[1]"
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "[source_key]",
+          "deparse": "WITH cte([key_id], [payload]) AS (SELECT [source_key], [value] FROM [dbo].[source_a] UNION ALL SELECT [id], [value] FROM [dbo].[source_b]) SELECT [key_id], [payload] FROM cte"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/2/selector",
+          "value": "[source_key_b]",
+          "deparse": "WITH cte([key_id], [payload]) AS (SELECT [id], [value] FROM [dbo].[source_a] UNION ALL SELECT [source_key_b], [value] FROM [dbo].[source_b]) SELECT [key_id], [payload] FROM cte"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "sqlserver-cte-explicit-columns-star-no-ordinal-guess",
+      "sql": "WITH cte ([key_id], [payload]) AS (SELECT * FROM (VALUES (1, 2)) AS s([id], [value])) SELECT * FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select"
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "derived",
+                  "alias": "s",
+                  "source_block": 2
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "star",
+                  "star_relations": [
+                    1
+                  ],
+                  "source_block": 2,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "star",
+                  "star_relations": [
+                    0
+                  ],
+                  "source_block": 1,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [],
+      "status": "final"
     }
   ]
 }

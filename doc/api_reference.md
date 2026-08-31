@@ -727,6 +727,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表、CTE 或 query-backed DDL target 的来源。
 - 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。
+- CTE 定义具有显式列名列表且其 `source_block` 自身持有可枚举直接 targets 时，列名按 ordinal 覆盖这些 target 的 `output_name` 和 `output_quoted_identifier`。PostgreSQL 容许较短列表时只覆盖对应前缀；重复 CTE 引用共享同一次覆盖结果。DML 的 `source_target` 使用覆盖后的名称解析。
+- SET/recursive CTE 的 branch targets 保留自身输出名，星号不展开或猜测 ordinal。该覆盖不增加 selector、field、分配对象或所有权规则。
 - `targets[].star_relations` 表达 `*` 或 `alias.*` 覆盖的 relation。
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。

@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 267 cases with `status = "final"` and 854 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 271 cases with `status = "final"` and 858 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -48,6 +48,17 @@ The following three final cases define the DDL Query Graph contract for the proj
 | `VM265` | `vastbase-mysql-ddl-relation-direct-inventory` | final | 6 | CREATE/ALTER TABLE FK targets and references, CREATE INDEX, multi-object DROP TABLE/VIEW, single-object TRUNCATE, and the old RENAME object, with backtick-state recomputation after relation patches |
 | `VM266` | `vastbase-mysql-ddl-relation-query-backed-inventory` | final | 2 | DDL targets, SELECT sources, and `source_block` links for CREATE VIEW and CTAS |
 | `VM267` | `vastbase-mysql-ddl-drop-table-quoted-same-spelling` | final | 0 | selector-free, identically spelled quoted/unquoted DROP targets in ordinary SQL and a statement-level executable comment; schema/object backtick states come from exact source tokens |
+
+## Explicit CTE Column Ordinal Mapping
+
+The following four final cases mirror MySQL M265–M268 field for field; only their case-name prefixes and IDs differ. A list whose name count differs from the CTE result width is not a positive contract. This is a project compatibility-entry contract and does not claim the same documented Vastbase server scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VM268` | `vastbase-mysql-cte-explicit-columns-ordinal` | final | 2 | explicit names override source targets by ordinal and remain stable after source-target patches |
+| `VM269` | `vastbase-mysql-cte-explicit-columns-quoted-repeated` | final | 1 | backtick state, repeated references sharing a source block, and post-patch ordinal mapping |
+| `VM270` | `vastbase-mysql-cte-explicit-columns-dml-lineage` | final | 1 | UPDATE assignment `source_field`/`source_target` lineage follows the explicit column name |
+| `VM271` | `vastbase-mysql-cte-explicit-columns-recursive-star-boundary` | final | 0 | SET/recursive branch targets retain underlying names rather than impersonating CTE aliases, while an unexpanded star invents no source targets |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

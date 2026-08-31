@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 250 条用例和 828 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
+夹具包含 254 条用例和 832 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -72,6 +72,17 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO248` | `vastbase-oracle-ddl-relation-create-table-as-target-and-source` | final | 2 | CTAS target、SELECT 来源与 `source_block` 关联 |
 | `VO249` | `vastbase-oracle-ddl-relation-create-materialized-view-target-and-source` | final | 2 | CREATE MATERIALIZED VIEW target、SELECT 来源与 `source_block` 关联 |
 | `VO250` | `vastbase-oracle-ddl-relation-drop-materialized-view-target` | final | 0 | DROP MATERIALIZED VIEW 单目标投影为 DDL target |
+
+## CTE 显式列名 ordinal 合同
+
+以下 final 用例验证项目兼容入口的 CTE 显式列名 ordinal 映射与明确边界。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VO251` | `vastbase-oracle-cte-explicit-column-user-ordinal` | final | 1 | 普通三列 source targets 按 ordinal 使用 `did`、`masked_title`、`plain_content` |
+| `VO252` | `vastbase-oracle-cte-explicit-column-quoted-expression-ordinal` | final | 1 | 重复底层字段、expression target、quoted 显式名称及外层重排均按 ordinal 表达 |
+| `VO253` | `vastbase-oracle-cte-explicit-column-repeated-reference` | final | 1 | 两个 CTE relation 共享 source block，显式名称只覆盖一次 |
+| `VO254` | `vastbase-oracle-cte-explicit-column-set-boundary` | final | 1 | UNION ALL 两个 branch 保留底层名称，不伪造 SET 结果 target 或跨 branch overlay |
 
 ## 完整绑定占位符 occurrence 回归
 

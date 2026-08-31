@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 639 条 `status = "final"` 用例和 1901 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 645 条 `status = "final"` 用例和 1909 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -430,6 +430,19 @@ relation 的限定名按段记录方括号定界状态：`database_quoted_identi
 | SH440 | `sqlserver-ddl-graph-select-into-target-source-block` | `SELECT ... INTO target FROM source` | DDL target 与 SELECT source 分块、`source_block` 及 2 个 relation patch |
 | SH441 | `sqlserver-ddl-multistatement-surface-relation-patch` | CREATE INDEX 与 TRUNCATE TABLE 普通双语句 batch | 2 个 relation patch 分别保留 SQL Server 公开 surface：不增加 `USING btree`，不丢失 `TABLE` |
 | SH442 | `sqlserver-ddl-drop-table-quoted-same-spelling` | quoted/unquoted 同名多对象 DROP TABLE | DROP target 无 selector，schema/object 方括号状态按精确来源 token 分别输出 |
+
+## CTE 显式列名 ordinal 投影
+
+以下 6 条 final 用例验证 CTE 显式列名 ordinal 投影。T-SQL 要求 CTE 显式列名数量与查询输出列数一致，因此 parser 虽可接收的部分列名列表不作为合法正向用例。只有 CTE `source_block` 自身存在可枚举直接 targets 时，显式列名才按 ordinal 覆盖这些 target 的 `name` 与 `output_quoted_identifier`；重复引用复用同一来源块，DML 通过覆盖后的名称解析 `source_target`。集合与递归 CTE 保留 set/branch 自身输出，不把 CTE 结果名伪造到各 branch target；星号也不展开或猜测 ordinal。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH443 | `sqlserver-cte-explicit-column-ordinal-quoted-state` | 直接 CTE target + 混合普通/方括号显式列名 | 两个直接 target 按 ordinal 改名，quoted 状态分别为 false/true；2 个 target patch 后覆盖保持稳定 |
+| SH444 | `sqlserver-cte-explicit-columns-duplicate-references` | 同一显式列名 CTE 以两个别名重复 JOIN | 两个 CTE relation 共享 `source_block`，来源 target 只投影一次；1 个来源 target patch 不产生重复映射 |
+| SH445 | `sqlserver-cte-explicit-columns-update-lineage` | CTE 驱动 UPDATE FROM | `[payload]` assignment 通过 ordinal 覆盖后的 target 解析 `source_target=1`；1 个来源 target patch |
+| SH446 | `sqlserver-cte-explicit-column-recursive-union-all` | 递归 CTE + `UNION ALL` | 保留 set 与递归 branch 结构，不把 `[n]` 写入 branch targets；2 个 branch target patch 保持边界 |
+| SH447 | `sqlserver-cte-explicit-columns-union-all-branches` | 非递归双分支 `UNION ALL` | 两个 branch 继续输出各自 `id/value`，不伪造 CTE 结果名；2 个分支 patch 相互独立 |
+| SH448 | `sqlserver-cte-explicit-columns-star-no-ordinal-guess` | 显式列名 + CTE 内外双星号 | 星号 target 保持 `star_relations/source_block`，不展开为两个虚构 target |
 
 ## 官方 hook 覆盖用例
 

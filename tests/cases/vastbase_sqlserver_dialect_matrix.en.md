@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 619 cases with `status = "final"` and 1884 independent
+The fixture contains 625 cases with `status = "final"` and 1892 independent
 patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
@@ -663,6 +663,19 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE branch | covered |
 | `VSH403` | `vastbase-sqlserver-if-exec-create-view-cte-branch` | EXEC-wrapped CREATE VIEW CTE branch | covered |
 | `VSH404` | `vastbase-sqlserver-merge-cte-target-relation-binding` | CTE target binding and base-relation patch propagation for MERGE | covered |
+
+## Explicit CTE Column Ordinal Projection
+
+The following six final cases verify explicit CTE column ordinal projection for this project compatibility entry. T-SQL requires the explicit column count to equal the query output count, so partial lists are excluded from positive coverage. Only directly enumerable CTE source targets receive ordinal name and bracket-state overrides. Repeated references share the source block, and DML gains `source_target`. Set/recursive branches retain their own outputs, while stars are not expanded or assigned guessed mappings.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH620 | `vastbase-sqlserver-cte-explicit-column-ordinal-quoted-state` | direct CTE targets with mixed plain/bracket explicit names | ordinal rename and quoted state; two target patches |
+| VSH621 | `vastbase-sqlserver-cte-explicit-columns-duplicate-references` | one CTE referenced twice in a JOIN | shared `source_block` without duplicate projection; one source-target patch |
+| VSH622 | `vastbase-sqlserver-cte-explicit-columns-update-lineage` | CTE-driven UPDATE FROM | assignment resolves `source_target=1`; one source-target patch |
+| VSH623 | `vastbase-sqlserver-cte-explicit-column-recursive-union-all` | recursive CTE with `UNION ALL` | branch targets do not receive fabricated `[n]`; two branch patches |
+| VSH624 | `vastbase-sqlserver-cte-explicit-columns-union-all-branches` | non-recursive two-branch `UNION ALL` | branches retain `id/value`; two independent branch patches |
+| VSH625 | `vastbase-sqlserver-cte-explicit-columns-star-no-ordinal-guess` | stars inside and outside the CTE | star boundary remains intact with no expansion or ordinal guess |
 
 ## Coverage Boundary
 

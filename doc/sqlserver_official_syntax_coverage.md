@@ -56,6 +56,8 @@
 
 `IF...ELSE` 条目由 36 条成功路径和 9 条错误路径覆盖，包含单语句分支、多语句块、`ELSE IF`、嵌套、条件查询、DML、DDL、事务和语法边界。
 
+T-SQL `WITH` CTE 的显式列名在数量合法时按 ordinal 投影到 `source_block` 中直接可枚举、连续且不含 `*`/`alias.*` 的 targets，并同步方括号状态；DML assignment 可据此解析 `source_target`。重复引用共享同一来源块，SET/递归 branch 保留自身输出，星号不展开或猜测映射。SQL Server 基础可执行夹具现包含 645 条 `final` 用例和 1909 个独立 patch。
+
 `MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。2 条可执行用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
 relation DDL 的当前基础合同使用 `kind = "ddl"` 根 block 和 `ddl_role = "target"|"reference"`，覆盖 CREATE/ALTER TABLE 的 FK、CREATE INDEX、TRUNCATE、多对象 DROP、CREATE VIEW 和正式 `SELECT INTO`。查询支撑型 target 通过 `source_block` 指向 SELECT block；DROP target 无 relation selector，同名 quoted/unquoted 分段按精确来源输出。10 条新增 final 用例和 12 个独立 patch 还验证单语句和普通多语句 batch 中的 relation patch 均不给 CREATE INDEX 增加 `USING btree`，并保留 `TRUNCATE TABLE` 公开 surface。该基础入口证据不自动代表兼容入口。

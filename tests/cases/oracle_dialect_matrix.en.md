@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 281 cases with `status = "final"` and 889 independent
+The fixture contains 285 cases with `status = "final"` and 893 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
@@ -335,6 +335,17 @@ Every SQL form below is converged on Oracle's official syntax and verified by by
 | O228 | `oracle-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target, SELECT source, `source_block`, and two relation patches |
 | O229 | `oracle-ddl-relation-create-table-as-target-and-source` | CTAS | separate DDL-target and SELECT-source blocks with two relation patches |
 | O230 | `oracle-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | separate DDL-target and SELECT-source blocks with two relation patches |
+
+## Explicit CTE Column-Name Ordinal Contract
+
+The following final cases verify explicit CTE column-name ordinal mapping and its defined boundaries.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| O231 | `oracle-cte-explicit-column-user-ordinal` | ordinary three-column CTE user example | the source block's three enumerable targets take `did`, `masked_title`, and `plain_content` by ordinal; one relation patch |
+| O232 | `oracle-cte-explicit-column-quoted-expression-ordinal` | two duplicate underlying `ID` fields plus one `UPPER(TITLE)` expression, with fully quoted explicit names and reordered outer references | ordinal mapping is independent of underlying name and target kind; all three source targets take the explicit names and quoted flags; one relation patch |
+| O233 | `oracle-cte-explicit-column-repeated-reference` | one CTE referenced twice as aliases `a` and `b` | both CTE relations share one source block; source targets are overlaid once by ordinal; one relation patch |
+| O234 | `oracle-cte-explicit-column-set-boundary` | a `UNION ALL` CTE | the SET result block has no directly enumerable targets; both branches retain underlying target names without fabricated result targets or cross-branch overlays; one relation patch |
 
 ## Coverage Boundary
 

@@ -57,6 +57,8 @@ The current implementation covers 33 groups and leaves 5 groups uncovered.
 
 ## Conclusion
 
+Legal explicit column names on a Dameng `WITH` common-table expression are projected by ordinal onto directly enumerable, contiguous targets in its `source_block`, including delimiter state. Set result blocks and their branches retain their own outputs and do not receive fabricated CTE result-name mappings. The base executable fixture now contains 217 `final` cases and 694 independent patches.
+
 The Dameng `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
 UPDATE and an attached `DELETE WHERE` on that same UPDATE branch.
 `insert_column` supports column-only, value-only, and paired modes. A

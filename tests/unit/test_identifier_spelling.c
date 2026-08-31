@@ -3234,6 +3234,330 @@ static int query_graph_ddl_drop_executable_comment_lifecycle(void)
 	return 1;
 }
 
+static int query_graph_target_output_matches(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_index,
+	const char *name,
+	int quoted,
+	const char *label)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_target_t target;
+	sqlparser_query_graph_view_t graph;
+
+	memset(&error, 0, sizeof(error));
+	memset(&target, 0, sizeof(target));
+	memset(&graph, 0, sizeof(graph));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    statement_index,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_query_graph_target_at(
+		    &graph,
+		    target_index,
+		    &target,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    (name == NULL ? target.output_name != NULL :
+		    target.output_name == NULL ||
+		    strcmp(target.output_name, name) != 0) ||
+	    target.output_quoted_identifier != quoted) {
+		fprintf(stderr, "FAIL: %s target output mismatch: %s\n",
+			label, error.message);
+		return 0;
+	}
+	return 1;
+}
+
+static int query_graph_cte_explicit_columns(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *label;
+	} sqlserver_dialects[] = {
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"Vastbase-SQL Server"}
+	};
+	static const sqlparser_dialect_t postgresql_dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	static const char direct_sql[] =
+		"WITH cte (plain_name, [QuotedName]) AS "
+		"(SELECT s.[id], s.[value] FROM [dbo].[source] AS s) "
+		"SELECT plain_name, [QuotedName] FROM cte";
+	static const char boundary_sql[] =
+		"WITH cte ([key_id], [payload]) AS "
+		"(SELECT [id], [value] FROM [dbo].[source_a] UNION ALL "
+		"SELECT [id], [value] FROM [dbo].[source_b]) "
+		"SELECT [key_id], [payload] FROM cte; "
+		"WITH cte ([n]) AS "
+		"(SELECT 1 UNION ALL SELECT [n] + 1 FROM cte WHERE [n] < 3) "
+		"SELECT [n] FROM cte; "
+		"WITH cte ([key_id], [payload]) AS "
+		"(SELECT s.* FROM (VALUES (1, 2)) AS s([id], [value])) "
+		"SELECT * FROM cte";
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(sqlserver_dialects) /
+		     sizeof(sqlserver_dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t field;
+		sqlparser_graph_relation_t relation;
+		sqlparser_handle_t *clone;
+		sqlparser_handle_t *fresh;
+		sqlparser_handle_t *handle;
+		sqlparser_graph_target_t stale_target;
+		sqlparser_query_graph_view_t stale_graph;
+		sqlparser_query_graph_view_t graph;
+		char *deparsed;
+		size_t alias_name_index;
+
+		clone = NULL;
+		fresh = NULL;
+		handle = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&stale_graph, 0, sizeof(stale_graph));
+		memset(&stale_target, 0, sizeof(stale_target));
+		sqlparser_parse_options_default(&options);
+		options.dialect = sqlserver_dialects[dialect_index].dialect;
+		if (sqlparser_parse_with_options(
+			    direct_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "plain_name", 0,
+			    "direct CTE plain alias") ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 1U, "QuotedName", 1,
+			    "direct CTE quoted alias") ||
+		    sqlparser_statement_query_graph(
+			    handle, 0U, &graph, &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_field_at(
+			    &graph, 0U, &field, &error) != SQLPARSER_STATUS_OK ||
+		    field.column_name == NULL ||
+		    strcmp(field.column_name, "id") != 0 ||
+		    sqlparser_query_graph_field_at(
+			    &graph, 1U, &field, &error) != SQLPARSER_STATUS_OK ||
+		    field.column_name == NULL ||
+		    strcmp(field.column_name, "value") != 0 ||
+		    sqlparser_handle_clone(handle, &clone, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    clone, 0U, &stale_graph, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "CommonTableExpr",
+			    "aliascolnames",
+			    "plain_name",
+			    &alias_name_index) ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    alias_name_index,
+			    "RenamedAlias",
+			    "[RenamedAlias]",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_target_at(
+			    &stale_graph,
+			    0U,
+			    &stale_target,
+			    &error) != SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    !query_graph_target_output_matches(
+			    clone, 0U, 0U, "RenamedAlias", 1,
+			    "name-patched clone CTE alias") ||
+		    sqlparser_select_set_target_sql(
+			    clone,
+			    0U,
+			    1U,
+			    0U,
+			    "s.[patched_id]",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_target_output_matches(
+			    clone, 0U, 0U, "RenamedAlias", 1,
+			    "patched clone CTE alias") ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "plain_name", 0,
+			    "original CTE alias after clone patch") ||
+		    sqlparser_deparse(clone, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &fresh,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_target_output_matches(
+			    fresh, 0U, 0U, "RenamedAlias", 1,
+			    "fresh CTE alias after patch")) {
+			fprintf(stderr, "FAIL: %s direct CTE aliases failed: %s\n",
+				sqlserver_dialects[dialect_index].label,
+				error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(fresh);
+			sqlparser_handle_destroy(clone);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(fresh);
+		sqlparser_handle_destroy(clone);
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&graph, 0, sizeof(graph));
+		memset(&assignment, 0, sizeof(assignment));
+		if (sqlparser_parse_with_options(
+			    "WITH cte ([key_id], [payload]) AS "
+			    "(SELECT [id], [value] FROM [dbo].[source]) "
+			    "UPDATE t SET t.[value] = c.[payload] "
+			    "FROM [dbo].[target] AS t JOIN cte AS c "
+			    "ON t.[id] = c.[key_id]",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "key_id", 1,
+			    "DML CTE key alias") ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 1U, "payload", 1,
+			    "DML CTE payload alias") ||
+		    sqlparser_statement_query_graph(
+			    handle, 0U, &graph, &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_dml_assignment_at(
+			    &graph, 0U, &assignment, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    !assignment.has_source_target ||
+		    assignment.source_target_index != 1U) {
+			fprintf(stderr, "FAIL: %s DML CTE lineage failed: %s\n",
+				sqlserver_dialects[dialect_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse_with_options(
+			    "WITH cte ([key_id], [payload]) AS "
+			    "(SELECT [id], [value] FROM [dbo].[source]) "
+			    "SELECT a.[key_id], b.[payload] FROM cte AS a "
+			    "JOIN cte AS b ON a.[key_id] = b.[key_id]",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle, 0U, &graph, &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_relation_at(
+			    &graph, 0U, &relation, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    !relation.has_source_block ||
+		    relation.source_block_index != 1U ||
+		    sqlparser_query_graph_relation_at(
+			    &graph, 2U, &relation, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    !relation.has_source_block ||
+		    relation.source_block_index != 1U ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "key_id", 1,
+			    "repeated CTE key alias") ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 1U, "payload", 1,
+			    "repeated CTE payload alias")) {
+			fprintf(stderr, "FAIL: %s repeated CTE aliases failed: %s\n",
+				sqlserver_dialects[dialect_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse_with_options(
+			    boundary_sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 3U ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "id", 1,
+			    "set CTE first branch") ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 2U, "id", 1,
+			    "set CTE second branch") ||
+		    !query_graph_target_output_matches(
+			    handle, 1U, 0U, NULL, 0,
+			    "recursive CTE base branch") ||
+		    !query_graph_target_output_matches(
+			    handle, 1U, 1U, NULL, 0,
+			    "recursive CTE recursive branch") ||
+		    !query_graph_target_output_matches(
+			    handle, 2U, 0U, NULL, 0,
+			    "star CTE boundary")) {
+			fprintf(stderr, "FAIL: %s CTE boundaries failed: %s\n",
+				sqlserver_dialects[dialect_index].label,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(postgresql_dialects) /
+		     sizeof(postgresql_dialects[0]);
+	     dialect_index++) {
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = postgresql_dialects[dialect_index];
+		if (sqlparser_parse_with_options(
+			    "WITH changed (\"new_id\") AS "
+			    "(UPDATE public.t SET v = 1 RETURNING id) "
+			    "SELECT \"new_id\" FROM changed; "
+			    "WITH cte (\"only_id\") AS "
+			    "(SELECT id, value FROM public.t) "
+			    "SELECT \"only_id\" FROM cte",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 2U ||
+		    !query_graph_target_output_matches(
+			    handle, 0U, 0U, "new_id", 1,
+			    "DML RETURNING CTE alias") ||
+		    !query_graph_target_output_matches(
+			    handle, 1U, 0U, "only_id", 1,
+			    "short PostgreSQL CTE alias prefix") ||
+		    !query_graph_target_output_matches(
+			    handle, 1U, 1U, "value", 0,
+			    "short PostgreSQL CTE untouched suffix")) {
+			fprintf(stderr,
+				"FAIL: PostgreSQL-family DML CTE alias failed: %s\n",
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
 static int query_graph_ddl_direct_inventory(void)
 {
 	static const char sql[] =
@@ -8996,6 +9320,7 @@ int main(void)
 	    !query_graph_ddl_foreign_table_lifecycle() ||
 	    !query_graph_ddl_drop_same_name_quote_flags() ||
 	    !query_graph_ddl_drop_executable_comment_lifecycle() ||
+	    !query_graph_cte_explicit_columns() ||
 	    !query_graph_ddl_direct_inventory() ||
 	    !query_graph_ddl_query_backed_inventory() ||
 	    !query_graph_ddl_select_into() ||

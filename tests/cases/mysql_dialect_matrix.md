@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 266 条 `status = "final"` 用例和 894 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 270 条 `status = "final"` 用例和 898 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -232,6 +232,17 @@ relation 的限定名按段记录反引号状态：`database_quoted_identifier`�
 | M262 | `mysql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE、INDEX、DROP/TRUNCATE、RENAME，含 FK 和多对象 DROP | target/reference role、反引号分段标志、DROP 无 selector 边界及 6 个 relation patch |
 | M263 | `mysql-ddl-relation-query-backed-inventory` | CREATE VIEW 与 CTAS | DDL target 与 SELECT source 分块、target `source_block` 及 2 个 target/source relation patch |
 | M264 | `mysql-ddl-drop-table-quoted-same-spelling` | quoted/unquoted 同名多对象 DROP TABLE，含 statement-level executable comment | DROP target 无 selector，schema/object 反引号状态按精确来源 token 分别输出 |
+
+## CTE 显式列名按序映射
+
+以下 4 条 final 用例验证 Query Graph 的 CTE 显式列名 ordinal 映射。显式列名数量与 CTE 结果列数不等的形态不作为正向合同。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M265 | `mysql-cte-explicit-columns-ordinal` | `cte(a,b)` 覆盖内层 `x,y` | CTE 暴露 target 按 ordinal 更名为 `a,b`，2 个 source-target patch 不改变显式列名 |
+| M266 | `mysql-cte-explicit-columns-quoted-repeated` | 反引号列名与两次 CTE 引用 | `output_quoted_identifier`、共享 `source_block`、ON/输出字段归属及 patch 后 ordinal 映射 |
+| M267 | `mysql-cte-explicit-columns-dml-lineage` | CTE 字段驱动 MySQL UPDATE assignment | assignment 的 `source_field` 继续指向外层 CTE 字段，`source_target` 按显式列名解析到 ordinal 1；1 个 patch |
+| M268 | `mysql-cte-explicit-columns-recursive-star-boundary` | 递归 `UNION ALL` 与 `SELECT *` 来源 | SET/recursive branch target 保持底层名称，不伪装为 CTE 别名；star 无 schema 展开时不伪造 source target |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

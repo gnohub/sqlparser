@@ -1,5 +1,5 @@
 category,item,status,reason,official_url
-query,SELECT_CORE,CURRENT,"已覆盖 SELECT、别名、子查询和基本查询结构；relation 的 database/schema/object 引号状态按段输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,SELECT_CORE,CURRENT,"已覆盖 SELECT、WITH 公用表表达式、别名、子查询和基本查询结构；合法显式列名对直接可枚举的 source targets 按 ordinal 覆盖名称与引号状态，SET 结果块及其分支不伪造映射；relation 的 database/schema/object 引号状态按段输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SELECT_JOIN_WHERE,CURRENT,"已覆盖 JOIN、ON、WHERE 条件和表归属输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SET_OPERATORS_MINUS,CURRENT,"已覆盖 MINUS 集合运算并在公共输出中保留 MINUS",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,LIMIT_OFFSET,CURRENT,"已覆盖 LIMIT n、LIMIT offset,n 和 LIMIT n OFFSET offset",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html

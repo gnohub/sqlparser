@@ -71,6 +71,8 @@ The `IF...ELSE` item has 36 successful and 9 error-path cases covering
 single-statement branches, multi-statement blocks, `ELSE IF`, nesting,
 condition queries, DML, DDL, transactions, and syntax boundaries.
 
+When a T-SQL `WITH` CTE has a valid explicit column count, its names are projected by ordinal onto directly enumerable, contiguous targets in the `source_block` when no `*` or `alias.*` target is present, including bracket state. DML assignments can then resolve `source_target`. Repeated references share the same source block, set/recursive branches keep their own outputs, and stars are neither expanded nor assigned guessed mappings. The base SQL Server executable fixture now contains 645 `final` cases and 1909 independent patches.
+
 The `MERGE` item includes an independent `WHEN MATCHED ... THEN DELETE`
 action. `insert_column` supports column-only, value-only, and paired modes. A
 not-matched INSERT with an omitted target-column list still emits its list

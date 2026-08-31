@@ -44,6 +44,8 @@ The current implementation covers 41 groups and leaves 1 group uncovered.
 
 ## Conclusion
 
+Explicit `WITH`/CTE column names are projected by ordinal onto directly enumerable, contiguous targets in the CTE `source_block` when no `*` or `alias.*` target is present, including delimiter state. A legal short PostgreSQL list overrides only the prefix. Direct `RETURNING` targets of a data-modifying CTE use the same rule. Set/recursive branches keep their own outputs, stars are not expanded, and a list longer than the direct target set produces no overlay. The base executable fixture now contains 228 `final` cases and 760 independent patches.
+
 PostgreSQL `MERGE` supports an independent
 `WHEN MATCHED ... THEN DELETE` action. `insert_column` supports column-only,
 value-only, and paired modes. A not-matched INSERT with an omitted target-column

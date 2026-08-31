@@ -40,6 +40,8 @@
 
 ## 结论
 
+`WITH`/CTE 显式列名按 ordinal 投影到 CTE `source_block` 中直接可枚举、连续且不含 `*`/`alias.*` 的 targets，并同步名称定界状态；PostgreSQL 合法短列表只覆盖前缀。DML CTE 的 `RETURNING` 直接 targets 使用相同规则。SET/递归 CTE 保留各 branch 自身输出，星号不展开，列名多于直接 targets 时整组不覆盖。基础可执行夹具现包含 228 条 `final` 用例和 760 个独立 patch。
+
 PostgreSQL `MERGE` 支持独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。可执行矩阵使用 2 条用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
 Query Graph 对 relation 的 database、schema、object 名称段分别保留引号状态，DML target column 也保留独立 `quoted_identifier`；未定界或不存在的段不输出 true 标志。1 条可执行用例和 4 个独立 patch 覆盖普通 DML、MERGE INSERT、`DEFAULT VALUES` 及 patch 后逐段重算。PostgreSQL 当前入口没有 database-link relation。

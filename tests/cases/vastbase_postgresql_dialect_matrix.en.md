@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 209 cases with `status = "final"` and 684 independent patches. The expected View contains a non-empty session projection in 35 cases.
+The fixture contains 213 cases with `status = "final"` and 689 independent patches. The expected View contains a non-empty session projection in 35 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -213,6 +213,17 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | a MERGE CTE with UPDATE and INSERT branches plus `RETURNING` | MERGE D0 target/source relations, ON predicate, branch assignment and INSERT row, result block, `target_after` origin for `RETURNING t.*`, and outer CTE `source_block`; 2 independent patches cover result-target replacement and insertion |
 | `VPG151` | `vastbase-postgresql-on-conflict-assignment-list-contract` | root `INSERT ... ON CONFLICT DO UPDATE SET` with two assignments | ordered `assignment[A]` selectors address conflict-update items; insertion, full replacement, and deletion deparse exactly |
 | `VPG152` | `vastbase-postgresql-data-modifying-cte-update-assignment-list-contract` | nested two-assignment `UPDATE` in a data-modifying CTE | `assignment[D][A]` uses the zero-based DML ordinal; all three assignment patches preserve `RETURNING` and the outer query |
+
+## Explicit CTE Column-Name Ordinal Contract
+
+The following final cases verify explicit CTE column-name ordinal mapping and its defined boundaries for the project compatibility entry.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| `VPG153` | `vastbase-postgresql-cte-explicit-column-ordinal-inventory` | ordinary SELECT CTEs covering a full list, a shorter list, quoted/unquoted names, and repeated CTE references | enumerable source targets take explicit CTE names by ordinal; a shorter list overrides only its prefix; quoted state comes from the CTE column-name token; repeated references share one `source_block`; one relation patch |
+| `VPG154` | `vastbase-postgresql-cte-explicit-column-dml-source-target` | a SELECT CTE and a data-modifying UPDATE CTE each feed an outer UPDATE | CTE names override SELECT/RETURNING source targets by ordinal, and both outer assignments use `source_field` plus `source_target = 1` to identify `masked_title`; two relation patches |
+| `VPG155` | `vastbase-postgresql-cte-explicit-column-set-recursive-boundary` | a `UNION ALL` CTE and a recursive `UNION ALL` CTE | a SET result block currently has no directly enumerable result targets; branch targets, set structure, and the CTE `source_block` remain intact without fabricated ordinal targets; one relation patch |
+| `VPG156` | `vastbase-postgresql-cte-explicit-column-star-boundary` | two explicit names wrap one `SELECT *` target | `*` is not expanded and two names are not forced onto one star target; outer fields remain associated with the CTE relation; one relation patch |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

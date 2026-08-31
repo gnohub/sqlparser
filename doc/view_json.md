@@ -200,6 +200,8 @@ FROM (
 
 同一个 CTE 定义只生成一个来源 block。多次 CTE 引用共享 `source_block`，未被引用的 CTE 定义也保留在 `blocks[]` 中。
 
+CTE 显式列名仅在 `source_block` 自身持有可枚举直接 targets 时按 ordinal 覆盖 `targets[].name` 和 `output_quoted_identifier`。PostgreSQL 较短列表只覆盖对应前缀；重复引用共享同一来源 block，DML `source_target` 按覆盖后的名称解析。SET/recursive branch targets 保留底层名称，star 不展开也不猜测列。该行为不改变 selector、field 和所有权合同。
+
 ## DDL relation
 
 规范的直接 DDL 投影以 block `0` 作为根，block `kind` 为 `ddl`。直接 DDL relation 的 `ddl_role` 只输出 `target` 或 `reference`：target 排在 reference 之前，同类 relation 保持源码顺序；调用方仍应依据 `ddl_role`，不能依赖数组位置推断角色。只有对应方言成功解析并归一为受支持节点的语法进入该合同，不表示每个方言都接受下列每种 SQL 表面形式。

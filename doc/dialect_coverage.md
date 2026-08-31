@@ -6,17 +6,17 @@
 
 | 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 224 | 0 | 224 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 266 | 0 | 266 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 281 | 0 | 281 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 639 | 0 | 639 | 100.00% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 213 | 0 | 213 | 100.00% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 209 | 0 | 209 | 100.00% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 267 | 0 | 267 | 100.00% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 250 | 0 | 250 | 100.00% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 619 | 0 | 619 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 228 | 0 | 228 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 270 | 0 | 270 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 285 | 0 | 285 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 645 | 0 | 645 | 100.00% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 217 | 0 | 217 | 100.00% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 213 | 0 | 213 | 100.00% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 271 | 0 | 271 | 100.00% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 254 | 0 | 254 | 100.00% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 625 | 0 | 625 | 100.00% |
 
-九个夹具合计 2968 条 final 用例和 9379 个独立 patch。
+九个夹具合计 3008 条 final 用例和 9425 个独立 patch。
 
 ## 口径
 
@@ -24,6 +24,7 @@
 - `预期失败用例` 表示 fixture 明确期望 `SQLPARSER_STATUS_UNSUPPORTED`、解析错误或其他失败状态，不返回可用 handle。
 - 预期失败用例包括非法 SQL，以及当前方言到 AST 的映射尚未表示其必要语义的用例。该夹具统计不代表官方语法覆盖率。
 - 基础五入口新增的 DDL Query Graph 合同只由各自 fixture 证明；不能由基础入口统计推断 Vastbase 兼容入口具有相同语法范围或 patch 能力，兼容入口仍以自身 fixture 为准。
+- 九个入口均只对各自 fixture 中合法的 CTE 显式列名形态验证 source block 可直接枚举 target 的 ordinal 覆盖；PostgreSQL 与 Vastbase-PostgreSQL 另验证短列表只覆盖前缀。相应入口按各自 fixture 分别验证 SET 结果、递归 SET 或 star 边界，不伪造结果 target、不跨分支覆盖，也不展开 star。兼容入口统计仅证明项目 fixture 合同，不代表服务端官方语法范围。
 
 ## 维护要求
 

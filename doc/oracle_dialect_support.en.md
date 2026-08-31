@@ -118,6 +118,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, bind mapping, and deparse output remain usable.
 
+- Explicit CTE column names override directly enumerable source-block target
+  names and double-quote state by ordinal. Repeated references share one
+  overlay, while SET branches retain underlying outputs.
+
 ## Regression Cases
 
 The Oracle support boundary is defined by:
@@ -127,7 +131,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 281 cases and 889 independent patches, all
+The current Oracle matrix contains 285 cases and 893 independent patches, all
 with `status = "final"`. Four hierarchical-query cases contain 20 independent
 patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
 `UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

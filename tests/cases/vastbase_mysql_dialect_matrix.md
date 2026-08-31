@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 267 条 `status = "final"` 用例和 854 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言，44 条用例的期望 View 包含非空 session 投影。
+夹具包含 271 条 `status = "final"` 用例和 858 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言，44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -48,6 +48,17 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VM265` | `vastbase-mysql-ddl-relation-direct-inventory` | final | 6 | CREATE/ALTER TABLE FK target/reference、CREATE INDEX、多对象 DROP TABLE/VIEW、单对象 TRUNCATE 与 RENAME 旧对象；relation patch 重算反引号定界状态 |
 | `VM266` | `vastbase-mysql-ddl-relation-query-backed-inventory` | final | 2 | CREATE VIEW 与 CTAS 的 DDL target、SELECT 来源及 `source_block` 关联 |
 | `VM267` | `vastbase-mysql-ddl-drop-table-quoted-same-spelling` | final | 0 | 普通语句与 statement-level executable comment 内的 quoted/unquoted 同名 DROP target 均无 selector，schema/object 反引号状态按精确来源 token 分别输出 |
+
+## CTE 显式列名按序映射
+
+以下 4 条 final 用例与 MySQL M265–M268 逐字段镜像，仅用例名前缀和 ID 不同。显式列名数量与 CTE 结果列数不等的形态不作为正向合同。该边界属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VM268` | `vastbase-mysql-cte-explicit-columns-ordinal` | final | 2 | 显式列名按 ordinal 覆盖 source target，patch 后保持列名 |
+| `VM269` | `vastbase-mysql-cte-explicit-columns-quoted-repeated` | final | 1 | 反引号状态、重复引用共享 source block 及 patch 后映射 |
+| `VM270` | `vastbase-mysql-cte-explicit-columns-dml-lineage` | final | 1 | UPDATE assignment 的 `source_field`/`source_target` 按显式列名保持 lineage |
+| `VM271` | `vastbase-mysql-cte-explicit-columns-recursive-star-boundary` | final | 0 | SET/recursive branch target 保持底层名称，不伪装为 CTE 别名；未展开 star 不伪造 source target |
 
 ## 完整绑定占位符 occurrence 回归
 

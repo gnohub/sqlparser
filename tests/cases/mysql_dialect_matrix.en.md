@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 266 cases with `status = "final"` and 894 independent
+The fixture contains 270 cases with `status = "final"` and 898 independent
 patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -250,6 +250,17 @@ This section records only forms defined by MySQL's official syntax and verified 
 | M262 | `mysql-ddl-relation-direct-inventory` | CREATE/ALTER TABLE, INDEX, DROP/TRUNCATE, and RENAME, including FK and multi-object DROP | target/reference roles, segmented backtick flags, the no-selector DROP boundary, and six relation patches |
 | M263 | `mysql-ddl-relation-query-backed-inventory` | CREATE VIEW and CTAS | separate DDL-target and SELECT-source blocks, target `source_block`, and two target/source relation patches |
 | M264 | `mysql-ddl-drop-table-quoted-same-spelling` | multi-object DROP TABLE with identically spelled quoted/unquoted names, including a statement-level executable comment | selector-free DROP targets whose schema/object backtick states come from their exact source tokens |
+
+## Explicit CTE Column Ordinal Mapping
+
+The following four final cases verify Query Graph ordinal mapping for explicit CTE column names. A list whose name count differs from the CTE result width is not a positive contract.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M265 | `mysql-cte-explicit-columns-ordinal` | `cte(a,b)` over inner targets `x,y` | exposed CTE targets are renamed by ordinal to `a,b`; two source-target patches do not change the explicit names |
+| M266 | `mysql-cte-explicit-columns-quoted-repeated` | a backtick-delimited column name and two CTE references | `output_quoted_identifier`, shared `source_block`, ON/output field ownership, and ordinal mapping after a patch |
+| M267 | `mysql-cte-explicit-columns-dml-lineage` | a CTE field drives a MySQL UPDATE assignment | assignment `source_field` remains the outer CTE field while `source_target` resolves explicit column ordinal 1; one patch verifies recomputation |
+| M268 | `mysql-cte-explicit-columns-recursive-star-boundary` | recursive `UNION ALL` plus a `SELECT *` source | SET/recursive branch targets retain underlying names rather than impersonating CTE aliases; an unexpanded star invents no source targets |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

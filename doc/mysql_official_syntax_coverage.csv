@@ -20,7 +20,7 @@ ddl,DROP_TABLE,CURRENT,"已覆盖多对象 DROP TABLE target；同名 quoted/unq
 transaction,START_TRANSACTION,CURRENT,已覆盖 START TRANSACTION,https://dev.mysql.com/doc/refman/8.4/en/commit.html
 transaction,COMMIT,CURRENT,已覆盖 COMMIT,https://dev.mysql.com/doc/refman/8.4/en/commit.html
 session,USE_DATABASE,CURRENT,已覆盖 USE db_name 语句,https://dev.mysql.com/doc/refman/8.4/en/use.html
-query,CTE_WITH,CURRENT,已覆盖 WITH 公用表表达式查询,https://dev.mysql.com/doc/refman/8.4/en/with.html
+query,CTE_WITH,CURRENT,"已覆盖 WITH 公用表表达式查询；合法显式列名对直接可枚举且不含星号的 source targets 按 ordinal 覆盖名称与反引号状态，SET/递归分支和星号不推测映射",https://dev.mysql.com/doc/refman/8.4/en/with.html
 query,WINDOW_FUNCTIONS,CURRENT,已覆盖窗口函数表达式和字段归属,https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
 query,GROUP_BY_HAVING,CURRENT,已覆盖 GROUP BY、HAVING 和 ORDER BY 组合查询,https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
 query,ORDER_BY,CURRENT,已覆盖 ORDER BY 字段排序和序号排序,https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html

@@ -59,6 +59,8 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
+- CTE 显式列名在来源 block 直接可枚举 targets 时按 ordinal 覆盖输出名与双引号状态；重复引用只覆盖一次，SET branch 保留底层输出。
+
 ## 回归用例
 
 Oracle 支持范围以以下文件为准：
@@ -68,4 +70,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 281 条用例和 889 个独立 patch，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch；O198 至 O200 分别验证 `INSERT`、`UPDATE`、`DELETE` 的 8 对 `RETURNING ... INTO` 结果及头部、中部、尾部成对插入。
+当前 Oracle 方言矩阵包含 285 条用例和 893 个独立 patch，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch；O198 至 O200 分别验证 `INSERT`、`UPDATE`、`DELETE` 的 8 对 `RETURNING ... INTO` 结果及头部、中部、尾部成对插入。

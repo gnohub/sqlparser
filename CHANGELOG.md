@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.11
+
+### CTE 显式列名按序映射
+
+- CTE 具有显式列名列表且来源 block 自身包含可直接枚举的 targets 时，按 ordinal 覆盖 target 输出名及 quoted 状态；PostgreSQL 合法短列表仅覆盖对应前缀。
+- 重复 CTE 引用共享同一覆盖结果，DML `source_target` 使用覆盖后的名称解析。内层 field、target selector 与 target-list selector 保持原有语义；data-modifying CTE 的直接 `RETURNING` targets 使用相同规则。
+- SET/recursive CTE branch 保留自身输出，`*` 与 `alias.*` 不展开或猜测 ordinal；显式列名多于直接 targets 时整组不覆盖。MySQL 与 SQL Server 入口仅将列数合法的语法纳入正向合同。
+- 实现仅增加一个内部线性 overlay，复杂度为 `O(N + A)`，不新增公开 API、结构体字段、字符串分配或所有权规则。
+
+### 用例与验证
+
+- 新增 40 条 final case 和 46 个 patch；九套 fixture 当前合计 3,008 条 final case 和 9,425 个 patch。
+- 完整 `make test`、九套方言矩阵、core/identifier 定向测试均通过；identifier 定向 Valgrind 检查为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.10
 
 ### DDL Query Graph relation 投影

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 281 条 `status = "final"` 用例和 889 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 285 条 `status = "final"` 用例和 893 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -299,6 +299,17 @@ relation 的限定名按段记录双引号状态：`database_quoted_identifier`�
 | O228 | `oracle-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target、SELECT source、`source_block` 及 2 个 relation patch |
 | O229 | `oracle-ddl-relation-create-table-as-target-and-source` | CTAS | DDL target 与 SELECT source 分块，2 个 relation patch |
 | O230 | `oracle-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | DDL target 与 SELECT source 分块，2 个 relation patch |
+
+## CTE 显式列名 ordinal 合同
+
+以下 final 用例验证 CTE 显式列名的 ordinal 映射与明确边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| O231 | `oracle-cte-explicit-column-user-ordinal` | 普通三列 CTE 用户样例 | source block 的三个可枚举 target 按 ordinal 使用 `did`、`masked_title`、`plain_content`；1 个 relation patch |
+| O232 | `oracle-cte-explicit-column-quoted-expression-ordinal` | 两个重复底层 `ID` 与一个 `UPPER(TITLE)` expression，显式名称全部 quoted，外层重排引用 | ordinal 映射不依赖底层名称或 target kind；三个 source target 分别使用显式名称及 quoted flag；1 个 relation patch |
+| O233 | `oracle-cte-explicit-column-repeated-reference` | 同一个 CTE 由 alias `a`、`b` 重复引用 | 两个 CTE relation 共享一个 source block；source targets 只覆盖一次并按 ordinal 使用显式名称；1 个 relation patch |
+| O234 | `oracle-cte-explicit-column-set-boundary` | `UNION ALL` CTE | SET 结果 block 没有直接可枚举 targets；两个 branch 保留底层 target 名称，不伪造结果 target 或跨 branch overlay；1 个 relation patch |
 
 ## 覆盖边界
 

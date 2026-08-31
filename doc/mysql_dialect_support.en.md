@@ -94,6 +94,12 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
   to PostgreSQL semantics.
 
+- An explicit CTE column list must match the result width. Directly enumerable
+  source-block targets receive ordinal name and backtick-state overrides;
+  repeated references share that source, and UPDATE assignments resolve
+  `source_target` through the overlaid name. SET/recursive branches and stars
+  do not fabricate output columns.
+
 ## Regression Cases
 
 The MySQL support boundary is defined by:
@@ -103,5 +109,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 266 cases with `status = "final"` and 894
+The current MySQL matrix contains 270 cases with `status = "final"` and 898
 independent patches.

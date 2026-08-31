@@ -36,14 +36,16 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 
 | 模式 | 回归夹具 | 单元测试 | 成功用例 | 预期失败用例 | 用例总数 |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 250 | 0 | 250 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 267 | 0 | 267 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 209 | 0 | 209 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 619 | 0 | 619 |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 254 | 0 | 254 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 271 | 0 | 271 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 213 | 0 | 213 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 625 | 0 | 625 |
 
-四套夹具均只包含 `final` 用例，独立 patch 数依次为 `vastbase-oracle` 828、`vastbase-mysql` 854、`vastbase-postgresql` 684、`vastbase-sqlserver` 1884。各入口验证 Query Graph 定界标识符的精确来源状态：relation 的 `database_quoted_identifier`、`schema_quoted_identifier`、object `quoted_identifier`、`alias_quoted_identifier`，以及 field `quoted_identifier`、target `output_quoted_identifier` 和 DML column `quoted_identifier`；`vastbase-oracle` 还验证 database link 的 `link_quoted_identifier` 与 `INSERT ALL/FIRST` 分支目标列，`vastbase-sqlserver` 还验证 `OUTPUT ... INTO` sink relation 和 sink column。各字段只对应自身来源 token；未定界来源的 C 标志为 `0`，View JSON 省略对应键。各入口仅识别既有定界符：Oracle/PostgreSQL 为双引号、MySQL 为反引号、SQL Server 为方括号。relation 或 DML column patch 后按新来源重新计算标志，patch handle 与重新解析 handle 的 View 必须一致。`U&"..."` 不在该合同范围内。以上是项目兼容入口合同及可执行证据，不声称 Vastbase 服务端官网定义了相同语法范围。
+四套夹具均只包含 `final` 用例，独立 patch 数依次为 `vastbase-oracle` 832、`vastbase-mysql` 858、`vastbase-postgresql` 689、`vastbase-sqlserver` 1892。各入口验证 Query Graph 定界标识符的精确来源状态：relation 的 `database_quoted_identifier`、`schema_quoted_identifier`、object `quoted_identifier`、`alias_quoted_identifier`，以及 field `quoted_identifier`、target `output_quoted_identifier` 和 DML column `quoted_identifier`；`vastbase-oracle` 还验证 database link 的 `link_quoted_identifier` 与 `INSERT ALL/FIRST` 分支目标列，`vastbase-sqlserver` 还验证 `OUTPUT ... INTO` sink relation 和 sink column。各字段只对应自身来源 token；未定界来源的 C 标志为 `0`，View JSON 省略对应键。各入口仅识别既有定界符：Oracle/PostgreSQL 为双引号、MySQL 为反引号、SQL Server 为方括号。relation 或 DML column patch 后按新来源重新计算标志，patch handle 与重新解析 handle 的 View 必须一致。`U&"..."` 不在该合同范围内。以上是项目兼容入口合同及可执行证据，不声称 Vastbase 服务端官网定义了相同语法范围。
 
 四个项目兼容入口以 28 条 final 用例和 50 个独立 patch 验证 relation-bearing DDL 投影。Query Graph 以 `kind = "ddl"` 的根块表达 DDL，并以 relation `ddl_role = "target"` / `"reference"` 区分操作对象与引用对象；定界标志仍按 database/schema/object 来源分段独立输出。CREATE VIEW、CTAS、CREATE MATERIALIZED VIEW 以及已验证入口的 `SELECT INTO` 将 DDL target 的 `source_block` 指向独立 SELECT 块；外键、PostgreSQL LIKE/INHERITS/partition 等引用对象按实际语法投影为 `reference`。PostgreSQL 兼容入口还验证 foreign-table target 生命周期；MySQL/PostgreSQL/SQL Server 兼容入口验证 quoted/unquoted 同名 DROP 分段的精确来源状态，SQL Server 兼容入口另验证普通多语句 batch 中的 DDL relation patch 保留公开 surface。仅夹具中已成功解析并完成 View/patch 对账的方言形态属于该合同；这是项目兼容入口证据，不作为 Vastbase 服务端官方语法声明。
+
+四个项目兼容入口均只对各自 fixture 中合法的 CTE 显式列名形态验证按 ordinal 覆盖 source block 中可直接枚举的 target，并保留列名 token 的定界状态；Vastbase PostgreSQL 另验证短列表只覆盖 target 前缀。显式列名可参与 DML `source_target` lineage，重复 CTE 引用共享同一已覆盖 source block。相应入口按各自 fixture 分别验证 SET 结果、递归 SET 或 star 边界，不伪造结果 target、不跨分支覆盖，也不展开 star。该能力是项目 fixture 合同，不代表 Vastbase 服务端官方语法范围。
 
 四个 Vastbase 项目兼容入口的 `MERGE ... WHEN NOT MATCHED THEN INSERT ... VALUES` 改写复用 `insert_column`：仅提供 `name` 时只增加目标列，仅提供一个 value source 时只增加 VALUES cell，同时提供时成对增加。省略目标列清单但存在 VALUES 时仍输出 `target_list_selector`，既可按需物化清单，也可在保持清单省略的情况下仅增加 cell；已有目标列和 cell 可分别替换。同一 patch batch 内允许两侧暂时不等长；批末存在显式目标列清单时必须与 VALUES 等长，否则整批原子回滚。成对删除语义不变，`MERGE INSERT DEFAULT VALUES` 不在该改写范围内。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
 

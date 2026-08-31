@@ -1,9 +1,9 @@
-# v2.16.10 Release Notes
+# v2.16.11 Release Notes
 
-Query Graph adds a DDL root block and relation roles that represent supported DDL objects and references as `TARGET` and `REFERENCE`. Query-backed DDL targets point through `source_block` to a separate SELECT source block.
+Query Graph maps explicit CTE column names by ordinal. When the source block directly owns enumerable targets, explicit names and quoted state override target outputs. Repeated references share the same result, DML `source_target` resolution uses the overlaid names, and a legal short PostgreSQL list overrides only its matching prefix.
 
-Relation projection covers common table, index, view, TRUNCATE, RENAME, and DROP forms successfully parsed by each dialect entry. PostgreSQL-compatible entries also cover FOREIGN TABLE and partition references. DROP segment delimiter state is derived from each exact source token, while U& identifiers continue not to set the ordinary delimiter flags. CREATE INDEX/TRUNCATE relation patches in ordinary SQL Server multi-statement input preserve the public SQL surface.
+SET/recursive CTE branches retain their own outputs, stars are not expanded or assigned guessed mappings, and existing boundaries remain when no complete direct correspondence can be established. The implementation adds no public API, structure field, string allocation, or ownership rule.
 
-The public API adds the DDL block kind, relation-role enum, `ddl_role` field, and `sqlparser_graph_ddl_relation_role_name()`. On x86_64 and AArch64 64-bit layouts, the relation structure retains its size and every old member offset. With 66 final cases and 113 patches added, the nine fixtures now contain 2,968 final cases and 9,379 patches. The full `make test` suite, ABI export check, and targeted identifier Valgrind check passed.
+With 40 final cases and 46 patches added, the nine fixtures now contain 3,008 final cases and 9,425 patches. The full `make test` suite, all nine dialect matrices, targeted core/identifier tests, and the identifier Valgrind check passed.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

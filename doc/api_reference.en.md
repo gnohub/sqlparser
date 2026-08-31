@@ -934,6 +934,14 @@ from which it was read.
 - A CTE definition is built once. Multiple references share its
   `source_block_index`, and an unreferenced CTE definition remains present in
   the graph.
+- When a CTE has an explicit column-name list and its `source_block` itself owns
+  directly enumerable targets, names override those targets' `output_name` and
+  `output_quoted_identifier` by ordinal. A shorter PostgreSQL list overrides
+  only the corresponding prefix, and repeated CTE references share the single
+  overlaid source block. DML `source_target` resolution uses the overlaid names.
+- SET/recursive CTE branch targets retain their own output names, and stars are
+  neither expanded nor assigned guessed ordinals. The overlay adds no selector,
+  field, allocation, or ownership rule.
 - `targets[].star_relations` reports the relation indexes covered by `*` or
   `alias.*`.
 - `targets[].source_block_index` links star or subquery targets to their source

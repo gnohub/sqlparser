@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.11
+
+### Ordinal Mapping for Explicit CTE Column Names
+
+- When a CTE has an explicit column-name list and its source block directly owns enumerable targets, names and quoted state override target outputs by ordinal. A legal short PostgreSQL list overrides only the corresponding prefix.
+- Repeated CTE references share one overlaid result, and DML `source_target` resolution uses the overlaid names. Inner fields, target selectors, and target-list selectors keep their existing semantics. Direct `RETURNING` targets of a data-modifying CTE use the same rule.
+- SET/recursive CTE branches retain their own outputs, while `*` and `alias.*` are neither expanded nor assigned guessed ordinals. A list longer than the direct target set produces no overlay. MySQL and SQL Server entries include only forms with a valid column count in the positive contract.
+- The implementation adds one internal linear overlay with `O(N + A)` complexity and no public API, structure field, string allocation, or ownership change.
+
+### Cases and Validation
+
+- Forty final cases and 46 patches were added. The nine fixtures now contain 3,008 final cases and 9,425 patches.
+- The full `make test` suite, all nine dialect matrices, and targeted core/identifier tests passed. The targeted identifier Valgrind check reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.10
 
 ### DDL Query Graph Relation Projection

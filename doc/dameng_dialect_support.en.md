@@ -121,6 +121,10 @@ handle:
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, bind mapping, and deparse output remain usable.
 
+- Explicit CTE column names override directly enumerable source-block target
+  names and double-quote state by ordinal. Repeated references share one
+  overlay, while SET branches retain underlying outputs.
+
 ## Regression Cases
 
 The Dameng support boundary is defined by:
@@ -131,8 +135,8 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 213 cases, all with `status = "final"`, and
-690 independent patches. Six cases cover multi-table single-target `UPDATE`.
+The current Dameng matrix contains 217 cases, all with `status = "final"`, and
+694 independent patches. Six cases cover multi-table single-target `UPDATE`.
 Three multi-return cases respectively verify INSERT
 `RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
 head, middle, and tail insertions that produce 9↔9 pairs.

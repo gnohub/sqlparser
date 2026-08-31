@@ -1,5 +1,5 @@
 category,item,status,reason,official_url
-query,SELECT,CURRENT,"已覆盖 SELECT、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING；relation 的 database/schema/object 引号状态按段输出",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,SELECT,CURRENT,"已覆盖 SELECT、WITH 子查询因子、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING；WITH 显式列名对直接可枚举的 source targets 按 ordinal 覆盖名称与引号状态，SET 结果块及其分支不伪造映射；relation 的 database/schema/object 引号状态按段输出",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MINUS,CURRENT,"已覆盖 Oracle MINUS 与核心集合运算双向转换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
 query,UNION_INTERSECT,CURRENT,"已覆盖 UNION ALL 和 INTERSECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
 query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET ... ROWS 与 FETCH FIRST/NEXT ... ROWS ONLY 的行数形态；不包含 FETCH ... PERCENT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html

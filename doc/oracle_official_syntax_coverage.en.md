@@ -44,6 +44,8 @@ Of these, 38 are classified as `CURRENT`, and 9 remain incomplete.
 
 ## Conclusion
 
+For Oracle `SELECT` subquery factoring, a legal explicit column list projects names and double-quote state by ordinal onto directly enumerable, contiguous targets in the `source_block`. Set result blocks and their branches retain their own outputs and do not receive fabricated CTE result-name mappings. The base executable fixture now contains 285 `final` cases and 893 independent patches.
+
 The Oracle `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
 UPDATE, an attached `DELETE WHERE` on that same UPDATE branch, and a
 conditional not-matched INSERT. `insert_column` supports column-only,
@@ -84,8 +86,7 @@ rejects `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal
 list lengths. A paired `insert_column` inserts both the target and receiver in
 the same patch rather than exposing one-sided operations. O198 through O200
 each verify eight pairs and nine pairs after insertion at the head, middle, or
-tail. The complete Oracle executable fixture contains 281 `final` cases and
-889 independent patches. The remaining Oracle gaps are mainly Oracle-specific
+tail. The remaining Oracle gaps are mainly Oracle-specific
 semantics that
 cannot be safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now
 cover basic statement parsing, keywords, and deparse output; full object

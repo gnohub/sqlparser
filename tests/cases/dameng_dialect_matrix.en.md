@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 213 cases with `status = "final"` and 690 independent
+The fixture contains 217 cases with `status = "final"` and 694 independent
 patches. Eight cases and their 23 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
@@ -298,6 +298,17 @@ Every SQL form below is converged on Dameng's official syntax and verified by by
 | D187 | `dameng-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target, SELECT source, `source_block`, and two relation patches |
 | D188 | `dameng-ddl-relation-create-table-as-target-and-source` | CTAS | separate DDL-target and SELECT-source blocks with two relation patches |
 | D189 | `dameng-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | separate DDL-target and SELECT-source blocks with two relation patches |
+
+## Explicit CTE Column-Name Ordinal Contract
+
+The following final cases verify explicit CTE column-name ordinal mapping and its defined boundaries.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| D190 | `dameng-cte-explicit-column-user-ordinal` | ordinary three-column CTE user example | the source block's three enumerable targets take `did`, `masked_title`, and `plain_content` by ordinal; one relation patch |
+| D191 | `dameng-cte-explicit-column-quoted-expression-ordinal` | two duplicate underlying `ID` fields plus one `UPPER(TITLE)` expression, with fully quoted explicit names and reordered outer references | ordinal mapping is independent of underlying name and target kind; all three source targets take the explicit names and quoted flags; one relation patch |
+| D192 | `dameng-cte-explicit-column-repeated-reference` | one CTE referenced twice as aliases `a` and `b` | both CTE relations share one source block; source targets are overlaid once by ordinal; one relation patch |
+| D193 | `dameng-cte-explicit-column-set-boundary` | a `UNION ALL` CTE | the SET result block has no directly enumerable targets; both branches retain underlying target names without fabricated result targets or cross-branch overlays; one relation patch |
 
 ## Coverage Boundary
 

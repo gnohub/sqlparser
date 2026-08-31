@@ -8,17 +8,17 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Successful Cases | Expected-Failure Cases | Total Cases | Fixture Success Rate |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 224 | 0 | 224 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 266 | 0 | 266 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 281 | 0 | 281 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 639 | 0 | 639 | 100.00% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 213 | 0 | 213 | 100.00% |
-| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 209 | 0 | 209 | 100.00% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 267 | 0 | 267 | 100.00% |
-| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 250 | 0 | 250 | 100.00% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 619 | 0 | 619 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 228 | 0 | 228 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 270 | 0 | 270 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 285 | 0 | 285 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 645 | 0 | 645 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 217 | 0 | 217 | 100.00% |
+| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 213 | 0 | 213 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 271 | 0 | 271 | 100.00% |
+| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 254 | 0 | 254 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 625 | 0 | 625 | 100.00% |
 
-The nine fixtures contain 2968 final cases and 9379 independent patches in
+The nine fixtures contain 3008 final cases and 9425 independent patches in
 total.
 
 ## Counting Rules
@@ -35,6 +35,14 @@ total.
   by those fixtures. Their counts do not imply the same syntax or patch surface
   for Vastbase compatibility entries; each compatibility fixture remains
   authoritative.
+- All nine entries verify ordinal overlay of explicit CTE column names onto
+  directly enumerable source-block targets only for forms valid in their own
+  fixtures. PostgreSQL and Vastbase PostgreSQL additionally verify that a
+  shorter list overrides only the target prefix. The applicable entries verify
+  SET-result, recursive-SET, or star boundaries according to their own
+  fixtures, without fabricating result targets, crossing branches, or expanding
+  stars. Compatibility-entry counts prove only the project fixture contract,
+  not official server syntax.
 
 ## Maintenance
 

@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 250 cases and 828 independent patches, all with
+The fixture contains 254 cases and 832 independent patches, all with
 `status = "final"`. The expected View contains a non-empty session projection
 in 41 cases.
 
@@ -74,6 +74,17 @@ The following ten final cases define the DDL Query Graph contract for the projec
 | `VO248` | `vastbase-oracle-ddl-relation-create-table-as-target-and-source` | final | 2 | CTAS target, SELECT source, and `source_block` linkage |
 | `VO249` | `vastbase-oracle-ddl-relation-create-materialized-view-target-and-source` | final | 2 | CREATE MATERIALIZED VIEW target, SELECT source, and `source_block` linkage |
 | `VO250` | `vastbase-oracle-ddl-relation-drop-materialized-view-target` | final | 0 | projects the single DROP MATERIALIZED VIEW object as a DDL target |
+
+## Explicit CTE Column-Name Ordinal Contract
+
+The following final cases verify explicit CTE column-name ordinal mapping and its defined boundaries for the project compatibility entry.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VO251` | `vastbase-oracle-cte-explicit-column-user-ordinal` | final | 1 | ordinary three-column source targets take `did`, `masked_title`, and `plain_content` by ordinal |
+| `VO252` | `vastbase-oracle-cte-explicit-column-quoted-expression-ordinal` | final | 1 | duplicate underlying fields, an expression target, quoted explicit names, and reordered outer references are expressed by ordinal |
+| `VO253` | `vastbase-oracle-cte-explicit-column-repeated-reference` | final | 1 | two CTE relations share one source block and explicit names are overlaid once |
+| `VO254` | `vastbase-oracle-cte-explicit-column-set-boundary` | final | 1 | both UNION ALL branches retain underlying names without fabricated SET result targets or cross-branch overlays |
 
 ## Complete Bind-Placeholder Occurrence Regression
 

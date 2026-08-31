@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 224 cases with `status = "final"` and 755 independent
+The fixture contains 228 cases with `status = "final"` and 760 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -238,6 +238,17 @@ DDL relations enter a root block with `kind = "ddl"`; `ddl_role = "target"|"refe
 | P174 | `postgresql-ddl-relation-partition-operations` | ATTACH / DETACH PARTITION | changed table as target, partition table as reference, and three relation patches |
 | P175 | `postgresql-ddl-relation-select-into` | `SELECT ... INTO target FROM source` | DDL target block, SELECT source block, `source_block`, and two relation patches |
 | P176 | `postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | CREATE/ALTER/RENAME/DROP FOREIGN TABLE and identically spelled quoted/unquoted DROP targets | foreign-table target lifecycle, one relation patch, the `if` identifier boundary, and exact segment state after a U& identifier with `UESCAPE` |
+
+## Explicit CTE Column-Name Ordinal Contract
+
+The following final cases verify explicit CTE column-name ordinal mapping and its defined boundaries.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| P177 | `postgresql-cte-explicit-column-ordinal-inventory` | ordinary SELECT CTEs covering a full list, a shorter list, quoted/unquoted names, and repeated CTE references | enumerable source targets take explicit CTE names by ordinal; a shorter list overrides only its prefix; quoted state comes from the CTE column-name token; repeated references share one `source_block`; one relation patch |
+| P178 | `postgresql-cte-explicit-column-dml-source-target` | a SELECT CTE and a data-modifying UPDATE CTE each feed an outer UPDATE | CTE names override SELECT/RETURNING source targets by ordinal, and both outer assignments use `source_field` plus `source_target = 1` to identify `masked_title`; two relation patches |
+| P179 | `postgresql-cte-explicit-column-set-recursive-boundary` | a `UNION ALL` CTE and a recursive `UNION ALL` CTE | a SET result block currently has no directly enumerable result targets; branch targets, set structure, and the CTE `source_block` remain intact without fabricated ordinal targets; one relation patch |
+| P180 | `postgresql-cte-explicit-column-star-boundary` | two explicit names wrap one `SELECT *` target | `*` is not expanded and two names are not forced onto one star target; outer fields remain associated with the CTE relation; one relation patch |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

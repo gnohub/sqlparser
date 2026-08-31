@@ -48,6 +48,8 @@ The current implementation covers 41 groups and leaves 7 groups uncovered.
 
 ## Conclusion
 
+Legal explicit column names on a `WITH` CTE are projected by ordinal onto directly enumerable, contiguous targets in its `source_block` when no `*` or `alias.*` target is present, including backtick delimiter state. Set/recursive branches retain their own outputs, stars are not expanded, and no mapping is guessed when a complete direct-target correspondence cannot be established. The base executable fixture now contains 270 `final` cases and 898 independent patches.
+
 The remaining MySQL gaps are concentrated in complete multi-table DELETE
 semantics, REPLACE partition variants, program objects, and administrative
 statements. Multi-target multi-table UPDATE, INSERT/UPDATE/DELETE modifiers,

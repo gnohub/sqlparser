@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 619 条 `status = "final"` 用例和 1884 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 625 条 `status = "final"` 用例和 1892 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -636,6 +636,19 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE 分支 | 已覆盖 |
 | `VSH403` | `vastbase-sqlserver-if-exec-create-view-cte-branch` | EXEC 包装的 CREATE VIEW CTE 分支 | 已覆盖 |
 | `VSH404` | `vastbase-sqlserver-merge-cte-target-relation-binding` | MERGE 的 CTE 目标及底层 relation patch 传播 | 已覆盖 |
+
+## CTE 显式列名 ordinal 投影
+
+以下 6 条 final 用例验证 CTE 显式列名 ordinal 投影。T-SQL 要求显式列名数量与查询输出列数一致，部分列名列表不纳入正向覆盖。仅直接可枚举的 CTE source targets 按 ordinal 覆盖名称和方括号状态；重复引用共享来源块，DML 补充 `source_target`。集合/递归 branch 保留自身输出，星号不展开，也不猜测映射。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH620 | `vastbase-sqlserver-cte-explicit-column-ordinal-quoted-state` | 直接 CTE target + 混合普通/方括号显式列名 | ordinal 改名和 quoted 状态；2 个 target patch |
+| VSH621 | `vastbase-sqlserver-cte-explicit-columns-duplicate-references` | 同一 CTE 两次 JOIN 引用 | 共享 `source_block` 且不重复投影；1 个来源 target patch |
+| VSH622 | `vastbase-sqlserver-cte-explicit-columns-update-lineage` | CTE 驱动 UPDATE FROM | assignment 解析 `source_target=1`；1 个来源 target patch |
+| VSH623 | `vastbase-sqlserver-cte-explicit-column-recursive-union-all` | 递归 CTE + `UNION ALL` | branch targets 不伪造 `[n]`；2 个 branch patch |
+| VSH624 | `vastbase-sqlserver-cte-explicit-columns-union-all-branches` | 非递归双分支 `UNION ALL` | branch 保留 `id/value`；2 个分支 patch |
+| VSH625 | `vastbase-sqlserver-cte-explicit-columns-star-no-ordinal-guess` | CTE 内外双星号 | 保留星号边界，不展开或猜 ordinal |
 
 ## 覆盖边界
 

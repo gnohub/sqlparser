@@ -145,6 +145,12 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, parameter mapping, and deparse output remain usable.
 
+- A T-SQL explicit CTE column list must match the result width. Directly
+  enumerable source-block targets receive ordinal name and bracket-state
+  overrides; repeated references share that source, and UPDATE assignments can
+  resolve `source_target`. SET/recursive branches and stars retain their own
+  boundaries.
+
 ## Regression Cases
 
 The SQL Server support boundary is defined by:
@@ -154,7 +160,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 639 cases, all with `status = "final"`, and 1901
+The SQL Server matrix contains 645 cases, all with `status = "final"`, and 1909
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.

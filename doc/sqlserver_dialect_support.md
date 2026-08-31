@@ -81,6 +81,8 @@ SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不�
 - 控制流条件和分支 SQL 作为有序 statement unit 输出；View JSON 的 `control_flow` 与公共控制流只读结构一致。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、参数映射和 deparse 输出保持可用。
 
+- T-SQL CTE 显式列名数量必须与结果宽度相等；来源 block 直接可枚举 targets 按 ordinal 覆盖输出名和方括号状态，重复引用共享该来源，UPDATE assignment 可解析 `source_target`。SET/recursive branch 与 star 保留自身边界。
+
 ## 回归用例
 
 SQL Server 支持范围以以下文件为准：
@@ -90,4 +92,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 639 条用例，全部为 `status = "final"`，共包含 1901 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前 SQL Server 矩阵包含 645 条用例，全部为 `status = "final"`，共包含 1909 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。

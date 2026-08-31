@@ -77,6 +77,12 @@ exposed by the public query graph.
   source-token delimiter state. This contract is proven by the current entry's
   fixture and is not automatically inherited by compatibility entries.
 
+- Explicit CTE column names override directly enumerable source-block targets
+  by ordinal, including quoted state. Shorter lists override only their prefix,
+  repeated references share the source block, and DML resolves `source_target`
+  through the overlaid name. SET/recursive branches and stars retain their own
+  boundaries.
+
 ## Regression Cases
 
 The PostgreSQL support boundary is defined by:
@@ -87,5 +93,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 224 cases and 755 independent patches,
+The current PostgreSQL matrix contains 228 cases and 760 independent patches,
 all with `status = "final"`.

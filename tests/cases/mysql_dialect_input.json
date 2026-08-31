@@ -32588,6 +32588,774 @@
       },
       "patch": [],
       "status": "final"
+    },
+    {
+      "name": "mysql-cte-explicit-columns-ordinal",
+      "sql": "WITH cte(a,b) AS (SELECT x,y FROM src) SELECT a,b FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "src",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "x",
+                  "target": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "y",
+                  "target": 1,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "a",
+                  "target": 2,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "b",
+                  "target": 3,
+                  "selector": "stmt[0].name[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "`x_new`",
+          "deparse": "WITH cte(a,b) AS (SELECT `x_new`,y FROM src) SELECT a,b FROM cte"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "`y_new`",
+          "deparse": "WITH cte(a,b) AS (SELECT x,`y_new` FROM src) SELECT a,b FROM cte"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-cte-explicit-columns-quoted-repeated",
+      "sql": "WITH cte(`A`,b) AS (SELECT x,y FROM src) SELECT l.`A`,r.b FROM cte l JOIN cte r ON l.`A`=r.`A`",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    2
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "alias": "l",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "src",
+                  "selector": "stmt[0].relation[2]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "alias": "r",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "A",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]",
+                  "output_quoted_identifier": true
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "A",
+                  "output_quoted_identifier": true,
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "x",
+                  "target": 0,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "y",
+                  "target": 1,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "A",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "A",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "A",
+                  "quoted_identifier": true,
+                  "target": 2,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "b",
+                  "target": 3,
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "`x_new`",
+          "deparse": "WITH cte(`A`,b) AS (SELECT `x_new`,y FROM src) SELECT l.`A`,r.b FROM cte l JOIN cte r ON l.`A`=r.`A`"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-cte-explicit-columns-dml-lineage",
+      "sql": "WITH cte(a,b) AS (SELECT x,y FROM src) UPDATE dst JOIN cte ON dst.id=cte.a SET dst.v=cte.b",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "dst",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "src",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "x",
+                  "target": 0,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "y",
+                  "target": 1,
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "b",
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "a",
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "source_field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "right_field": 5,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "source_target": 1,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "`y_new`",
+          "deparse": "WITH cte(a,b) AS (SELECT x,`y_new` FROM src) UPDATE dst JOIN cte ON dst.id=cte.a SET dst.v=cte.b"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-cte-explicit-columns-recursive-star-boundary",
+      "sql": "WITH RECURSIVE seq(n) AS (SELECT 1 AS seed UNION ALL SELECT n+1 FROM seq WHERE n<3) SELECT n FROM seq; WITH cte(a,b) AS (SELECT * FROM src) SELECT a,b FROM cte",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "seq",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "cte",
+                  "table": "seq",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "seed",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "expression",
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "n",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "n",
+                  "target": 1,
+                  "selector": "stmt[0].name[5]",
+                  "target_path": [
+                    {
+                      "kind": "expression",
+                      "name": "+",
+                      "arg_index": 0
+                    }
+                  ]
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "n",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "n",
+                  "target": 2,
+                  "selector": "stmt[0].name[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[20]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 1
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "cte",
+                  "source_block": 1,
+                  "selector": "stmt[1].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "src",
+                  "selector": "stmt[1].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "star",
+                  "star_relations": [
+                    1
+                  ],
+                  "selector": "stmt[1].select_target[1][0]",
+                  "target_list_selector": "stmt[1].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "b",
+                  "field": 1,
+                  "selector": "stmt[1].select_target[0][1]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "a",
+                  "target": 1,
+                  "selector": "stmt[1].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "b",
+                  "target": 2,
+                  "selector": "stmt[1].name[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [],
+      "status": "final"
     }
   ]
 }

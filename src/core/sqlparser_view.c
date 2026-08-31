@@ -14941,6 +14941,107 @@ static int sqlparser_graph_dml_result_channel_at(
 			out_channel);
 }
 
+static void sqlparser_graph_apply_cte_alias_columns(
+	sqlparser_graph_build_t *build,
+	sqlparser_graph_cte_entry_t *entry,
+	PgQuery__CommonTableExpr *cte)
+{
+	sqlparser_graph_block_t *block;
+	size_t alias_index;
+	size_t target_count;
+	size_t target_index;
+
+	if (build == NULL || entry == NULL || cte == NULL ||
+	    !entry->has_block || cte->n_aliascolnames == 0U ||
+	    cte->aliascolnames == NULL) {
+		return;
+	}
+	block = sqlparser_graph_block_by_local(build, entry->block_index);
+	if (block == NULL || block->kind == SQLPARSER_GRAPH_BLOCK_SET) {
+		return;
+	}
+	target_count = 0U;
+	for (target_index = 0U;
+	     target_index < sqlparser_graph_local_target_count(build);
+	     target_index++) {
+		sqlparser_graph_target_cache_t *target;
+
+		target = sqlparser_graph_target_by_local(build, target_index);
+		if (target == NULL || target->block_index != entry->block_index) {
+			continue;
+		}
+		if (target->ordinal != target_count ||
+		    (target->kind == SQLPARSER_GRAPH_TARGET_STAR ||
+		     target->kind == SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR) ||
+		    sqlparser_graph_target_identifier_by_local(
+			    build,
+			    target_index) == NULL) {
+			return;
+		}
+		target_count++;
+	}
+	if (cte->n_aliascolnames > target_count) {
+		return;
+	}
+	for (alias_index = 0U;
+	     alias_index < cte->n_aliascolnames;
+	     alias_index++) {
+		PgQuery__Node *node;
+		PgQuery__String *string;
+		sqlparser_identifier_source_t source;
+
+		node = cte->aliascolnames[alias_index];
+		string = node != NULL &&
+			node->node_case == PG_QUERY__NODE__NODE_STRING ?
+			node->string : NULL;
+		memset(&source, 0, sizeof(source));
+		if (string == NULL || string->sval == NULL ||
+		    string->sval[0] == '\0' ||
+		    !sqlparser_current_identifier_source(
+			    build->handle,
+			    (const char *const *)&string->sval,
+			    string->location,
+			    0U,
+			    &source) ||
+		    !source.known) {
+			return;
+		}
+	}
+	for (target_index = 0U;
+	     target_index < sqlparser_graph_local_target_count(build);
+	     target_index++) {
+		PgQuery__String *string;
+		sqlparser_graph_target_cache_t *target;
+		sqlparser_identifier_source_t *identifier;
+		sqlparser_identifier_source_t source;
+
+		target = sqlparser_graph_target_by_local(build, target_index);
+		if (target == NULL || target->block_index != entry->block_index ||
+		    target->ordinal >= cte->n_aliascolnames) {
+			continue;
+		}
+		string = cte->aliascolnames[target->ordinal]->string;
+		identifier = sqlparser_graph_target_identifier_by_local(
+			build,
+			target_index);
+		memset(&source, 0, sizeof(source));
+		(void)sqlparser_current_identifier_source(
+			build->handle,
+			(const char *const *)&string->sval,
+			string->location,
+			0U,
+			&source);
+		target->output_name = string->sval;
+		*identifier = source;
+		target->flags &=
+			~SQLPARSER_GRAPH_TARGET_OUTPUT_QUOTED_IDENTIFIER;
+		if (source.delimited) {
+			target->flags |=
+				SQLPARSER_GRAPH_TARGET_OUTPUT_QUOTED_IDENTIFIER;
+		}
+	}
+}
+
 static int sqlparser_graph_ensure_cte_block(
 	sqlparser_graph_build_t *build,
 	PgQuery__CommonTableExpr *cte,
@@ -15104,6 +15205,7 @@ static int sqlparser_graph_ensure_cte_block(
 			return -1;
 		}
 	}
+	sqlparser_graph_apply_cte_alias_columns(build, entry, cte);
 	entry->built = 1;
 	entry->building = 0;
 	if (out_block_index != NULL) {

@@ -30869,6 +30869,1307 @@
         }
       ],
       "status": "final"
+    },
+    {
+      "name": "postgresql-cte-explicit-column-ordinal-inventory",
+      "sql": "WITH q(did, masked_title, plain_content) AS (SELECT d.id, d.title, d.content FROM docs d) SELECT q.did, q.masked_title, q.plain_content FROM q; WITH q(did) AS (SELECT d.id, d.title, d.content FROM docs d) SELECT q.did, q.title, q.content FROM q; WITH q(\"Did\", plain_title) AS (SELECT d.id, d.title FROM docs d) SELECT a.\"Did\", b.plain_title FROM q a JOIN q b ON a.\"Did\" = b.\"Did\"",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "alias": "d",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "masked_title",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "plain_content",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[1][2]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "masked_title",
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "plain_content",
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "title",
+                  "target": 1,
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "content",
+                  "target": 2,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "did",
+                  "target": 3,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "masked_title",
+                  "target": 4,
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "plain_content",
+                  "target": 5,
+                  "selector": "stmt[0].name[5]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[1].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "alias": "d",
+                  "selector": "stmt[1].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 0,
+                  "selector": "stmt[1].select_target[1][0]",
+                  "target_list_selector": "stmt[1].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "title",
+                  "field": 1,
+                  "selector": "stmt[1].select_target[1][1]",
+                  "target_list_selector": "stmt[1].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "content",
+                  "field": 2,
+                  "selector": "stmt[1].select_target[1][2]",
+                  "target_list_selector": "stmt[1].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 3,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "title",
+                  "field": 4,
+                  "selector": "stmt[1].select_target[0][1]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "content",
+                  "field": 5,
+                  "selector": "stmt[1].select_target[0][2]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[1].name[10]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "title",
+                  "target": 1,
+                  "selector": "stmt[1].name[12]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "content",
+                  "target": 2,
+                  "selector": "stmt[1].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "did",
+                  "target": 3,
+                  "selector": "stmt[1].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "title",
+                  "target": 4,
+                  "selector": "stmt[1].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "content",
+                  "target": 5,
+                  "selector": "stmt[1].name[5]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    2
+                  ],
+                  "targets": [
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "alias": "a",
+                  "source_block": 1,
+                  "selector": "stmt[2].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "alias": "d",
+                  "selector": "stmt[2].relation[2]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "alias": "b",
+                  "source_block": 1,
+                  "selector": "stmt[2].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "Did",
+                  "field": 0,
+                  "selector": "stmt[2].select_target[1][0]",
+                  "target_list_selector": "stmt[2].select_targets[1]",
+                  "output_quoted_identifier": true
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "plain_title",
+                  "field": 1,
+                  "selector": "stmt[2].select_target[1][1]",
+                  "target_list_selector": "stmt[2].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "Did",
+                  "output_quoted_identifier": true,
+                  "field": 4,
+                  "selector": "stmt[2].select_target[0][0]",
+                  "target_list_selector": "stmt[2].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "plain_title",
+                  "field": 5,
+                  "selector": "stmt[2].select_target[0][1]",
+                  "target_list_selector": "stmt[2].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[2].name[16]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "title",
+                  "target": 1,
+                  "selector": "stmt[2].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "Did",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "Did",
+                  "quoted_identifier": true,
+                  "selector": "stmt[2].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "Did",
+                  "quoted_identifier": true,
+                  "target": 2,
+                  "selector": "stmt[2].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "plain_title",
+                  "target": 3,
+                  "selector": "stmt[2].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "archive_docs",
+          "deparse": "WITH q(did, masked_title, plain_content) AS (SELECT d.id, d.title, d.content FROM archive_docs d) SELECT q.did, q.masked_title, q.plain_content FROM q; WITH q(did) AS (SELECT d.id, d.title, d.content FROM docs d) SELECT q.did, q.title, q.content FROM q; WITH q(\"Did\", plain_title) AS (SELECT d.id, d.title FROM docs d) SELECT a.\"Did\", b.plain_title FROM q a JOIN q b ON a.\"Did\" = b.\"Did\""
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "postgresql-cte-explicit-column-dml-source-target",
+      "sql": "WITH q(did, masked_title) AS (SELECT d.id, d.title FROM docs d) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did; WITH q(did, masked_title) AS (UPDATE docs SET title = upper(title) RETURNING id, title) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "dst",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "alias": "d",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "masked_title",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "title",
+                  "target": 1,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "title"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "masked_title",
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "did",
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "source_field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "right_field": 5,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "source_target": 1
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "dst",
+                  "selector": "stmt[1].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 2,
+                  "selector": "stmt[1].relation[1]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "selector": "stmt[1].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 2,
+                  "selector": "stmt[1].dml_result_target[1][0][0]",
+                  "target_list_selector": "stmt[1].dml_result_targets[1][0]"
+                },
+                {
+                  "block": 2,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "masked_title",
+                  "field": 3,
+                  "selector": "stmt[1].dml_result_target[1][0][1]",
+                  "target_list_selector": "stmt[1].dml_result_targets[1][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "set_list",
+                  "relation": 2,
+                  "column": "title"
+                },
+                {
+                  "block": 1,
+                  "clause": "set_list",
+                  "relation": 2,
+                  "column": "title",
+                  "selector": "stmt[1].name[15]"
+                },
+                {
+                  "block": 2,
+                  "clause": "dml_result",
+                  "relation": 2,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[1].name[16]"
+                },
+                {
+                  "block": 2,
+                  "clause": "dml_result",
+                  "relation": 2,
+                  "column": "title",
+                  "target": 1,
+                  "selector": "stmt[1].name[17]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "title"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "masked_title",
+                  "selector": "stmt[1].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[1].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "did",
+                  "selector": "stmt[1].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 6,
+                  "source_field": 7,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 6,
+                  "right_field": 7,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 4,
+                    "kind": "field",
+                    "source_field": 5,
+                    "bind_kind": 0,
+                    "selector": "stmt[1].assignment[0]",
+                    "source_target": 1
+                  }
+                ],
+                "children": [
+                  {
+                    "kind": "update",
+                    "insert_mode": "unknown",
+                    "target_relation": 2,
+                    "assignments": [
+                      {
+                        "target_field": 0,
+                        "kind": "expression",
+                        "rhs_fields": [
+                          1
+                        ],
+                        "bind_kind": 0,
+                        "selector": "stmt[1].assignment[1][0]"
+                      }
+                    ],
+                    "result_channels": [
+                      {
+                        "kind": "client",
+                        "block": 2,
+                        "references": [
+                          {
+                            "target": 0,
+                            "field": 2,
+                            "kind": "target_after",
+                            "relation": 2
+                          },
+                          {
+                            "target": 1,
+                            "field": 3,
+                            "kind": "target_after",
+                            "relation": 2
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/2/selector",
+          "value": "archive_docs",
+          "deparse": "WITH q(did, masked_title) AS (SELECT d.id, d.title FROM archive_docs d) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did; WITH q(did, masked_title) AS (UPDATE docs SET title = upper(title) RETURNING id, title) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/2/selector",
+          "value": "archive_docs",
+          "deparse": "WITH q(did, masked_title) AS (SELECT d.id, d.title FROM docs d) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did; WITH q(did, masked_title) AS (UPDATE archive_docs SET title = upper(title) RETURNING id, title) UPDATE dst SET title = q.masked_title FROM q WHERE dst.id = q.did"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "postgresql-cte-explicit-column-set-recursive-boundary",
+      "sql": "WITH q(did) AS (SELECT id FROM docs UNION ALL SELECT id FROM archive_docs) SELECT q.did FROM q; WITH RECURSIVE q(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM q WHERE n < 3) SELECT q.n FROM q",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 2,
+                  "kind": "base",
+                  "table": "docs",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 3,
+                  "kind": "base",
+                  "table": "archive_docs",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[2][0]",
+                  "target_list_selector": "stmt[0].select_targets[2]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "id",
+                  "target": 1,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "did",
+                  "target": 2,
+                  "selector": "stmt[0].name[1]"
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[1].relation[0]"
+                },
+                {
+                  "block": 3,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[1].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "value": 0,
+                  "selector": "stmt[1].select_target[1][0]",
+                  "target_list_selector": "stmt[1].select_targets[1]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "expression",
+                  "selector": "stmt[1].select_target[2][0]",
+                  "target_list_selector": "stmt[1].select_targets[2]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "n",
+                  "field": 2,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 3,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "n",
+                  "target": 1,
+                  "selector": "stmt[1].name[5]",
+                  "target_path": [
+                    {
+                      "kind": "expression",
+                      "name": "+",
+                      "arg_index": 0
+                    }
+                  ]
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "n",
+                  "selector": "stmt[1].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "n",
+                  "target": 2,
+                  "selector": "stmt[1].name[1]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[1].value[9]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[1].value[21]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 1,
+                  "branches": [
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 3,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "<",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "archive_docs",
+          "deparse": "WITH q(did) AS (SELECT id FROM archive_docs UNION ALL SELECT id FROM archive_docs) SELECT q.did FROM q; WITH RECURSIVE q(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM q WHERE n < 3) SELECT q.n FROM q"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "postgresql-cte-explicit-column-star-boundary",
+      "sql": "WITH q(did, title) AS (SELECT * FROM docs) SELECT q.did, q.title FROM q",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "docs",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "star",
+                  "star_relations": [
+                    1
+                  ],
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "did",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "title",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "did",
+                  "target": 1,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "title",
+                  "target": 2,
+                  "selector": "stmt[0].name[3]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "archive_docs",
+          "deparse": "WITH q(did, title) AS (SELECT * FROM archive_docs) SELECT q.did, q.title FROM q"
+        }
+      ],
+      "status": "final"
     }
   ]
 }

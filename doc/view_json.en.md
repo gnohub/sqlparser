@@ -206,6 +206,14 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 A CTE definition creates one source block. Multiple references share that
 `source_block`, and an unreferenced CTE definition remains in `blocks[]`.
 
+Explicit CTE column names override `targets[].name` and
+`output_quoted_identifier` by ordinal only when the `source_block` itself owns
+directly enumerable targets. A shorter PostgreSQL list overrides only its
+matching prefix. Repeated references share the same source block, and DML
+`source_target` resolution uses the overlaid names. SET/recursive branch targets
+retain underlying names, while stars are neither expanded nor assigned guessed
+columns. Selector, field, and ownership contracts are unchanged.
+
 ## DDL Relations
 
 The canonical direct-DDL projection uses block `0` as its root with block

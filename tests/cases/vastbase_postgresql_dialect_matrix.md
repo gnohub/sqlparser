@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 209 条 `status = "final"` 用例和 684 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
+夹具包含 213 条 `status = "final"` 用例和 689 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -213,6 +213,17 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | 带 UPDATE、INSERT 分支及 `RETURNING` 的 MERGE CTE | MERGE D0 的 target/source relation、ON 谓词、分支赋值与 INSERT 行、结果块、`RETURNING t.*` 的 `target_after` 来源及外层 CTE `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
 | `VPG151` | `vastbase-postgresql-on-conflict-assignment-list-contract` | 根 `INSERT ... ON CONFLICT DO UPDATE SET` 双赋值 | `assignment[A]` 按序定位冲突更新项；插入、整项替换和删除 3 个 patch 精确反解析 |
 | `VPG152` | `vastbase-postgresql-data-modifying-cte-update-assignment-list-contract` | data-modifying CTE 中的嵌套 `UPDATE` 双赋值 | `assignment[D][A]` 以 0 基 DML 序号定位嵌套赋值；3 个 assignment patch 保持 `RETURNING` 和外层查询 |
+
+## CTE 显式列名 ordinal 合同
+
+以下 final 用例验证项目兼容入口的 CTE 显式列名 ordinal 映射与明确边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| `VPG153` | `vastbase-postgresql-cte-explicit-column-ordinal-inventory` | 普通 SELECT CTE，覆盖完整列名列表、短列表、quoted/unquoted 名称与重复 CTE 引用 | 可枚举 source targets 按 ordinal 使用显式 CTE 名称；短列表只覆盖前缀，剩余 target 保留内层名称；quoted 状态来自 CTE 列名 token；重复引用共享同一 `source_block`；1 个 relation patch |
+| `VPG154` | `vastbase-postgresql-cte-explicit-column-dml-source-target` | SELECT CTE 与 data-modifying UPDATE CTE 分别驱动外层 UPDATE | CTE 名称按 ordinal 覆盖 SELECT/RETURNING source targets，两个外层 assignment 均通过 `source_field` 和 `source_target = 1` 指向 `masked_title`；2 个 relation patch |
+| `VPG155` | `vastbase-postgresql-cte-explicit-column-set-recursive-boundary` | `UNION ALL` CTE 与递归 `UNION ALL` CTE | SET 结果 block 当前没有可一一覆盖的直接 targets；保留 branch targets、set 结构及 CTE `source_block`，不伪造 ordinal target；1 个 relation patch |
+| `VPG156` | `vastbase-postgresql-cte-explicit-column-star-boundary` | 显式两列名称包裹单个 `SELECT *` target | 不展开 `*`，不将两个显式名称强行绑定到一个 star target；外层字段继续关联 CTE relation；1 个 relation patch |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

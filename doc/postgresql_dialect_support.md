@@ -42,6 +42,8 @@ PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败
 - relation 限定名的定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断。PostgreSQL 当前入口没有 database-link relation，因此 link 标志不适用。
 - relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK、LIKE、INHERITS、partition 等引用；查询支撑型 target 通过 `source_block` 指向 SELECT block。CREATE/ALTER/RENAME/DROP FOREIGN TABLE 使用同一 target 角色合同。多对象 DROP target 没有 relation selector，quoted/unquoted 同名分段仍按精确来源 token 输出定界状态。该合同仅由当前入口 fixture 证明，不自动外推到兼容入口。
 
+- CTE 显式列名在来源 block 直接可枚举 targets 时按 ordinal 覆盖输出名与定界状态；较短列表只覆盖前缀，重复引用共享来源 block，DML `source_target` 按覆盖后名称解析。SET/recursive branch 与 star 保留自身边界。
+
 ## 回归用例
 
 PostgreSQL 默认方言支持范围以以下文件为准：
@@ -52,4 +54,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 224 条用例和 755 个独立 patch，全部为 `status = "final"`。
+当前 PostgreSQL 矩阵包含 228 条用例和 760 个独立 patch，全部为 `status = "final"`。

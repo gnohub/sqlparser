@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 213 条 `status = "final"` 用例和 690 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 217 条 `status = "final"` 用例和 694 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -269,6 +269,17 @@ relation 的限定名按段记录双引号状态：`database_quoted_identifier`�
 | D187 | `dameng-ddl-relation-create-view-target-and-source` | CREATE VIEW AS SELECT | DDL target、SELECT source、`source_block` 及 2 个 relation patch |
 | D188 | `dameng-ddl-relation-create-table-as-target-and-source` | CTAS | DDL target 与 SELECT source 分块，2 个 relation patch |
 | D189 | `dameng-ddl-relation-create-materialized-view-target-and-source` | CREATE MATERIALIZED VIEW AS SELECT | DDL target 与 SELECT source 分块，2 个 relation patch |
+
+## CTE 显式列名 ordinal 合同
+
+以下 final 用例验证 CTE 显式列名的 ordinal 映射与明确边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| D190 | `dameng-cte-explicit-column-user-ordinal` | 普通三列 CTE 用户样例 | source block 的三个可枚举 target 按 ordinal 使用 `did`、`masked_title`、`plain_content`；1 个 relation patch |
+| D191 | `dameng-cte-explicit-column-quoted-expression-ordinal` | 两个重复底层 `ID` 与一个 `UPPER(TITLE)` expression，显式名称全部 quoted，外层重排引用 | ordinal 映射不依赖底层名称或 target kind；三个 source target 分别使用显式名称及 quoted flag；1 个 relation patch |
+| D192 | `dameng-cte-explicit-column-repeated-reference` | 同一个 CTE 由 alias `a`、`b` 重复引用 | 两个 CTE relation 共享一个 source block；source targets 只覆盖一次并按 ordinal 使用显式名称；1 个 relation patch |
+| D193 | `dameng-cte-explicit-column-set-boundary` | `UNION ALL` CTE | SET 结果 block 没有直接可枚举 targets；两个 branch 保留底层 target 名称，不伪造结果 target 或跨 branch overlay；1 个 relation patch |
 
 ## 覆盖边界
 

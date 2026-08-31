@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 224 条 `status = "final"` 用例和 755 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 228 条 `status = "final"` 用例和 760 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -222,6 +222,17 @@ DDL 的 relation 进入 `kind = "ddl"` 根 block，并通过 `ddl_role = "target
 | P174 | `postgresql-ddl-relation-partition-operations` | ATTACH / DETACH PARTITION | 被修改表为 target、分区表为 reference，3 个 relation patch |
 | P175 | `postgresql-ddl-relation-select-into` | `SELECT ... INTO target FROM source` | DDL target block、SELECT source block、`source_block` 及 2 个 relation patch |
 | P176 | `postgresql-ddl-relation-foreign-table-and-exact-drop-spelling` | CREATE/ALTER/RENAME/DROP FOREIGN TABLE 与 quoted/unquoted 同名 DROP target | foreign-table target 生命周期、1 个 relation patch、`if` 标识符边界，以及 U& identifier/`UESCAPE` 后续目标的精确分段状态 |
+
+## CTE 显式列名 ordinal 合同
+
+以下 final 用例验证 CTE 显式列名的 ordinal 映射与明确边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| P177 | `postgresql-cte-explicit-column-ordinal-inventory` | 普通 SELECT CTE，覆盖完整列名列表、短列表、quoted/unquoted 名称与重复 CTE 引用 | 可枚举 source targets 按 ordinal 使用显式 CTE 名称；短列表只覆盖前缀，剩余 target 保留内层名称；quoted 状态来自 CTE 列名 token；重复引用共享同一 `source_block`；1 个 relation patch |
+| P178 | `postgresql-cte-explicit-column-dml-source-target` | SELECT CTE 与 data-modifying UPDATE CTE 分别驱动外层 UPDATE | CTE 名称按 ordinal 覆盖 SELECT/RETURNING source targets，两个外层 assignment 均通过 `source_field` 和 `source_target = 1` 指向 `masked_title`；2 个 relation patch |
+| P179 | `postgresql-cte-explicit-column-set-recursive-boundary` | `UNION ALL` CTE 与递归 `UNION ALL` CTE | SET 结果 block 当前没有可一一覆盖的直接 targets；保留 branch targets、set 结构及 CTE `source_block`，不伪造 ordinal target；1 个 relation patch |
+| P180 | `postgresql-cte-explicit-column-star-boundary` | 显式两列名称包裹单个 `SELECT *` target | 不展开 `*`，不将两个显式名称强行绑定到一个 star target；外层字段继续关联 CTE relation；1 个 relation patch |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

@@ -59,6 +59,8 @@
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
+- CTE 显式列名在来源 block 直接可枚举 targets 时按 ordinal 覆盖输出名与双引号状态；重复引用只覆盖一次，SET branch 保留底层输出。
+
 ## 回归用例
 
 达梦支持范围以以下文件为准：
@@ -69,4 +71,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 213 条用例，全部为 `status = "final"`，共包含 690 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前达梦方言矩阵包含 217 条用例，全部为 `status = "final"`，共包含 694 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。

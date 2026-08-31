@@ -44,6 +44,8 @@
 
 ## 结论
 
+达梦 `WITH` 公用表表达式的合法显式列名按 ordinal 投影到 `source_block` 中直接可枚举、连续的 targets，并同步引号状态；SET 结果块及其分支保留自身输出，不伪造 CTE 结果名映射。基础可执行夹具现包含 217 条 `final` 用例和 694 个独立 patch。
+
 达梦 `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE` 以及归属同一 UPDATE 分支的附属 `DELETE WHERE`。`insert_column` 支持 column-only、value-only、paired 三态；省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell，显式列表继续支持 paired 添加。可执行矩阵使用 2 条用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
 达梦层次查询的 `CURRENT` 边界包括 `START WITH` 与 `CONNECT BY` 两种源文本顺序、一元 `PRIOR` 的两种父子字段方向、`LEVEL`、`CONNECT_BY_ROOT` 和 `NOCYCLE`。可执行矩阵包含 4 条 `final` 用例和 20 个独立 patch。

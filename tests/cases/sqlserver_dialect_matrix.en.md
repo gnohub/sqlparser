@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 639 cases with `status = "final"` and 1901 independent
+The fixture contains 645 cases with `status = "final"` and 1909 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -468,6 +468,19 @@ These cases use official SQL Server T-SQL forms. DDL targets and references live
 | SH440 | `sqlserver-ddl-graph-select-into-target-source-block` | `SELECT ... INTO target FROM source` | separate DDL-target and SELECT-source blocks, `source_block`, and two relation patches |
 | SH441 | `sqlserver-ddl-multistatement-surface-relation-patch` | ordinary two-statement CREATE INDEX / TRUNCATE TABLE batch | two relation patches preserve SQL Server's public surface: no `USING btree` is added and `TABLE` is retained |
 | SH442 | `sqlserver-ddl-drop-table-quoted-same-spelling` | multi-object DROP TABLE with identically spelled quoted/unquoted names | selector-free DROP targets whose schema/object bracket states come from their exact source tokens |
+
+## Explicit CTE Column Ordinal Projection
+
+The following six final cases verify explicit CTE column ordinal projection. T-SQL requires the explicit CTE column count to equal the query output count, so partial lists accepted only by the parser are excluded from positive coverage. Explicit names override target `name` and `output_quoted_identifier` by ordinal only when the CTE `source_block` has directly enumerable targets. Repeated references share that source block, and DML resolves `source_target` through the overridden name. Set and recursive CTEs retain their own set/branch outputs without copying CTE result names onto branch targets; stars are neither expanded nor assigned guessed ordinals.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH443 | `sqlserver-cte-explicit-column-ordinal-quoted-state` | direct CTE targets with mixed plain/bracket explicit names | two direct targets are renamed by ordinal with false/true quoted state; overlay survives two target patches |
+| SH444 | `sqlserver-cte-explicit-columns-duplicate-references` | one explicit-column CTE referenced twice in a JOIN | both CTE relations share one `source_block`; source targets are projected once and remain unique after one patch |
+| SH445 | `sqlserver-cte-explicit-columns-update-lineage` | CTE-driven UPDATE FROM | the `[payload]` assignment resolves `source_target=1`; one source-target patch verifies recomputation |
+| SH446 | `sqlserver-cte-explicit-column-recursive-union-all` | recursive CTE with `UNION ALL` | set and recursive branches remain intact without copying `[n]` to branch targets; two branch patches preserve the boundary |
+| SH447 | `sqlserver-cte-explicit-columns-union-all-branches` | non-recursive two-branch `UNION ALL` | branches keep their own `id/value` outputs without fabricated CTE result names; two branch patches stay independent |
+| SH448 | `sqlserver-cte-explicit-columns-star-no-ordinal-guess` | explicit names with stars inside and outside the CTE | star targets keep `star_relations/source_block`; no two-target expansion or ordinal guess is allowed |
 
 ## Official Hook Coverage Cases
 
