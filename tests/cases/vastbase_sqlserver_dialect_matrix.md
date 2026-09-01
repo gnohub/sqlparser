@@ -650,6 +650,19 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | VSH624 | `vastbase-sqlserver-cte-explicit-columns-union-all-branches` | 非递归双分支 `UNION ALL` | branch 保留 `id/value`；2 个分支 patch |
 | VSH625 | `vastbase-sqlserver-cte-explicit-columns-star-no-ordinal-guess` | CTE 内外双星号 | 保留星号边界，不展开或猜 ordinal |
 
+## Predicate RHS expression 结构化投影
+
+以下用例使用 `query_graph.expressions[]` 表达 predicate RHS，predicate 通过 `right_expression` 关联 RHS；`values[]` 保留既有条目但不复制 expression 索引，RHS 原本没有 value 时不合成占位 value。function 按 parent 后左到右 DFS 编号 nested expressions；literal/bind 参数引用追加在既有条目之后的 values，field 参数复用既有 fields，expression 参数引用 expressions。opaque operator/CASE 仅整体可替换，不新增内部 selector。函数默认可变参且无 arity 校验，所有 patch 精确锁定 bind occurrences。SQL Server 兼容入口没有合法 array expression 正向 case。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH626 | `vastbase-sqlserver-expression-where-like-concat-arguments` | LIKE + 四类 CONCAT 参数 + nested LOWER + comment | 整体/arg replace、头中尾插删、surface 与 bind；8 patch |
+| VSH627 | `vastbase-sqlserver-expression-join-on-rhs-depth-first` | JOIN ON nested CONCAT/LOWER/COALESCE RHS | RHS parent/DFS 顺序与复用索引；3 patch |
+| VSH628 | `vastbase-sqlserver-expression-having-root-order` | HAVING nested COALESCE/SUM RHS | HAVING、nested aggregate、零参边界；3 patch |
+| VSH629 | `vastbase-sqlserver-expression-variadic-zero-one-bind-order` | 单参/双参 CONCAT RHS 双语句 | 0/1 参数、头中尾插入与 bind 重编号；7 patch |
+| VSH630 | `vastbase-sqlserver-expression-opaque-operator-case-boundary` | opaque operator/CASE RHS | 仅整体 replace，内部函数不展开；2 patch |
+| VSH631 | `vastbase-sqlserver-expression-reverse-rhs-bind-field` | `@p = UPPER([name])` | 左 bind value/right_field 与 RHS `right_expression` 并存；2 patch |
+
 ## 覆盖边界
 
 本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法不得在本矩阵中登记为已验证用例。

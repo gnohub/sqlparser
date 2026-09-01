@@ -301,6 +301,8 @@ query graph 中既有的 bind 字段规则：
 | `sqlparser_graph_relation_kind_name()` | 返回 query graph relation 类型名称 |
 | `sqlparser_graph_target_kind_name()` | 返回 query graph target 类型名称 |
 | `sqlparser_graph_value_kind_name()` | 返回 query graph value 类型名称 |
+| `sqlparser_graph_expression_kind_name()` | 返回 predicate RHS expression 类型名称 |
+| `sqlparser_graph_expression_argument_kind_name()` | 返回 function argument 类型名称 |
 | `sqlparser_graph_field_match_kind_name()` | 返回 query graph 字段匹配形态名称 |
 | `sqlparser_graph_operator_kind_name()` | 返回 query graph 操作符分类名称 |
 | `sqlparser_graph_set_kind_name()` | 返回 query graph set 类型名称 |
@@ -673,8 +675,13 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_target_at()` | 读取 SELECT target |
 | `sqlparser_query_graph_field_at()` | 读取字段 occurrence |
 | `sqlparser_query_graph_value_at()` | 读取 query graph value |
+| `sqlparser_query_graph_expression_count()` | 读取当前 statement 的 predicate RHS expression 数量 |
+| `sqlparser_query_graph_expression_at()` | 读取 predicate RHS expression |
+| `sqlparser_query_graph_expression_argument_count()` | 读取当前 statement 的 function argument 数量 |
+| `sqlparser_query_graph_expression_argument_at()` | 读取 function argument |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
 | `sqlparser_query_graph_predicate_at()` | 读取 WHERE、ON、HAVING、START WITH 或 CONNECT BY 谓词节点 |
+| `sqlparser_query_graph_predicate_right_expression()` | 读取 predicate 关联的可选 RHS expression 索引 |
 | `sqlparser_query_graph_session()` | 读取当前语句的会话状态操作 |
 | `sqlparser_query_graph_session_item_at()` | 读取会话状态目标 |
 | `sqlparser_query_graph_session_value_at()` | 读取会话状态值 |
@@ -700,6 +707,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_target_t` | 查询或 DML 结果输出项；`output_quoted_identifier` 表示 `output_name` 对应 token 的定界符状态 |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符，`pseudo` / `prior` 表示层次查询 occurrence 语义 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
+| `sqlparser_graph_expression_t` | WHERE、ON 或 HAVING 的 RHS function/opaque expression；function 提供有序 argument span、整体 selector 和参数列表 selector |
+| `sqlparser_graph_expression_argument_t` | function 的 literal、bind、field 或 nested-expression 参数及参数 selector |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_predicate_t` | WHERE、ON、HAVING、START WITH、CONNECT BY 中的比较、组合、EXISTS 或表达式谓词；`nocycle` 标记 CONNECT BY 根谓词 |
 | `sqlparser_graph_session_t` | 当前语句的会话状态操作和 item 数量 |
@@ -856,8 +865,12 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 向根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 插入赋值项 |
 | `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 从根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 删除赋值项 |
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 的赋值项 |
+| `SQLPARSER_PATCH_INSERT_ARGUMENT` | 在 `expression_args` selector 的指定位置插入函数参数 |
+| `SQLPARSER_PATCH_DELETE_ARGUMENT` | 从 `expression_args` selector 的指定位置删除函数参数；允许删除至零参数 |
 
 只有候选结果相对当前 handle 发生实际变化时，`sqlparser_apply_patch()` 才提交并将 generation 递增一次，旧 query graph view 随之失效。空 patch 列表或结果无实际变化的调用不递增；任一 patch 失败时整批不提交。
+
+`stmt[S].expression[E]` 和 `stmt[S].expression_arg[E][A]` 可作为 `SQLPARSER_PATCH_REPLACE` 的目标；`stmt[S].expression_args[E]` 用于参数插入和删除。函数统一按可变参数处理，库校验 selector、索引和结果 SQL 的可解析性，不校验函数签名、参数数量或参数类型。opaque expression 仅支持整体替换。
 
 普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但提交前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并保持原 handle 不变。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
 

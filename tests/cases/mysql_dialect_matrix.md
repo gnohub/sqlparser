@@ -244,6 +244,19 @@ relation 的限定名按段记录反引号状态：`database_quoted_identifier`�
 | M267 | `mysql-cte-explicit-columns-dml-lineage` | CTE 字段驱动 MySQL UPDATE assignment | assignment 的 `source_field` 继续指向外层 CTE 字段，`source_target` 按显式列名解析到 ordinal 1；1 个 patch |
 | M268 | `mysql-cte-explicit-columns-recursive-star-boundary` | 递归 `UNION ALL` 与 `SELECT *` 来源 | SET/recursive branch target 保持底层名称，不伪装为 CTE 别名；star 无 schema 展开时不伪造 source target |
 
+## Predicate RHS expression
+
+以下 6 条用例覆盖 predicate RHS 的 `query_graph.expressions[]`。Predicate 通过 `right_expression` 关联 RHS；`values[]` 保留既有条目但不复制 expression 索引，RHS 原本没有 value 时不合成占位 value。原 SQL 和 23 个 patch SQL 均逐字节验证。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M269 | `mysql-predicate-expression-function-argument-kinds` | WHERE `LIKE CONCAT(literal, bind, field, LOWER(bind))` + 参数间注释 | root-first/DFS expression 顺序、四类 inline arg、nested function、arg value selector、bind 1/2 及 5 个 root/arg patch |
+| M270 | `mysql-predicate-expression-on-having-order` | JOIN ON `COALESCE` + HAVING `UPPER` | 多 predicate root 顺序、既有 root values 索引保持、field/bind/literal args、全局 bind 1/2 及 3 个 patch |
+| M271 | `mysql-predicate-expression-root-argument-replace` | WHERE `COALESCE(bind, field)` | 整个 expression 与 bind/field argument 分别 replace，bind 删除后 occurrence 为空；3 个 patch |
+| M272 | `mysql-predicate-expression-argument-list-mutations` | `CONCAT(?,?,?)`、`FUNC()`、`FUNC(?)` | list selector 头/中/尾插入与删除、零参与删至零参、跨语句 bind 重编号；8 个 patch |
+| M273 | `mysql-predicate-expression-opaque-boundary` | operator 内含 function + CASE RHS | opaque 仅输出整体 SQL/selector，不展开 function arguments 或新增内部 value 归属；2 个 whole-expression patch |
+| M274 | `mysql-predicate-expression-reverse-rhs-function` | `? = UPPER(field)` | 保留左侧 bind value 和 `right_field`，并以 `right_expression=0` 关联 RHS function；root/field-arg 各 1 个，共 2 个 patch |
+
 ## INSERT VALUES 回归：bind 与表达式混合
 
 以下 10 条用例验证 prepared statement 或驱动生成的 SQL 模板。未加引号的 `?` 只表示数据值参数，不能替代表名、列名或关键字；含该参数标记的 SQL 必须经过 prepare/bind 流程执行。

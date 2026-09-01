@@ -531,6 +531,14 @@ static int sqlparser_case_patch_op(
 		*out_op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
 		return 1;
 	}
+	if (strcmp(action, "insert_argument") == 0) {
+		*out_op = SQLPARSER_PATCH_INSERT_ARGUMENT;
+		return 1;
+	}
+	if (strcmp(action, "delete_argument") == 0) {
+		*out_op = SQLPARSER_PATCH_DELETE_ARGUMENT;
+		return 1;
+	}
 	return 0;
 }
 
@@ -742,10 +750,12 @@ static int sqlparser_case_prepare_patch(
 	if (branch_insert || pair_insert) {
 		allowed_keys = pair_insert_keys;
 		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);
-	} else if (op == SQLPARSER_PATCH_INSERT_COLUMN) {
+	} else if (op == SQLPARSER_PATCH_INSERT_COLUMN ||
+		   op == SQLPARSER_PATCH_INSERT_ARGUMENT) {
 		allowed_keys = insert_keys;
 		allowed_count = sizeof(insert_keys) / sizeof(insert_keys[0]);
-	} else if (op == SQLPARSER_PATCH_DELETE_COLUMN) {
+	} else if (op == SQLPARSER_PATCH_DELETE_COLUMN ||
+		   op == SQLPARSER_PATCH_DELETE_ARGUMENT) {
 		allowed_keys = delete_keys;
 		allowed_count = sizeof(delete_keys) / sizeof(delete_keys[0]);
 	} else if (op == SQLPARSER_PATCH_DELETE_ASSIGNMENT) {
@@ -793,6 +803,7 @@ static int sqlparser_case_prepare_patch(
 			return 0;
 		}
 	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+		   op != SQLPARSER_PATCH_DELETE_ARGUMENT &&
 		   op != SQLPARSER_PATCH_DELETE_ASSIGNMENT &&
 		   (value = sqlparser_case_required_string(
 			    patch_json, "value")) == NULL) {
@@ -815,11 +826,14 @@ static int sqlparser_case_prepare_patch(
 		out_patch->name = name;
 		out_patch->default_sql = value;
 	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+		   op != SQLPARSER_PATCH_DELETE_ARGUMENT &&
 		   op != SQLPARSER_PATCH_DELETE_ASSIGNMENT) {
 		out_patch->sql = value;
 	}
 	if (op == SQLPARSER_PATCH_INSERT_COLUMN ||
-	    op == SQLPARSER_PATCH_DELETE_COLUMN) {
+	    op == SQLPARSER_PATCH_DELETE_COLUMN ||
+	    op == SQLPARSER_PATCH_INSERT_ARGUMENT ||
+	    op == SQLPARSER_PATCH_DELETE_ARGUMENT) {
 		index_json = json_object_get(patch_json, "index");
 		if (!json_is_integer(index_json) ||
 		    (index = json_integer_value(index_json)) < 0 ||

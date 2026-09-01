@@ -285,3 +285,16 @@ patch expectations. Parse-failure paths are maintained by separate unit tests
 and are not listed in this fixture.
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.
+
+## Predicate RHS expressions
+
+These cases cover `query_graph.expressions[]` and argument-level patching. Predicates link the RHS through `right_expression`; `values[]` retains existing entries but does not duplicate an expression index, and no placeholder value is synthesized when the RHS had no existing value.
+
+| Case ID | Case name | Verification focus |
+| --- | --- | --- |
+| `P181` | `postgresql-predicate-expression-like-concat-mixed-args` | LIKE RHS root with literal, bind, field, and nested-function arguments |
+| `P182` | `postgresql-predicate-expression-on-having-functions` | Ordered ON/HAVING roots, independent replacement, and ownership |
+| `P183` | `postgresql-predicate-expression-nested-and-opaque-args` | Nested function and operator/ARRAY/CASE opaque boundaries |
+| `P184` | `postgresql-predicate-expression-variadic-argument-mutations` | Zero/one/two arguments, replacement, head/middle/tail insertion, and deletion to zero |
+| `P185` | `postgresql-predicate-expression-comment-surface-bind-renumber` | Comment surface, bind renumbering, and fresh View after patch |
+| `P186` | `postgresql-predicate-expression-reverse-rhs-bind-field` | left bind value coexists with a right field/function; the predicate retains `value`/`right_field` and adds `right_expression` |

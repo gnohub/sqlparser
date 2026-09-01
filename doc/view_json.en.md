@@ -131,6 +131,7 @@ copied subtree.
 | `targets` | SELECT output items, star targets, and DML output sources; present when non-empty |
 | `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
 | `values` | Values associated with fields or SELECT targets, plus literal, bind, and DEFAULT occurrences within compound DML assignment right-hand expressions; pagination and pseudo-column binds are excluded; present when non-empty |
+| `expressions` | Addressable RHS function or opaque expressions from `WHERE`, `ON`, and `HAVING`; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
 | `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, `START WITH`, `CONNECT BY`, and similar clauses; present when non-empty |
 | `session` | Database, schema, role, identity, transaction-characteristic, or session-parameter action; present only for statements with session-state semantics |
@@ -415,7 +416,42 @@ For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-h
 }
 ```
 
-For predicates whose value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals from that predicate expression as direct values. This rule does not apply to a compound DML assignment right-hand expression; its inner values are owned through `rhs_values`.
+For predicates whose value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` retains the existing field-associated `kind=expression` entry. Direct literal/bind arguments of a structured function are appended after existing values and use the matching `expression_arg` selector; an opaque expression does not promote inner values. Compound DML assignment right-hand expressions remain owned through `rhs_values`.
+
+## expression
+
+```json
+{
+  "block": 0,
+  "clause": "where",
+  "kind": "function",
+  "sql": "UPPER($1)",
+  "name": "UPPER",
+  "arguments": [
+    {
+      "ordinal": 0,
+      "kind": "bind",
+      "value": 1,
+      "selector": "stmt[0].expression_arg[0][0]"
+    }
+  ],
+  "selector": "stmt[0].expression[0]",
+  "argument_list_selector": "stmt[0].expression_args[0]"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `block` | Query block containing the expression |
+| `clause` | `where`, `on`, or `having` |
+| `kind` | `function` or `opaque` |
+| `sql` | Exact public SQL for the expression |
+| `name` | Function name; omitted for an opaque expression |
+| `arguments` | Ordered function arguments; omitted for an opaque expression. Argument `kind` is `literal`, `bind`, `field`, or `expression`, with the matching `value`, `field`, or nested `expression` index |
+| `selector` | Whole-expression replacement selector |
+| `argument_list_selector` | Argument insertion/deletion selector; omitted for an opaque expression |
+
+Nested expressions are numbered parent-first in left-to-right depth-first argument order. Functions are treated as variadic; argument insertion and deletion validate selectors, indices, and parseability of the resulting SQL, but not function signatures, arity, or argument types. Opaque expressions support whole-expression replacement only.
 
 ## predicate
 
@@ -444,6 +480,7 @@ For predicates whose value side is a function, cast, operator, array, row, or CA
 | `left_field` | Left-side field index; omitted when no stable field side exists |
 | `right_field` | Right-side field index for field-to-field comparisons; omitted otherwise |
 | `value` | Related `values[]` index for literal, bind, DEFAULT, field, or expression right-side values; omitted otherwise |
+| `right_expression` | Related `expressions[]` index for an RHS function/opaque expression; omitted otherwise |
 | `children` | Child predicate indexes for `AND`, `OR`, and `NOT`; omitted for non-boolean predicates |
 
 `field = literal/bind` is represented by `left_field + value`. `field = field` is represented by `left_field + right_field`, with a `values[]` entry whose `kind` is `field`. Conditions that cannot be split safely into field and value sides are emitted as `kind = "expression"` instead of being reported as direct field movement.

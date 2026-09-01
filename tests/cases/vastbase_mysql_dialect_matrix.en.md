@@ -60,6 +60,19 @@ The following four final cases mirror MySQL M265–M268 field for field; only th
 | `VM270` | `vastbase-mysql-cte-explicit-columns-dml-lineage` | final | 1 | UPDATE assignment `source_field`/`source_target` lineage follows the explicit column name |
 | `VM271` | `vastbase-mysql-cte-explicit-columns-recursive-star-boundary` | final | 0 | SET/recursive branch targets retain underlying names rather than impersonating CTE aliases, while an unexpanded star invents no source targets |
 
+## Predicate RHS Expressions
+
+The following six cases mirror MySQL M269–M274 field for field; only case-name prefixes and IDs differ. Predicates link the RHS through `right_expression`; `values[]` retains existing entries but does not duplicate an expression index, and no placeholder value is synthesized when the RHS had no existing value. This is a project compatibility-entry contract and does not claim the same documented Vastbase server scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VM272` | `vastbase-mysql-predicate-expression-function-argument-kinds` | final | 5 | four inline argument kinds, a nested function, comment surface, and bind positions 1/2 |
+| `VM273` | `vastbase-mysql-predicate-expression-on-having-order` | final | 3 | ON/HAVING root order, existing value indexes, and argument ownership |
+| `VM274` | `vastbase-mysql-predicate-expression-root-argument-replace` | final | 3 | root and bind/field argument replacement with bind-occurrence removal |
+| `VM275` | `vastbase-mysql-predicate-expression-argument-list-mutations` | final | 8 | head/middle/tail mutation, zero arguments, deletion to zero, and global bind renumbering |
+| `VM276` | `vastbase-mysql-predicate-expression-opaque-boundary` | final | 2 | whole operator/CASE opaque replacement without internal expansion |
+| `VM277` | `vastbase-mysql-predicate-expression-reverse-rhs-function` | final | 2 | retains the left bind value and `right_field` while linking the RHS function through `right_expression` |
+
 ## Complete Bind-Placeholder Occurrence Regression
 
 These three final cases define the handle-level occurrence contract for the project's `vastbase-mysql` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Every anonymous `?` remains a separate occurrence, numbering continues across statements, and question-mark-like text in strings, ordinary comments, non-statement executable comments, and backtick identifiers is excluded.

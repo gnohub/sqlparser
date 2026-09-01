@@ -289,3 +289,16 @@ relation 的限定名按段记录双引号状态：`database_quoted_identifier`�
 
 - 新增达梦支持项必须同步更新 `tests/cases/dameng_dialect_input.json`、本矩阵和可执行回归测试。
 - 未纳入可执行夹具的语法不得在本矩阵中登记为已验证用例。
+
+## Predicate RHS expression
+
+以下用例覆盖 `query_graph.expressions[]` 与参数级 patch。函数参数按可变参数结构处理；即使 Oracle-family 服务端可能拒绝特定函数 arity，sqlparser 也不承担函数签名或 arity 校验。Predicate 通过 `right_expression` 关联 RHS 根表达式；`values[]` 不复制 expression 索引，无既有 root value 时不合成占位 value。
+
+| 用例 ID | 用例名称 | 验证重点 |
+| --- | --- | --- |
+| `D194` | `dameng-predicate-expression-like-concat-mixed-args` | LIKE RHS 函数根及 literal/bind/field/nested function 参数 |
+| `D195` | `dameng-predicate-expression-on-having-functions` | ON/HAVING 两个 RHS 根的顺序、独立替换与归属 |
+| `D196` | `dameng-predicate-expression-nested-and-opaque-args` | nested function 与 operator/CASE opaque 边界 |
+| `D197` | `dameng-predicate-expression-variadic-argument-mutations` | 零/一/二参数及替换、头中尾插入、删除至零参数 |
+| `D198` | `dameng-predicate-expression-comment-surface-bind-renumber` | 注释表面、colon bind 重编号与 patch 后 fresh View |
+| `D199` | `dameng-predicate-expression-reverse-rhs-function` | 反向比较保留左侧 bind value 与 `right_field`，并以 `right_expression` 关联右侧函数；root/arg 独立替换 |

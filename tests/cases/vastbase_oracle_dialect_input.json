@@ -4666,6 +4666,15 @@
                 "kind": "delete",
                 "target_relation": 0
               },
+              "expressions": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "opaque",
+                  "selector": "stmt[0].expression[0]",
+                  "sql": "DATE '2020-01-01'"
+                }
+              ],
               "fields": [
                 {
                   "block": 0,
@@ -4684,6 +4693,7 @@
                   "left_field": 0,
                   "operator": "<",
                   "operator_kind": "unknown",
+                  "right_expression": 0,
                   "value": 0
                 }
               ],
@@ -13233,15 +13243,15 @@
                 },
                 {
                   "kind": "select",
+                  "predicates": [
+                    17
+                  ],
                   "relations": [
                     1
                   ],
                   "targets": [
                     25,
                     26
-                  ],
-                  "predicates": [
-                    17
                   ]
                 },
                 {
@@ -13348,6 +13358,15 @@
                   "targets": [
                     15
                   ]
+                }
+              ],
+              "expressions": [
+                {
+                  "block": 2,
+                  "clause": "where",
+                  "kind": "opaque",
+                  "selector": "stmt[0].expression[0]",
+                  "sql": "(t.shtgsl+ t.shbtgsl)"
                 }
               ],
               "fields": [
@@ -14005,7 +14024,8 @@
                   "kind": "expression",
                   "left_field": 43,
                   "operator": "=",
-                  "operator_kind": "unknown"
+                  "operator_kind": "unknown",
+                  "right_expression": 0
                 },
                 {
                   "block": 1,
@@ -14111,8 +14131,8 @@
                   "field": 6,
                   "kind": "field",
                   "name": "XXPC_BH",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][0]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14120,8 +14140,8 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "XXPC_MC",
-                  "output_quoted_identifier": true,
                   "ordinal": 1,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][1]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14130,8 +14150,8 @@
                   "field": 10,
                   "kind": "field",
                   "name": "XXPCZT_DM",
-                  "output_quoted_identifier": true,
                   "ordinal": 2,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][2]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14148,8 +14168,8 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "FXSCFS",
-                  "output_quoted_identifier": true,
                   "ordinal": 3,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][3]",
                   "source_block": 3,
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -14167,8 +14187,8 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "XXPCZT_MC",
-                  "output_quoted_identifier": true,
                   "ordinal": 4,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][4]",
                   "source_block": 4,
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -14177,8 +14197,8 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "LRSJ",
-                  "output_quoted_identifier": true,
                   "ordinal": 5,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][5]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14195,8 +14215,8 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "LYCS",
-                  "output_quoted_identifier": true,
                   "ordinal": 6,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][6]",
                   "source_block": 5,
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -14214,8 +14234,8 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "SWJG",
-                  "output_quoted_identifier": true,
                   "ordinal": 7,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][7]",
                   "source_block": 6,
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -14224,8 +14244,8 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXXXS",
-                  "output_quoted_identifier": true,
                   "ordinal": 8,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][8]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14233,8 +14253,8 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXTGSL",
-                  "output_quoted_identifier": true,
                   "ordinal": 9,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][9]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14242,8 +14262,8 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXBTGSL",
-                  "output_quoted_identifier": true,
                   "ordinal": 10,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[2][10]",
                   "target_list_selector": "stmt[0].select_targets[2]"
                 },
@@ -14658,15 +14678,15 @@
                 },
                 {
                   "kind": "select",
+                  "predicates": [
+                    17
+                  ],
                   "relations": [
                     4
                   ],
                   "targets": [
                     25,
                     26
-                  ],
-                  "predicates": [
-                    17
                   ]
                 },
                 {
@@ -14773,6 +14793,15 @@
                   "targets": [
                     15
                   ]
+                }
+              ],
+              "expressions": [
+                {
+                  "block": 5,
+                  "clause": "where",
+                  "kind": "opaque",
+                  "selector": "stmt[0].expression[0]",
+                  "sql": "(t.shtgsl+ t.shbtgsl)"
                 }
               ],
               "fields": [
@@ -15460,7 +15489,8 @@
                   "kind": "expression",
                   "left_field": 43,
                   "operator": "=",
-                  "operator_kind": "unknown"
+                  "operator_kind": "unknown",
+                  "right_expression": 0
                 },
                 {
                   "block": 4,
@@ -15582,8 +15612,8 @@
                   "field": 6,
                   "kind": "field",
                   "name": "XXPC_BH",
-                  "output_quoted_identifier": true,
                   "ordinal": 0,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][0]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15591,8 +15621,8 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "XXPC_MC",
-                  "output_quoted_identifier": true,
                   "ordinal": 1,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][1]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15601,8 +15631,8 @@
                   "field": 10,
                   "kind": "field",
                   "name": "XXPCZT_DM",
-                  "output_quoted_identifier": true,
                   "ordinal": 2,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][2]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15619,8 +15649,8 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "FXSCFS",
-                  "output_quoted_identifier": true,
                   "ordinal": 3,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][3]",
                   "source_block": 6,
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -15638,8 +15668,8 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "XXPCZT_MC",
-                  "output_quoted_identifier": true,
                   "ordinal": 4,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][4]",
                   "source_block": 7,
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -15648,8 +15678,8 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "LRSJ",
-                  "output_quoted_identifier": true,
                   "ordinal": 5,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][5]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15666,8 +15696,8 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "LYCS",
-                  "output_quoted_identifier": true,
                   "ordinal": 6,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][6]",
                   "source_block": 8,
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -15685,8 +15715,8 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "SWJG",
-                  "output_quoted_identifier": true,
                   "ordinal": 7,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][7]",
                   "source_block": 9,
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -15695,8 +15725,8 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXXXS",
-                  "output_quoted_identifier": true,
                   "ordinal": 8,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][8]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15704,8 +15734,8 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXTGSL",
-                  "output_quoted_identifier": true,
                   "ordinal": 9,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][9]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -15713,8 +15743,8 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXBTGSL",
-                  "output_quoted_identifier": true,
                   "ordinal": 10,
+                  "output_quoted_identifier": true,
                   "selector": "stmt[0].select_target[5][10]",
                   "target_list_selector": "stmt[0].select_targets[5]"
                 },
@@ -22216,6 +22246,39 @@
                   ]
                 }
               ],
+              "expressions": [
+                {
+                  "argument_list_selector": "stmt[0].expression_args[0]",
+                  "arguments": [
+                    {
+                      "kind": "bind",
+                      "ordinal": 0,
+                      "selector": "stmt[0].expression_arg[0][0]",
+                      "value": 3
+                    }
+                  ],
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "function",
+                  "name": "UPPER",
+                  "selector": "stmt[0].expression[0]",
+                  "sql": "UPPER(:v1)"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "opaque",
+                  "selector": "stmt[0].expression[1]",
+                  "sql": ":v2 || 'x'"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "opaque",
+                  "selector": "stmt[0].expression[2]",
+                  "sql": "CAST(:v3 AS VARCHAR(32))"
+                }
+              ],
               "fields": [
                 {
                   "block": 0,
@@ -22267,6 +22330,7 @@
                   "left_field": 1,
                   "operator": "=",
                   "operator_kind": "unknown",
+                  "right_expression": 0,
                   "value": 0
                 },
                 {
@@ -22277,6 +22341,7 @@
                   "left_field": 2,
                   "operator": "=",
                   "operator_kind": "unknown",
+                  "right_expression": 1,
                   "value": 1
                 },
                 {
@@ -22287,6 +22352,7 @@
                   "left_field": 3,
                   "operator": "=",
                   "operator_kind": "unknown",
+                  "right_expression": 2,
                   "value": 2
                 }
               ],
@@ -22341,6 +22407,16 @@
                   "kind": "expression",
                   "operator": "=",
                   "operator_kind": "unknown"
+                },
+                {
+                  "bind_key": "v1",
+                  "bind_kind": 2,
+                  "bind_position": 1,
+                  "bind_sql": ":v1",
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bind",
+                  "selector": "stmt[0].expression_arg[0][0]"
                 }
               ]
             }
@@ -39116,6 +39192,1584 @@
         }
       ],
       "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-like-concat-mixed-args",
+        "sql": "SELECT id FROM users WHERE name LIKE CONCAT('%', :b1, suffix, LOWER(:b2))",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users",
+                                "selector": "stmt[0].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "name",
+                                "selector": "stmt[0].name[2]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "suffix",
+                                "selector": "stmt[0].name[4]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "LIKE",
+                                "operator_kind": "like",
+                                "field": 1,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[0].expression_arg[0][0]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "%"
+                                }
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "bind",
+                                "bind_key": "b1",
+                                "bind_kind": 2,
+                                "bind_sql": ":b1",
+                                "bind_position": 1,
+                                "selector": "stmt[0].expression_arg[0][1]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "bind",
+                                "bind_key": "b2",
+                                "bind_kind": 2,
+                                "bind_sql": ":b2",
+                                "bind_position": 2,
+                                "selector": "stmt[0].expression_arg[1][0]"
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "LIKE",
+                                "operator_kind": "like",
+                                "left_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "CONCAT('%', :b1, suffix, LOWER(:b2))",
+                                "name": "CONCAT",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "literal",
+                                        "value": 1,
+                                        "selector": "stmt[0].expression_arg[0][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "bind",
+                                        "value": 2,
+                                        "selector": "stmt[0].expression_arg[0][1]"
+                                    },
+                                    {
+                                        "ordinal": 2,
+                                        "kind": "field",
+                                        "field": 2,
+                                        "selector": "stmt[0].expression_arg[0][2]"
+                                    },
+                                    {
+                                        "ordinal": 3,
+                                        "kind": "expression",
+                                        "expression": 1,
+                                        "selector": "stmt[0].expression_arg[0][3]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "LOWER(:b2)",
+                                "name": "LOWER",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "bind",
+                                        "value": 3,
+                                        "selector": "stmt[0].expression_arg[1][0]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[1]",
+                                "argument_list_selector": "stmt[0].expression_args[1]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "bind_occurrences": [
+            {
+                "position": 1,
+                "kind": "named",
+                "key": "b1",
+                "sql": ":b1"
+            },
+            {
+                "position": 2,
+                "kind": "named",
+                "key": "b2",
+                "sql": ":b2"
+            }
+        ],
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/selector",
+                "value": "COALESCE(:b1, '%')",
+                "deparse": "SELECT id FROM users WHERE name LIKE COALESCE(:b1, '%')",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    }
+                ]
+            },
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/1/arguments/0/selector",
+                "value": ":b3",
+                "deparse": "SELECT id FROM users WHERE name LIKE CONCAT('%', :b1, suffix, LOWER(:b3))",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b3",
+                        "sql": ":b3"
+                    }
+                ]
+            }
+        ],
+        "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-on-having-functions",
+        "sql": "SELECT u.id FROM users u JOIN roles r ON u.code = CONCAT(r.prefix, '-', :b1) GROUP BY u.id HAVING u.id > COALESCE(:b2, 0)",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0,
+                                    1
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0,
+                                    1
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users",
+                                "alias": "u",
+                                "selector": "stmt[0].relation[0]"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "roles",
+                                "alias": "r",
+                                "selector": "stmt[0].relation[1]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 2,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "relation": 0,
+                                "column": "code",
+                                "selector": "stmt[0].name[7]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "relation": 1,
+                                "column": "prefix",
+                                "selector": "stmt[0].name[10]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[1]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "group_by",
+                                "relation": 0,
+                                "column": "id",
+                                "selector": "stmt[0].name[12]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "relation": 0,
+                                "column": "id",
+                                "selector": "stmt[0].name[14]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 0,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "operator": ">",
+                                "operator_kind": "unknown",
+                                "field": 4,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[0].expression_arg[0][1]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "-"
+                                }
+                            },
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "kind": "bind",
+                                "bind_key": "b1",
+                                "bind_kind": 2,
+                                "bind_sql": ":b1",
+                                "bind_position": 1,
+                                "selector": "stmt[0].expression_arg[0][2]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "kind": "bind",
+                                "bind_key": "b2",
+                                "bind_kind": 2,
+                                "bind_sql": ":b2",
+                                "bind_position": 2,
+                                "selector": "stmt[0].expression_arg[1][0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[0].expression_arg[1][1]",
+                                "literal": {
+                                    "kind": "integer",
+                                    "integer_value": 0
+                                }
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 0,
+                                "value": 0,
+                                "right_expression": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": ">",
+                                "operator_kind": "unknown",
+                                "left_field": 4,
+                                "value": 1,
+                                "right_expression": 1
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "on",
+                                "kind": "function",
+                                "sql": "CONCAT(r.prefix, '-', :b1)",
+                                "name": "CONCAT",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "field",
+                                        "field": 1,
+                                        "selector": "stmt[0].expression_arg[0][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "literal",
+                                        "value": 2,
+                                        "selector": "stmt[0].expression_arg[0][1]"
+                                    },
+                                    {
+                                        "ordinal": 2,
+                                        "kind": "bind",
+                                        "value": 3,
+                                        "selector": "stmt[0].expression_arg[0][2]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "having",
+                                "kind": "function",
+                                "sql": "COALESCE(:b2, 0)",
+                                "name": "COALESCE",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "bind",
+                                        "value": 4,
+                                        "selector": "stmt[0].expression_arg[1][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "literal",
+                                        "value": 5,
+                                        "selector": "stmt[0].expression_arg[1][1]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[1]",
+                                "argument_list_selector": "stmt[0].expression_args[1]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "bind_occurrences": [
+            {
+                "position": 1,
+                "kind": "named",
+                "key": "b1",
+                "sql": ":b1"
+            },
+            {
+                "position": 2,
+                "kind": "named",
+                "key": "b2",
+                "sql": ":b2"
+            }
+        ],
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/selector",
+                "value": "COALESCE(r.prefix, :b1)",
+                "deparse": "SELECT u.id FROM users u JOIN roles r ON u.code = COALESCE(r.prefix, :b1) GROUP BY u.id HAVING u.id > COALESCE(:b2, 0)",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b2",
+                        "sql": ":b2"
+                    }
+                ]
+            },
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/1/arguments/0/selector",
+                "value": ":b3",
+                "deparse": "SELECT u.id FROM users u JOIN roles r ON u.code = CONCAT(r.prefix, '-', :b1) GROUP BY u.id HAVING u.id > COALESCE(:b3, 0)",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b3",
+                        "sql": ":b3"
+                    }
+                ]
+            }
+        ],
+        "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-nested-and-opaque-args",
+        "sql": "SELECT id FROM users WHERE payload = WRAP(LOWER(name), score + :b1, CASE WHEN active THEN 'y' ELSE 'n' END)",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users",
+                                "selector": "stmt[0].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "payload",
+                                "selector": "stmt[0].name[2]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "name",
+                                "selector": "stmt[0].name[5]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "score",
+                                "selector": "stmt[0].name[6]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "active",
+                                "selector": "stmt[0].name[7]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 1,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "WRAP(LOWER(name), score + :b1, CASE WHEN active THEN 'y' ELSE 'n' END)",
+                                "name": "WRAP",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "expression",
+                                        "expression": 1,
+                                        "selector": "stmt[0].expression_arg[0][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "expression",
+                                        "expression": 2,
+                                        "selector": "stmt[0].expression_arg[0][1]"
+                                    },
+                                    {
+                                        "ordinal": 2,
+                                        "kind": "expression",
+                                        "expression": 3,
+                                        "selector": "stmt[0].expression_arg[0][2]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "LOWER(name)",
+                                "name": "LOWER",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "field",
+                                        "field": 2,
+                                        "selector": "stmt[0].expression_arg[1][0]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[1]",
+                                "argument_list_selector": "stmt[0].expression_args[1]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "opaque",
+                                "sql": "score + :b1",
+                                "selector": "stmt[0].expression[2]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "opaque",
+                                "sql": "CASE WHEN active THEN 'y' ELSE 'n' END",
+                                "selector": "stmt[0].expression[3]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "bind_occurrences": [
+            {
+                "position": 1,
+                "kind": "named",
+                "key": "b1",
+                "sql": ":b1"
+            }
+        ],
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/2/selector",
+                "value": "score * 2",
+                "deparse": "SELECT id FROM users WHERE payload = WRAP(LOWER(name), score * 2, CASE WHEN active THEN 'y' ELSE 'n' END)",
+                "bind_occurrences": []
+            },
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/selector",
+                "value": "COALESCE(payload, :b1)",
+                "deparse": "SELECT id FROM users WHERE payload = COALESCE(payload, :b1)",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    }
+                ]
+            }
+        ],
+        "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-variadic-argument-mutations",
+        "sql": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('a', 'b'); SELECT id FROM t WHERE token = CONCAT('only')",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "t",
+                                "selector": "stmt[0].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "token",
+                                "selector": "stmt[0].name[2]"
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "expression",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 1,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "CONCAT()",
+                                "name": "CONCAT",
+                                "arguments": [],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "index": 1,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "t",
+                                "selector": "stmt[1].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[1].select_target[0][0]",
+                                "target_list_selector": "stmt[1].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[1].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "token",
+                                "selector": "stmt[1].name[2]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 1,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[1].expression_arg[0][0]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "a"
+                                }
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[1].expression_arg[0][1]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "b"
+                                }
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "CONCAT('a', 'b')",
+                                "name": "CONCAT",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "literal",
+                                        "value": 1,
+                                        "selector": "stmt[1].expression_arg[0][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "literal",
+                                        "value": 2,
+                                        "selector": "stmt[1].expression_arg[0][1]"
+                                    }
+                                ],
+                                "selector": "stmt[1].expression[0]",
+                                "argument_list_selector": "stmt[1].expression_args[0]"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "index": 2,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "t",
+                                "selector": "stmt[2].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[2].select_target[0][0]",
+                                "target_list_selector": "stmt[2].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[2].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "token",
+                                "selector": "stmt[2].name[2]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 1,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[2].expression_arg[0][0]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "only"
+                                }
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "CONCAT('only')",
+                                "name": "CONCAT",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "literal",
+                                        "value": 1,
+                                        "selector": "stmt[2].expression_arg[0][0]"
+                                    }
+                                ],
+                                "selector": "stmt[2].expression[0]",
+                                "argument_list_selector": "stmt[2].expression_args[0]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "patch": [
+            {
+                "action": "insert_argument",
+                "target": "/statements/0/query_graph/expressions/0/argument_list_selector",
+                "index": 0,
+                "value": "'z'",
+                "deparse": "SELECT id FROM t WHERE token = CONCAT('z'); SELECT id FROM t WHERE token = CONCAT('a', 'b'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "replace",
+                "target": "/statements/1/query_graph/expressions/0/arguments/0/selector",
+                "value": "'x'",
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('x', 'b'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "insert_argument",
+                "target": "/statements/1/query_graph/expressions/0/argument_list_selector",
+                "index": 0,
+                "value": "'h'",
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('h', 'a', 'b'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "insert_argument",
+                "target": "/statements/1/query_graph/expressions/0/argument_list_selector",
+                "index": 1,
+                "value": "'m'",
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('a', 'm', 'b'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "insert_argument",
+                "target": "/statements/1/query_graph/expressions/0/argument_list_selector",
+                "index": 2,
+                "value": "'t'",
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('a', 'b', 't'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "delete_argument",
+                "target": "/statements/1/query_graph/expressions/0/argument_list_selector",
+                "index": 0,
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('b'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "delete_argument",
+                "target": "/statements/1/query_graph/expressions/0/argument_list_selector",
+                "index": 1,
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('a'); SELECT id FROM t WHERE token = CONCAT('only')",
+                "bind_occurrences": []
+            },
+            {
+                "action": "delete_argument",
+                "target": "/statements/2/query_graph/expressions/0/argument_list_selector",
+                "index": 0,
+                "deparse": "SELECT id FROM t WHERE token = CONCAT(); SELECT id FROM t WHERE token = CONCAT('a', 'b'); SELECT id FROM t WHERE token = CONCAT()",
+                "bind_occurrences": []
+            }
+        ],
+        "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-comment-surface-bind-renumber",
+        "sql": "SELECT id FROM users WHERE name LIKE /*pattern*/ CONCAT('%', :b1, '%') /*tail*/ AND tenant_id = :b2",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0,
+                                    1,
+                                    2
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users",
+                                "selector": "stmt[0].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "name",
+                                "selector": "stmt[0].name[2]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "tenant_id",
+                                "selector": "stmt[0].name[4]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "LIKE",
+                                "operator_kind": "like",
+                                "field": 1,
+                                "field_match_kind": "direct_field",
+                                "kind": "expression",
+                                "bind_kind": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 2,
+                                "field_match_kind": "direct_field",
+                                "kind": "bind",
+                                "bind_key": "b2",
+                                "bind_kind": 2,
+                                "bind_sql": ":b2",
+                                "bind_position": 2,
+                                "selector": "stmt[0].value[18]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[0].expression_arg[0][0]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "%"
+                                }
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "bind",
+                                "bind_key": "b1",
+                                "bind_kind": 2,
+                                "bind_sql": ":b1",
+                                "bind_position": 1,
+                                "selector": "stmt[0].expression_arg[0][1]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "literal",
+                                "bind_kind": 0,
+                                "selector": "stmt[0].expression_arg[0][2]",
+                                "literal": {
+                                    "kind": "string",
+                                    "string_value": "%"
+                                }
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "bool",
+                                "bool_operator": "and",
+                                "children": [
+                                    1,
+                                    2
+                                ]
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "LIKE",
+                                "operator_kind": "like",
+                                "left_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "comparison",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "left_field": 2,
+                                "value": 1
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "CONCAT('%', :b1, '%')",
+                                "name": "CONCAT",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "literal",
+                                        "value": 2,
+                                        "selector": "stmt[0].expression_arg[0][0]"
+                                    },
+                                    {
+                                        "ordinal": 1,
+                                        "kind": "bind",
+                                        "value": 3,
+                                        "selector": "stmt[0].expression_arg[0][1]"
+                                    },
+                                    {
+                                        "ordinal": 2,
+                                        "kind": "literal",
+                                        "value": 4,
+                                        "selector": "stmt[0].expression_arg[0][2]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "bind_occurrences": [
+            {
+                "position": 1,
+                "kind": "named",
+                "key": "b1",
+                "sql": ":b1"
+            },
+            {
+                "position": 2,
+                "kind": "named",
+                "key": "b2",
+                "sql": ":b2"
+            }
+        ],
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/arguments/1/selector",
+                "value": "COALESCE(:b3, :b4)",
+                "deparse": "SELECT id FROM users WHERE name LIKE /*pattern*/ CONCAT('%', COALESCE(:b3, :b4), '%') /*tail*/ AND tenant_id = :b2",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b3",
+                        "sql": ":b3"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b4",
+                        "sql": ":b4"
+                    },
+                    {
+                        "position": 3,
+                        "kind": "named",
+                        "key": "b2",
+                        "sql": ":b2"
+                    }
+                ]
+            },
+            {
+                "action": "delete_argument",
+                "target": "/statements/0/query_graph/expressions/0/argument_list_selector",
+                "index": 1,
+                "deparse": "SELECT id FROM users WHERE name LIKE /*pattern*/ CONCAT('%', '%') /*tail*/ AND tenant_id = :b2",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b2",
+                        "sql": ":b2"
+                    }
+                ]
+            },
+            {
+                "action": "insert_argument",
+                "target": "/statements/0/query_graph/expressions/0/argument_list_selector",
+                "index": 1,
+                "value": ":b3",
+                "deparse": "SELECT id FROM users WHERE name LIKE /*pattern*/ CONCAT('%', :b3, :b1, '%') /*tail*/ AND tenant_id = :b2",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b3",
+                        "sql": ":b3"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b1",
+                        "sql": ":b1"
+                    },
+                    {
+                        "position": 3,
+                        "kind": "named",
+                        "key": "b2",
+                        "sql": ":b2"
+                    }
+                ]
+            },
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/selector",
+                "value": "LOWER(:b3)",
+                "deparse": "SELECT id FROM users WHERE name LIKE /*pattern*/ LOWER(:b3) /*tail*/ AND tenant_id = :b2",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "b3",
+                        "sql": ":b3"
+                    },
+                    {
+                        "position": 2,
+                        "kind": "named",
+                        "key": "b2",
+                        "sql": ":b2"
+                    }
+                ]
+            }
+        ],
+        "status": "final"
+    },
+    {
+        "name": "vastbase-oracle-predicate-expression-reverse-rhs-function",
+        "sql": "SELECT id FROM users WHERE :v = UPPER(SECRET)",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "select",
+                    "query_graph": {
+                        "root": 0,
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ],
+                                "predicates": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users",
+                                "selector": "stmt[0].relation[0]"
+                            }
+                        ],
+                        "targets": [
+                            {
+                                "block": 0,
+                                "ordinal": 0,
+                                "kind": "field",
+                                "name": "id",
+                                "field": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ],
+                        "fields": [
+                            {
+                                "block": 0,
+                                "clause": "select_list",
+                                "relation": 0,
+                                "column": "id",
+                                "target": 0,
+                                "selector": "stmt[0].name[0]"
+                            },
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "relation": 0,
+                                "column": "SECRET",
+                                "selector": "stmt[0].name[3]"
+                            }
+                        ],
+                        "values": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "field": 1,
+                                "field_match_kind": "expression_field",
+                                "kind": "bind",
+                                "bind_key": "v",
+                                "bind_kind": 2,
+                                "bind_sql": ":v",
+                                "bind_position": 1,
+                                "selector": "stmt[0].value[6]"
+                            }
+                        ],
+                        "predicates": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "expression",
+                                "bool_operator": "none",
+                                "operator": "=",
+                                "operator_kind": "unknown",
+                                "right_field": 1,
+                                "value": 0,
+                                "right_expression": 0
+                            }
+                        ],
+                        "expressions": [
+                            {
+                                "block": 0,
+                                "clause": "where",
+                                "kind": "function",
+                                "sql": "UPPER(SECRET)",
+                                "name": "UPPER",
+                                "arguments": [
+                                    {
+                                        "ordinal": 0,
+                                        "kind": "field",
+                                        "field": 1,
+                                        "selector": "stmt[0].expression_arg[0][0]"
+                                    }
+                                ],
+                                "selector": "stmt[0].expression[0]",
+                                "argument_list_selector": "stmt[0].expression_args[0]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "bind_occurrences": [
+            {
+                "position": 1,
+                "kind": "named",
+                "key": "v",
+                "sql": ":v"
+            }
+        ],
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/selector",
+                "value": "LOWER(SECRET)",
+                "deparse": "SELECT id FROM users WHERE :v = LOWER(SECRET)",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "v",
+                        "sql": ":v"
+                    }
+                ]
+            },
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/expressions/0/arguments/0/selector",
+                "value": "MASKED_SECRET",
+                "deparse": "SELECT id FROM users WHERE :v = UPPER(MASKED_SECRET)",
+                "bind_occurrences": [
+                    {
+                        "position": 1,
+                        "kind": "named",
+                        "key": "v",
+                        "sql": ":v"
+                    }
+                ]
+            }
+        ],
+        "status": "final"
     }
   ]
 }

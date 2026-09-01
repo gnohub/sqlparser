@@ -326,6 +326,8 @@ Defined dialects:
 | `sqlparser_graph_relation_kind_name()` | returns the query graph relation-kind name |
 | `sqlparser_graph_target_kind_name()` | returns the query graph target-kind name |
 | `sqlparser_graph_value_kind_name()` | returns the query graph value-kind name |
+| `sqlparser_graph_expression_kind_name()` | returns the predicate-RHS expression-kind name |
+| `sqlparser_graph_expression_argument_kind_name()` | returns the function-argument kind name |
 | `sqlparser_graph_field_match_kind_name()` | returns the query graph field-match kind name |
 | `sqlparser_graph_operator_kind_name()` | returns the query graph operator-kind name |
 | `sqlparser_graph_set_kind_name()` | returns the query graph set-kind name |
@@ -836,8 +838,13 @@ from which it was read.
 | `sqlparser_query_graph_target_at()` | reads a SELECT target |
 | `sqlparser_query_graph_field_at()` | reads a field occurrence |
 | `sqlparser_query_graph_value_at()` | reads a query graph value |
+| `sqlparser_query_graph_expression_count()` | reads the predicate-RHS expression count for the statement |
+| `sqlparser_query_graph_expression_at()` | reads a predicate-RHS expression |
+| `sqlparser_query_graph_expression_argument_count()` | reads the function-argument count for the statement |
+| `sqlparser_query_graph_expression_argument_at()` | reads a function argument |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
 | `sqlparser_query_graph_predicate_at()` | reads a WHERE, ON, HAVING, START WITH, or CONNECT BY predicate node |
+| `sqlparser_query_graph_predicate_right_expression()` | reads the optional RHS-expression index linked to a predicate |
 | `sqlparser_query_graph_session()` | reads the statement session-state action |
 | `sqlparser_query_graph_session_item_at()` | reads a session-state target |
 | `sqlparser_query_graph_session_value_at()` | reads a session-state value |
@@ -863,6 +870,8 @@ from which it was read.
 | `sqlparser_graph_target_t` | query or DML-result output target; `output_quoted_identifier` reports delimiter state for the token represented by `output_name` |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token, while `pseudo` / `prior` report hierarchical occurrence semantics |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
+| `sqlparser_graph_expression_t` | WHERE, ON, or HAVING RHS function/opaque expression; a function exposes an ordered argument span plus whole-expression and argument-list selectors |
+| `sqlparser_graph_expression_argument_t` | literal, bind, field, or nested-expression function argument with an argument selector |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, HAVING, START WITH, or CONNECT BY; `nocycle` marks the CONNECT BY root predicate |
 | `sqlparser_graph_session_t` | statement session-state action and item count |
@@ -1234,12 +1243,16 @@ Patch operations:
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts an assignment into a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
 | `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes an assignment from a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full assignment in a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_INSERT_ARGUMENT` | inserts a function argument at an index selected by `expression_args` |
+| `SQLPARSER_PATCH_DELETE_ARGUMENT` | deletes a function argument selected by `expression_args`, including deletion to zero arguments |
 
 `sqlparser_apply_patch()` commits and increments the generation once only when
 the candidate produces an actual change from the current handle; previous
 query graph views then become invalid. An empty patch list or effective no-op
 does not increment the generation, and failure of any patch leaves the whole
 list uncommitted.
+
+`stmt[S].expression[E]` and `stmt[S].expression_arg[E][A]` are valid `SQLPARSER_PATCH_REPLACE` targets. `stmt[S].expression_args[E]` is used for argument insertion and deletion. Functions are treated as variadic: the library validates selectors, indices, and parseability of the resulting SQL, but not function signatures, arity, or argument types. Opaque expressions support whole-expression replacement only.
 
 A regular single-table `INSERT ... VALUES` uses the
 `stmt[S].insert_columns` selector. When

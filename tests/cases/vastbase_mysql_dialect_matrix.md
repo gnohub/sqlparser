@@ -60,6 +60,19 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VM270` | `vastbase-mysql-cte-explicit-columns-dml-lineage` | final | 1 | UPDATE assignment 的 `source_field`/`source_target` 按显式列名保持 lineage |
 | `VM271` | `vastbase-mysql-cte-explicit-columns-recursive-star-boundary` | final | 0 | SET/recursive branch target 保持底层名称，不伪装为 CTE 别名；未展开 star 不伪造 source target |
 
+## Predicate RHS expression
+
+以下 6 条用例与 MySQL M269–M274 逐字段镜像，仅用例名前缀和 ID 不同。Predicate 通过 `right_expression` 关联 RHS；`values[]` 保留既有条目但不复制 expression 索引，RHS 原本没有 value 时不合成占位 value。该边界属于项目兼容入口，不声称 Vastbase 服务端官网定义了相同范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VM272` | `vastbase-mysql-predicate-expression-function-argument-kinds` | final | 5 | 四类 inline arg、nested function、注释 surface 及 bind 1/2 |
+| `VM273` | `vastbase-mysql-predicate-expression-on-having-order` | final | 3 | ON/HAVING root 顺序、既有 value 索引与参数归属 |
+| `VM274` | `vastbase-mysql-predicate-expression-root-argument-replace` | final | 3 | root 与 bind/field arg replace、bind occurrence 删除 |
+| `VM275` | `vastbase-mysql-predicate-expression-argument-list-mutations` | final | 8 | 头中尾插删、零参、删至零参和全局 bind 重编号 |
+| `VM276` | `vastbase-mysql-predicate-expression-opaque-boundary` | final | 2 | operator/CASE opaque 整体 replace，不展开内部结构 |
+| `VM277` | `vastbase-mysql-predicate-expression-reverse-rhs-function` | final | 2 | 左 bind value/`right_field` 保留，RHS function 通过 `right_expression` 关联 |
+
 ## 完整绑定占位符 occurrence 回归
 
 以下 3 条 final 用例定义项目 `vastbase-mysql` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；匿名 `?` 每次出现均单独返回，多语句编号不重置，字符串、普通注释、非语句级 executable comment 和反引号标识符中的伪问号不计入。

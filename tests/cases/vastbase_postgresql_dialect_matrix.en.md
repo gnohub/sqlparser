@@ -249,3 +249,16 @@ Every case checks `row`, `column`, `kind`, and `selector` for every VALUES cell.
 This matrix lists only cases that parse successfully and have final View and
 patch expectations. Parse-failure paths are maintained by separate unit tests
 and are not listed in this fixture.
+
+## Predicate RHS expressions
+
+These cases cover `query_graph.expressions[]` and argument-level patching. Predicates link the RHS through `right_expression`; `values[]` retains existing entries but does not duplicate an expression index, and no placeholder value is synthesized when the RHS had no existing value.
+
+| Case ID | Case name | Verification focus |
+| --- | --- | --- |
+| `VPG157` | `vastbase-postgresql-predicate-expression-like-concat-mixed-args` | LIKE RHS root with literal, bind, field, and nested-function arguments |
+| `VPG158` | `vastbase-postgresql-predicate-expression-on-having-functions` | Ordered ON/HAVING roots, independent replacement, and ownership |
+| `VPG159` | `vastbase-postgresql-predicate-expression-nested-and-opaque-args` | Nested function and operator/ARRAY/CASE opaque boundaries |
+| `VPG160` | `vastbase-postgresql-predicate-expression-variadic-argument-mutations` | Zero/one/two arguments, replacement, head/middle/tail insertion, and deletion to zero |
+| `VPG161` | `vastbase-postgresql-predicate-expression-comment-surface-bind-renumber` | Comment surface, bind renumbering, and fresh View after patch |
+| `VPG162` | `vastbase-postgresql-predicate-expression-reverse-rhs-bind-field` | left bind value coexists with a right field/function and the predicate adds `right_expression` |

@@ -20,6 +20,7 @@
 - `SELECT` 输出列表读取、替换、插入与删除
 - 结构化 SQL 片段改写，支持用 identifier path 向根或嵌套 UPDATE、根 INSERT 冲突更新列表或 MERGE matched UPDATE action 插入赋值项，以及展开 SELECT 输出列
 - `selector` 解析、格式化与定位，包括 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]` 和 `stmt[S].merge_assignment[W][A]`
+- `WHERE`、`ON`、`HAVING` predicate RHS function/opaque expression 读取；支持整体和参数替换，以及函数参数插入和删除
 - 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦、Vastbase 兼容模式转换层
 - 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量

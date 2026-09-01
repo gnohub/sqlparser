@@ -482,6 +482,19 @@ The following six final cases verify explicit CTE column ordinal projection. T-S
 | SH447 | `sqlserver-cte-explicit-columns-union-all-branches` | non-recursive two-branch `UNION ALL` | branches keep their own `id/value` outputs without fabricated CTE result names; two branch patches stay independent |
 | SH448 | `sqlserver-cte-explicit-columns-star-no-ordinal-guess` | explicit names with stars inside and outside the CTE | star targets keep `star_relations/source_block`; no two-target expansion or ordinal guess is allowed |
 
+## Structured predicate-RHS expressions
+
+These cases cover predicate RHS roots in `query_graph.expressions[]`; predicates link the RHS through `right_expression`. `values[]` retains existing entries but does not duplicate an expression index, and no placeholder value is synthesized when the RHS had no existing value. A function expression has `sql`, `name`, contiguous-ordinal `arguments`, a whole-expression selector, and an argument-list selector. Nested functions receive independent indices immediately after their parent in left-to-right depth-first argument order. Literal and bind arguments reference values appended after existing entries, field arguments reuse existing fields, and expression arguments reference `expressions`. Opaque operator/CASE expressions expose only whole SQL and a selector, without newly promoting internal arguments or functions; fields, values, and predicates already emitted by Query Graph remain unchanged. Functions are variadic by default with no arity validation. Patches cover whole/argument replacement and head/middle/tail insertion/deletion, including `CONCAT()`, one argument, and bind renumbering. SQL Server has no legal positive array-expression form, so no array case is registered here.
+
+| Case ID | Case name | Statement shape | Validation focus |
+| --- | --- | --- | --- |
+| SH449 | `sqlserver-expression-where-like-concat-arguments` | `WHERE field LIKE CONCAT(literal, @p, field, LOWER(field))` with a trailing comment | four argument kinds, nested function, and predicate `right_expression`; whole/arg replace plus head/middle/tail insert/delete preserve brackets and comment surface; all eight patches lock bind occurrences |
+| SH450 | `sqlserver-expression-join-on-rhs-depth-first` | JOIN ON direct field against nested `CONCAT/LOWER/COALESCE` RHS | RHS-root priority and parent-then-left-to-right DFS numbering with reused bind/field entries; three patches |
+| SH451 | `sqlserver-expression-having-root-order` | HAVING direct field against `COALESCE(@p, SUM(field))` RHS | HAVING clause, nested aggregate, argument replace/insert/delete, and zero-argument boundary; three patches |
+| SH452 | `sqlserver-expression-variadic-zero-one-bind-order` | two statements with one- and two-argument CONCAT RHS forms | deletion to zero/one arguments, whole/field-arg replacement, head/middle/tail insertion, and cross-statement bind renumbering; seven patches |
+| SH453 | `sqlserver-expression-opaque-operator-case-boundary` | direct fields against opaque arithmetic/function and CASE RHS expressions | operator/CASE allow whole replacement only; internal CONCAT/LOWER get no expression or argument selector; two patches |
+| SH454 | `sqlserver-expression-reverse-rhs-bind-field` | `@p = UPPER([name])` | preserves the left bind `value` and `right_field` while linking the RHS function through `right_expression`; two patches |
+
 ## Official Hook Coverage Cases
 
 `tests/cases/sqlserver_dialect_input.json` includes 250 cases generated from

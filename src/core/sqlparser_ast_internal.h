@@ -678,6 +678,17 @@ int sqlparser_view_insert_cell_source_span(
 	size_t *out_start,
 	size_t *out_end,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_query_graph_expression_source_span(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t expression_index,
+	sqlparser_graph_expression_kind_t *out_kind,
+	size_t *out_start,
+	size_t *out_end,
+	size_t *out_open,
+	size_t *out_close,
+	size_t *out_argument_count,
+	sqlparser_error_t *out_error);
 int sqlparser_merge_condition_source_span(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,

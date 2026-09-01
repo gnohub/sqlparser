@@ -3485,6 +3485,12 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "literal";
 		case SQLPARSER_SELECTOR_KIND_VALUE:
 			return "value";
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION:
+			return "expression";
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION_ARG:
+			return "expression_arg";
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION_ARGS:
+			return "expression_args";
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
 			return "where_literal";
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
@@ -3666,6 +3672,37 @@ const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind)
 			return "expression";
 		case SQLPARSER_GRAPH_VALUE_FIELD:
 			return "field";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_expression_kind_name(sqlparser_graph_expression_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_EXPRESSION_FUNCTION:
+			return "function";
+		case SQLPARSER_GRAPH_EXPRESSION_OPAQUE:
+			return "opaque";
+		case SQLPARSER_GRAPH_EXPRESSION_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_expression_argument_kind_name(
+	sqlparser_graph_expression_argument_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_LITERAL:
+			return "literal";
+		case SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_BIND:
+			return "bind";
+		case SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_FIELD:
+			return "field";
+		case SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_EXPRESSION:
+			return "expression";
+		case SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_UNKNOWN:
 		default:
 			return "unknown";
 	}

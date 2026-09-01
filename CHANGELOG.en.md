@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.12
+
+### Predicate RHS Expressions and Function-Argument Rewrites
+
+- Query Graph exposes function or opaque RHS expressions for `WHERE`, `ON`, and `HAVING` predicates and links them through each predicate's `right_expression`. Functions expose a normalized name and ordered literal, bind, field, and nested-expression arguments; opaque expressions expose only whole SQL and a selector.
+- `stmt[S].expression[E]` and `stmt[S].expression_arg[E][A]` support whole-expression or single-argument replacement, while `stmt[S].expression_args[E]` supports argument insertion and deletion. Functions are treated as variadic; only selector/index validity and result-SQL parseability are checked, not signatures, arity, or argument types.
+- Expression patches use exact source spans and reparse within the transaction candidate, preserving argument comments, grouping, following clauses, and bind-occurrence order. Any failure rolls back the whole patch batch atomically. IN/BETWEEN structural lists are not projected as RHS expressions.
+- Added read-only expression/argument APIs, three selector kinds, and two patch operations. Existing public structure layouts and ownership rules remain unchanged; the internal expression store is allocated on demand.
+
+### Cases and Validation
+
+- Fifty-four final cases and 196 patches were added. The nine fixtures now contain 3,062 final cases and 9,621 patches.
+- The full `make test` suite, all nine dialect matrices, CLI checks, and the ABI export check passed with 162 public symbols.
+
 ## 2.16.11
 
 ### Ordinal Mapping for Explicit CTE Column Names

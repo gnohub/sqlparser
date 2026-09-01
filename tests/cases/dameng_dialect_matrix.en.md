@@ -318,3 +318,16 @@ This matrix lists only cases that parse successfully and have final View and pat
 
 - New Dameng support must update `tests/cases/dameng_dialect_input.json`, this matrix, and executable regression tests.
 - Syntax outside the executable fixture must not be listed here as a validated case.
+
+## Predicate RHS expressions
+
+These cases cover `query_graph.expressions[]` and argument-level patching. Functions are modeled as variadic structures: sqlparser does not validate function signatures or arity even when an Oracle-family server may reject a particular arity. A predicate links its RHS root through `right_expression`; `values[]` does not duplicate the expression index, and no placeholder value is synthesized when the root had no existing value.
+
+| Case ID | Case name | Verification focus |
+| --- | --- | --- |
+| `D194` | `dameng-predicate-expression-like-concat-mixed-args` | LIKE RHS root with literal, bind, field, and nested-function arguments |
+| `D195` | `dameng-predicate-expression-on-having-functions` | Ordered ON/HAVING roots, independent replacement, and ownership |
+| `D196` | `dameng-predicate-expression-nested-and-opaque-args` | Nested function and operator/CASE opaque boundaries |
+| `D197` | `dameng-predicate-expression-variadic-argument-mutations` | Zero/one/two arguments, replacement, head/middle/tail insertion, and deletion to zero |
+| `D198` | `dameng-predicate-expression-comment-surface-bind-renumber` | Comment surface, colon-bind renumbering, and fresh View after patch |
+| `D199` | `dameng-predicate-expression-reverse-rhs-function` | Reverse comparison retains the left bind value and `right_field`, links the RHS function through `right_expression`, and replaces root/argument independently |

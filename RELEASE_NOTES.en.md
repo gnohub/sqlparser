@@ -1,9 +1,11 @@
-# v2.16.11 Release Notes
+# v2.16.12 Release Notes
 
-Query Graph maps explicit CTE column names by ordinal. When the source block directly owns enumerable targets, explicit names and quoted state override target outputs. Repeated references share the same result, DML `source_target` resolution uses the overlaid names, and a legal short PostgreSQL list overrides only its matching prefix.
+Query Graph exposes function or opaque RHS expressions for `WHERE`, `ON`, and `HAVING` predicates. Functions expose a normalized name, ordered literal/bind/field/expression arguments, and selectors; opaque expressions support whole-expression replacement.
 
-SET/recursive CTE branches retain their own outputs, stars are not expanded or assigned guessed mappings, and existing boundaries remain when no complete direct correspondence can be established. The implementation adds no public API, structure field, string allocation, or ownership rule.
+`expression` and `expression_arg` selectors support replacement, while `expression_args` supports function-argument insertion and deletion. Functions are treated as variadic; only selector/index validity and result-SQL parseability are checked, not function signatures, arity, or argument types.
 
-With 40 final cases and 46 patches added, the nine fixtures now contain 3,008 final cases and 9,425 patches. The full `make test` suite, all nine dialect matrices, targeted core/identifier tests, and the identifier Valgrind check passed.
+This release adds read-only expression/argument APIs, three selector kinds, and two patch operations. Existing public structure layouts and ownership rules remain unchanged, with 162 public symbols.
+
+Fifty-four final cases and 196 patches bring the nine fixtures to 3,062 final cases and 9,621 patches. The full `make test` suite, all nine dialect matrices, CLI checks, and the ABI export check passed.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

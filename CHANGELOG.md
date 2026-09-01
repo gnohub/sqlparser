@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.12
+
+### Predicate RHS 表达式与函数参数改写
+
+- Query Graph 对 `WHERE`、`ON` 与 `HAVING` predicate 的 RHS 输出 function 或 opaque expression，并通过 predicate 的 `right_expression` 关联。function 提供规范化名称和有序 literal、bind、field、nested-expression 参数；opaque expression 仅提供整体 SQL 与 selector。
+- `stmt[S].expression[E]` 与 `stmt[S].expression_arg[E][A]` 支持整体或单参数替换，`stmt[S].expression_args[E]` 支持参数插入和删除。函数统一按可变参数处理，仅校验 selector、索引及结果 SQL 可解析性，不校验函数签名、参数数量或参数类型。
+- expression patch 使用精确 source span 并在事务候选内重新解析，保留参数注释、括号、后续子句和 bind occurrence 顺序；任一 patch 失败时整批原子回滚。IN/BETWEEN 结构列表不作为 RHS expression 投影。
+- 新增 expression/argument 只读 API、3 类 selector 和 2 类 patch operation。既有公开结构体布局与所有权规则不变；内部 expression store 按需分配。
+
+### 用例与验证
+
+- 新增 54 条 final case 和 196 个 patch；九套 fixture 当前合计 3,062 条 final case 和 9,621 个 patch。
+- 完整 `make test`、九套方言矩阵、CLI 和 ABI 导出检查均通过；公开符号共 162 个。
+
 ## 2.16.11
 
 ### CTE 显式列名按序映射

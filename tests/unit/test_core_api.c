@@ -19898,7 +19898,12 @@ static int test_query_graph_like_escape_semantics(void)
 		}
 		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
 		if (expect_status_ok(rc, &error, "LIKE ESCAPE graph should be available") != 0 ||
-		    expect_true(graph.value_count == 1U, "LIKE ESCAPE should expose one pattern value") != 0 ||
+		    expect_true(
+			    graph.value_count ==
+				    (cases[index].value_kind ==
+					     SQLPARSER_GRAPH_VALUE_EXPRESSION ?
+					     3U : 1U),
+			    "LIKE ESCAPE value count mismatch") != 0 ||
 		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "LIKE ESCAPE value should be available") != 0 ||
 		    expect_true(value.has_field != 0, "LIKE ESCAPE value should be attached to a field") != 0 ||
 		    expect_status_ok(sqlparser_query_graph_field_at(&graph, value.field_index, &field, &error), &error, "LIKE ESCAPE field should be available") != 0 ||
@@ -24155,7 +24160,7 @@ static int test_query_graph_direct_field_expression_predicate_values(void)
 	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
 	                     &error,
 	                     "mixed direct/composite predicate graph should be available") != 0 ||
-	    expect_true(graph.value_count == 3U && graph.predicate_count == 4U,
+	    expect_true(graph.value_count == 4U && graph.predicate_count == 4U,
 	                "mixed direct/composite predicate counts mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;

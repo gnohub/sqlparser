@@ -247,3 +247,16 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 ## 覆盖边界
 
 本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。解析失败路径由独立单元测试维护，不在该 fixture 中登记。
+
+## Predicate RHS expression
+
+以下用例覆盖 `query_graph.expressions[]` 与参数级 patch；predicate 通过 `right_expression` 关联 RHS，`values[]` 保留既有条目但不复制 expression 索引，RHS 原本没有 value 时不合成占位 value。
+
+| 用例 ID | 用例名称 | 验证重点 |
+| --- | --- | --- |
+| `VPG157` | `vastbase-postgresql-predicate-expression-like-concat-mixed-args` | LIKE RHS 函数根及 literal/bind/field/nested function 参数 |
+| `VPG158` | `vastbase-postgresql-predicate-expression-on-having-functions` | ON/HAVING 两个 RHS 根的顺序、独立替换与归属 |
+| `VPG159` | `vastbase-postgresql-predicate-expression-nested-and-opaque-args` | nested function 与 operator/ARRAY/CASE opaque 边界 |
+| `VPG160` | `vastbase-postgresql-predicate-expression-variadic-argument-mutations` | 零/一/二参数及替换、头中尾插入、删除至零参数 |
+| `VPG161` | `vastbase-postgresql-predicate-expression-comment-surface-bind-renumber` | 注释表面、bind 重编号与 patch 后 fresh View |
+| `VPG162` | `vastbase-postgresql-predicate-expression-reverse-rhs-bind-field` | 左侧 bind value 与右侧 field/function 并存，predicate 增加 `right_expression` |

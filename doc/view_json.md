@@ -126,6 +126,7 @@ IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
 | `targets` | SELECT 输出项、星号输出、DML 输出来源等；非空时存在 |
 | `fields` | SQL 文本中出现的字段引用 occurrence；非空时存在 |
 | `values` | 与字段或 SELECT target 关联的值，以及复合 DML assignment 右侧表达式中的 literal、bind 和 DEFAULT occurrence；分页或伪列 bind 不进入该数组；非空时存在 |
+| `expressions` | `WHERE`、`ON`、`HAVING` 中可定位的 RHS function 或 opaque expression；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
 | `predicates` | `WHERE`、`ON`、`HAVING`、`START WITH`、`CONNECT BY` 等条件中的谓词树节点；非空时存在 |
 | `session` | 数据库、Schema、角色、身份、事务特征或会话参数操作；仅具有会话状态语义时存在 |
@@ -375,7 +376,42 @@ Drop AST 中的对象由名称列表表示，没有可写 relation 节点，因�
 }
 ```
 
-对于谓词，如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不将该谓词表达式内部的 bind 或 literal 暴露为 direct value。该规则不适用于复合 DML assignment 右侧表达式；其内部值通过 `rhs_values` 归属。
+对于谓词，如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 保留关联到字段的既有 `kind=expression` 条目。结构化 function 的直接 literal/bind 参数追加到既有 values 之后，并使用对应的 `expression_arg` selector；opaque expression 不提升内部值。复合 DML assignment 右侧表达式仍通过 `rhs_values` 归属。
+
+## expression
+
+```json
+{
+  "block": 0,
+  "clause": "where",
+  "kind": "function",
+  "sql": "UPPER($1)",
+  "name": "UPPER",
+  "arguments": [
+    {
+      "ordinal": 0,
+      "kind": "bind",
+      "value": 1,
+      "selector": "stmt[0].expression_arg[0][0]"
+    }
+  ],
+  "selector": "stmt[0].expression[0]",
+  "argument_list_selector": "stmt[0].expression_args[0]"
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `block` | expression 所在查询块 |
+| `clause` | `where`、`on` 或 `having` |
+| `kind` | `function` 或 `opaque` |
+| `sql` | expression 的精确公开 SQL |
+| `name` | function 名；opaque 时省略 |
+| `arguments` | function 的有序参数；opaque 时省略。参数 `kind` 为 `literal`、`bind`、`field` 或 `expression`，并分别引用 `value`、`field` 或 nested `expression` 索引 |
+| `selector` | 整体替换 selector |
+| `argument_list_selector` | 参数插入或删除 selector；opaque 时省略 |
+
+nested expression 按 parent 后、参数从左到右的深度优先顺序编号。function 统一按可变参数处理；参数插入和删除只校验 selector、索引及结果 SQL 可解析性，不校验函数签名、参数数量或参数类型。opaque expression 仅支持整体替换。
 
 ## predicate
 
@@ -404,6 +440,7 @@ Drop AST 中的对象由名称列表表示，没有可写 relation 节点，因�
 | `left_field` | 比较左侧字段索引；没有稳定字段侧时省略 |
 | `right_field` | field-to-field 比较右侧字段索引；不适用时省略 |
 | `value` | 比较右侧 literal、bind、DEFAULT、field 或 expression 对应的 `values[]` 索引；不适用时省略 |
+| `right_expression` | RHS function/opaque expression 对应的 `expressions[]` 索引；不适用时省略 |
 | `children` | `AND`、`OR`、`NOT` 的子谓词索引数组；非组合谓词时省略 |
 
 `field = literal/bind` 使用 `left_field + value` 表达；`field = field` 使用 `left_field + right_field`，并在 `values[]` 中以 `kind = "field"` 记录来源字段。无法安全拆分字段和值两侧的条件会保留为 `kind = "expression"`，避免把复杂表达式误判为直接字段传递。

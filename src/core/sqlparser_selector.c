@@ -314,6 +314,28 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 5U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_VALUE;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "expression_args", 15) == 0) {
+		offset += 15U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_EXPRESSION_ARGS;
+		status = sqlparser_selector_parse_index(
+			text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "expression_arg", 14) == 0) {
+		offset += 14U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_EXPRESSION_ARG;
+		status = sqlparser_selector_parse_index(
+			text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
+	} else if (strncmp(text + offset, "expression", 10) == 0) {
+		offset += 10U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_EXPRESSION;
+		status = sqlparser_selector_parse_index(
+			text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "where_literal", 13) == 0) {
 		offset += 13U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_WHERE_LITERAL;
@@ -606,6 +628,31 @@ sqlparser_status_t sqlparser_selector_format(
 				buffer,
 				sizeof(buffer),
 				"stmt[%zu].value[%zu]",
+				selector->statement_index,
+				selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%zu].expression[%zu]",
+				selector->statement_index,
+				selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION_ARG:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%zu].expression_arg[%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->column_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_EXPRESSION_ARGS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%zu].expression_args[%zu]",
 				selector->statement_index,
 				selector->item_index);
 			break;

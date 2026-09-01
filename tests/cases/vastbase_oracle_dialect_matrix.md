@@ -319,3 +319,16 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法不得在本矩阵中登记为已验证用例。
 
 `RETURNING ... INTO` 不接受 `BULK COLLECT`、非冒号 bind receiver 或 target/receiver 数量不等的输入。该边界仅是项目兼容入口合同及可执行证据，不声称 Vastbase 服务端官方支持同一语法范围。
+
+## Predicate RHS expression
+
+以下用例覆盖 `query_graph.expressions[]` 与参数级 patch。函数参数按可变参数结构处理；即使 Oracle-family 服务端可能拒绝特定函数 arity，sqlparser 也不承担函数签名或 arity 校验。Predicate 通过 `right_expression` 关联 RHS 根表达式；`values[]` 不复制 expression 索引，无既有 root value 时不合成占位 value。
+
+| 用例 ID | 用例名称 | 验证重点 |
+| --- | --- | --- |
+| `VO255` | `vastbase-oracle-predicate-expression-like-concat-mixed-args` | LIKE RHS 函数根及 literal/bind/field/nested function 参数 |
+| `VO256` | `vastbase-oracle-predicate-expression-on-having-functions` | ON/HAVING 两个 RHS 根的顺序、独立替换与归属 |
+| `VO257` | `vastbase-oracle-predicate-expression-nested-and-opaque-args` | nested function 与 operator/CASE opaque 边界 |
+| `VO258` | `vastbase-oracle-predicate-expression-variadic-argument-mutations` | 零/一/二参数及替换、头中尾插入、删除至零参数 |
+| `VO259` | `vastbase-oracle-predicate-expression-comment-surface-bind-renumber` | 注释表面、colon bind 重编号与 patch 后 fresh View |
+| `VO260` | `vastbase-oracle-predicate-expression-reverse-rhs-function` | 反向比较保留左侧 bind value 与 `right_field`，并以 `right_expression` 关联右侧函数；root/arg 独立替换 |

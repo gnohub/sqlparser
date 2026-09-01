@@ -92,7 +92,10 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION = 22,
 	SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN = 23,
 	SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL = 24,
-	SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25
+	SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25,
+	SQLPARSER_SELECTOR_KIND_EXPRESSION = 26,
+	SQLPARSER_SELECTOR_KIND_EXPRESSION_ARG = 27,
+	SQLPARSER_SELECTOR_KIND_EXPRESSION_ARGS = 28
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -161,6 +164,20 @@ typedef enum {
 	SQLPARSER_GRAPH_VALUE_EXPRESSION = 4,
 	SQLPARSER_GRAPH_VALUE_FIELD = 5
 } sqlparser_graph_value_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_EXPRESSION_UNKNOWN = 0,
+	SQLPARSER_GRAPH_EXPRESSION_FUNCTION = 1,
+	SQLPARSER_GRAPH_EXPRESSION_OPAQUE = 2
+} sqlparser_graph_expression_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_UNKNOWN = 0,
+	SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_LITERAL = 1,
+	SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_BIND = 2,
+	SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_FIELD = 3,
+	SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_EXPRESSION = 4
+} sqlparser_graph_expression_argument_kind_t;
 
 typedef enum {
 	SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN = 0,
@@ -579,6 +596,37 @@ typedef struct {
 typedef struct {
 	size_t index;
 	size_t statement_index;
+	size_t block_index;
+	sqlparser_clause_kind_t clause;
+	sqlparser_graph_expression_kind_t kind;
+	const char *sql;
+	const char *name;
+	sqlparser_index_span_t arguments;
+	sqlparser_selector_t selector;
+	int has_selector;
+	sqlparser_selector_t argument_list_selector;
+	int has_argument_list_selector;
+} sqlparser_graph_expression_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t expression_index;
+	size_t ordinal;
+	sqlparser_graph_expression_argument_kind_t kind;
+	size_t value_index;
+	int has_value;
+	size_t field_index;
+	int has_field;
+	size_t nested_expression_index;
+	int has_nested_expression;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_expression_argument_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
 	sqlparser_graph_set_kind_t kind;
 	size_t result_block_index;
 	sqlparser_index_span_t branch_blocks;
@@ -757,7 +805,9 @@ typedef enum {
 	SQLPARSER_PATCH_APPEND_CONDITION = 5,
 	SQLPARSER_PATCH_INSERT_ASSIGNMENT = 6,
 	SQLPARSER_PATCH_DELETE_ASSIGNMENT = 7,
-	SQLPARSER_PATCH_REPLACE_ASSIGNMENT = 8
+	SQLPARSER_PATCH_REPLACE_ASSIGNMENT = 8,
+	SQLPARSER_PATCH_INSERT_ARGUMENT = 9,
+	SQLPARSER_PATCH_DELETE_ARGUMENT = 10
 } sqlparser_patch_op_t;
 
 typedef struct {
@@ -808,6 +858,8 @@ const char *sqlparser_graph_ddl_relation_role_name(sqlparser_graph_ddl_relation_
 const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t kind);
 const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind);
 const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind);
+const char *sqlparser_graph_expression_kind_name(sqlparser_graph_expression_kind_t kind);
+const char *sqlparser_graph_expression_argument_kind_name(sqlparser_graph_expression_argument_kind_t kind);
 const char *sqlparser_graph_field_match_kind_name(sqlparser_graph_field_match_kind_t kind);
 const char *sqlparser_graph_operator_kind_name(sqlparser_graph_operator_kind_t kind);
 const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind);
@@ -1469,6 +1521,28 @@ sqlparser_status_t sqlparser_query_graph_value_at(
 	sqlparser_graph_value_t *out_value,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_query_graph_expression_count(
+	const sqlparser_query_graph_view_t *graph,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_expression_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t expression_index,
+	sqlparser_graph_expression_t *out_expression,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_expression_argument_count(
+	const sqlparser_query_graph_view_t *graph,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_expression_argument_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t argument_index,
+	sqlparser_graph_expression_argument_t *out_argument,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_query_graph_set_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t set_index,
@@ -1479,6 +1553,13 @@ sqlparser_status_t sqlparser_query_graph_predicate_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t predicate_index,
 	sqlparser_graph_predicate_t *out_predicate,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_predicate_right_expression(
+	const sqlparser_query_graph_view_t *graph,
+	size_t predicate_index,
+	size_t *out_expression_index,
+	int *out_has_expression,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_query_graph_session(

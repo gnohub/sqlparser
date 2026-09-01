@@ -677,6 +677,19 @@ The following six final cases verify explicit CTE column ordinal projection for 
 | VSH624 | `vastbase-sqlserver-cte-explicit-columns-union-all-branches` | non-recursive two-branch `UNION ALL` | branches retain `id/value`; two independent branch patches |
 | VSH625 | `vastbase-sqlserver-cte-explicit-columns-star-no-ordinal-guess` | stars inside and outside the CTE | star boundary remains intact with no expansion or ordinal guess |
 
+## Structured predicate-RHS expressions
+
+These cases use `query_graph.expressions[]` for predicate RHS expressions. Predicates link the RHS through `right_expression`; `values[]` retains existing entries but does not duplicate an expression index, and no placeholder value is synthesized when the RHS had no existing value. Functions number nested expressions immediately after the parent in left-to-right DFS order. Literal and bind arguments reference values appended after existing entries, field arguments reuse existing fields, and expression arguments reference expressions. Opaque operator/CASE expressions are replaceable only as a whole and add no internal selectors. Functions are variadic by default with no arity validation, and every patch locks exact bind occurrences. The SQL Server compatibility entry has no legal positive array-expression case.
+
+| Case ID | Case name | Statement shape | Validation focus |
+| --- | --- | --- | --- |
+| VSH626 | `vastbase-sqlserver-expression-where-like-concat-arguments` | LIKE with four CONCAT argument kinds, nested LOWER, and comment | whole/arg replace, head/middle/tail insert/delete, surface, and binds; eight patches |
+| VSH627 | `vastbase-sqlserver-expression-join-on-rhs-depth-first` | JOIN ON nested CONCAT/LOWER/COALESCE RHS | RHS parent/DFS order and reused indices; three patches |
+| VSH628 | `vastbase-sqlserver-expression-having-root-order` | HAVING nested COALESCE/SUM RHS | HAVING, nested aggregate, and zero-argument boundary; three patches |
+| VSH629 | `vastbase-sqlserver-expression-variadic-zero-one-bind-order` | two statements with one-/two-argument CONCAT RHS | zero/one arguments, head/middle/tail insertion, and bind renumbering; seven patches |
+| VSH630 | `vastbase-sqlserver-expression-opaque-operator-case-boundary` | opaque operator/CASE RHS | whole replacement only; internal functions are not expanded; two patches |
+| VSH631 | `vastbase-sqlserver-expression-reverse-rhs-bind-field` | `@p = UPPER([name])` | left bind value/right_field coexist with the RHS `right_expression`; two patches |
+
 ## Coverage Boundary
 
 This matrix lists only cases that parse successfully and have final View and

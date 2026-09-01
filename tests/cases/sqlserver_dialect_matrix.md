@@ -444,6 +444,19 @@ relation 的限定名按段记录方括号定界状态：`database_quoted_identi
 | SH447 | `sqlserver-cte-explicit-columns-union-all-branches` | 非递归双分支 `UNION ALL` | 两个 branch 继续输出各自 `id/value`，不伪造 CTE 结果名；2 个分支 patch 相互独立 |
 | SH448 | `sqlserver-cte-explicit-columns-star-no-ordinal-guess` | 显式列名 + CTE 内外双星号 | 星号 target 保持 `star_relations/source_block`，不展开为两个虚构 target |
 
+## Predicate RHS expression 结构化投影
+
+以下用例覆盖 `query_graph.expressions[]` 中的 predicate RHS 根表达式，predicate 通过 `right_expression` 关联 RHS；`values[]` 保留既有条目但不复制 expression 索引，RHS 原本没有 value 时不合成占位 value。function expression 包含 `sql`、`name`、连续 ordinal 的 `arguments`、整体 selector 与参数列表 selector，nested function 按参数左到右深度优先并在 parent 后独立编号。literal/bind 参数引用追加在既有条目之后的 `values`，field 参数复用既有 `fields`，expression 参数引用 `expressions`。opaque operator/CASE 只提供整体 SQL 和 selector，不新增内部 argument/expression 归属；Query Graph 原本已有的内部 field/value/predicate 保持不变。所有函数按可变参数处理，不做 arity 校验；patch 覆盖整体/参数替换及参数头中尾插删，包括 `CONCAT()`、单参数和 bind 重编号。SQL Server 没有合法 array expression 正向形态，本节不登记 array case。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH449 | `sqlserver-expression-where-like-concat-arguments` | `WHERE field LIKE CONCAT(literal, @p, field, LOWER(field))` + 尾注释 | 四类 argument、nested function、predicate `right_expression`；整体/arg replace，头中尾 insert/delete，方括号与 comment surface；8 个 patch 全量锁定 bind occurrences |
+| SH450 | `sqlserver-expression-join-on-rhs-depth-first` | JOIN ON 的 direct field 与嵌套 `CONCAT/LOWER/COALESCE` RHS | RHS root 优先、parent 后按左到右 DFS 编号，nested bind/field 复用；3 个 patch |
+| SH451 | `sqlserver-expression-having-root-order` | HAVING direct field 与 `COALESCE(@p, SUM(field))` RHS | HAVING clause、nested aggregate、参数 replace/insert/delete 与零参数边界；3 个 patch |
+| SH452 | `sqlserver-expression-variadic-zero-one-bind-order` | 两语句分别使用单参数与双参数 `CONCAT` RHS | 删除到 0/1 参数、整体/field 参数替换、头中尾插入及跨语句 bind 重编号；7 个 patch |
+| SH453 | `sqlserver-expression-opaque-operator-case-boundary` | direct field 对 opaque arithmetic/function 与 CASE RHS | operator/CASE 仅整体 replace，内部 CONCAT/LOWER 不生成 expression/arg selector；2 个 patch |
+| SH454 | `sqlserver-expression-reverse-rhs-bind-field` | `@p = UPPER([name])` | 保留左 bind `value` 与 `right_field`，并用 `right_expression` 关联 RHS function；2 个 patch |
+
 ## 官方 hook 覆盖用例
 
 `tests/cases/sqlserver_dialect_input.json` 已包含 250 条按官方 `CURRENT` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则、`TOP` 官方形态和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。表提示和查询提示以 `MIXED_MODEL` 基础形态覆盖，完整结构化 hint 语义仍以专用模型为边界。
