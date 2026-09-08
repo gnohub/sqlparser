@@ -45,6 +45,9 @@ typedef struct {
 
 static int sqlparser_oracle_is_ident_start(unsigned char c);
 static int sqlparser_oracle_is_ident_char(unsigned char c);
+static size_t sqlparser_oracle_skip_dollar_quoted_span(
+	const char *sql,
+	size_t index);
 
 static void sqlparser_oracle_dblink_relation_clear(
 	sqlparser_oracle_dblink_relation_t *relation)
@@ -881,7 +884,21 @@ static int sqlparser_oracle_copy_quoted_or_comment(
 	sqlparser_error_t *out_error)
 {
 	char quote;
+	size_t end;
 	size_t pos;
+
+	end = sqlparser_oracle_skip_dollar_quoted_span(sql, *index);
+	if (end > *index) {
+		if (sqlparser_oracle_buffer_append_mem(
+			    out,
+			    sql + *index,
+			    end - *index,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+		*index = end;
+		return 1;
+	}
 
 	quote = sql[*index];
 	if (quote == '\'' || quote == '"') {
@@ -1695,6 +1712,38 @@ static size_t sqlparser_oracle_session_value_token_end(
 	return pos;
 }
 
+static size_t sqlparser_oracle_skip_dollar_quoted_span(
+	const char *sql,
+	size_t index)
+{
+	size_t delimiter_end;
+	size_t delimiter_length;
+	size_t pos;
+
+	if (sql[index] != '$' ||
+	    (index > 0U &&
+	     sqlparser_oracle_is_ident_char((unsigned char)sql[index - 1U]))) {
+		return index;
+	}
+	delimiter_end = index + 1U;
+	while (isalnum((unsigned char)sql[delimiter_end]) ||
+	       sql[delimiter_end] == '_') {
+		delimiter_end++;
+	}
+	if (sql[delimiter_end] != '$') {
+		return index;
+	}
+	delimiter_length = delimiter_end - index + 1U;
+	pos = delimiter_end + 1U;
+	while (sql[pos] != '\0') {
+		if (strncmp(sql + pos, sql + index, delimiter_length) == 0) {
+			return pos + delimiter_length;
+		}
+		pos++;
+	}
+	return pos;
+}
+
 static size_t sqlparser_oracle_skip_quoted_or_comment_span(const char *sql, size_t index)
 {
 	char quote;
@@ -1702,6 +1751,11 @@ static size_t sqlparser_oracle_skip_quoted_or_comment_span(const char *sql, size
 	char close_delim;
 	size_t q_prefix_len;
 	size_t pos;
+
+	pos = sqlparser_oracle_skip_dollar_quoted_span(sql, index);
+	if (pos != index) {
+		return pos;
+	}
 
 	q_prefix_len = sqlparser_oracle_q_quote_prefix_len(sql + index);
 	if (q_prefix_len > 0U) {
@@ -2944,7 +2998,9 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 
 			quoted_start = index;
 			copied = sqlparser_oracle_copy_quoted_or_comment(input_sql, &index, &out, out_error);
-			if (copied > 0 && input_sql[quoted_start] == '\'') {
+			if (copied > 0 &&
+			    (input_sql[quoted_start] == '\'' ||
+			     input_sql[quoted_start] == '$')) {
 				state->national_literals.literal_count++;
 			}
 		}
@@ -4426,12 +4482,18 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 				continue;
 			}
 		} else {
+			size_t quoted_start;
+
+			quoted_start = index;
 			copied = sqlparser_oracle_copy_quoted_or_comment(core_sql, &index, &out, out_error);
 			if (copied < 0) {
 				sqlparser_oracle_buffer_release(&out);
 				return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 			}
 			if (copied > 0) {
+				if (core_sql[quoted_start] == '$') {
+					literal_ordinal++;
+				}
 				continue;
 			}
 		}
@@ -6255,11 +6317,12 @@ static sqlparser_status_t sqlparser_oracle_replay_multi_insert(
 	return status;
 }
 
-static sqlparser_status_t sqlparser_oracle_preprocess(
+static sqlparser_status_t sqlparser_oracle_preprocess_internal(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	int allow_plain_returning,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_state_t *state;
@@ -6304,6 +6367,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess(
 		SQLPARSER_DIALECT_ORACLE,
 		preprocess_input,
 		0,
+		allow_plain_returning,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(rewritten_sql);
@@ -6340,12 +6404,45 @@ static sqlparser_status_t sqlparser_oracle_preprocess(
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
+static sqlparser_status_t sqlparser_oracle_preprocess(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		0,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_kingbase_oracle_preprocess(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		1,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins_internal(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
+	int allow_plain_returning,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_state_t *state;
@@ -6368,11 +6465,12 @@ sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	status = sqlparser_oracle_preprocess(
+	status = sqlparser_oracle_preprocess_internal(
 		input_sql,
 		limits,
 		out_parser_sql,
 		out_state,
+		allow_plain_returning,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -6413,6 +6511,42 @@ sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
 		*out_state = NULL;
 	}
 	return status;
+}
+
+sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_identifier_origins_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		origins,
+		0,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_kingbase_oracle_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_identifier_origins_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		origins,
+		1,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
@@ -8630,7 +8764,37 @@ static const sqlparser_dialect_ops_t SQLPARSER_ORACLE_OPS = {
 	sqlparser_oracle_relation_link_sql
 };
 
+static const sqlparser_dialect_ops_t SQLPARSER_KINGBASE_ORACLE_OPS = {
+	SQLPARSER_DIALECT_KINGBASE_ORACLE,
+	"kingbase-oracle",
+	sqlparser_kingbase_oracle_preprocess,
+	sqlparser_oracle_preprocess_fragment,
+	sqlparser_oracle_postprocess_deparse,
+	sqlparser_oracle_clone_state,
+	sqlparser_oracle_state_destroy,
+	sqlparser_oracle_postprocess_literal_fragment,
+	NULL,
+	NULL,
+	sqlparser_oracle_relation_object_name,
+	sqlparser_oracle_relation_link_name,
+	sqlparser_oracle_postprocess_fragment,
+	NULL,
+	NULL,
+	sqlparser_oracle_project_session,
+	sqlparser_oracle_bind_ast_state,
+	sqlparser_oracle_bind_fragment_ast_state,
+	sqlparser_oracle_reconcile_ast_state,
+	sqlparser_oracle_clone_ast_state,
+	sqlparser_oracle_prepare_ast_state,
+	sqlparser_oracle_relation_link_sql
+};
+
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void)
 {
 	return &SQLPARSER_ORACLE_OPS;
+}
+
+const sqlparser_dialect_ops_t *sqlparser_dialect_kingbase_oracle_ops(void)
+{
+	return &SQLPARSER_KINGBASE_ORACLE_OPS;
 }

@@ -586,11 +586,13 @@ static int sqlparser_identifier_semantic_equal(
 		switch (handle->dialect) {
 			case SQLPARSER_DIALECT_POSTGRESQL:
 			case SQLPARSER_DIALECT_VASTBASE_POSTGRESQL:
+			case SQLPARSER_DIALECT_KINGBASE_POSTGRESQL:
 				truncate_postgresql = 1;
 				break;
 			case SQLPARSER_DIALECT_ORACLE:
 			case SQLPARSER_DIALECT_DAMENG:
 			case SQLPARSER_DIALECT_VASTBASE_ORACLE:
+			case SQLPARSER_DIALECT_KINGBASE_ORACLE:
 				fold_unquoted_upper = 1;
 				break;
 			default:
@@ -1786,8 +1788,7 @@ static size_t sqlparser_view_find_value_index(
 
 static int sqlparser_view_dialect_uses_at_binds(sqlparser_dialect_t dialect)
 {
-	return dialect == SQLPARSER_DIALECT_SQLSERVER ||
-	       dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+	return sqlparser_dialect_is_sqlserver_compatible(dialect);
 }
 
 static void sqlparser_view_bind_info_release(sqlparser_view_bind_info_t *info)
@@ -4258,7 +4259,8 @@ static int sqlparser_view_variable_set_is_internal_rewrite(
 		    &end) &&
 	    stmt->n_args == 1U &&
 	    stmt->args != NULL) {
-		if (handle->dialect == SQLPARSER_DIALECT_MYSQL &&
+		if ((handle->dialect == SQLPARSER_DIALECT_MYSQL ||
+		     handle->dialect == SQLPARSER_DIALECT_KINGBASE_MYSQL) &&
 		    strcmp(
 			    stmt->name,
 			    SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT) == 0 &&
@@ -11785,7 +11787,9 @@ static int sqlparser_graph_column_ref_is_on_conflict_excluded(
 	if (build == NULL || !build->in_on_conflict_update ||
 	    build->handle == NULL ||
 	    (build->handle->dialect != SQLPARSER_DIALECT_POSTGRESQL &&
-	     build->handle->dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL) ||
+	     build->handle->dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL &&
+	     build->handle->dialect != SQLPARSER_DIALECT_KINGBASE_POSTGRESQL &&
+	     build->handle->dialect != SQLPARSER_DIALECT_KINGBASE_ORACLE) ||
 	    !sqlparser_graph_column_ref_qualifier_count(
 		    column_ref,
 		    &qualifier_count) ||
@@ -12730,7 +12734,9 @@ static int sqlparser_graph_collect_assignment_target(
 	if (build->handle != NULL &&
 	    (build->handle->dialect == SQLPARSER_DIALECT_POSTGRESQL ||
 	     build->handle->dialect ==
-		     SQLPARSER_DIALECT_VASTBASE_POSTGRESQL)) {
+		     SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
+	     build->handle->dialect ==
+		     SQLPARSER_DIALECT_KINGBASE_POSTGRESQL)) {
 		return 0;
 	}
 	if (target->n_indirection == 0U) {
@@ -18736,7 +18742,7 @@ static int sqlparser_graph_build_target(
 				build->dml_result_scope_block_index : block_index;
 			if (build->building_dml_result &&
 			    build->handle != NULL &&
-			    sqlparser_dialect_uses_postgresql_placeholders(
+			    sqlparser_dialect_supports_postgresql_dml_results(
 				    build->handle->dialect) &&
 			    qualifier == NULL) {
 				if (build->dml_result_has_target_relation &&
@@ -22624,6 +22630,8 @@ static int sqlparser_graph_build_merge_dml(
 			    PG_QUERY__CMD_TYPE__CMD_INSERT &&
 		    build->handle->dialect !=
 			    SQLPARSER_DIALECT_POSTGRESQL &&
+		    build->handle->dialect !=
+			    SQLPARSER_DIALECT_KINGBASE_POSTGRESQL &&
 		    values_ordinal > 0U) {
 			sqlparser_error_set_message(
 				out_error,
@@ -23956,10 +23964,10 @@ static int sqlparser_graph_select_into_is_ddl(
 	    stmt->into_clause == NULL || stmt->into_clause->rel == NULL) {
 		return 0;
 	}
-	return build->handle->dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-		build->handle->dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
-		build->handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		build->handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+	return sqlparser_dialect_uses_postgresql_placeholders(
+		       build->handle->dialect) ||
+		sqlparser_dialect_is_sqlserver_compatible(
+			build->handle->dialect);
 }
 
 static int sqlparser_graph_build_statement(

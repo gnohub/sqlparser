@@ -274,6 +274,10 @@ query graph 中既有的 bind 字段规则：
 | `SQLPARSER_DIALECT_VASTBASE_MYSQL` | Vastbase MySQL 兼容模式 |
 | `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL` | Vastbase PostgreSQL 兼容模式 |
 | `SQLPARSER_DIALECT_VASTBASE_SQLSERVER` | Vastbase SQL Server 兼容模式 |
+| `SQLPARSER_DIALECT_KINGBASE_ORACLE` | KingbaseES Oracle 兼容模式 |
+| `SQLPARSER_DIALECT_KINGBASE_MYSQL` | KingbaseES MySQL 兼容模式 |
+| `SQLPARSER_DIALECT_KINGBASE_POSTGRESQL` | KingbaseES PostgreSQL 兼容模式 |
+| `SQLPARSER_DIALECT_KINGBASE_SQLSERVER` | KingbaseES SQL Server 兼容模式 |
 
 ## 生命周期与线程模型
 
@@ -351,7 +355,7 @@ query graph 中既有的 bind 字段规则：
 
 该列表独立于 query graph，覆盖成功解析 SQL 中函数、CAST、CASE、运算表达式、分页、子查询、DML、MERGE 和结果通道等位置的真实占位符。字符串、注释和定界标识符中的相似文本不计入。View JSON 不包含这份完整 occurrence 列表，不能从其中的语义 bind 子集反推完整结果。
 
-九个方言入口的公开 token 边界如下；表中规则描述本项目解析入口，不表示兼容数据库服务端的能力声明。
+十三个方言入口的公开 token 边界如下；表中规则描述本项目解析入口，不表示兼容数据库服务端的能力声明。
 
 | 方言入口 | 计入的 token | 主要排除边界 |
 | --- | --- | --- |
@@ -364,6 +368,10 @@ query graph 中既有的 bind 字段规则：
 | Vastbase-MySQL | 与 MySQL 相同 | 与 MySQL 相同 |
 | Vastbase-PostgreSQL | 与 PostgreSQL 相同 | 与 PostgreSQL 相同 |
 | Vastbase-SQLServer | 与 SQL Server 相同 | 与 SQL Server 相同 |
+| KingbaseES-Oracle | Oracle 形式及正数 `$n` | dollar quote、字符串、注释和定界标识符中的相似文本不计入 |
+| KingbaseES-MySQL | 与 MySQL 相同 | 与 MySQL 相同 |
+| KingbaseES-PostgreSQL | 与 PostgreSQL 相同 | 与 PostgreSQL 相同 |
+| KingbaseES-SQLServer | 与 SQL Server 相同 | 与 SQL Server 相同 |
 
 Oracle、Dameng 兼容入口的每段 `name` 为 `[A-Za-z_][A-Za-z0-9_$#]*`。SQL Server 兼容入口中，`@` 后首字符可为字母、数字、`_` 或 `#`，后续字符可为字母、数字、`_`、`$`、`#` 或 `@`。名称和数字 key 保留 SQL 中的原始大小写与字节；相同 kind/key 只表达相同语义 key，不合并 occurrence。每个匿名 `?` 也单独保留，通过各自的 `position` 区分。
 
@@ -375,7 +383,7 @@ Oracle、Dameng 兼容入口的每段 `name` 为 `[A-Za-z_][A-Za-z0-9_$#]*`。SQ
 | `sqlparser_statement_node_name()` | 返回底层节点名称 |
 | `sqlparser_statement_target_relation()` | 返回语句主目标对象 |
 
-MySQL 与 Vastbase-MySQL 的多目标 UPDATE 没有单一主目标，`sqlparser_statement_target_relation()` 返回 `SQLPARSER_STATUS_UNSUPPORTED`。Dameng 多表 UPDATE 要求全部 SET assignment 指向同一个 table object，该函数返回此唯一目标。
+MySQL、Vastbase-MySQL 与 KingbaseES-MySQL 的多目标 UPDATE 没有单一主目标，`sqlparser_statement_target_relation()` 返回 `SQLPARSER_STATUS_UNSUPPORTED`。Dameng 多表 UPDATE 要求全部 SET assignment 指向同一个 table object，该函数返回此唯一目标。
 
 控制流中的条件表达式和分支 SQL 都是可寻址 statement unit。条件 unit 的类型为 `SQLPARSER_STATEMENT_KIND_CONDITION`，节点名称为 `ConditionExpr`；分支 SQL 保持自身语句类型。现有 `stmt[n]...` selector 可直接读取和修改这些 unit。
 
@@ -728,9 +736,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sqlparser_graph_relation_t.ddl_role` 的 C 类型为 `unsigned char`。只有 DDL block 中由 DDL 节点直接表达的 relation 使用 `TARGET` 或 `REFERENCE`；普通查询/DML relation 以及 query-backed DDL 的来源查询 relation 使用 `UNKNOWN`。
 - `sqlparser_graph_relation_t.database_quoted_identifier`、`schema_quoted_identifier`、`quoted_identifier`、`alias_quoted_identifier` 和 `link_quoted_identifier` 分别仅对应 `database_name`、`schema_name`、`object_name`、`alias_name` 和 `link_name`。前两个和 `link_quoted_identifier` 的 C 类型为 `unsigned char`；已有的对象名和 alias 字段语义不变。
 - `sqlparser_graph_field_t.quoted_identifier` 仍仅对应字段 occurrence 的 `column_name`；`sqlparser_graph_target_t.output_quoted_identifier` 仍对应 `output_name`。存在显式输出 alias 时只依据 alias token；没有显式 alias 且 `output_name` 由直接字段继承时依据该字段 token。显式 alias 的状态优先于底层字段，其他情况为 `0`。
-- `sqlparser_graph_dml_column_t.quoted_identifier` 的 C 类型为 `int`，仅对应目标列的 `column_name`。该字段用于普通 INSERT、MERGE INSERT 分支、Oracle、Dameng 与 Vastbase-Oracle `INSERT ALL/FIRST` 分支和 SQL Server `OUTPUT ... INTO` relation-backed sink 中的目标列。
+- `sqlparser_graph_dml_column_t.quoted_identifier` 的 C 类型为 `int`，仅对应目标列的 `column_name`。该字段用于普通 INSERT、MERGE INSERT 分支、Oracle、Dameng、Vastbase-Oracle 与 KingbaseES-Oracle `INSERT ALL/FIRST` 分支和 SQL Server `OUTPUT ... INTO` relation-backed sink 中的目标列。
 - 上述标志只在各自的精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `1`，否则为 `0`；它们不区分定界符类型。PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会使这些标志置为 `1`。
-- relation 的五个组件标志覆盖直接 DDL relation、普通 SELECT/INSERT/UPDATE/DELETE/MERGE relation、multi-table INSERT 分支目标、relation-backed DML 结果 sink 和远程对象。Oracle、Dameng 和 Vastbase-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 会完整投影 `object_name`、`link_name` 及对应的定界符标志。
+- relation 的五个组件标志覆盖直接 DDL relation、普通 SELECT/INSERT/UPDATE/DELETE/MERGE relation、multi-table INSERT 分支目标、relation-backed DML 结果 sink 和远程对象。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 的 `INSERT ALL ... INTO ...@link` 分支目标 relation 会完整投影 `object_name`、`link_name` 及对应的定界符标志。
 - 这些标量字段不产生需要调用方释放的独立分配；query graph 的所有权和生命周期规则不变。
 - 在 x86_64 和 AArch64 的 64 位布局中，三个 relation 分段 quoted flag 占用 2.16.8 `sqlparser_graph_relation_t` 的既有 padding，`ddl_role` 继续占用 2.16.9 剩余的最后一个 padding 字节；relation 的 `sizeof` 和全部旧字段 offset 保持不变。`sqlparser_graph_dml_column_t.quoted_identifier` 同样占用该结构的既有尾部 padding。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
@@ -749,7 +757,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 字段引用如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
-- MySQL 与 Vastbase-MySQL 的多目标 UPDATE 设置 `sqlparser_graph_dml_t.has_target_relation = 0`；每个 assignment 的 `target_field_index` 指向具有独立 relation 归属的目标字段。Dameng 多表 UPDATE 始终只有一个写入目标并设置 `has_target_relation = 1`。
+- MySQL、Vastbase-MySQL 与 KingbaseES-MySQL 的多目标 UPDATE 设置 `sqlparser_graph_dml_t.has_target_relation = 0`；每个 assignment 的 `target_field_index` 指向具有独立 relation 归属的目标字段。Dameng 多表 UPDATE 始终只有一个写入目标并设置 `has_target_relation = 1`。
 - `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的全部 DML；`sqlparser_query_graph_dml()` 是读取索引 0 的兼容简写。多个无父 DML 可以并列存在，使用 `sqlparser_query_graph_dml_parent()` 区分根节点和嵌套节点。
 - `sqlparser_query_graph_dml_parent()` 表达嵌套 DML 的父子关系；没有父 DML 时 `out_has_parent` 为 0。
 - `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 可以由 relation 或 host bind 接收。仅 relation-backed sink 设置 `has_sink_relation = 1`，并通过 `sink_relation_index` 和可选 `sink_columns` 指向写入目标。
@@ -776,8 +784,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `CREATE TABLE` 和 `CREATE FOREIGN TABLE` 将被创建对象标记为 `TARGET`；列级或表级 foreign key、`LIKE` 与 `INHERITS` relation 标记为 `REFERENCE`。`ALTER TABLE` 和 `ALTER FOREIGN TABLE` 将被操作对象标记为 `TARGET`；foreign key 及受支持的 `ATTACH/DETACH PARTITION` 对象标记为 `REFERENCE`。
 - `CREATE INDEX ... ON relation` 只将 `ON` 后的 relation 标记为 `TARGET`；index 名不是 relation。`TRUNCATE` 将每个 relation 标记为 `TARGET`。relation 类型的 `RENAME` 只投影旧对象，rename 后的新名称不伪装为第二个 relation。
 - `DROP TABLE`、`DROP VIEW`、`DROP MATERIALIZED VIEW` 和 `DROP FOREIGN TABLE` 将每个直接对象标记为 `TARGET`。Drop AST 使用对象名称列表而不是可写 relation 节点，因此这些 relation 没有 selector；quoted flags 仍依据各名称分段的精确来源 token 输出。
-- `CREATE VIEW`、`CREATE TABLE AS`、`CREATE MATERIALIZED VIEW`，以及 PostgreSQL/Vastbase-PostgreSQL、SQL Server/Vastbase-SQL Server 的 `SELECT ... INTO` 使用 query-backed DDL 形态：block `0` 是 DDL 根，目标 relation 为 `TARGET` 并通过 `source_block_index = 1` 指向来源查询入口。来源 SELECT relation 保留普通查询语义，`ddl_role = UNKNOWN`；它们位于来源查询 block 或其后代 block 中。
-- `CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不产生 DDL relation；方言 raw-surface DDL 只有在归一为上述受支持节点时才进入该投影。Oracle、Dameng 和 Vastbase-Oracle 的 `SELECT ... INTO` 仍是普通 SELECT，`INTO` 不是新建 relation。
+- `CREATE VIEW`、`CREATE TABLE AS`、`CREATE MATERIALIZED VIEW`，以及 PostgreSQL、Vastbase-PostgreSQL、KingbaseES-PostgreSQL、SQL Server、Vastbase-SQL Server 与 KingbaseES-SQLServer 的 `SELECT ... INTO` 使用 query-backed DDL 形态：block `0` 是 DDL 根，目标 relation 为 `TARGET` 并通过 `source_block_index = 1` 指向来源查询入口。来源 SELECT relation 保留普通查询语义，`ddl_role = UNKNOWN`；它们位于来源查询 block 或其后代 block 中。
+- `CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不产生 DDL relation；方言 raw-surface DDL 只有在归一为上述受支持节点时才进入该投影。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 的 `SELECT ... INTO` 仍是普通 SELECT，`INTO` 不是新建 relation。
 - 具有 relation selector 的 DDL target/reference 继续使用既有 `SQLPARSER_PATCH_REPLACE`。成功 patch 后 quoted flags、名称分段、DDL role 和 source block 在新 generation 中重新构建；旧 graph view 失效，clone 与原 handle 相互独立。Drop relation 没有 selector，不能通过该 relation 投影直接 patch。
 - DDL graph 中的字符串、span 和结构仍由 handle 持有，调用方不得释放；没有新增独立所有权或生命周期规则。
 
@@ -874,7 +882,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 
 普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但提交前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并保持原 handle 不变。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
 
-Oracle、Dameng 与 Vastbase-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 使用下述独立规则。
+Oracle、Dameng、Vastbase-Oracle 与 KingbaseES-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 使用下述独立规则。
 
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]`、`stmt[S].merge_assignment[W][A]` 或 `stmt[S].merge_assignment[D][W][A]`。
 
@@ -882,9 +890,9 @@ MERGE INSERT 以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT
 
 同一个 patch batch 可组合三种插入与单项替换，处理中允许列和值暂时不等长。批末对本批次触及且最终具有显式目标列列表的每个分支校验列数和值数相等；不相等时返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并整批原子回滚。最终仍省略目标列列表的分支允许 value-only 插入，不执行显式列等宽校验。单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标：前者通过 `sql` 提供标识符，后者通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。
 
-`SQLPARSER_PATCH_DELETE_COLUMN` 仍按列值对删除：使用同一 `insert_branch_columns` selector 和 `index`，并要求删除前存在等长的显式目标列与 VALUES 列表；省略列表、索引无效或删除最后一对时操作失败。`MERGE INSERT DEFAULT VALUES` 没有 VALUES 列表，因此三态插入和成对删除均返回 `SQLPARSER_STATUS_UNSUPPORTED`。省略目标列列表的 DEFAULT VALUES 分支为 0 列、0 行，不输出目标列表 selector；显式目标列列表时可能输出既有 selector，但该 selector 不会使上述操作可用。上述合同适用于本项目九个方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。
+`SQLPARSER_PATCH_DELETE_COLUMN` 仍按列值对删除：使用同一 `insert_branch_columns` selector 和 `index`，并要求删除前存在等长的显式目标列与 VALUES 列表；省略列表、索引无效或删除最后一对时操作失败。`MERGE INSERT DEFAULT VALUES` 没有 VALUES 列表，因此三态插入和成对删除均返回 `SQLPARSER_STATUS_UNSUPPORTED`。省略目标列列表的 DEFAULT VALUES 分支为 0 列、0 行，不输出目标列表 selector；显式目标列列表时可能输出既有 selector，但该 selector 不会使上述操作可用。上述合同适用于本项目十三个方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。
 
-对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng 和 Vastbase-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server 和 Vastbase SQL Server 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 在同一事务中原子插入两侧；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，handle 保持不变。
+对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server、Vastbase SQL Server 和 KingbaseES SQLServer 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 在同一事务中原子插入两侧；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，handle 保持不变。
 
 `sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`merge_insert_cell`、`select_target` 或 assignment 的 SQL 片段；克隆 assignment 时同样接受 `assignment` 和 `merge_assignment` 两种 selector。`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
 

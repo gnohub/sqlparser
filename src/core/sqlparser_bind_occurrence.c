@@ -8,8 +8,7 @@
 
 static int sqlparser_bind_is_postgresql(sqlparser_dialect_t dialect)
 {
-	return dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+	return sqlparser_dialect_uses_postgresql_placeholders(dialect);
 }
 
 static int sqlparser_bind_oracle_name_start(unsigned char ch)
@@ -110,7 +109,8 @@ static int sqlparser_bind_dollar_token(
 	}
 	value = 0U;
 	public_token = sqlparser_bind_is_postgresql(scanner->dialect) ||
-		scanner->dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		scanner->dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE ||
+		scanner->dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 	if (!public_token &&
 	    (!scanner->allow_markers ||
 	     !sqlparser_bind_unsigned_value(

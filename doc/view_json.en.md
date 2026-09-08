@@ -718,7 +718,7 @@ paired deletion are supported; selectors from an explicit list do not make
 either operation available.
 
 This is the View and patch contract for successfully parsed MERGE statements
-through all nine project dialect entry points; it does not claim that every
+through all thirteen project dialect entry points; it does not claim that every
 corresponding database server provides the syntax natively.
 
 `UPDATE`, `INSERT` conflict-update, and `MERGE` assignments use `target_field`

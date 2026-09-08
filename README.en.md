@@ -21,7 +21,7 @@ This release provides:
 - structured SQL fragment rewrites for assignment insertion into a root or nested UPDATE, a root INSERT conflict-update list, or a MERGE matched UPDATE action, and SELECT output-column expansion from identifier paths
 - selector parse / format / lookup, including `stmt[S].assignment[A]`, `stmt[S].assignment[D][A]`, and `stmt[S].merge_assignment[W][A]`
 - structured WHERE, ON, and HAVING predicate-RHS function/opaque expressions, with whole-expression and argument replacement plus function-argument insertion and deletion
-- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng / Vastbase compatibility conversion layers
+- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng / Vastbase / KingbaseES compatibility conversion layers
 - common prepared / parameterized SQL statement parsing, View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
 - View JSON export, C structured traversal, and structured patch write-back
@@ -144,7 +144,7 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle, SQL Server, Dameng, and Vastbase SQL can be selected explicitly through `options.dialect`:
+Oracle, SQL Server, Dameng, Vastbase, and KingbaseES SQL can be selected explicitly through `options.dialect`:
 
 ```c
 options.dialect = SQLPARSER_DIALECT_ORACLE;
@@ -154,6 +154,10 @@ options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
 options.dialect = SQLPARSER_DIALECT_VASTBASE_MYSQL;
 options.dialect = SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
 options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+options.dialect = SQLPARSER_DIALECT_KINGBASE_ORACLE;
+options.dialect = SQLPARSER_DIALECT_KINGBASE_MYSQL;
+options.dialect = SQLPARSER_DIALECT_KINGBASE_POSTGRESQL;
+options.dialect = SQLPARSER_DIALECT_KINGBASE_SQLSERVER;
 ```
 
 Compile the example with:

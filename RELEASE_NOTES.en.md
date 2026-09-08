@@ -1,11 +1,11 @@
-# v2.16.12 Release Notes
+# v2.16.13 Release Notes
 
-Query Graph exposes function or opaque RHS expressions for `WHERE`, `ON`, and `HAVING` predicates. Functions expose a normalized name, ordered literal/bind/field/expression arguments, and selectors; opaque expressions support whole-expression replacement.
+Added four public KingbaseES dialect enums and CLI entries for PostgreSQL, Oracle, MySQL, and SQL Server. The PostgreSQL, Oracle, and MySQL entries merge the V8/V9 syntax baselines, while SQL Server uses the V9R4 compatibility baseline. No entry accepts, detects, or dispatches on a server version.
 
-`expression` and `expression_arg` selectors support replacement, while `expression_args` supports function-argument insertion and deletion. Functions are treated as variadic; only selector/index validity and result-SQL parseability are checked, not function signatures, arity, or argument types.
+The entries reuse the existing base dialect capabilities. KingbaseES Oracle adds only a thin preprocess branch for plain `RETURNING`, while Oracle `RETURNING INTO` state and paired-rewrite boundaries remain unchanged. Oracle lexical scanning also protects `?` inside dollar-quoted literals.
 
-This release adds read-only expression/argument APIs, three selector kinds, and two patch operations. Existing public structure layouts and ownership rules remain unchanged, with 162 public symbols.
+The public API adds only four dialect enum values. No public function, structure field, View JSON field, or ownership rule was added, and the exported symbol count remains 162.
 
-Fifty-four final cases and 196 patches bring the nine fixtures to 3,062 final cases and 9,621 patches. The full `make test` suite, all nine dialect matrices, CLI checks, and the ABI export check passed.
+Four final fixtures add 175 cases and 628 patches. The thirteen fixtures now contain 3,237 final cases and 10,249 patches. The full remote `make test` suite, all thirteen dialect matrices, and all four KingbaseES CLI entries passed.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

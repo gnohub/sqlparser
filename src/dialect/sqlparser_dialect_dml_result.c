@@ -401,6 +401,7 @@ sqlparser_status_t sqlparser_dialect_returning_into_validate(
 	sqlparser_dialect_t dialect,
 	const char *sql,
 	int allow_return_keyword,
+	int allow_plain_returning,
 	sqlparser_error_t *out_error)
 {
 	size_t position;
@@ -447,6 +448,15 @@ sqlparser_status_t sqlparser_dialect_returning_into_validate(
 				    position,
 				    allow_return_keyword,
 				    &clause)) {
+				if (allow_plain_returning &&
+				    sqlparser_returning_into_word_equal(
+					    sql,
+					    position,
+					    word_end,
+					    "returning")) {
+					position = word_end;
+					continue;
+				}
 				sqlparser_error_set_message(
 					out_error,
 					SQLPARSER_STATUS_UNSUPPORTED,
@@ -1215,7 +1225,8 @@ static PgQuery__Node *sqlparser_dialect_postgresql_statement(
 	size_t statement_index)
 {
 	if (handle == NULL ||
-	    (!sqlparser_dialect_uses_postgresql_placeholders(handle->dialect) &&
+	    (!sqlparser_dialect_supports_postgresql_dml_results(
+		     handle->dialect) &&
 	     !sqlparser_dialect_has_returning_into(
 		     handle->dialect,
 		     handle->dialect_state,
@@ -1389,7 +1400,8 @@ size_t sqlparser_dialect_dml_result_count(
 		    statement_index)) {
 		return 1U;
 	}
-	if (sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
+	if (sqlparser_dialect_supports_postgresql_dml_results(
+		    handle->dialect)) {
 		count = 0U;
 		(void)sqlparser_dialect_postgresql_dml_result_visit(
 			handle,
@@ -1477,7 +1489,8 @@ int sqlparser_dialect_dml_result_dml_at(
 		return 1;
 	}
 	if (handle != NULL &&
-	    sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
+	    sqlparser_dialect_supports_postgresql_dml_results(
+		    handle->dialect)) {
 		return sqlparser_dialect_postgresql_dml_at(
 			handle, statement_index, dml_index, out_dml);
 	}
@@ -1533,7 +1546,8 @@ int sqlparser_dialect_dml_result_channel_at(
 		return 1;
 	}
 	if (handle != NULL &&
-	    sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
+	    sqlparser_dialect_supports_postgresql_dml_results(
+		    handle->dialect)) {
 		sqlparser_dialect_dml_result_dml_t dml;
 
 		memset(&dml, 0, sizeof(dml));
@@ -1625,7 +1639,7 @@ sqlparser_status_t sqlparser_dialect_dml_result_preprocess_target_sql(
 	sqlparser_error_t *out_error)
 {
 	(void)state;
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	if (sqlparser_dialect_supports_postgresql_dml_results(dialect) ||
 	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		if (public_sql == NULL || out_sql == NULL || out_action_marker == NULL) {
 			sqlparser_error_set_message(
@@ -1666,7 +1680,7 @@ sqlparser_status_t sqlparser_dialect_dml_result_postprocess_target_sql(
 {
 	const char *action_marker;
 
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	if (sqlparser_dialect_supports_postgresql_dml_results(dialect) ||
 	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		if (parser_sql == NULL || out_sql == NULL) {
 			sqlparser_error_set_message(
@@ -1732,15 +1746,18 @@ sqlparser_status_t sqlparser_dialect_dml_result_adjust_target_count(
 	size_t global_index;
 	sqlparser_status_t status;
 
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
-		return SQLPARSER_STATUS_OK;
-	}
-	if (sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
+	if (sqlparser_dialect_returning_into_item_mutable(
+		    dialect,
+		    state,
+		    statement_index) != NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_UNSUPPORTED,
 			"RETURNING INTO target insertion and deletion are unsupported");
 		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (sqlparser_dialect_supports_postgresql_dml_results(dialect)) {
+		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_dialect_dml_result_mutable_index(
 		dialect, state, statement_index, dml_index, &output, &global_index, out_error);
@@ -1808,7 +1825,7 @@ sqlparser_status_t sqlparser_dialect_dml_result_set_action_marker(
 	size_t global_index;
 	sqlparser_status_t status;
 
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	if (sqlparser_dialect_supports_postgresql_dml_results(dialect) ||
 	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		return SQLPARSER_STATUS_OK;
 	}

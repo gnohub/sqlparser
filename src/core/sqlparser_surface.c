@@ -342,10 +342,8 @@ static size_t sqlparser_public_skip_oracle_q_quote(
 
 static int sqlparser_public_nested_comments(sqlparser_dialect_t dialect)
 {
-	return dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-		dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+	return sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+		sqlparser_dialect_is_sqlserver_compatible(dialect);
 }
 
 size_t sqlparser_public_skip_quoted_or_comment(
@@ -360,8 +358,8 @@ size_t sqlparser_public_skip_quoted_or_comment(
 	if (sql == NULL || sql[index] == '\0') {
 		return index;
 	}
-	if (dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-	    dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL) {
+	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	    sqlparser_dialect_is_oracle_compatible(dialect)) {
 		pos = sqlparser_public_skip_dollar_quote(sql, index);
 		if (pos != index) {
 			return pos;

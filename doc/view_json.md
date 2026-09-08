@@ -560,7 +560,7 @@ MERGE INSERT 的每个 `target_columns[]` 对象包含单列 `selector`，每个
 
 单列和完整 cell selector 可分别用于 `SQLPARSER_PATCH_REPLACE`。目标列表 selector 可用于 `SQLPARSER_PATCH_INSERT_COLUMN` 的三种载荷：name-only 在 `index` 处增加目标列，value-only 在 `index` 处增加 VALUES cell，name + value 在两侧同位增加。批次中间允许列值暂时不等长；本批次触及且最终具有显式目标列列表的分支必须在提交前等宽，否则整批原子回滚。最终仍省略列表时允许 value-only。`SQLPARSER_PATCH_DELETE_COLUMN` 继续成对删除，并要求删除前存在等长的显式列表；省略列表不支持该删除。DEFAULT VALUES 没有 VALUES 列表，因此三态插入和成对删除均不支持；显式列表产生的 selector 也不会使这两类操作可用。
 
-以上是本项目九个方言入口对成功解析 MERGE 的 View 与 patch 合同，不表示对应数据库服务端均原生提供该语法。
+以上是本项目十三个方言入口对成功解析 MERGE 的 View 与 patch 合同，不表示对应数据库服务端均原生提供该语法。
 
 `UPDATE`、`INSERT` 冲突更新和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
 

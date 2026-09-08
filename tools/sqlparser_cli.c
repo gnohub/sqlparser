@@ -50,11 +50,11 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact] [--file PATH] [--] [SQL]\n",
+		"Usage: %s [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver|kingbase-oracle|kingbase-mysql|kingbase-postgresql|kingbase-sqlserver] [--compact] [--file PATH] [--] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver|kingbase-oracle|kingbase-mysql|kingbase-postgresql|kingbase-sqlserver] [--compact]\n",
 		program);
 	fprintf(stderr, "       %s --file ./input.sql\n", program);
 	fprintf(stderr, "       %s --batch-file ./sql_batch.json --output ./out.json\n", program);
@@ -273,6 +273,22 @@ static int sqlparser_cli_parse_dialect(const char *value, sqlparser_dialect_t *d
 	if (sqlparser_cli_ascii_equal_ci(value, "vastbase-sqlserver") ||
 	    sqlparser_cli_ascii_equal_ci(value, "vastbase-mssql")) {
 		*dialect_out = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "kingbase-oracle")) {
+		*dialect_out = SQLPARSER_DIALECT_KINGBASE_ORACLE;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "kingbase-mysql")) {
+		*dialect_out = SQLPARSER_DIALECT_KINGBASE_MYSQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "kingbase-postgresql")) {
+		*dialect_out = SQLPARSER_DIALECT_KINGBASE_POSTGRESQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "kingbase-sqlserver")) {
+		*dialect_out = SQLPARSER_DIALECT_KINGBASE_SQLSERVER;
 		return 0;
 	}
 
@@ -622,7 +638,7 @@ static int sqlparser_cli_run_batch(
 			    sqlparser_cli_parse_dialect(json_string_value(dialect_json), &batch_dialect) != 0) {
 				json_decref(input_root);
 				json_decref(output_root);
-				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver/dameng/vastbase-oracle/vastbase-mysql/vastbase-postgresql/vastbase-sqlserver\n");
+				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver/dameng/vastbase-oracle/vastbase-mysql/vastbase-postgresql/vastbase-sqlserver/kingbase-oracle/kingbase-mysql/kingbase-postgresql/kingbase-sqlserver\n");
 				return 1;
 			}
 		}

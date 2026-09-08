@@ -3595,7 +3595,8 @@ static int sqlparser_patch_merge_attached_delete_at(
 	size_t where_pos;
 
 	if (!(dialect == SQLPARSER_DIALECT_ORACLE ||
-	      dialect == SQLPARSER_DIALECT_DAMENG) ||
+	      dialect == SQLPARSER_DIALECT_DAMENG ||
+	      dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE) ||
 	    !sqlparser_patch_source_word_at(sql, length, pos, "delete")) {
 		return 0;
 	}
@@ -3678,7 +3679,8 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 		     handle->dialect) &&
 	     !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
 	     handle->dialect != SQLPARSER_DIALECT_POSTGRESQL &&
-	     handle->dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL)) {
+	     handle->dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL &&
+	     handle->dialect != SQLPARSER_DIALECT_KINGBASE_POSTGRESQL)) {
 		return SQLPARSER_STATUS_OK;
 	}
 	target_list = NULL;
@@ -4071,7 +4073,9 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 					(handle->dialect ==
 						 SQLPARSER_DIALECT_ORACLE ||
 					 handle->dialect ==
-						 SQLPARSER_DIALECT_DAMENG) &&
+						 SQLPARSER_DIALECT_DAMENG ||
+					 handle->dialect ==
+						 SQLPARSER_DIALECT_KINGBASE_ORACLE) &&
 					sqlparser_patch_source_word_at(
 						handle->sql,
 						scan_end,
@@ -8742,7 +8746,9 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			      handle->dialect) ||
 		      handle->dialect == SQLPARSER_DIALECT_POSTGRESQL ||
 		      handle->dialect ==
-			      SQLPARSER_DIALECT_VASTBASE_POSTGRESQL))) &&
+			      SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
+		      handle->dialect ==
+			      SQLPARSER_DIALECT_KINGBASE_POSTGRESQL))) &&
 		   ((patch->sql != NULL && patch->sql[0] != '\0') ||
 		    (patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT &&
 		     patch->source_selector != NULL &&

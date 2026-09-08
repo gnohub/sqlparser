@@ -83,6 +83,7 @@ sqlparser_status_t sqlparser_dialect_returning_into_validate(
 	sqlparser_dialect_t dialect,
 	const char *sql,
 	int allow_return_keyword,
+	int allow_plain_returning,
 	sqlparser_error_t *out_error);
 
 int sqlparser_dialect_returning_into_receiver_is_bind(

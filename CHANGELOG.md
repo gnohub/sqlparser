@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.13
+
+### KingbaseES 统一方言入口
+
+- 新增 `SQLPARSER_DIALECT_KINGBASE_POSTGRESQL`、`SQLPARSER_DIALECT_KINGBASE_ORACLE`、`SQLPARSER_DIALECT_KINGBASE_MYSQL` 和 `SQLPARSER_DIALECT_KINGBASE_SQLSERVER`，CLI 同步新增四个对应入口。
+- PostgreSQL、Oracle 和 MySQL 入口合并 KingbaseES V8/V9 官方语法基线，SQL Server 入口以 V9R4 兼容版为基线；公开 API、case 和解析路径均不接收、检测或分派服务端版本。
+- PostgreSQL、MySQL 和 SQL Server 入口直接复用对应基础方言 ops。KingbaseES Oracle 仅通过薄 preprocess 分支增加 plain `RETURNING`，保留 Oracle `RETURNING INTO` 的状态和成对改写边界；Oracle 公共词法扫描同时正确跳过 dollar-quoted literal 内的伪 bind。
+- 本版本仅新增 4 个公开枚举值，不新增公开函数、结构体字段、View JSON 字段或所有权规则；公开导出符号保持 162 个。
+
+### 用例与验证
+
+- 新增 4 套 KingbaseES final fixture，合计 175 条 case 和 628 个 patch；13 套 fixture 当前合计 3,237 条 final case 和 10,249 个 patch。
+- 远端完整 `make test`、13 套方言矩阵和四个 KingbaseES CLI 入口验证均通过。
+
 ## 2.16.12
 
 ### Predicate RHS 表达式与函数参数改写

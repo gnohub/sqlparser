@@ -56,6 +56,14 @@ sqlparser_identifier_origin_preprocess_for_dialect(sqlparser_dialect_t dialect)
 			return sqlparser_vastbase_postgresql_preprocess_identifier_origins;
 		case SQLPARSER_DIALECT_VASTBASE_SQLSERVER:
 			return sqlparser_vastbase_sqlserver_preprocess_identifier_origins;
+		case SQLPARSER_DIALECT_KINGBASE_ORACLE:
+			return sqlparser_kingbase_oracle_preprocess_identifier_origins;
+		case SQLPARSER_DIALECT_KINGBASE_MYSQL:
+			return sqlparser_mysql_preprocess_identifier_origins;
+		case SQLPARSER_DIALECT_KINGBASE_POSTGRESQL:
+			return sqlparser_postgresql_preprocess_identifier_origins;
+		case SQLPARSER_DIALECT_KINGBASE_SQLSERVER:
+			return sqlparser_sqlserver_preprocess_identifier_origins;
 		default:
 			return NULL;
 	}

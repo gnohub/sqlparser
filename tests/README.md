@@ -67,6 +67,10 @@ make test
 - `tests/unit/test_vastbase_mysql_dialect_case_matrix.c`
 - `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c`
 - `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c`
+- `tests/unit/test_kingbase_oracle_dialect_case_matrix.c`
+- `tests/unit/test_kingbase_mysql_dialect_case_matrix.c`
+- `tests/unit/test_kingbase_postgresql_dialect_case_matrix.c`
+- `tests/unit/test_kingbase_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_robustness.c`
 - `tests/unit/test_stability.c`
 - `tests/install/install_smoke.c`
@@ -79,6 +83,10 @@ make test
 - `tests/cases/vastbase_mysql_dialect_input.json`
 - `tests/cases/vastbase_postgresql_dialect_input.json`
 - `tests/cases/vastbase_sqlserver_dialect_input.json`
+- `tests/cases/kingbase_oracle_dialect_input.json`
+- `tests/cases/kingbase_mysql_dialect_input.json`
+- `tests/cases/kingbase_postgresql_dialect_input.json`
+- `tests/cases/kingbase_sqlserver_dialect_input.json`
 - `tests/verify_cli_batch.py`
 
 ## 覆盖范围
@@ -102,6 +110,7 @@ make test
 - SQL Server 方言转换层的解析、反解析和明确不支持语法返回码
 - 达梦方言转换层的解析、反解析和明确不支持语法返回码
 - Vastbase 四个显式兼容模式的解析、反解析和明确不支持语法返回码
+- KingbaseES 四个显式兼容入口的解析、反解析和 patch 回放；每种模式只保留统一入口，不按 V8/V9 分派
 - 公共 API 空指针、越界访问、错误 selector、错误 patch、畸形输入和重复解析的抗崩溃回归
 - 参数校验、资源限制、畸形 SQL、失败改写回滚和方言公共输出稳定性
 
@@ -116,3 +125,7 @@ make test
 - [Vastbase MySQL 兼容模式用例矩阵](./cases/vastbase_mysql_dialect_matrix.md)
 - [Vastbase PostgreSQL 兼容模式用例矩阵](./cases/vastbase_postgresql_dialect_matrix.md)
 - [Vastbase SQL Server 兼容模式用例矩阵](./cases/vastbase_sqlserver_dialect_matrix.md)
+- [KingbaseES Oracle 兼容入口用例矩阵](./cases/kingbase_oracle_dialect_matrix.md)
+- [KingbaseES MySQL 兼容入口用例矩阵](./cases/kingbase_mysql_dialect_matrix.md)
+- [KingbaseES PostgreSQL 兼容入口用例矩阵](./cases/kingbase_postgresql_dialect_matrix.md)
+- [KingbaseES SQL Server 兼容入口用例矩阵](./cases/kingbase_sqlserver_dialect_matrix.md)

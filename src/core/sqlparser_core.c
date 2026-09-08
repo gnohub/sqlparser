@@ -3889,6 +3889,19 @@ const char *sqlparser_dialect_name(sqlparser_dialect_t dialect)
 {
 	const sqlparser_dialect_ops_t *ops;
 
+	switch (dialect) {
+		case SQLPARSER_DIALECT_KINGBASE_ORACLE:
+			return "kingbase-oracle";
+		case SQLPARSER_DIALECT_KINGBASE_MYSQL:
+			return "kingbase-mysql";
+		case SQLPARSER_DIALECT_KINGBASE_POSTGRESQL:
+			return "kingbase-postgresql";
+		case SQLPARSER_DIALECT_KINGBASE_SQLSERVER:
+			return "kingbase-sqlserver";
+		default:
+			break;
+	}
+
 	ops = sqlparser_dialect_get_ops(dialect);
 	if (ops != NULL && ops->name != NULL) {
 		return ops->name;
@@ -4002,6 +4015,7 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 			if (dialect != SQLPARSER_DIALECT_ORACLE &&
 			    dialect != SQLPARSER_DIALECT_DAMENG &&
 			    dialect != SQLPARSER_DIALECT_VASTBASE_ORACLE &&
+			    dialect != SQLPARSER_DIALECT_KINGBASE_ORACLE &&
 			    sqlparser_merge_condition_has_action_where(
 				    condition)) {
 				sqlparser_error_set_message(
@@ -4012,7 +4026,8 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 			}
 			if (when_clause->delete_condition != NULL &&
 			    (dialect != SQLPARSER_DIALECT_ORACLE &&
-			     dialect != SQLPARSER_DIALECT_DAMENG)) {
+			     dialect != SQLPARSER_DIALECT_DAMENG &&
+			     dialect != SQLPARSER_DIALECT_KINGBASE_ORACLE)) {
 				sqlparser_error_set_message(
 					out_error,
 					SQLPARSER_STATUS_UNSUPPORTED,
@@ -4033,6 +4048,7 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 		}
 	}
 	if (dialect != SQLPARSER_DIALECT_POSTGRESQL &&
+	    dialect != SQLPARSER_DIALECT_KINGBASE_POSTGRESQL &&
 	    insert_count > 1U) {
 		sqlparser_error_set_message(
 			out_error,
@@ -4054,14 +4070,16 @@ static int sqlparser_dialect_supports_connect_by(
 {
 	return dialect == SQLPARSER_DIALECT_ORACLE ||
 		dialect == SQLPARSER_DIALECT_DAMENG ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 static int sqlparser_dialect_supports_hierarchy_operators(
 	sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_ORACLE ||
-		dialect == SQLPARSER_DIALECT_DAMENG;
+		dialect == SQLPARSER_DIALECT_DAMENG ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 static sqlparser_status_t sqlparser_vastbase_connect_by_root_target(

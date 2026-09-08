@@ -21,6 +21,14 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dia
 			return sqlparser_dialect_vastbase_postgresql_ops();
 		case SQLPARSER_DIALECT_VASTBASE_SQLSERVER:
 			return sqlparser_dialect_vastbase_sqlserver_ops();
+		case SQLPARSER_DIALECT_KINGBASE_ORACLE:
+			return sqlparser_dialect_kingbase_oracle_ops();
+		case SQLPARSER_DIALECT_KINGBASE_MYSQL:
+			return sqlparser_dialect_mysql_ops();
+		case SQLPARSER_DIALECT_KINGBASE_POSTGRESQL:
+			return sqlparser_dialect_postgresql_ops();
+		case SQLPARSER_DIALECT_KINGBASE_SQLSERVER:
+			return sqlparser_dialect_sqlserver_ops();
 		default:
 			return NULL;
 	}
@@ -34,26 +42,37 @@ int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect)
 int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+		dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_POSTGRESQL;
+}
+
+int sqlparser_dialect_supports_postgresql_dml_results(
+	sqlparser_dialect_t dialect)
+{
+	return sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 int sqlparser_dialect_uses_oracle_placeholders(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_ORACLE ||
 		dialect == SQLPARSER_DIALECT_DAMENG ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 int sqlparser_dialect_uses_sqlserver_placeholders(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER;
 }
 
 int sqlparser_dialect_is_oracle_compatible(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_ORACLE ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 int sqlparser_dialect_is_oracle_or_dameng_compatible(sqlparser_dialect_t dialect)
@@ -65,13 +84,15 @@ int sqlparser_dialect_is_oracle_or_dameng_compatible(sqlparser_dialect_t dialect
 int sqlparser_dialect_is_mysql_compatible(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_MYSQL ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL;
+		dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_MYSQL;
 }
 
 int sqlparser_dialect_is_sqlserver_compatible(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER;
 }
 
 const char *sqlparser_dialect_relation_object_name(

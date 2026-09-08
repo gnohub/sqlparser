@@ -4733,6 +4733,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 		SQLPARSER_DIALECT_DAMENG,
 		input_sql,
 		1,
+		0,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_dameng_state_destroy(state);

@@ -230,6 +230,14 @@ sqlparser_status_t sqlparser_oracle_preprocess_fragment_identifier_origins(
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+const sqlparser_dialect_ops_t *sqlparser_dialect_kingbase_oracle_ops(void);
+sqlparser_status_t sqlparser_kingbase_oracle_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
 sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
 	const char *input_sql,
@@ -338,6 +346,7 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_identifier_origins(
 	sqlparser_error_t *out_error);
 
 int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect);
+int sqlparser_dialect_supports_postgresql_dml_results(sqlparser_dialect_t dialect);
 int sqlparser_dialect_uses_oracle_placeholders(sqlparser_dialect_t dialect);
 int sqlparser_dialect_uses_sqlserver_placeholders(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_oracle_compatible(sqlparser_dialect_t dialect);

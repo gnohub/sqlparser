@@ -1304,7 +1304,15 @@ static int test_statement_kind_walk(void)
 	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_POSTGRESQL), "vastbase-postgresql") == 0,
 	                "vastbase postgresql dialect name should match") != 0 ||
 	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_SQLSERVER), "vastbase-sqlserver") == 0,
-	                "vastbase sqlserver dialect name should match") != 0) {
+	                "vastbase sqlserver dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_KINGBASE_ORACLE), "kingbase-oracle") == 0,
+	                "kingbase oracle dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_KINGBASE_MYSQL), "kingbase-mysql") == 0,
+	                "kingbase mysql dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_KINGBASE_POSTGRESQL), "kingbase-postgresql") == 0,
+	                "kingbase postgresql dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_KINGBASE_SQLSERVER), "kingbase-sqlserver") == 0,
+	                "kingbase sqlserver dialect name should match") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}

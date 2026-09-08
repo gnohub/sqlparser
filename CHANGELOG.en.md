@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.13
+
+### Unified KingbaseES Dialect Entries
+
+- Added `SQLPARSER_DIALECT_KINGBASE_POSTGRESQL`, `SQLPARSER_DIALECT_KINGBASE_ORACLE`, `SQLPARSER_DIALECT_KINGBASE_MYSQL`, and `SQLPARSER_DIALECT_KINGBASE_SQLSERVER`, together with the four corresponding CLI entries.
+- The PostgreSQL, Oracle, and MySQL entries merge the official KingbaseES V8/V9 syntax baselines, while the SQL Server entry follows the V9R4 compatibility baseline. The public API, fixtures, and parser paths do not accept, detect, or dispatch on a server version.
+- The PostgreSQL, MySQL, and SQL Server entries directly reuse their base dialect ops. KingbaseES Oracle adds plain `RETURNING` through a thin preprocess branch while retaining Oracle `RETURNING INTO` state and paired-rewrite boundaries. Shared Oracle lexical scanning also skips false bind markers inside dollar-quoted literals.
+- This release adds only four public enum values. It adds no public function, structure field, View JSON field, or ownership rule, and the public export count remains 162.
+
+### Cases and Validation
+
+- Four KingbaseES final fixtures add 175 cases and 628 patches. The thirteen fixtures now contain 3,237 final cases and 10,249 patches.
+- The full remote `make test` suite, all thirteen dialect matrices, and all four KingbaseES CLI entries passed.
+
 ## 2.16.12
 
 ### Predicate RHS Expressions and Function-Argument Rewrites

@@ -292,6 +292,10 @@ Defined dialects:
 | `SQLPARSER_DIALECT_VASTBASE_MYSQL` | Vastbase MySQL compatibility mode |
 | `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL` | Vastbase PostgreSQL compatibility mode |
 | `SQLPARSER_DIALECT_VASTBASE_SQLSERVER` | Vastbase SQL Server compatibility mode |
+| `SQLPARSER_DIALECT_KINGBASE_ORACLE` | KingbaseES Oracle compatibility mode |
+| `SQLPARSER_DIALECT_KINGBASE_MYSQL` | KingbaseES MySQL compatibility mode |
+| `SQLPARSER_DIALECT_KINGBASE_POSTGRESQL` | KingbaseES PostgreSQL compatibility mode |
+| `SQLPARSER_DIALECT_KINGBASE_SQLSERVER` | KingbaseES SQL Server compatibility mode |
 
 ## Lifecycle and Thread Model
 
@@ -395,7 +399,7 @@ text inside strings, comments, or delimited identifiers is excluded. View JSON
 does not contain this complete occurrence list, and its semantic bind subset
 cannot be used to reconstruct one.
 
-The public token boundaries for the nine dialect entry points are below. These
+The public token boundaries for the thirteen dialect entry points are below. These
 rules describe this project's parser entry points, not the capabilities of a
 compatible database server.
 
@@ -410,6 +414,10 @@ compatible database server.
 | Vastbase-MySQL | same as MySQL | same as MySQL |
 | Vastbase-PostgreSQL | same as PostgreSQL | same as PostgreSQL |
 | Vastbase-SQLServer | same as SQL Server | same as SQL Server |
+| KingbaseES-Oracle | Oracle forms plus positive `$n` | similar text inside dollar quotes, strings, comments, and delimited identifiers is excluded |
+| KingbaseES-MySQL | same as MySQL | same as MySQL |
+| KingbaseES-PostgreSQL | same as PostgreSQL | same as PostgreSQL |
+| KingbaseES-SQLServer | same as SQL Server | same as SQL Server |
 
 Each Oracle- or Dameng-compatible `name` segment is
 `[A-Za-z_][A-Za-z0-9_$#]*`. For SQL Server-compatible entries, the first
@@ -427,7 +435,7 @@ preserved separately and distinguished by its own `position`.
 | `sqlparser_statement_node_name()` | returns the underlying node name |
 | `sqlparser_statement_target_relation()` | returns the primary target relation |
 
-MySQL and Vastbase-MySQL multi-target UPDATE statements have no single primary
+MySQL, Vastbase-MySQL, and KingbaseES-MySQL multi-target UPDATE statements have no single primary
 target, so `sqlparser_statement_target_relation()` returns
 `SQLPARSER_STATUS_UNSUPPORTED`. A Dameng multi-table UPDATE requires every SET
 assignment to reference the same table object, and this function returns that
@@ -914,8 +922,8 @@ from which it was read.
   cases.
 - `sqlparser_graph_dml_column_t.quoted_identifier` has C type `int` and applies
   only to a target `column_name`. The field is used for target columns in
-  regular INSERT, MERGE INSERT branches, Oracle, Dameng, and Vastbase-Oracle
-  `INSERT ALL/FIRST` branches, and relation-backed SQL Server `OUTPUT ... INTO`
+  regular INSERT, MERGE INSERT branches, Oracle, Dameng, Vastbase-Oracle, and
+  KingbaseES-Oracle `INSERT ALL/FIRST` branches, and relation-backed SQL Server `OUTPUT ... INTO`
   sinks.
 - Each flag above is `1` only when its exact source token uses `"..."`, MySQL
   backticks, or SQL Server `[...]`; it is `0` otherwise and does not classify
@@ -924,7 +932,7 @@ from which it was read.
 - The five relation-component flags cover direct DDL relations, ordinary
   SELECT/INSERT/UPDATE/DELETE and MERGE relations, multi-table INSERT branch
   targets, relation-backed DML result sinks, and remote objects. For Oracle,
-  Dameng, and Vastbase-Oracle, an `INSERT ALL ... INTO ...@link` branch target
+  Dameng, Vastbase-Oracle, and KingbaseES-Oracle, an `INSERT ALL ... INTO ...@link` branch target
   relation fully projects `object_name`, `link_name`, and their corresponding
   delimiter flags.
 - These scalar fields introduce no independently allocated object that callers
@@ -994,7 +1002,7 @@ from which it was read.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
   `INSERT ALL`, `INSERT FIRST`, MySQL `INSERT ... SET`, and the MySQL `REPLACE`
   `VALUES`, `SELECT`, and `SET` forms.
-- A MySQL or Vastbase-MySQL multi-target UPDATE sets
+- A MySQL, Vastbase-MySQL, or KingbaseES-MySQL multi-target UPDATE sets
   `sqlparser_graph_dml_t.has_target_relation = 0`; each assignment's
   `target_field_index` identifies a target field with its own relation. A
   Dameng multi-table UPDATE always has one write target and sets
@@ -1118,8 +1126,8 @@ from which it was read.
   rather than writable relation nodes, so these relations have no selector;
   quoted flags are still derived from the exact token for each name segment.
 - `CREATE VIEW`, `CREATE TABLE AS`, `CREATE MATERIALIZED VIEW`, and
-  `SELECT ... INTO` for PostgreSQL/Vastbase-PostgreSQL and SQL
-  Server/Vastbase-SQL Server use a query-backed DDL shape. Block `0` is the DDL
+  `SELECT ... INTO` for PostgreSQL, Vastbase-PostgreSQL, KingbaseES-PostgreSQL,
+  SQL Server, Vastbase-SQL Server, and KingbaseES-SQLServer use a query-backed DDL shape. Block `0` is the DDL
   root; its target relation is `TARGET` and points to source query entry block
   `1` through `source_block_index`. Source SELECT relations keep ordinary query
   semantics with `ddl_role = UNKNOWN` and belong to the source block or one of
@@ -1127,8 +1135,8 @@ from which it was read.
 - Non-relation DDL such as `CREATE SCHEMA`, `CREATE SEQUENCE`,
   `CREATE SYNONYM`, and `DROP INDEX` does not produce a DDL relation. A dialect raw
   surface enters this projection only when it is normalized into one of the
-  supported nodes above. Oracle, Dameng, and Vastbase-Oracle `SELECT ... INTO`
-  remains an ordinary SELECT; `INTO` does not create a relation.
+  supported nodes above. Oracle, Dameng, Vastbase-Oracle, and KingbaseES-Oracle
+  `SELECT ... INTO` remains an ordinary SELECT; `INTO` does not create a relation.
 - A DDL target/reference with a relation selector continues to support the
   existing `SQLPARSER_PATCH_REPLACE`. After a successful patch, quote flags,
   name segments, DDL role, and source block are rebuilt in the new generation;
@@ -1272,8 +1280,8 @@ unchanged. The name-only VALUES mode does not apply to `DEFAULT VALUES` or
 MySQL `INSERT ... SET`; the existing target-column insertion semantics for
 `INSERT ... SELECT` remain unchanged.
 
-An explicit VALUES branch in the currently modeled Oracle, Dameng, and
-Vastbase-Oracle `INSERT ALL/FIRST` forms uses
+An explicit VALUES branch in the currently modeled Oracle, Dameng,
+Vastbase-Oracle, and KingbaseES-Oracle `INSERT ALL/FIRST` forms uses
 `stmt[S].insert_branch_columns[B]`, where `B` is the branch ordinal. The
 same name-only payload adds a column name only to that branch and does not
 modify its cells, any other branch, or the source SELECT. Supplying one value
@@ -1319,16 +1327,16 @@ deletion return `SQLPARSER_STATUS_UNSUPPORTED`. An omitted-list DEFAULT VALUES
 action has zero columns and zero rows and exposes no target-list selector. An
 explicit-list form may expose its existing selector, but that selector does not
 make either operation available. This contract covers successfully parsed
-MERGE statements through all nine project dialect entry points; it does not
+MERGE statements through all thirteen project dialect entry points; it does not
 claim that every corresponding database server provides the syntax natively.
 
 For a DML result channel with an explicit paired receiver list, target the
 `dml_result_targets` list selector with `SQLPARSER_PATCH_INSERT_COLUMN`.
 `index` is the common insertion position in both lists, `default_sql` supplies
 the new target SQL, and `name` supplies its receiver. The receiver is a colon
-bind for Oracle, Dameng, and Vastbase-Oracle compatibility mode, and an
-explicit sink column for SQL Server and Vastbase SQL Server compatibility
-mode. `sqlparser_apply_patch()` inserts both sides atomically in one
+bind for Oracle, Dameng, Vastbase-Oracle, and KingbaseES-Oracle compatibility
+mode, and an explicit sink column for SQL Server, Vastbase SQL Server, and
+KingbaseES SQLServer compatibility mode. `sqlparser_apply_patch()` inserts both sides atomically in one
 transaction. Unequal list lengths, an invalid index or receiver, or an invalid
 payload-field combination fails without changing the handle.
 

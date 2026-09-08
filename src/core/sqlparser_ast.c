@@ -3406,7 +3406,8 @@ static int sqlparser_generated_read_identifier(
 		}
 	} else if (source != NULL &&
 		   (source->dialect == SQLPARSER_DIALECT_MYSQL ||
-		    source->dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL) &&
+		    source->dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL ||
+		    source->dialect == SQLPARSER_DIALECT_KINGBASE_MYSQL) &&
 		   *out_style ==
 			   SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED) {
 		*out_style =

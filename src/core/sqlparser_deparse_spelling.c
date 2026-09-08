@@ -1820,12 +1820,9 @@ int sqlparser_source_alias_has_explicit_as(
 	resolver.sql = sql;
 	resolver.length = length;
 	resolver.mysql_lex =
-		dialect == SQLPARSER_DIALECT_MYSQL ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL;
+		sqlparser_dialect_is_mysql_compatible(dialect);
 	resolver.oracle_q_quotes =
-		dialect == SQLPARSER_DIALECT_ORACLE ||
-		dialect == SQLPARSER_DIALECT_DAMENG ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		sqlparser_dialect_is_oracle_or_dameng_compatible(dialect);
 	return sqlparser_source_preceding_token_is_as(
 		&resolver,
 		alias_offset);
@@ -2022,8 +2019,8 @@ static bool sqlparser_resolve_assignment_qualifier(
 	}
 	resolver = (sqlparser_identifier_resolver_t *)context;
 	if (resolver->handle == NULL ||
-	    (resolver->handle->dialect != SQLPARSER_DIALECT_MYSQL &&
-	     resolver->handle->dialect != SQLPARSER_DIALECT_VASTBASE_MYSQL) ||
+	    !sqlparser_dialect_is_mysql_compatible(
+		    resolver->handle->dialect) ||
 	    resolver->origins == NULL || resolver->origin_source == NULL) {
 		return false;
 	}
@@ -3011,21 +3008,17 @@ static void sqlparser_identifier_resolver_init(
 	resolver->sql = handle->sql;
 	resolver->length = handle->sql_len;
 	resolver->mysql_lex =
-		handle->dialect == SQLPARSER_DIALECT_MYSQL ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL;
+		sqlparser_dialect_is_mysql_compatible(handle->dialect);
 	resolver->oracle_q_quotes =
-		handle->dialect == SQLPARSER_DIALECT_ORACLE ||
-		handle->dialect == SQLPARSER_DIALECT_DAMENG ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		sqlparser_dialect_is_oracle_or_dameng_compatible(
+			handle->dialect);
 	resolver->colon_binds = resolver->oracle_q_quotes;
 	resolver->at_binds =
 		resolver->mysql_lex ||
-		handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 	resolver->top_keyword =
 		handle->dialect == SQLPARSER_DIALECT_DAMENG ||
-		handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 }
 
 sqlparser_status_t sqlparser_identifier_origins_for_handle(
@@ -3835,11 +3828,8 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 	options.type_cast_as_function =
 		sqlparser_dialect_is_oracle_or_dameng_compatible(
 			handle->dialect) ||
-		handle->dialect == SQLPARSER_DIALECT_MYSQL ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL ||
-		handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		handle->dialect ==
-			SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+		sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 	if (handle->generation == 0UL) {
 		reference_resolver = resolver;
 		reference_resolver.cursor = 0U;
@@ -4061,11 +4051,8 @@ PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 	options.type_cast_as_function =
 		sqlparser_dialect_is_oracle_or_dameng_compatible(
 			handle->dialect) ||
-		handle->dialect == SQLPARSER_DIALECT_MYSQL ||
-		handle->dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL ||
-		handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		handle->dialect ==
-			SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+		sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+		sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 	options.identifier_resolver_context = &resolver;
 	if (!sqlparser_prepare_generated_identifier_tree(
 		    handle,
