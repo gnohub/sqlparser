@@ -1406,6 +1406,7 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	handle->bind_occurrences_generation = 0UL;
 	handle->dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	handle->dialect_ops = NULL;
+	handle->patch_batch_flags = 0U;
 }
 
 sqlparser_status_t sqlparser_handle_clone(
@@ -1430,6 +1431,10 @@ sqlparser_status_t sqlparser_handle_clone(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"source handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_handle_flush_ast((sqlparser_handle_t *)source, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
 	}
 
 	clone = (sqlparser_handle_t *)calloc(1U, sizeof(*clone));
@@ -1643,53 +1648,39 @@ void sqlparser_handle_replace_contents(
 	sqlparser_handle_t *target,
 	sqlparser_handle_t *source)
 {
+	unsigned int batch_active;
+
 	if (target == NULL || source == NULL) {
 		return;
 	}
 
+	batch_active = target->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE;
 	sqlparser_handle_release_contents(target);
 	*target = *source;
+	target->patch_batch_flags |= batch_active;
 	memset(source, 0, sizeof(*source));
 	sqlparser_handle_clear_bind_occurrences(target);
 }
 
-sqlparser_status_t sqlparser_handle_commit_ast(
+sqlparser_status_t sqlparser_handle_flush_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
 {
 	size_t packed_size;
 	size_t packed_len;
 	char *packed;
-	sqlparser_status_t status;
 
-	if (handle == NULL || handle->ast == NULL) {
+	if (handle == NULL ||
+	    (handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_AST_DIRTY) == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	if (handle->ast == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	sqlparser_handle_clear_query_graph(handle);
-	status = sqlparser_validate_dialect_statements(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_ast_changes(handle);
-		return status;
-	}
-	if (handle->control != NULL && handle->ast->n_stmts != handle->control->unit_count) {
-		sqlparser_handle_discard_ast_changes(handle);
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	if (handle->dialect_ops != NULL &&
-	    handle->dialect_ops->prepare_ast_state != NULL) {
-		status = handle->dialect_ops->prepare_ast_state(
-			handle->dialect_state,
-			handle->ast,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_handle_discard_ast_changes(handle);
-			return status;
-		}
 	}
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
 	if (packed_size == 0U) {
@@ -1718,18 +1709,62 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 			"failed to repack parse tree protobuf");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	free(handle->parse_tree.data);
+	handle->parse_tree.data = packed;
+	handle->parse_tree.len = packed_len;
+	handle->patch_batch_flags &= ~SQLPARSER_PATCH_BATCH_AST_DIRTY;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_handle_commit_ast(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (handle == NULL || handle->ast == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	sqlparser_handle_clear_query_graph(handle);
+	status = sqlparser_validate_dialect_statements(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_ast_changes(handle);
+		return status;
+	}
+	if (handle->control != NULL && handle->ast->n_stmts != handle->control->unit_count) {
+		sqlparser_handle_discard_ast_changes(handle);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+			"control units do not match parser statements");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (handle->dialect_ops != NULL && handle->dialect_ops->prepare_ast_state != NULL) {
+		status = handle->dialect_ops->prepare_ast_state(
+			handle->dialect_state, handle->ast, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_handle_discard_ast_changes(handle);
+			return status;
+		}
+	}
 
 	if (sqlparser_validate_statement_count_limit(&handle->limits, handle->ast->n_stmts, out_error) !=
 	    SQLPARSER_STATUS_OK) {
-		free(packed);
 		sqlparser_handle_discard_ast_changes(handle);
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	/* Keep validation and dialect state current; defer only serialization. */
+	handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_AST_DIRTY;
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) == 0U) {
+		status = sqlparser_handle_flush_ast(handle, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
 	}
 	status = sqlparser_handle_rebind_identifier_mutations(
 		handle,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(packed);
 		sqlparser_handle_discard_ast_changes(handle);
 		return status;
 	}
@@ -1740,9 +1775,6 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 			handle->ast);
 	}
 
-	free(handle->parse_tree.data);
-	handle->parse_tree.data = packed;
-	handle->parse_tree.len = packed_len;
 	handle->statement_count = handle->control != NULL ? handle->control->unit_count : handle->ast->n_stmts;
 	handle->generation++;
 	sqlparser_surface_source_edits_release(
@@ -2869,6 +2901,10 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_handle_flush_ast((sqlparser_handle_t *)handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
 	}
 
 	if (handle->generation == 0UL) {
@@ -4676,6 +4712,10 @@ sqlparser_status_t sqlparser_deparse(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_handle_flush_ast((sqlparser_handle_t *)handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
 	}
 	if (handle->generation == 0UL) {
 		status = sqlparser_validate_handle_output_text(

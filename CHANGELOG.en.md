@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.15
+
+### Patch Batch Performance
+
+- The shared patch path consolidates AST serialization within a batch. Column and value edits in Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng `INSERT ALL/FIRST` reduce repeated whole-statement rebuilds; compatible function-argument literal replacements reduce repeated parsing.
+- Patch order, `source_selector` read semantics, and atomic rollback remain unchanged. Operations requiring current parsed state synchronize as needed. No changes to public APIs, public structure layouts, View JSON fields, or ownership rules.
+- In a same-machine comparison with 2.16.14, a single `sqlparser_apply_patch()` call for the Oracle `INSERT ALL` sample with 50 branches and 500 patches decreased from approximately 12.53 seconds to 0.21 seconds. These figures come from a fixed benchmark; actual gains depend on the SQL and patch mix.
+
+### Cases and Validation
+
+- Added batch regressions across all 13 dialect entries and standalone benchmarks, checking ordered source reads, mixed edits, binds, comments, resource limits, and rollback.
+- The full remote `make test` suite and ABI check passed, with 162 public exports unchanged. Valgrind reported no memory errors or leaks in the new patch batch regressions.
+
 ## 2.16.14
 
 ### SQL Comment Boundaries

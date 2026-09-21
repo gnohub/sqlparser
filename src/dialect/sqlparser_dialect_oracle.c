@@ -7129,6 +7129,23 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "cell index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) != 0U) {
+		sqlparser_dialect_multi_insert_value_t value;
+
+		memset(&value, 0, sizeof(value));
+		status = sqlparser_oracle_parse_value_item(
+			sql_text, 0U, strlen(sql_text), state, &value, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		sqlparser_oracle_value_clear(&branch->cells[column_index]);
+		branch->cells[column_index] = value;
+		handle->generation++;
+		handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY;
+		handle->surface_source_complete = 0;
+		sqlparser_handle_invalidate_derived(handle);
+		return SQLPARSER_STATUS_OK;
+	}
 	free(branch->cells[column_index].public_sql);
 	branch->cells[column_index].public_sql = sqlparser_strdup(sql_text);
 	if (branch->cells[column_index].public_sql == NULL) {
@@ -7281,21 +7298,29 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	next_cells = NULL;
 	public_sql = NULL;
 
-	status = sqlparser_handle_clone(handle, &candidate, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) != 0U) {
+		candidate = handle;
+	} else {
+		status = sqlparser_handle_clone(handle, &candidate, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
 	}
 	state = (sqlparser_oracle_state_t *)candidate->dialect_state;
 	multi = state != NULL ? state->multi_insert : NULL;
 	if (multi == NULL || branch_index >= multi->branch_count) {
-		sqlparser_handle_destroy(candidate);
+		if (candidate != handle) {
+			sqlparser_handle_destroy(candidate);
+		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	branch = &multi->branches[branch_index];
 	if (branch->column_count == SIZE_MAX ||
 	    (has_cell && branch->cell_count == SIZE_MAX)) {
-		sqlparser_handle_destroy(candidate);
+		if (candidate != handle) {
+			sqlparser_handle_destroy(candidate);
+		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "multi insert branch is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
@@ -7321,7 +7346,9 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_column_clear(&new_column);
 		sqlparser_oracle_value_clear(&new_cell);
-		sqlparser_handle_destroy(candidate);
+		if (candidate != handle) {
+			sqlparser_handle_destroy(candidate);
+		}
 		return status;
 	}
 
@@ -7335,7 +7362,9 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 		free(next_cells);
 		sqlparser_oracle_column_clear(&new_column);
 		sqlparser_oracle_value_clear(&new_cell);
-		sqlparser_handle_destroy(candidate);
+		if (candidate != handle) {
+			sqlparser_handle_destroy(candidate);
+		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
@@ -7373,6 +7402,12 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	}
 
 	candidate->generation++;
+	if (candidate == handle) {
+		handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY;
+		handle->surface_source_complete = 0;
+		sqlparser_handle_invalidate_derived(handle);
+		return SQLPARSER_STATUS_OK;
+	}
 	status = sqlparser_deparse(candidate, &public_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_parse_options_default(&options);

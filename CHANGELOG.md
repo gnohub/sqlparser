@@ -1,5 +1,18 @@
 # 变更记录
 
+## 2.16.15
+
+### 批量 patch 性能优化
+
+- 共享 patch 路径合并批内 AST 序列化；Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦 `INSERT ALL/FIRST` 的列和值修改减少重复整句重建；可合并的函数参数字面量替换减少重复解析。
+- 保持修改顺序、`source_selector` 取值语义和整批失败回滚，需要最新解析状态的操作前按需同步。公开 API、公开结构体布局、View JSON 字段和所有权规则不变。
+- 与 2.16.14 同机对比，50 分支、500 个 patch 的 Oracle `INSERT ALL` 样例中，单次 `sqlparser_apply_patch()` 耗时由约 12.53 秒降至 0.21 秒。数据来自固定测试样例，实际收益取决于 SQL 和 patch 组合。
+
+### 用例与验证
+
+- 新增覆盖 13 个方言入口的批量 patch 回归及独立性能回放，核对顺序取值、混合修改、bind、注释、资源限制和失败回滚。
+- 远端完整 `make test` 和 ABI 检查通过，公开导出符号保持 162 个；新增批量 patch 回归的 Valgrind 检查未报内存错误或泄漏。
+
 ## 2.16.14
 
 ### SQL 注释边界

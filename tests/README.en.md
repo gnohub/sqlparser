@@ -52,6 +52,23 @@ Common quality-gate entry points:
 - `make test-loop LOOP=50`
 - `make verify`
 
+## Patch Batch Regression and Benchmarks
+
+`test_patch_batch` checks ordered source reads, repeated edits, insertion/deletion indices, mixed operations, binds, comments, resource limits, and rollback. Benchmark mode puts every edit in one patch list and calls `sqlparser_apply_patch()` once. It measures parse, apply, and deparse separately and verifies the resulting values. Timings are not machine-dependent test thresholds.
+
+```bash
+make bin/test_patch_batch
+./bin/test_patch_batch
+./bin/test_patch_batch --bench oracle 50
+./bin/test_patch_batch --bench update 500
+./bin/test_patch_batch --bench update-copy 250
+./bin/test_patch_batch --bench expression 500
+./bin/test_patch_batch --bench update 500 50
+./bin/test_patch_batch --bench expression 500 50
+```
+
+`oracle 50` uses an `INSERT ALL` with 50 branches and 16 columns per row. Its 250 source-copy insertions and 250 simulated ciphertext replacements are checked for 21 columns and values in every output branch. `update-copy 250` appends a backup and replaces each of 250 assignments, for 500 patches. The optional final argument for `update` and `expression` varies only the patch count while keeping the input SQL fixed.
+
 ## Representative Files
 
 - `tests/unit/test_api_smoke.c`

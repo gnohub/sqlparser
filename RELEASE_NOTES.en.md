@@ -1,9 +1,11 @@
-# v2.16.14 Release Notes
+# v2.16.15 Release Notes
 
-Improved SQL comment boundaries: Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng recognize leading and inter-keyword comments in `INSERT ALL/FIRST`. SQL Server-family entries recognize comments between `SELECT` and `TOP` and on the same line as a `GO` batch separator. The MySQL entry preserves ordinary comments around a whole-statement executable comment and handles trailing `USE` comments. PostgreSQL-family entries preserve a nested comment before the first SELECT target after a target patch.
+Reduced repeated serialization and parsing in patch batches, covering the shared AST path, column and value edits in Oracle-family and Dameng `INSERT ALL/FIRST`, and compatible function-argument literal replacements.
 
-These capabilities cover SQL parsing, deparsing, and patches; they do not assert database-side execution of optimizer hints or executable comments. No public API, structure field, View JSON field, or ownership rule was added.
+Patch order, `source_selector` read semantics, and atomic rollback remain unchanged. No changes to public APIs, public structure layouts, View JSON fields, or ownership rules.
 
-The 13 fixtures add 32 final cases and 56 patches, for 3,269 final cases and 10,305 patches in total. The full remote `make test` suite, all 13 case matrices, and targeted tests passed. Valgrind reported no memory errors or leaks for the 32 new cases.
+In a same-machine comparison with 2.16.14, a single `sqlparser_apply_patch()` call for the Oracle `INSERT ALL` sample with 50 branches and 500 patches decreased from approximately 12.53 seconds to 0.21 seconds. Actual gains depend on the SQL and patch mix.
+
+New batch regressions cover all 13 dialect entries. The full remote `make test` suite and ABI check passed. Valgrind reported no memory errors or leaks in the new regressions.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

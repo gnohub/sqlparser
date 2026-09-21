@@ -166,6 +166,13 @@ struct sqlparser_bind_occurrence_cache {
 	(SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE - \
 	 SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED)
 
+/* Deferred work is owned by the private candidate of an atomic patch batch. */
+enum {
+	SQLPARSER_PATCH_BATCH_ACTIVE = 1U,
+	SQLPARSER_PATCH_BATCH_AST_DIRTY = 2U,
+	SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY = 4U
+};
+
 struct sqlparser_handle {
 	char *sql;
 	char *parser_sql;
@@ -199,6 +206,7 @@ struct sqlparser_handle {
 	sqlparser_identifier_origin_map_t *identifier_origins;
 	sqlparser_surface_source_edits_t surface_source_edits;
 	int surface_source_complete;
+	unsigned int patch_batch_flags;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -327,6 +335,9 @@ sqlparser_status_t sqlparser_restore_source_envelope(
 	char **in_out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_commit_ast(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_handle_flush_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_commit_ast_with_dialect_state(

@@ -10624,6 +10624,7 @@ static sqlparser_status_t sqlparser_patch_plan_expression_surface_edit(
 	const sqlparser_patch_t *patch,
 	const sqlparser_selector_t *selector,
 	sqlparser_surface_source_edits_t *edits,
+	size_t *in_out_sql_length,
 	int *out_supported,
 	sqlparser_error_t *out_error)
 {
@@ -10638,12 +10639,14 @@ static sqlparser_status_t sqlparser_patch_plan_expression_surface_edit(
 	size_t open;
 	size_t source_end;
 	size_t source_start;
+	size_t output_length;
+	size_t replacement_length;
 	sqlparser_status_t status;
 	int edit_supported;
 	int scan_status;
 
 	if (handle == NULL || patch == NULL || selector == NULL ||
-	    edits == NULL || out_supported == NULL) {
+	    edits == NULL || in_out_sql_length == NULL || out_supported == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -10843,24 +10846,32 @@ static sqlparser_status_t sqlparser_patch_plan_expression_surface_edit(
 		goto done;
 	}
 	edit_supported = 0;
+	replacement_length = replacement != NULL ? strlen(replacement) : 0U;
 	status = sqlparser_surface_source_edits_insert(
 		edits,
 		source_start,
 		source_end,
 		replacement,
-		replacement != NULL ? strlen(replacement) : 0U,
+		replacement_length,
 		&edit_supported,
 		out_error);
-	if (status == SQLPARSER_STATUS_OK && !edit_supported) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_UNSUPPORTED,
-			"expression source edit overlaps another edit");
-		status = SQLPARSER_STATUS_UNSUPPORTED;
+	if (status != SQLPARSER_STATUS_OK || !edit_supported) {
+		goto done;
 	}
-	if (status == SQLPARSER_STATUS_OK) {
-		*out_supported = 1;
+	if (source_end - source_start > *in_out_sql_length ||
+	    replacement_length > SIZE_MAX - (*in_out_sql_length - (source_end - source_start))) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "expression patch SQL is too large");
+		status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+		goto done;
 	}
+	output_length = *in_out_sql_length - (source_end - source_start) + replacement_length;
+	if (output_length > handle->limits.max_sql_bytes || output_length > handle->limits.max_output_bytes) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "expression patch SQL exceeds configured byte limit");
+		status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+		goto done;
+	}
+	*out_supported = 1;
+	*in_out_sql_length = output_length;
 
 done:
 	free(insertion);
@@ -10988,6 +10999,87 @@ static sqlparser_status_t sqlparser_patch_materialize_current_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_patch_can_defer_expression(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	const sqlparser_selector_t *selector,
+	int *out_defer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_expression_t expression;
+	sqlparser_graph_expression_argument_t argument;
+	size_t argument_index;
+	sqlparser_status_t status;
+
+	*out_defer = 0;
+	/* Literal leaves preserve the expression and argument ordinals. */
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) == 0U ||
+	    handle->control != NULL || patch->op != SQLPARSER_PATCH_REPLACE ||
+	    selector->kind != SQLPARSER_SELECTOR_KIND_EXPRESSION_ARG ||
+	    patch->literal == NULL || patch->literal->kind == SQLPARSER_LITERAL_KIND_FLOAT ||
+	    patch->source_selector != NULL || patch->sql != NULL || patch->bind != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_statement_query_graph(handle, selector->statement_index, &graph, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_query_graph_expression_at(&graph, selector->item_index, &expression, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_query_graph_span_index_at(&graph, expression.arguments,
+			selector->column_index, &argument_index, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_query_graph_expression_argument_at(&graph, argument_index, &argument, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		*out_defer = argument.kind == SQLPARSER_GRAPH_EXPRESSION_ARGUMENT_LITERAL;
+	}
+	return status;
+}
+
+static size_t sqlparser_patch_multi_insert_branch_size(
+	const sqlparser_handle_t *handle,
+	size_t branch_index)
+{
+	const sqlparser_dialect_multi_insert_t *multi;
+	const sqlparser_dialect_multi_insert_branch_t *branch;
+	size_t size;
+	size_t index;
+	size_t length;
+
+	multi = sqlparser_dialect_state_multi_insert(handle->dialect, handle->dialect_state);
+	if (multi == NULL || branch_index >= multi->branch_count) {
+		return SIZE_MAX;
+	}
+	branch = &multi->branches[branch_index];
+	if (branch->column_count > (SIZE_MAX - 1U) / 2U || branch->cell_count > SIZE_MAX / 2U) {
+		return SIZE_MAX;
+	}
+	/* Only column/value text and its separators change within a deferred run. */
+	size = branch->column_count > 0U ? branch->column_count * 2U + 1U : 0U;
+	length = branch->cell_count > 0U ? (branch->cell_count - 1U) * 2U : 0U;
+	if (length > SIZE_MAX - size) {
+		return SIZE_MAX;
+	}
+	size += length;
+	for (index = 0U; index < branch->column_count; index++) {
+		length = strlen(branch->columns[index].sql);
+		if (length > SIZE_MAX - size) {
+			return SIZE_MAX;
+		}
+		size += length;
+	}
+	for (index = 0U; index < branch->cell_count; index++) {
+		length = strlen(branch->cells[index].public_sql);
+		if (length > SIZE_MAX - size) {
+			return SIZE_MAX;
+		}
+		size += length;
+	}
+	return size;
+}
+
 static sqlparser_status_t sqlparser_apply_patch_in_place(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_list_t *patches,
@@ -10997,7 +11089,13 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 {
 	size_t index;
 	sqlparser_status_t status;
+	int expression_edits_pending;
+	size_t expression_sql_length;
+	size_t multi_sql_length;
 
+	expression_edits_pending = 0;
+	expression_sql_length = 0U;
+	multi_sql_length = 0U;
 	for (index = 0U; index < patches->count; index++) {
 		const sqlparser_patch_t *patch;
 		const sqlparser_selector_t *planned_selector;
@@ -11006,13 +11104,78 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 		sqlparser_selector_t surface_selector;
 		size_t prior_surface_count;
 		int expression_patch;
+		int defer_expression;
+		int multi_insert;
+		int defer_multi_insert;
+		unsigned int batch_active;
+		size_t multi_branch_index;
+		size_t multi_branch_size;
 		int structural_insert_surface;
 		int surface_supported;
 
 		patch = &patches->items[index];
 		planned_selector = NULL;
 		expression_patch = 0;
+		defer_expression = 0;
+		defer_multi_insert = 0;
+		batch_active = handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE;
+		multi_insert = sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state);
+		multi_branch_index = 0U;
+		multi_branch_size = 0U;
+		if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY) == 0U) {
+			multi_sql_length = 0U;
+		}
 		surface_supported = 0;
+		if (expression_edits_pending) {
+			status = sqlparser_patch_parse_selector(patch->selector, &surface_selector, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			status = sqlparser_patch_can_defer_expression(
+				handle, patch, &surface_selector, &defer_expression, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (!defer_expression) {
+				status = sqlparser_patch_materialize_surface_edits(handle, surface_edits, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				expression_edits_pending = 0;
+			}
+		}
+		if (batch_active && multi_insert) {
+			status = sqlparser_patch_parse_selector(patch->selector, &surface_selector, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			defer_multi_insert =
+				(patch->op == SQLPARSER_PATCH_REPLACE &&
+				 surface_selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL) ||
+				(patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+				 surface_selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS);
+			multi_branch_index = surface_selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL ?
+				surface_selector.row_index : surface_selector.item_index;
+			/* Raw fragments retain immediate parsing, including intermediate errors. */
+			defer_multi_insert = defer_multi_insert && patch->sql == NULL &&
+				patch->default_sql == NULL &&
+				(patch->literal == NULL || patch->literal->kind != SQLPARSER_LITERAL_KIND_FLOAT);
+			if (defer_multi_insert && patch->source_selector != NULL) {
+				status = sqlparser_patch_parse_selector(patch->source_selector, &surface_selector, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				defer_multi_insert = surface_selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+			}
+			if (!defer_multi_insert &&
+			    (handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY) != 0U) {
+				status = sqlparser_patch_materialize_current_sql(
+					handle, surface_edits, in_out_surface_complete, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+			}
+		}
 		if (patch->op == SQLPARSER_PATCH_REPLACE) {
 			status = sqlparser_patch_parse_selector(
 				patch->selector,
@@ -11101,23 +11264,42 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 			expression_patch = 1;
 		}
 		if (expression_patch) {
-			status = sqlparser_patch_materialize_current_sql(
-				handle,
-				surface_edits,
-				in_out_surface_complete,
-				out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
+			if (!expression_edits_pending) {
+				status = sqlparser_patch_materialize_current_sql(
+					handle, surface_edits, in_out_surface_complete, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				status = sqlparser_patch_can_defer_expression(
+					handle, patch, planned_selector, &defer_expression, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				expression_sql_length = handle->sql_len;
 			}
 			status = sqlparser_patch_plan_expression_surface_edit(
 				handle,
 				patch,
 				planned_selector,
 				surface_edits,
+				&expression_sql_length,
 				&surface_supported,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
+			}
+			if (!surface_supported && expression_edits_pending) {
+				status = sqlparser_patch_materialize_surface_edits(handle, surface_edits, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				expression_edits_pending = 0;
+				expression_sql_length = handle->sql_len;
+				status = sqlparser_patch_plan_expression_surface_edit(
+					handle, patch, planned_selector, surface_edits, &expression_sql_length, &surface_supported, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
 			}
 			if (!surface_supported) {
 				sqlparser_error_set_message(
@@ -11125,6 +11307,10 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 					SQLPARSER_STATUS_UNSUPPORTED,
 					"expression source edit is not supported");
 				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			if (defer_expression) {
+				expression_edits_pending = 1;
+				continue;
 			}
 			status = sqlparser_patch_materialize_surface_edits(
 				handle,
@@ -11236,6 +11422,12 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 			}
 			continue;
 		}
+		if (multi_insert && !defer_multi_insert) {
+			handle->patch_batch_flags &= ~SQLPARSER_PATCH_BATCH_ACTIVE;
+		}
+		if (defer_multi_insert && multi_sql_length > 0U) {
+			multi_branch_size = sqlparser_patch_multi_insert_branch_size(handle, multi_branch_index);
+		}
 		switch (patch->op) {
 			case SQLPARSER_PATCH_REPLACE:
 				status = sqlparser_patch_replace(
@@ -11270,11 +11462,40 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 				sqlparser_error_set_message(out_error, status, "patch operation is not supported");
 				break;
 		}
+		handle->patch_batch_flags |= batch_active;
 		if (patch->source_selector != NULL) {
 			handle->surface_source_complete = 0;
 		}
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
+		}
+		if (defer_multi_insert &&
+		    (handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY) != 0U) {
+			if (multi_sql_length == 0U) {
+				char *sizing_sql;
+
+				sizing_sql = NULL;
+				status = sqlparser_deparse(handle, &sizing_sql, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				multi_sql_length = strlen(sizing_sql);
+				sqlparser_string_free(sizing_sql);
+			} else {
+				size_t next_size;
+
+				next_size = sqlparser_patch_multi_insert_branch_size(handle, multi_branch_index);
+				if (multi_branch_size > multi_sql_length ||
+				    next_size > SIZE_MAX - (multi_sql_length - multi_branch_size)) {
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "multi-insert patch SQL is too large");
+					return SQLPARSER_STATUS_RESOURCE_LIMIT;
+				}
+				multi_sql_length = multi_sql_length - multi_branch_size + next_size;
+			}
+			if (multi_sql_length > handle->limits.max_sql_bytes || multi_sql_length > handle->limits.max_output_bytes) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "multi-insert patch SQL exceeds configured byte limit");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
 		}
 		if (patch->op == SQLPARSER_PATCH_REPLACE_ASSIGNMENT &&
 		    sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
@@ -11297,6 +11518,13 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 				*in_out_surface_complete = 0;
 			}
 		}
+	}
+	if (expression_edits_pending) {
+		status = sqlparser_patch_materialize_surface_edits(handle, surface_edits, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		*in_out_surface_complete = 1;
 	}
 	return SQLPARSER_STATUS_OK;
 }
@@ -11644,12 +11872,17 @@ sqlparser_status_t sqlparser_apply_patch(
 			&candidate->surface_source_edits);
 	}
 	candidate->surface_source_complete = 0;
+	candidate->patch_batch_flags = patches->count > 1U ? SQLPARSER_PATCH_BATCH_ACTIVE : 0U;
 	status = sqlparser_apply_patch_in_place(
 		candidate,
 		patches,
 		&surface_edits,
 		&surface_complete,
 		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_handle_flush_ast(candidate, out_error);
+	}
+	candidate->patch_batch_flags &= ~SQLPARSER_PATCH_BATCH_ACTIVE;
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_surface_source_edits_release(&surface_edits);
 		sqlparser_handle_destroy(candidate);
@@ -11657,6 +11890,11 @@ sqlparser_status_t sqlparser_apply_patch(
 	}
 	status = sqlparser_patch_validate_insert_column_shapes(
 		candidate, patches, out_error);
+	if (status == SQLPARSER_STATUS_OK &&
+	    (candidate->patch_batch_flags & SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY) != 0U) {
+		status = sqlparser_patch_materialize_current_sql(
+			candidate, &surface_edits, &surface_complete, out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_surface_source_edits_release(&surface_edits);
 		sqlparser_handle_destroy(candidate);

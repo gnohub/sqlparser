@@ -52,6 +52,23 @@ make test
 - `make test-loop LOOP=50`
 - `make verify`
 
+## 批量 patch 回归与性能回放
+
+`test_patch_batch` 验证批内顺序取值、重复修改、插删索引、混合操作、bind、注释、资源限制和失败回滚。性能模式将全部修改放入一个 patch list，只调用一次 `sqlparser_apply_patch()`；分别记录 parse、apply、deparse 耗时，并核对结果值。性能数据不作为依赖机器速度的测试阈值。
+
+```bash
+make bin/test_patch_batch
+./bin/test_patch_batch
+./bin/test_patch_batch --bench oracle 50
+./bin/test_patch_batch --bench update 500
+./bin/test_patch_batch --bench update-copy 250
+./bin/test_patch_batch --bench expression 500
+./bin/test_patch_batch --bench update 500 50
+./bin/test_patch_batch --bench expression 500 50
+```
+
+`oracle 50` 为 50 分支、每行 16 列的 `INSERT ALL`，包含 250 次原值复制插列和 250 次模拟密文替换，输出逐分支核对 21 列和值。`update-copy 250` 对 250 项赋值分别追加备份并替换，共 500 个 patch。`update` 和 `expression` 的可选最后一个参数只改变 patch 数，保持输入 SQL 大小不变。
+
 ## 用例文件
 
 常用测试文件包括：
