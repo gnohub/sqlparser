@@ -7408,7 +7408,6 @@ static int sqlparser_dameng_is_multi_insert_start(
 	const char *sql,
 	sqlparser_dialect_multi_insert_mode_t *out_mode)
 {
-	size_t len;
 	size_t pos;
 
 	if (out_mode != NULL) {
@@ -7417,12 +7416,11 @@ static int sqlparser_dameng_is_multi_insert_start(
 	if (sql == NULL) {
 		return 0;
 	}
-	len = strlen(sql);
-	pos = sqlparser_dameng_trim_left(sql, 0U, len);
+	pos = sqlparser_dameng_skip_trivia(sql, 0U);
 	if (!sqlparser_dameng_ascii_word_equal(sql, pos, "insert")) {
 		return 0;
 	}
-	pos = sqlparser_dameng_trim_left(sql, pos + strlen("insert"), len);
+	pos = sqlparser_dameng_skip_trivia(sql, pos + strlen("insert"));
 	if (sqlparser_dameng_ascii_word_equal(sql, pos, "all")) {
 		if (out_mode != NULL) {
 			*out_mode = SQLPARSER_DIALECT_MULTI_INSERT_ALL;
@@ -7463,16 +7461,15 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 	len = strlen(input_sql);
-	pos = sqlparser_dameng_trim_left(input_sql, 0U, len);
+	pos = sqlparser_dameng_skip_trivia(input_sql, 0U);
 	end = sqlparser_dameng_trim_right(input_sql, pos, len);
 	if (end > pos && input_sql[end - 1U] == ';') {
 		end = sqlparser_dameng_trim_right(input_sql, pos, end - 1U);
 	}
-	pos = sqlparser_dameng_trim_left(input_sql, pos + strlen("insert"), end);
-	pos = sqlparser_dameng_trim_left(
+	pos = sqlparser_dameng_skip_trivia(input_sql, pos + strlen("insert"));
+	pos = sqlparser_dameng_skip_trivia(
 		input_sql,
-		pos + (mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL ? strlen("all") : strlen("first")),
-		end);
+		pos + (mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL ? strlen("all") : strlen("first")));
 
 	multi = (sqlparser_dialect_multi_insert_t *)calloc(1U, sizeof(*multi));
 	if (multi == NULL) {
@@ -7483,7 +7480,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 	condition_group_id = 0U;
 
 	while (pos < end) {
-		pos = sqlparser_dameng_trim_left(input_sql, pos, end);
+		pos = sqlparser_dameng_skip_trivia(input_sql, pos);
 		if (pos >= end) {
 			break;
 		}
@@ -7496,7 +7493,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 			char *condition_public;
 			char *condition_parser;
 
-			condition_start = sqlparser_dameng_trim_left(input_sql, pos + strlen("when"), end);
+			condition_start = sqlparser_dameng_skip_trivia(input_sql, pos + strlen("when"));
 			if (!sqlparser_dameng_find_top_level_word(input_sql, condition_start, end, "then", &then_pos)) {
 				sqlparser_dameng_multi_insert_destroy(multi);
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Dameng multi-table INSERT WHEN is missing THEN");
@@ -7519,7 +7516,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 				sqlparser_dameng_multi_insert_destroy(multi);
 				return status;
 			}
-			pos = sqlparser_dameng_trim_left(input_sql, then_pos + strlen("then"), end);
+			pos = sqlparser_dameng_skip_trivia(input_sql, then_pos + strlen("then"));
 			condition_group_id++;
 			do {
 				status = sqlparser_dameng_parse_multi_insert_into(
@@ -7539,7 +7536,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 					sqlparser_dameng_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_dameng_trim_left(input_sql, pos, end);
+				pos = sqlparser_dameng_skip_trivia(input_sql, pos);
 			} while (pos < end &&
 			         sqlparser_dameng_ascii_word_equal(input_sql, pos, "into"));
 			free(condition_public);
@@ -7547,7 +7544,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 			continue;
 		}
 		if (sqlparser_dameng_ascii_word_equal(input_sql, pos, "else")) {
-			pos = sqlparser_dameng_trim_left(input_sql, pos + strlen("else"), end);
+			pos = sqlparser_dameng_skip_trivia(input_sql, pos + strlen("else"));
 			condition_group_id++;
 			while (pos < end && sqlparser_dameng_ascii_word_equal(input_sql, pos, "into")) {
 				status = sqlparser_dameng_parse_multi_insert_into(
@@ -7565,7 +7562,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 					sqlparser_dameng_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_dameng_trim_left(input_sql, pos, end);
+				pos = sqlparser_dameng_skip_trivia(input_sql, pos);
 			}
 			continue;
 		}
@@ -7592,7 +7589,7 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	pos = sqlparser_dameng_trim_left(input_sql, pos, end);
+	pos = sqlparser_dameng_skip_trivia(input_sql, pos);
 	if (multi->branch_count == 0U || pos >= end || !sqlparser_dameng_ascii_word_equal(input_sql, pos, "select")) {
 		sqlparser_dameng_multi_insert_destroy(multi);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Dameng multi-table INSERT requires branches and a source SELECT");

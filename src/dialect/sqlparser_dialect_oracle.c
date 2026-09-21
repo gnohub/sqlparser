@@ -1845,7 +1845,8 @@ static size_t sqlparser_oracle_statement_end(const char *sql, size_t start)
 static size_t sqlparser_oracle_skip_leading_trivia(
 	const char *sql,
 	size_t start,
-	size_t end)
+	size_t end,
+	int nested_block_comments)
 {
 	size_t pos;
 	size_t skipped;
@@ -1859,6 +1860,27 @@ static size_t sqlparser_oracle_skip_leading_trivia(
 		    !((sql[pos] == '-' && pos + 1U < end && sql[pos + 1U] == '-') ||
 		      (sql[pos] == '/' && pos + 1U < end && sql[pos + 1U] == '*'))) {
 			return pos;
+		}
+		if (nested_block_comments && sql[pos] == '/') {
+			size_t depth;
+
+			depth = 1U;
+			pos += 2U;
+			while (pos + 1U < end && depth > 0U) {
+				if (sql[pos] == '/' && sql[pos + 1U] == '*') {
+					depth++;
+					pos += 2U;
+				} else if (sql[pos] == '*' && sql[pos + 1U] == '/') {
+					depth--;
+					pos += 2U;
+				} else {
+					pos++;
+				}
+			}
+			if (depth > 0U) {
+				return end;
+			}
+			continue;
 		}
 		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
 		if (skipped <= pos) {
@@ -2543,7 +2565,7 @@ static sqlparser_status_t sqlparser_oracle_rewrite_alter_session_switches(
 	while (segment_start < len) {
 		statement_end = sqlparser_oracle_statement_end(input_sql, segment_start);
 		leading_end = sqlparser_oracle_skip_leading_trivia(
-			input_sql, segment_start, statement_end);
+			input_sql, segment_start, statement_end, 0);
 		statement_sql = sqlparser_strndup(
 			input_sql + leading_end, statement_end - leading_end);
 		if (statement_sql == NULL) {
@@ -3953,7 +3975,8 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 
 static int sqlparser_oracle_is_multi_insert_start(
 	const char *sql,
-	sqlparser_dialect_multi_insert_mode_t *out_mode)
+	sqlparser_dialect_multi_insert_mode_t *out_mode,
+	int nested_block_comments)
 {
 	size_t len;
 	size_t pos;
@@ -3965,11 +3988,12 @@ static int sqlparser_oracle_is_multi_insert_start(
 		return 0;
 	}
 	len = strlen(sql);
-	pos = sqlparser_oracle_trim_left(sql, 0U, len);
+	pos = sqlparser_oracle_skip_leading_trivia(sql, 0U, len, nested_block_comments);
 	if (!sqlparser_oracle_ascii_word_equal(sql, pos, "insert")) {
 		return 0;
 	}
-	pos = sqlparser_oracle_trim_left(sql, pos + strlen("insert"), len);
+	pos = sqlparser_oracle_skip_leading_trivia(
+		sql, pos + strlen("insert"), len, nested_block_comments);
 	if (sqlparser_oracle_ascii_word_equal(sql, pos, "all")) {
 		if (out_mode != NULL) {
 			*out_mode = SQLPARSER_DIALECT_MULTI_INSERT_ALL;
@@ -3989,6 +4013,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	const char *input_sql,
 	sqlparser_oracle_state_t *state,
 	char **out_parser_sql,
+	int nested_block_comments,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dialect_multi_insert_t *multi;
@@ -4005,20 +4030,22 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_parser_sql = NULL;
-	if (!sqlparser_oracle_is_multi_insert_start(input_sql, &mode)) {
+	if (!sqlparser_oracle_is_multi_insert_start(input_sql, &mode, nested_block_comments)) {
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 	len = strlen(input_sql);
-	pos = sqlparser_oracle_trim_left(input_sql, 0U, len);
+	pos = sqlparser_oracle_skip_leading_trivia(input_sql, 0U, len, nested_block_comments);
 	end = sqlparser_oracle_trim_right(input_sql, pos, len);
 	if (end > pos && input_sql[end - 1U] == ';') {
 		end = sqlparser_oracle_trim_right(input_sql, pos, end - 1U);
 	}
-	pos = sqlparser_oracle_trim_left(input_sql, pos + strlen("insert"), end);
-	pos = sqlparser_oracle_trim_left(
+	pos = sqlparser_oracle_skip_leading_trivia(
+		input_sql, pos + strlen("insert"), end, nested_block_comments);
+	pos = sqlparser_oracle_skip_leading_trivia(
 		input_sql,
 		pos + (mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL ? strlen("all") : strlen("first")),
-		end);
+		end,
+		nested_block_comments);
 
 	multi = (sqlparser_dialect_multi_insert_t *)calloc(1U, sizeof(*multi));
 	if (multi == NULL) {
@@ -4029,7 +4056,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	condition_group_id = 0U;
 
 	while (pos < end) {
-		pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+		pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
 		if (pos >= end) {
 			break;
 		}
@@ -4042,7 +4069,8 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 			char *condition_public;
 			char *condition_parser;
 
-			condition_start = sqlparser_oracle_trim_left(input_sql, pos + strlen("when"), end);
+			condition_start = sqlparser_oracle_skip_leading_trivia(
+				input_sql, pos + strlen("when"), end, nested_block_comments);
 			if (!sqlparser_oracle_find_top_level_word(input_sql, condition_start, end, "then", &then_pos)) {
 				sqlparser_oracle_multi_insert_destroy(multi);
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT WHEN is missing THEN");
@@ -4065,7 +4093,8 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 				sqlparser_oracle_multi_insert_destroy(multi);
 				return status;
 			}
-			pos = sqlparser_oracle_trim_left(input_sql, then_pos + strlen("then"), end);
+			pos = sqlparser_oracle_skip_leading_trivia(
+				input_sql, then_pos + strlen("then"), end, nested_block_comments);
 			condition_group_id++;
 			do {
 				status = sqlparser_oracle_parse_multi_insert_into(
@@ -4085,7 +4114,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 					sqlparser_oracle_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+				pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
 			} while (pos < end &&
 			         sqlparser_oracle_ascii_word_equal(input_sql, pos, "into"));
 			free(condition_public);
@@ -4093,7 +4122,8 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 			continue;
 		}
 		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "else")) {
-			pos = sqlparser_oracle_trim_left(input_sql, pos + strlen("else"), end);
+			pos = sqlparser_oracle_skip_leading_trivia(
+				input_sql, pos + strlen("else"), end, nested_block_comments);
 			condition_group_id++;
 			while (pos < end && sqlparser_oracle_ascii_word_equal(input_sql, pos, "into")) {
 				status = sqlparser_oracle_parse_multi_insert_into(
@@ -4111,7 +4141,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 					sqlparser_oracle_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+				pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
 			}
 			continue;
 		}
@@ -4138,7 +4168,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+	pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
 	if (multi->branch_count == 0U || pos >= end || !sqlparser_oracle_ascii_word_equal(input_sql, pos, "select")) {
 		sqlparser_oracle_multi_insert_destroy(multi);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT requires branches and a source SELECT");
@@ -5481,7 +5511,8 @@ static sqlparser_status_t sqlparser_oracle_replay_statement_rewrites(
 		leading_end = sqlparser_oracle_skip_leading_trivia(
 			input_sql,
 			segment_start,
-			statement_end);
+			statement_end,
+			0);
 		statement_sql = sqlparser_strndup(
 			input_sql + leading_end,
 			statement_end - leading_end);
@@ -6375,8 +6406,9 @@ static sqlparser_status_t sqlparser_oracle_preprocess_internal(
 		return status;
 	}
 
-	if (sqlparser_oracle_is_multi_insert_start(preprocess_input, NULL)) {
-		status = sqlparser_oracle_parse_multi_insert(preprocess_input, state, out_parser_sql, out_error);
+	if (sqlparser_oracle_is_multi_insert_start(preprocess_input, NULL, allow_plain_returning)) {
+		status = sqlparser_oracle_parse_multi_insert(
+			preprocess_input, state, out_parser_sql, allow_plain_returning, out_error);
 		free(rewritten_sql);
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_oracle_state_destroy(state);

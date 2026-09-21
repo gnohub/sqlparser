@@ -139,24 +139,51 @@ unsigned int sqlparser_sqlserver_candidate_mask(const char *text)
 int sqlparser_sqlserver_line_is_go(const char *text, size_t pos, size_t *out_next)
 {
 	size_t line_start;
+	size_t next;
 
+	if (!sqlparser_sqlserver_ascii_word_equal(text, pos, "go")) {
+		return 0;
+	}
 	line_start = pos;
 	while (line_start > 0U && text[line_start - 1U] != '\n' && text[line_start - 1U] != '\r') {
 		line_start--;
 	}
-	while (isspace((unsigned char)text[line_start]) &&
-	       text[line_start] != '\n' && text[line_start] != '\r') {
-		line_start++;
+	while (line_start < pos) {
+		if (isspace((unsigned char)text[line_start])) {
+			line_start++;
+			continue;
+		}
+		if (text[line_start] != '/' || text[line_start + 1U] != '*' ||
+		    sqlparser_sqlserver_quoted_or_comment_span(
+			    text, line_start, &next, NULL) != SQLPARSER_STATUS_OK ||
+		    next > pos) {
+			return 0;
+		}
+		line_start = next;
 	}
-	if (line_start != pos || !sqlparser_sqlserver_ascii_word_equal(text, pos, "go")) {
+	if (line_start != pos) {
 		return 0;
 	}
 	pos += 2U;
 	while (text[pos] != '\0' && text[pos] != '\n' && text[pos] != '\r') {
-		if (!isspace((unsigned char)text[pos]) && !isdigit((unsigned char)text[pos])) {
+		if (isspace((unsigned char)text[pos]) || isdigit((unsigned char)text[pos])) {
+			pos++;
+			continue;
+		}
+		if (text[pos] == '-' && text[pos + 1U] == '-') {
+			while (text[pos] != '\0' && text[pos] != '\n' && text[pos] != '\r') {
+				pos++;
+			}
+			break;
+		}
+		if (text[pos] != '/' || text[pos + 1U] != '*' ||
+		    sqlparser_sqlserver_quoted_or_comment_span(
+			    text, pos, &next, NULL) != SQLPARSER_STATUS_OK ||
+		    memchr(text + pos, '\n', next - pos) != NULL ||
+		    memchr(text + pos, '\r', next - pos) != NULL) {
 			return 0;
 		}
-		pos++;
+		pos = next;
 	}
 	while (text[pos] == '\r' || text[pos] == '\n') {
 		pos++;
@@ -171,6 +198,28 @@ size_t sqlparser_sqlserver_skip_space(const char *text, size_t pos)
 {
 	while (isspace((unsigned char)text[pos])) {
 		pos++;
+	}
+	return pos;
+}
+
+size_t sqlparser_sqlserver_skip_trivia(const char *text, size_t pos)
+{
+	size_t next;
+
+	while (text[pos] != '\0') {
+		if (isspace((unsigned char)text[pos])) {
+			pos++;
+			continue;
+		}
+		if ((text[pos] != '/' || text[pos + 1U] != '*') &&
+		    (text[pos] != '-' || text[pos + 1U] != '-')) {
+			break;
+		}
+		if (sqlparser_sqlserver_quoted_or_comment_span(
+			    text, pos, &next, NULL) != SQLPARSER_STATUS_OK) {
+			break;
+		}
+		pos = next;
 	}
 	return pos;
 }

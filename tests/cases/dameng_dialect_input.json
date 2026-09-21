@@ -36669,6 +36669,321 @@
             }
         ],
         "status": "final"
+    },
+    {
+        "name": "dameng-comments-multi-insert-trivia-boundaries",
+        "sql": "-- leading line\n/* leading block */\nINSERT /* between insert and mode */ ALL /* before first target */ INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "insert",
+                    "query_graph": {
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    1,
+                                    2
+                                ]
+                            },
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "dml": {
+                            "branches": [
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 0,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 1,
+                                                "kind": "integer"
+                                            },
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 1
+                                },
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 1,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 2,
+                                                "kind": "integer"
+                                            },
+                                            "row": 1,
+                                            "selector": "stmt[0].insert_cell[1][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 2
+                                }
+                            ],
+                            "insert_mode": "all",
+                            "kind": "insert",
+                            "source_block": 1
+                        },
+                        "relations": [
+                            {
+                                "block": 1,
+                                "kind": "dual",
+                                "selector": "stmt[0].relation[1]",
+                                "table": "dual"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            }
+                        ],
+                        "root": 0,
+                        "targets": [
+                            {
+                                "block": 1,
+                                "kind": "literal",
+                                "ordinal": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]",
+                                "value": 0
+                            }
+                        ],
+                        "values": [
+                            {
+                                "bind_kind": 0,
+                                "block": 1,
+                                "clause": "select_list",
+                                "kind": "literal",
+                                "literal": {
+                                    "integer_value": 1,
+                                    "kind": "integer"
+                                },
+                                "selector": "stmt[0].value[2]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "status": "final",
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+                "value": "42",
+                "deparse": "-- leading line\n/* leading block */\nINSERT /* between insert and mode */ ALL /* before first target */ INTO users (id) VALUES (42) INTO users (id) VALUES (2) SELECT 1 FROM dual"
+            }
+        ]
+    },
+    {
+        "name": "dameng-line-comment-insert-first-boundary",
+        "sql": "INSERT -- between insert and mode\nFIRST WHEN amount > 100 THEN /* before target */ INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "insert",
+                    "query_graph": {
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    1,
+                                    2
+                                ]
+                            },
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0,
+                                    1
+                                ]
+                            }
+                        ],
+                        "dml": {
+                            "branches": [
+                                {
+                                    "branch_kind": "when",
+                                    "condition_selector": "stmt[0].insert_branch_condition[0]",
+                                    "ordinal": 0,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "field",
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][0]",
+                                            "source_field": 0,
+                                            "source_target": 0
+                                        },
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 1,
+                                            "kind": "field",
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][1]",
+                                            "source_field": 1,
+                                            "source_target": 1
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        },
+                                        {
+                                            "column": "amount",
+                                            "ordinal": 1
+                                        }
+                                    ],
+                                    "target_relation": 1
+                                },
+                                {
+                                    "branch_kind": "else",
+                                    "ordinal": 1,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "field",
+                                            "row": 1,
+                                            "selector": "stmt[0].insert_cell[1][0]",
+                                            "source_field": 0,
+                                            "source_target": 0
+                                        },
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 1,
+                                            "kind": "field",
+                                            "row": 1,
+                                            "selector": "stmt[0].insert_cell[1][1]",
+                                            "source_field": 1,
+                                            "source_target": 1
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        },
+                                        {
+                                            "column": "amount",
+                                            "ordinal": 1
+                                        }
+                                    ],
+                                    "target_relation": 2
+                                }
+                            ],
+                            "insert_mode": "first",
+                            "kind": "insert",
+                            "source_block": 1
+                        },
+                        "fields": [
+                            {
+                                "block": 1,
+                                "clause": "select_list",
+                                "column": "id",
+                                "relation": 0,
+                                "selector": "stmt[0].name[2]",
+                                "target": 0
+                            },
+                            {
+                                "block": 1,
+                                "clause": "select_list",
+                                "column": "amount",
+                                "relation": 0,
+                                "selector": "stmt[0].name[3]",
+                                "target": 1
+                            }
+                        ],
+                        "relations": [
+                            {
+                                "block": 1,
+                                "kind": "base",
+                                "selector": "stmt[0].relation[1]",
+                                "table": "orders"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "big_orders"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "small_orders"
+                            }
+                        ],
+                        "root": 0,
+                        "targets": [
+                            {
+                                "block": 1,
+                                "field": 0,
+                                "kind": "field",
+                                "name": "order_id",
+                                "ordinal": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            },
+                            {
+                                "block": 1,
+                                "field": 1,
+                                "kind": "field",
+                                "name": "amount",
+                                "ordinal": 1,
+                                "selector": "stmt[0].select_target[0][1]",
+                                "target_list_selector": "stmt[0].select_targets[0]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "status": "final",
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+                "value": "42",
+                "deparse": "INSERT -- between insert and mode\nFIRST WHEN amount > 100 THEN /* before target */ INTO big_orders (id, amount) VALUES (42, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders"
+            }
+        ]
     }
   ]
 }

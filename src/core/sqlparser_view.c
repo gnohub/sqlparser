@@ -2603,7 +2603,7 @@ int sqlparser_view_insert_cell_source_span(
 	if (handle == NULL || handle->sql == NULL) {
 		return 0;
 	}
-	multi_insert = sqlparser_dialect_is_oracle_compatible(handle->dialect) ?
+	multi_insert = sqlparser_dialect_is_oracle_or_dameng_compatible(handle->dialect) ?
 		sqlparser_dialect_state_multi_insert(
 			handle->dialect,
 			handle->dialect_state) : NULL;
@@ -2617,6 +2617,20 @@ int sqlparser_view_insert_cell_source_span(
 			    &statement_start,
 			    &statement_end)) {
 			return 0;
+		}
+		if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+			for (pos = statement_start; pos < statement_end;) {
+				if (sqlparser_public_comment_at(
+					    handle->dialect, handle->sql, pos)) {
+					break;
+				}
+				skipped = sqlparser_public_skip_quoted_or_comment(
+					handle->dialect, handle->sql, pos);
+				pos = skipped > pos ? skipped : pos + 1U;
+			}
+			if (pos == statement_end) {
+				return 0;
+			}
 		}
 		source_status = sqlparser_view_multi_insert_cell_source_span(
 			handle,

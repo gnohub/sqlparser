@@ -2709,6 +2709,34 @@ static size_t sqlparser_mysql_skip_leading_trivia(
 	}
 }
 
+static size_t sqlparser_mysql_skip_ordinary_trivia(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+	size_t skipped;
+
+	pos = start;
+	for (;;) {
+		while (pos < end && isspace((unsigned char)sql[pos])) {
+			pos++;
+		}
+		if (pos >= end ||
+		    !(sqlparser_mysql_is_dash_comment_start(sql, pos) ||
+		      sql[pos] == '#' ||
+		      (sql[pos] == '/' && pos + 1U < end &&
+		       sql[pos + 1U] == '*' && sql[pos + 2U] != '!'))) {
+			return pos;
+		}
+		skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, pos);
+		if (skipped <= pos) {
+			return pos;
+		}
+		pos = skipped < end ? skipped : end;
+	}
+}
+
 static sqlparser_status_t sqlparser_mysql_mask_non_code(
 	const char *sql,
 	char **out_masked,
@@ -3496,8 +3524,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	sqlparser_mysql_origin_trace_t quoted_origin;
 	const char *start;
 	const char *end;
+	const char *input_end;
 	const char *name_start;
 	const char *name_end;
+	const char *name_token_end;
+	const char *trivia_start;
 	char *quoted_name;
 	sqlparser_status_t status;
 
@@ -3512,7 +3543,8 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	}
 
 	start = input_sql;
-	end = input_sql + strlen(input_sql);
+	input_end = input_sql + strlen(input_sql);
+	end = input_end;
 	start = sqlparser_mysql_trim_left(start, end);
 	end = sqlparser_mysql_trim_right(start, end);
 	if (end > start && *(end - 1) == ';') {
@@ -3532,6 +3564,30 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	if (name_start >= name_end) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "USE requires a database name");
 		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	trivia_start = NULL;
+	if (*name_start == '`' || *name_start == '"') {
+		name_token_end = input_sql + sqlparser_mysql_skip_quoted_or_comment_span(
+			input_sql, (size_t)(name_start - input_sql));
+	} else {
+		name_token_end = name_start;
+		while (name_token_end < name_end &&
+		       !isspace((unsigned char)*name_token_end) &&
+		       *name_token_end != ';' && *name_token_end != ',' &&
+		       *name_token_end != '#' &&
+		       !sqlparser_mysql_is_dash_comment_start(
+			       input_sql, (size_t)(name_token_end - input_sql)) &&
+		       !(name_token_end[0] == '/' && name_token_end[1] == '*')) {
+			name_token_end++;
+		}
+	}
+	if (name_token_end > name_start && name_token_end < name_end &&
+	    sqlparser_mysql_skip_ordinary_trivia(
+		    input_sql,
+		    (size_t)(name_token_end - input_sql),
+		    (size_t)(end - input_sql)) == (size_t)(end - input_sql)) {
+		trivia_start = name_token_end;
+		name_end = name_token_end;
 	}
 
 	memset(&out, 0, sizeof(out));
@@ -3632,6 +3688,17 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_mysql_buffer_release(&out);
 		return status;
+	}
+	if (trivia_start != NULL) {
+		status = sqlparser_mysql_buffer_append_mem(
+			&out,
+			trivia_start,
+			(size_t)(input_end - trivia_start),
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_mysql_buffer_release(&out);
+			return status;
+		}
 	}
 	status = sqlparser_mysql_buffer_reserve(&out, 0U, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -4397,9 +4464,7 @@ static int sqlparser_mysql_executable_comment_body(
 	if (sql == NULL || comment_end - comment_start < 5U ||
 	    sql[comment_start] != '/' || sql[comment_start + 1U] != '*' ||
 	    sql[comment_start + 2U] != '!' ||
-	    sql[comment_end - 2U] != '*' || sql[comment_end - 1U] != '/' ||
-	    sqlparser_mysql_skip_quoted_or_comment_span(sql, comment_start) !=
-		comment_end) {
+	    sql[comment_end - 2U] != '*' || sql[comment_end - 1U] != '/') {
 		return 0;
 	}
 
@@ -4478,8 +4543,6 @@ static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
 	memset(&out, 0, sizeof(out));
 	memset(&origin, 0, sizeof(origin));
 	while (segment_start < len) {
-		const char *trimmed_start;
-		const char *trimmed_end;
 		size_t statement_end;
 		size_t comment_start;
 		size_t comment_end;
@@ -4487,15 +4550,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
 		size_t body_end;
 
 		statement_end = sqlparser_mysql_statement_end(sql, segment_start);
-		trimmed_start = sqlparser_mysql_trim_left(
-			sql + segment_start,
-			sql + statement_end);
-		trimmed_end = sqlparser_mysql_trim_right(
-			trimmed_start,
-			sql + statement_end);
-		comment_start = (size_t)(trimmed_start - sql);
-		comment_end = (size_t)(trimmed_end - sql);
-		if (sqlparser_mysql_executable_comment_body(
+		comment_start = sqlparser_mysql_skip_ordinary_trivia(
+			sql, segment_start, statement_end);
+		comment_end = sqlparser_mysql_skip_quoted_or_comment_span(
+			sql, comment_start);
+		if (comment_end > comment_start &&
+		    comment_end <= statement_end &&
+		    sqlparser_mysql_skip_ordinary_trivia(
+			    sql, comment_end, statement_end) == statement_end &&
+		    sqlparser_mysql_executable_comment_body(
 			    sql,
 			    comment_start,
 			    comment_end,

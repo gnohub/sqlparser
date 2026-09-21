@@ -70,6 +70,7 @@ int sqlparser_sqlserver_ascii_word_equal(const char *text, size_t pos, const cha
 unsigned int sqlparser_sqlserver_candidate_mask(const char *text);
 int sqlparser_sqlserver_line_is_go(const char *text, size_t pos, size_t *out_next);
 size_t sqlparser_sqlserver_skip_space(const char *text, size_t pos);
+size_t sqlparser_sqlserver_skip_trivia(const char *text, size_t pos);
 size_t sqlparser_sqlserver_trim_left(const char *text, size_t start, size_t end);
 size_t sqlparser_sqlserver_trim_right(const char *text, size_t start, size_t end);
 

@@ -35276,6 +35276,158 @@
           "sql": "?"
         }
       ]
+    },
+    {
+      "name": "mysql-comment-trivia-boundaries-and-hint",
+      "sql": "/* leading block */\n# leading hash\n-- leading dash\nSELECT /*+ MAX_EXECUTION_TIME(1000) */ 1 /* trailing block */; # trailing hash\n-- trailing dash\n",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "/* leading block */\n# leading hash\n-- leading dash\nSELECT /*+ MAX_EXECUTION_TIME(1000) */ 42 /* trailing block */; # trailing hash\n-- trailing dash\n"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-executable-version-comment-surrounded-by-trivia",
+      "sql": "USE db1; /* ordinary before executable */ /*!80000 USE db2 */ /* ordinary after executable */; SELECT 1;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "use",
+            "query_graph": {
+              "session": {
+                "action": "switch",
+                "items": [
+                  {
+                    "scope": "session",
+                    "target_kind": "database",
+                    "values": [
+                      {
+                        "kind": "identifier",
+                        "text": "db1"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "use",
+            "query_graph": {
+              "session": {
+                "action": "switch",
+                "items": [
+                  {
+                    "scope": "session",
+                    "target_kind": "database",
+                    "values": [
+                      {
+                        "kind": "identifier",
+                        "text": "db2"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 2,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[2].select_target[0][0]",
+                  "target_list_selector": "stmt[2].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[2].value[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/2/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "USE db1; /* ordinary before executable */ /*!80000 USE db2 */ /* ordinary after executable */; SELECT 42;"
+        }
+      ],
+      "status": "final"
     }
   ]
 }

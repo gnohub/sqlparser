@@ -44201,6 +44201,391 @@
             }
         ],
         "status": "final"
+    },
+    {
+        "name": "oracle-comments-multi-insert-trivia-boundaries",
+        "sql": "-- leading line\n/* leading block */\nINSERT /* between insert and mode */ ALL /* before first target */ INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "insert",
+                    "query_graph": {
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    1,
+                                    2
+                                ]
+                            },
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "dml": {
+                            "branches": [
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 0,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 1,
+                                                "kind": "integer"
+                                            },
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 1
+                                },
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 1,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 2,
+                                                "kind": "integer"
+                                            },
+                                            "row": 1,
+                                            "selector": "stmt[0].insert_cell[1][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 2
+                                }
+                            ],
+                            "insert_mode": "all",
+                            "kind": "insert",
+                            "source_block": 1
+                        },
+                        "relations": [
+                            {
+                                "block": 1,
+                                "kind": "dual",
+                                "selector": "stmt[0].relation[1]",
+                                "table": "dual"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            }
+                        ],
+                        "root": 0,
+                        "targets": [
+                            {
+                                "block": 1,
+                                "kind": "literal",
+                                "ordinal": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]",
+                                "value": 0
+                            }
+                        ],
+                        "values": [
+                            {
+                                "bind_kind": 0,
+                                "block": 1,
+                                "clause": "select_list",
+                                "kind": "literal",
+                                "literal": {
+                                    "integer_value": 1,
+                                    "kind": "integer"
+                                },
+                                "selector": "stmt[0].value[2]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "status": "final",
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+                "value": "42",
+                "deparse": "-- leading line\n/* leading block */\nINSERT /* between insert and mode */ ALL /* before first target */ INTO users (id) VALUES (42) INTO users (id) VALUES (2) SELECT 1 FROM dual"
+            }
+        ]
+    },
+    {
+        "name": "oracle-line-hint-insert-first",
+        "sql": "INSERT --+ APPEND\nFIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "insert",
+                    "query_graph": {
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    1
+                                ]
+                            },
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "dml": {
+                            "branches": [
+                                {
+                                    "branch_kind": "when",
+                                    "condition_selector": "stmt[0].insert_branch_condition[0]",
+                                    "ordinal": 0,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 1,
+                                                "kind": "integer"
+                                            },
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 1
+                                }
+                            ],
+                            "insert_mode": "first",
+                            "kind": "insert",
+                            "source_block": 1
+                        },
+                        "relations": [
+                            {
+                                "block": 1,
+                                "kind": "dual",
+                                "selector": "stmt[0].relation[1]",
+                                "table": "dual"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            }
+                        ],
+                        "root": 0,
+                        "targets": [
+                            {
+                                "block": 1,
+                                "kind": "literal",
+                                "ordinal": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]",
+                                "value": 0
+                            }
+                        ],
+                        "values": [
+                            {
+                                "bind_kind": 0,
+                                "block": 1,
+                                "clause": "select_list",
+                                "kind": "literal",
+                                "literal": {
+                                    "integer_value": 1,
+                                    "kind": "integer"
+                                },
+                                "selector": "stmt[0].value[2]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "status": "final",
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+                "value": "42",
+                "deparse": "INSERT --+ APPEND\nFIRST WHEN 1 = 1 THEN INTO users (id) VALUES (42) SELECT 1 FROM dual"
+            }
+        ]
+    },
+    {
+        "name": "oracle-block-hint-insert-all",
+        "sql": "INSERT /*+ APPEND */ ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+        "view": {
+            "statements": [
+                {
+                    "index": 0,
+                    "keyword": "insert",
+                    "query_graph": {
+                        "blocks": [
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    1,
+                                    2
+                                ]
+                            },
+                            {
+                                "kind": "select",
+                                "relations": [
+                                    0
+                                ],
+                                "targets": [
+                                    0
+                                ]
+                            }
+                        ],
+                        "dml": {
+                            "branches": [
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 0,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 1,
+                                                "kind": "integer"
+                                            },
+                                            "row": 0,
+                                            "selector": "stmt[0].insert_cell[0][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 1
+                                },
+                                {
+                                    "branch_kind": "unconditional",
+                                    "ordinal": 1,
+                                    "rows": [
+                                        {
+                                            "bind_kind": 0,
+                                            "column": 0,
+                                            "kind": "literal",
+                                            "literal": {
+                                                "integer_value": 2,
+                                                "kind": "integer"
+                                            },
+                                            "row": 1,
+                                            "selector": "stmt[0].insert_cell[1][0]"
+                                        }
+                                    ],
+                                    "target_columns": [
+                                        {
+                                            "column": "id",
+                                            "ordinal": 0
+                                        }
+                                    ],
+                                    "target_relation": 2
+                                }
+                            ],
+                            "insert_mode": "all",
+                            "kind": "insert",
+                            "source_block": 1
+                        },
+                        "relations": [
+                            {
+                                "block": 1,
+                                "kind": "dual",
+                                "selector": "stmt[0].relation[1]",
+                                "table": "dual"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            },
+                            {
+                                "block": 0,
+                                "kind": "base",
+                                "table": "users"
+                            }
+                        ],
+                        "root": 0,
+                        "targets": [
+                            {
+                                "block": 1,
+                                "kind": "literal",
+                                "ordinal": 0,
+                                "selector": "stmt[0].select_target[0][0]",
+                                "target_list_selector": "stmt[0].select_targets[0]",
+                                "value": 0
+                            }
+                        ],
+                        "values": [
+                            {
+                                "bind_kind": 0,
+                                "block": 1,
+                                "clause": "select_list",
+                                "kind": "literal",
+                                "literal": {
+                                    "integer_value": 1,
+                                    "kind": "integer"
+                                },
+                                "selector": "stmt[0].value[2]"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "status": "final",
+        "patch": [
+            {
+                "action": "replace",
+                "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+                "value": "42",
+                "deparse": "INSERT /*+ APPEND */ ALL INTO users (id) VALUES (42) INTO users (id) VALUES (2) SELECT 1 FROM dual"
+            }
+        ]
     }
   ]
 }

@@ -66115,6 +66115,224 @@
         }
       ],
       "status": "final"
+    },
+    {
+      "name": "vastbase-sqlserver-comment-trivia-select-top-contract",
+      "sql": "-- leading line\n/* leading block */ /* second block */\nSELECT /* between SELECT and TOP */ TOP (5) [id], [name] FROM [dbo].[users] ORDER BY [id] /* trailing block */ -- trailing line",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "quoted_identifier": true,
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "quoted_identifier": true,
+                  "column": "name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "order_by",
+                  "quoted_identifier": true,
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
+                  "table": "users"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "output_quoted_identifier": true,
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "name",
+                  "output_quoted_identifier": true,
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "[PatchedName]",
+          "deparse": "-- leading line\n/* leading block */ /* second block */\nSELECT /* between SELECT and TOP */ TOP (5) [PatchedName], [name] FROM [dbo].[users] ORDER BY [id] /* trailing block */ -- trailing line"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "vastbase-sqlserver-go-comment-boundaries-contract",
+      "sql": "SELECT [id] FROM [dbo].[users]\n/* before GO */ GO -- after GO\nSELECT [id] FROM [dbo].[orders]",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "quoted_identifier": true,
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
+                  "table": "users"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "output_quoted_identifier": true,
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "quoted_identifier": true,
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[1].name[0]",
+                  "target": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "schema_quoted_identifier": true,
+                  "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
+                  "table": "orders"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "output_quoted_identifier": true,
+                  "ordinal": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/1/query_graph/relations/0/selector",
+          "value": "[PatchedTable]",
+          "deparse": "SELECT [id] FROM [dbo].[users]\n/* before GO */ GO -- after GO\nSELECT [id] FROM [PatchedTable]"
+        }
+      ],
+      "status": "final"
     }
   ]
 }

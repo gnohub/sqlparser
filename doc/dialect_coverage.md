@@ -6,21 +6,21 @@
 
 | 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 234 | 0 | 234 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 276 | 0 | 276 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 291 | 0 | 291 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 651 | 0 | 651 | 100.00% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 223 | 0 | 223 | 100.00% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 219 | 0 | 219 | 100.00% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 277 | 0 | 277 | 100.00% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 260 | 0 | 260 | 100.00% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 631 | 0 | 631 | 100.00% |
-| KingbaseES PostgreSQL 兼容入口 | `tests/cases/kingbase_postgresql_dialect_input.json` | 45 | 0 | 45 | 100.00% |
-| KingbaseES MySQL 兼容入口 | `tests/cases/kingbase_mysql_dialect_input.json` | 42 | 0 | 42 | 100.00% |
-| KingbaseES Oracle 兼容入口 | `tests/cases/kingbase_oracle_dialect_input.json` | 43 | 0 | 43 | 100.00% |
-| KingbaseES SQL Server 兼容入口 | `tests/cases/kingbase_sqlserver_dialect_input.json` | 45 | 0 | 45 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 238 | 0 | 238 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 278 | 0 | 278 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 294 | 0 | 294 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 653 | 0 | 653 | 100.00% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 225 | 0 | 225 | 100.00% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 223 | 0 | 223 | 100.00% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 278 | 0 | 278 | 100.00% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 262 | 0 | 262 | 100.00% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 633 | 0 | 633 | 100.00% |
+| KingbaseES PostgreSQL 兼容入口 | `tests/cases/kingbase_postgresql_dialect_input.json` | 49 | 0 | 49 | 100.00% |
+| KingbaseES MySQL 兼容入口 | `tests/cases/kingbase_mysql_dialect_input.json` | 43 | 0 | 43 | 100.00% |
+| KingbaseES Oracle 兼容入口 | `tests/cases/kingbase_oracle_dialect_input.json` | 46 | 0 | 46 | 100.00% |
+| KingbaseES SQL Server 兼容入口 | `tests/cases/kingbase_sqlserver_dialect_input.json` | 47 | 0 | 47 | 100.00% |
 
-十三个夹具合计 3237 条 final 用例和 10249 个独立 patch。
+十三个夹具合计 3269 条 final 用例和 10305 个独立 patch。
 
 ## 口径
 

@@ -343,7 +343,8 @@ static size_t sqlparser_public_skip_oracle_q_quote(
 static int sqlparser_public_nested_comments(sqlparser_dialect_t dialect)
 {
 	return sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
-		sqlparser_dialect_is_sqlserver_compatible(dialect);
+		sqlparser_dialect_is_sqlserver_compatible(dialect) ||
+		dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE;
 }
 
 size_t sqlparser_public_skip_quoted_or_comment(
@@ -544,14 +545,15 @@ static int sqlparser_public_line_prefix_after(
 	const char *sql,
 	size_t start,
 	size_t end,
-	int line_prefix)
+	int line_prefix,
+	int comment)
 {
 	size_t pos;
 
 	for (pos = start; pos < end; pos++) {
 		if (sql[pos] == '\r' || sql[pos] == '\n') {
 			line_prefix = 1;
-		} else if (!isspace((unsigned char)sql[pos])) {
+		} else if (!comment && !isspace((unsigned char)sql[pos])) {
 			line_prefix = 0;
 		}
 	}
@@ -599,7 +601,8 @@ static int sqlparser_public_terminal_scan(
 				sql,
 				pos,
 				skipped,
-				line_prefix);
+				line_prefix,
+				1);
 			pos = skipped;
 			continue;
 		}
@@ -628,7 +631,8 @@ static int sqlparser_public_terminal_scan(
 			sql,
 			pos,
 			skipped,
-			line_prefix);
+			line_prefix,
+			0);
 		pos = skipped;
 		out_scan->body_end = pos;
 		out_scan->semantic_count = 0U;
@@ -733,7 +737,8 @@ static int sqlparser_public_statement_scan_next(
 					scan->sql,
 					pos,
 					skipped,
-					scan->line_prefix);
+					scan->line_prefix,
+					1);
 				pos = skipped;
 				continue;
 			}
@@ -766,7 +771,8 @@ static int sqlparser_public_statement_scan_next(
 				scan->sql,
 				pos,
 				skipped,
-				scan->line_prefix);
+				scan->line_prefix,
+				0);
 			pos = skipped;
 		}
 		scan->pos = pos;

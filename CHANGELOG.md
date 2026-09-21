@@ -1,5 +1,18 @@
 # 变更记录
 
+## 2.16.14
+
+### SQL 注释边界
+
+- 修正 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦 `INSERT ALL/FIRST` 的前导及结构关键字间注释识别；SQL Server 系入口支持 `SELECT` 与 `TOP` 间注释及 `GO` 批分隔符同一行的注释。
+- MySQL 入口保留整句可执行注释两侧的普通注释，`USE` 尾随注释不再并入数据库名；PostgreSQL 系入口在首个 SELECT target 前含嵌套注释时保留 target patch 后的原文。
+- 上述解析、反解析及 patch 合同不声明优化器提示或可执行注释在数据库服务端的执行效果。未新增公开 API、结构体字段、View JSON 字段或所有权规则。
+
+### 用例与验证
+
+- 新增 32 条 final case 和 56 个 patch；13 套 fixture 合计 3,269 条 final case 和 10,305 个 patch。
+- 远端完整 `make test`、13 套用例矩阵、core API 与 dialect surface 定向测试通过；32 条新增用例的 Valgrind 检查未报内存错误或泄漏。
+
 ## 2.16.13
 
 ### KingbaseES 统一方言入口

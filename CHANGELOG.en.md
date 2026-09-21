@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.14
+
+### SQL Comment Boundaries
+
+- Fixed leading and inter-keyword comment recognition for `INSERT ALL/FIRST` in Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng. SQL Server-family entries now recognize comments between `SELECT` and `TOP` and on the same line as a `GO` batch separator.
+- The MySQL entry preserves ordinary comments around a whole-statement executable comment and no longer treats a trailing `USE` comment as part of the database name. PostgreSQL-family entries preserve a nested comment before the first SELECT target after a target patch.
+- These parsing, deparsing, and patch contracts do not assert database-side execution of optimizer hints or executable comments. No public API, structure field, View JSON field, or ownership rule was added.
+
+### Cases and Validation
+
+- Added 32 final cases and 56 patches. The 13 fixtures now contain 3,269 final cases and 10,305 patches.
+- The full remote `make test` suite, all 13 case matrices, targeted core API and dialect-surface tests passed. Valgrind reported no memory errors or leaks for the 32 new cases.
+
 ## 2.16.13
 
 ### Unified KingbaseES Dialect Entries

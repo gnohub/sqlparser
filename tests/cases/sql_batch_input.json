@@ -33874,6 +33874,315 @@
         }
       ],
       "status": "final"
+    },
+    {
+      "name": "postgresql-comment-leading-consecutive-trailing",
+      "sql": "-- leading line comment\n/* leading block comment *//* adjacent block comment */ SELECT 1 /* trailing block comment */ -- trailing line comment",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "-- leading line comment\n/* leading block comment *//* adjacent block comment */ SELECT \"PatchedTarget\" /* trailing block comment */ -- trailing line comment"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "-- leading line comment\n/* leading block comment *//* adjacent block comment */ SELECT 1, \"InsertedTarget\" /* trailing block comment */ -- trailing line comment"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "-- leading line comment\n/* leading block comment *//* adjacent block comment */ SELECT 42 /* trailing block comment */ -- trailing line comment"
+        }
+      ]
+    },
+    {
+      "name": "postgresql-comment-nested-between-tokens",
+      "sql": "SELECT /* outer /* inner */ outer */ 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "literal",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "selector": "stmt[0].value[1]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "SELECT /* outer /* inner */ outer */ \"PatchedTarget\""
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT /* outer /* inner */ outer */ 1, \"InsertedTarget\""
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "SELECT /* outer /* inner */ outer */ 42"
+        }
+      ]
+    },
+    {
+      "name": "postgresql-comment-multi-statement-boundary",
+      "sql": "BEGIN; /* between block *//* adjacent block */ -- between line\nCOMMIT;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "begin",
+            "query_graph": {}
+          },
+          {
+            "index": 1,
+            "keyword": "commit",
+            "query_graph": {}
+          }
+        ]
+      },
+      "status": "final",
+      "patch": []
+    },
+    {
+      "name": "postgresql-comment-plus-marker-is-ordinary",
+      "sql": "SELECT /*+ SeqScan(users) */ id, name FROM public.users WHERE id = 42",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "public",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "name",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 42,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[11]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PatchedName\"",
+          "deparse": "SELECT /*+ SeqScan(users) */ \"PatchedName\", name FROM public.users WHERE id = 42"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/2/selector",
+          "value": "\"PatchedName\"",
+          "deparse": "SELECT /*+ SeqScan(users) */ id, name FROM public.users WHERE \"PatchedName\" = 42"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedTable\"",
+          "deparse": "SELECT /*+ SeqScan(users) */ id, name FROM \"PatchedTable\" WHERE id = 42"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "SELECT /*+ SeqScan(users) */ \"PatchedTarget\", name FROM public.users WHERE id = 42"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT /*+ SeqScan(users) */ id, \"InsertedTarget\", name FROM public.users WHERE id = 42"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "SELECT /*+ SeqScan(users) */ id, name FROM public.users WHERE id = 42"
+        }
+      ]
     }
   ]
 }

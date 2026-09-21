@@ -7231,15 +7231,15 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins_impl(
 				return SQLPARSER_STATUS_RESOURCE_LIMIT;
 			}
 			select_ordinal = state->select_count++;
-			top_probe = sqlparser_sqlserver_skip_space(
+			top_probe = sqlparser_sqlserver_skip_trivia(
 				input_sql, index + strlen("select"));
 			if (sqlparser_sqlserver_ascii_word_equal(
 				    input_sql, top_probe, "all")) {
-				top_probe = sqlparser_sqlserver_skip_space(
+				top_probe = sqlparser_sqlserver_skip_trivia(
 					input_sql, top_probe + strlen("all"));
 			} else if (sqlparser_sqlserver_ascii_word_equal(
 					   input_sql, top_probe, "distinct")) {
-				top_probe = sqlparser_sqlserver_skip_space(
+				top_probe = sqlparser_sqlserver_skip_trivia(
 					input_sql, top_probe + strlen("distinct"));
 			}
 			generated_wrapper =
@@ -7273,20 +7273,15 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins_impl(
 			}
 			index += 6U;
 			after_select = index;
-			while (isspace((unsigned char)input_sql[index])) {
-				status = sqlparser_sqlserver_buffer_append_input_mem(
-					&out,
-					input_sql,
-					index,
-					1U,
-					out_error);
-				if (status != SQLPARSER_STATUS_OK) {
-					sqlparser_sqlserver_buffer_release(&out);
-					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
-					return status;
-				}
-				index++;
+			next_index = sqlparser_sqlserver_skip_trivia(input_sql, index);
+			status = sqlparser_sqlserver_buffer_append_input_mem(
+				&out, input_sql, index, next_index - index, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_sqlserver_buffer_release(&out);
+				sqlparser_sqlserver_pending_top_list_release(&pending_tops);
+				return status;
 			}
+			index = next_index;
 
 			if (sqlparser_sqlserver_ascii_word_equal(input_sql, index, "all") ||
 			    sqlparser_sqlserver_ascii_word_equal(input_sql, index, "distinct")) {
@@ -7305,20 +7300,15 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins_impl(
 					return status;
 				}
 				index += word_len;
-				while (isspace((unsigned char)input_sql[index])) {
-					status = sqlparser_sqlserver_buffer_append_input_mem(
-						&out,
-						input_sql,
-						index,
-						1U,
-						out_error);
-					if (status != SQLPARSER_STATUS_OK) {
-						sqlparser_sqlserver_buffer_release(&out);
-						sqlparser_sqlserver_pending_top_list_release(&pending_tops);
-						return status;
-					}
-					index++;
+				next_index = sqlparser_sqlserver_skip_trivia(input_sql, index);
+				status = sqlparser_sqlserver_buffer_append_input_mem(
+					&out, input_sql, index, next_index - index, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_sqlserver_buffer_release(&out);
+					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
+					return status;
 				}
+				index = next_index;
 			}
 
 			top_pos = index;

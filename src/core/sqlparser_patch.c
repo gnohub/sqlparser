@@ -3105,7 +3105,8 @@ static sqlparser_status_t sqlparser_patch_select_target_span(
 	terminal_without_from = target_index + 1U == stmt->n_target_list &&
 		stmt->n_from_clause == 0U;
 	if (terminal_without_from &&
-	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	    !sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_patch_target_source_span(
@@ -4195,6 +4196,7 @@ static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
 	sqlparser_status_t status;
 	int boundary_is_eof;
 	int boundary_is_from;
+	int comment;
 	int source_supported;
 	int token_seen;
 
@@ -4437,10 +4439,11 @@ static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
 	bracket_depth = 0U;
 	token_seen = 0;
 	for (pos = source_select_end; pos < source_boundary_start; pos++) {
-		if (sqlparser_patch_comment_starts_at(
-			    handle->dialect,
-			    handle->sql,
-			    pos)) {
+		comment = sqlparser_patch_comment_starts_at(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (comment && token_seen) {
 			return SQLPARSER_STATUS_OK;
 		}
 		skipped = sqlparser_public_skip_quoted_or_comment(
@@ -4451,7 +4454,9 @@ static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
 			if (skipped > source_boundary_start) {
 				return SQLPARSER_STATUS_OK;
 			}
-			token_seen = 1;
+			if (!comment) {
+				token_seen = 1;
+			}
 			pos = skipped - 1U;
 			continue;
 		}
@@ -4503,11 +4508,10 @@ static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
 		if (status != SQLPARSER_STATUS_OK || !source_supported) {
 			return status;
 		}
-		pos = source_select_end;
-		while (pos < source_boundary_start &&
-		       isspace((unsigned char)handle->sql[pos])) {
-			pos++;
-		}
+		pos = sqlparser_public_skip_trivia(
+			handle->dialect,
+			handle->sql,
+			source_select_end);
 		if (pos >= source_boundary_start || pos != source_first_start) {
 			return SQLPARSER_STATUS_OK;
 		}
@@ -11219,7 +11223,7 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 		      planned_selector != NULL &&
 		      planned_selector->kind ==
 			      SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
-		      sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+		      sqlparser_dialect_is_oracle_or_dameng_compatible(handle->dialect) &&
 		      sqlparser_dialect_state_has_multi_insert(
 			      handle->dialect,
 			      handle->dialect_state)) {
