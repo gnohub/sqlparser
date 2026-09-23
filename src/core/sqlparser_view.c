@@ -2198,6 +2198,7 @@ static int sqlparser_view_dml_cell_source_span(
 static int sqlparser_view_multi_insert_cell_source_span(
 	const sqlparser_handle_t *handle,
 	const sqlparser_dialect_multi_insert_t *multi_insert,
+	sqlparser_view_expression_source_cache_t *cache,
 	size_t statement_start,
 	size_t statement_end,
 	size_t target_branch,
@@ -2223,7 +2224,10 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	size_t target_start;
 	size_t values_close;
 	size_t values_open;
+	size_t values_position;
+	size_t target_values_position;
 	int target_found;
+	int validated;
 
 	if (handle == NULL || multi_insert == NULL ||
 	    multi_insert->branches == NULL ||
@@ -2287,10 +2291,16 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	}
 
 	branch_index = 0U;
+	validated = cache != NULL && cache->valid == 2;
+	if (validated && target_branch >= cache->multi_branch_index) {
+		branch_index = cache->multi_branch_index;
+		pos = cache->resume;
+	}
 	paren_depth = 0U;
 	target_end = 0U;
 	target_found = 0;
 	target_start = 0U;
+	target_values_position = 0U;
 	while (pos < source_start) {
 		skipped = sqlparser_public_skip_quoted_or_comment(
 			handle->dialect,
@@ -2325,6 +2335,7 @@ static int sqlparser_view_multi_insert_cell_source_span(
 			pos++;
 			continue;
 		}
+		values_position = pos;
 		values_open = sqlparser_public_skip_trivia(
 			handle->dialect,
 			sql,
@@ -2407,6 +2418,7 @@ static int sqlparser_view_multi_insert_cell_source_span(
 				target_start = cell_start;
 				target_end = cell_end;
 				target_found = 1;
+				target_values_position = values_position;
 			}
 			cell_index++;
 			if (sql[pos] == ')') {
@@ -2420,6 +2432,13 @@ static int sqlparser_view_multi_insert_cell_source_span(
 		    cell_index != branch->cell_count) {
 			return 0;
 		}
+		if (validated && target_found) {
+			cache->resume = target_values_position;
+			cache->multi_branch_index = target_branch;
+			*out_start = target_start;
+			*out_end = target_end;
+			return 1;
+		}
 		branch_index++;
 		paren_depth = 0U;
 		pos = values_close + 1U;
@@ -2430,6 +2449,13 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	}
 	*out_start = target_start;
 	*out_end = target_end;
+	if (cache != NULL) {
+		cache->valid = 2;
+		cache->search_position = statement_start;
+		cache->multi_statement_end = statement_end;
+		cache->multi_branch_index = target_branch;
+		cache->resume = target_values_position;
+	}
 	return 1;
 }
 
@@ -2608,8 +2634,11 @@ int sqlparser_view_insert_cell_source_span(
 			handle->dialect,
 			handle->dialect_state) : NULL;
 	if (multi_insert != NULL) {
-		if (statement_index != 0U ||
-		    !sqlparser_view_public_statement_span_in_sql(
+		if (statement_index != 0U) return 0;
+		if (cache != NULL && cache->valid == 2) {
+			statement_start = cache->search_position;
+			statement_end = cache->multi_statement_end;
+		} else if (!sqlparser_view_public_statement_span_in_sql(
 			    handle,
 			    handle->sql,
 			    0,
@@ -2618,7 +2647,7 @@ int sqlparser_view_insert_cell_source_span(
 			    &statement_end)) {
 			return 0;
 		}
-		if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		if (handle->dialect == SQLPARSER_DIALECT_DAMENG && (cache == NULL || cache->valid != 2)) {
 			for (pos = statement_start; pos < statement_end;) {
 				if (sqlparser_public_comment_at(
 					    handle->dialect, handle->sql, pos)) {
@@ -2635,6 +2664,7 @@ int sqlparser_view_insert_cell_source_span(
 		source_status = sqlparser_view_multi_insert_cell_source_span(
 			handle,
 			multi_insert,
+			cache,
 			statement_start,
 			statement_end,
 			row_index,
@@ -3983,7 +4013,7 @@ static int sqlparser_view_expression_source_span(
 	parser_sql = handle->parser_sql;
 	search_position = 0U;
 	if (cache != NULL &&
-	    cache->valid &&
+	    cache->valid == 1 &&
 	    location >= cache->last_location) {
 		int source_status;
 
@@ -9772,7 +9802,7 @@ static int sqlparser_graph_expression_store_text(
 	return 0;
 }
 
-static int sqlparser_graph_expression_function_info(
+int sqlparser_graph_expression_function_info(
 	PgQuery__Node *node,
 	const char **out_name,
 	PgQuery__Node ***out_arguments,

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.16
+
+### Patch Batch Performance
+
+- Reduced repeated whole-statement parsing and source scanning for INSERT value copying, Oracle-family and Dameng `INSERT ALL/FIRST` value replacements, function-expression and argument edits, and mixed batches of UPDATE assignment and argument replacements.
+- Compatible consecutive edits are combined, with parsed state synchronized as needed. Patch order, `source_selector` read semantics, atomic rollback, and existing resource limits remain unchanged, as do public APIs, public structure layouts, View JSON fields, and ownership rules.
+- In a same-machine comparison with 2.16.15, one batch of 250 string replacements on a 27,530-byte Oracle `INSERT ALL` sample with 50 branches reduced `sqlparser_apply_patch()` time from approximately 1.41 seconds to 15 milliseconds. Actual gains depend on the SQL and patch mix.
+
+### Cases and Validation
+
+- Expanded patch batch regressions and standalone benchmarks across all 13 dialect entries, checking ordered source reads, index changes, mixed edits, binds, comments, resource limits, and rollback.
+- The full `make test` suite and ABI check passed, with 162 public exports unchanged. Valgrind reported no memory errors or leaks in the patch batch regressions.
+
 ## 2.16.15
 
 ### Patch Batch Performance

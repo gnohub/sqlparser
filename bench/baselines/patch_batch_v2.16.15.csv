@@ -1,0 +1,136 @@
+case,dialect,size,patches,run,input_bytes,output_bytes,parse_seconds,construct_seconds,apply_seconds,json_seconds,deparse_seconds,max_rss_kib,full_parse_calls,handle_clone_calls,deparse_calls,arguments
+oracle_values,oracle,50,5,1,27530,27528,0.004638,0.009694,0.030310,0.019748,0.000030,6852,5,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 5
+oracle_values,oracle,50,5,2,27530,27528,0.004556,0.009625,0.030291,0.019760,0.000029,6852,5,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 5
+oracle_values,oracle,50,5,3,27530,27528,0.004432,0.009454,0.029444,0.019260,0.000029,6852,5,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 5
+oracle_values,oracle,50,50,1,27530,27510,0.004496,0.009325,0.280384,0.019443,0.000035,6852,50,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 50
+oracle_values,oracle,50,50,2,27530,27510,0.004378,0.009333,0.282998,0.019419,0.000034,6848,50,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 50
+oracle_values,oracle,50,50,3,27530,27510,0.004644,0.009694,0.286255,0.019995,0.000034,6848,50,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 50
+oracle_values,oracle,50,125,1,27530,27480,0.004458,0.009524,0.711916,0.020084,0.000039,6848,125,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 125
+oracle_values,oracle,50,125,2,27530,27480,0.004607,0.009721,0.710027,0.019930,0.000040,6852,125,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 125
+oracle_values,oracle,50,125,3,27530,27480,0.004529,0.009609,0.711213,0.019984,0.000050,6852,125,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 125
+oracle_values,oracle,50,250,1,27530,27430,0.004508,0.009390,1.394223,0.019556,0.000041,6840,250,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 250
+oracle_values,oracle,50,250,2,27530,27430,0.004435,0.009377,1.396612,0.019548,0.000043,6840,250,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 250
+oracle_values,oracle,50,250,3,27530,27430,0.004443,0.009324,1.392180,0.019760,0.000043,6836,250,2,2,--fixture tests/cases/patch_batch_oracle_insert_all.sql 250
+multi_all,oracle,50,50,1,1257,1597,0.000640,,0.019183,0.001657,0.000029,2504,50,2,2,--profile multi_all oracle 50 50
+multi_all,oracle,50,50,2,1257,1597,0.000593,,0.019183,0.001642,0.000037,2504,50,2,2,--profile multi_all oracle 50 50
+multi_all,oracle,50,50,3,1257,1597,0.000630,,0.019044,0.001675,0.000030,2508,50,2,2,--profile multi_all oracle 50 50
+multi_first,oracle,50,50,1,1273,1613,0.000670,,0.019655,0.001792,0.000029,batch-profile,50,2,2,--profile multi_first oracle 50 50
+multi_first,oracle,50,50,2,1273,1613,0.000644,,0.019621,0.001760,0.000030,2528,50,2,2,--profile multi_first oracle 50 50
+multi_first,oracle,50,50,3,1273,1613,0.000603,,0.019747,0.001707,0.000036,2532,50,2,2,--profile multi_first oracle 50 50
+multi_raw,oracle,50,50,1,1257,1597,0.000636,,0.019183,0.001643,0.000028,2500,50,2,2,--profile multi_raw oracle 50 50
+multi_raw,oracle,50,50,2,1257,1597,0.000594,,0.019076,0.001596,0.000034,2496,50,2,2,--profile multi_raw oracle 50 50
+multi_raw,oracle,50,50,3,1257,1597,0.000599,,0.019080,0.001624,0.000030,2500,50,2,2,--profile multi_raw oracle 50 50
+multi_bind,oracle,50,50,1,1257,1198,0.000651,,0.019756,0.001681,0.000028,2460,50,2,2,--profile multi_bind oracle 50 50
+multi_bind,oracle,50,50,2,1257,1198,0.000623,,0.019620,0.001667,0.000028,2460,50,2,2,--profile multi_bind oracle 50 50
+multi_bind,oracle,50,50,3,1257,1198,0.000682,,0.019668,0.001660,0.000040,2460,50,2,2,--profile multi_bind oracle 50 50
+multi_copy,oracle,50,50,1,1257,1407,0.000668,,0.018878,0.001614,0.000028,2500,50,2,2,--profile multi_copy oracle 50 50
+multi_copy,oracle,50,50,2,1257,1407,0.000633,,0.018690,0.001654,0.000030,2496,50,2,2,--profile multi_copy oracle 50 50
+multi_copy,oracle,50,50,3,1257,1407,0.000586,,0.018636,0.001614,0.000029,2500,50,2,2,--profile multi_copy oracle 50 50
+multi_comment_all,oracle,50,50,1,1287,1627,0.000666,,0.019492,0.001665,0.000030,2520,50,2,2,--profile multi_comment_all oracle 50 50
+multi_comment_all,oracle,50,50,2,1287,1627,0.000637,,0.019258,0.001675,0.000029,2524,50,2,2,--profile multi_comment_all oracle 50 50
+multi_comment_all,oracle,50,50,3,1287,1627,0.000696,,0.019252,0.001650,0.000029,2520,50,2,2,--profile multi_comment_all oracle 50 50
+multi_all,dameng,50,50,1,1257,1699,0.000646,,0.002182,0.001647,0.000027,2724,1,2,4,--profile multi_all dameng 50 50
+multi_all,dameng,50,50,2,1257,1699,0.000597,,0.002192,0.001620,0.000026,2720,1,2,4,--profile multi_all dameng 50 50
+multi_all,dameng,50,50,3,1257,1699,0.000669,,0.002134,0.001630,0.000026,2728,1,2,4,--profile multi_all dameng 50 50
+multi_comment_all,dameng,50,50,1,1287,1627,0.000658,,0.018039,0.001588,0.000030,2576,50,2,2,--profile multi_comment_all dameng 50 50
+multi_comment_all,dameng,50,50,2,1287,1627,0.000675,,0.018318,0.001593,0.000030,2576,50,2,2,--profile multi_comment_all dameng 50 50
+multi_comment_all,dameng,50,50,3,1287,1627,0.000681,,0.018277,0.001636,0.000030,2576,50,2,2,--profile multi_comment_all dameng 50 50
+multi_comment_first,dameng,50,50,1,1303,1643,0.000689,,0.019179,0.001711,0.000036,2596,50,2,2,--profile multi_comment_first dameng 50 50
+multi_comment_first,dameng,50,50,2,1303,1643,0.000627,,0.019027,0.001683,0.000030,2596,50,2,2,--profile multi_comment_first dameng 50 50
+multi_comment_first,dameng,50,50,3,1303,1643,0.000685,,0.019063,0.001720,0.000030,2600,50,2,2,--profile multi_comment_first dameng 50 50
+multi_raw,dameng,50,50,1,1257,1699,0.000628,,0.053262,0.001327,0.000577,2724,50,2,52,--profile multi_raw dameng 50 50
+multi_raw,dameng,50,50,2,1257,1699,0.000595,,0.053218,0.001284,0.000597,2720,50,2,52,--profile multi_raw dameng 50 50
+multi_raw,dameng,50,50,3,1257,1699,0.000649,,0.052533,0.001285,0.000581,2720,50,2,52,--profile multi_raw dameng 50 50
+insert_copy,postgresql,250,50,1,2677,2827,0.002593,,0.194011,0.004505,0.000063,3068,49,1,0,--profile insert_copy postgresql 250 50
+insert_copy,postgresql,250,50,2,2677,2827,0.002709,,0.198447,0.004585,0.000065,3068,49,1,0,--profile insert_copy postgresql 250 50
+insert_copy,postgresql,250,50,3,2677,2827,0.002623,,0.193521,0.004527,0.000061,3068,49,1,0,--profile insert_copy postgresql 250 50
+insert_copy,postgresql,250,125,1,2677,3052,0.002597,,0.484564,0.004533,0.000061,3068,124,1,0,--profile insert_copy postgresql 250 125
+insert_copy,postgresql,250,125,2,2677,3052,0.002589,,0.483621,0.004548,0.000061,3064,124,1,0,--profile insert_copy postgresql 250 125
+insert_copy,postgresql,250,125,3,2677,3052,0.002636,,0.487816,0.004511,0.000059,3068,124,1,0,--profile insert_copy postgresql 250 125
+insert_copy,postgresql,250,250,1,2677,3427,0.002628,,0.971023,0.004543,0.000061,3072,249,1,0,--profile insert_copy postgresql 250 250
+insert_copy,postgresql,250,250,2,2677,3427,0.002655,,0.970879,0.004540,0.000060,3072,249,1,0,--profile insert_copy postgresql 250 250
+insert_copy,postgresql,250,250,3,2677,3427,0.002599,,0.971265,0.004531,0.000060,3072,249,1,0,--profile insert_copy postgresql 250 250
+insert_copy,postgresql,50,50,1,526,676,0.000781,,0.044610,0.001149,0.000003,2024,49,1,0,--profile insert_copy postgresql 50 50
+insert_copy,postgresql,50,50,2,526,676,0.000764,,0.043345,0.001081,0.000002,2024,49,1,0,--profile insert_copy postgresql 50 50
+insert_copy,postgresql,50,50,3,526,676,0.000805,,0.041948,0.001043,0.000003,2024,49,1,0,--profile insert_copy postgresql 50 50
+insert_copy,postgresql,500,50,1,5427,5577,0.004887,,0.392054,0.009331,0.000027,4228,49,1,0,--profile insert_copy postgresql 500 50
+insert_copy,postgresql,500,50,2,5427,5577,0.005493,,0.406432,0.009393,0.000029,4224,49,1,0,--profile insert_copy postgresql 500 50
+insert_copy,postgresql,500,50,3,5427,5577,0.004873,,0.384319,0.009209,0.000027,4228,49,1,0,--profile insert_copy postgresql 500 50
+insert_copy,mysql,250,250,1,2677,3427,0.003924,,1.487184,0.004515,0.000061,3160,249,1,0,--profile insert_copy mysql 250 250
+insert_copy,mysql,250,250,2,2677,3427,0.003842,,1.495143,0.004624,0.000060,3160,249,1,0,--profile insert_copy mysql 250 250
+insert_copy,mysql,250,250,3,2677,3427,0.003862,,1.467530,0.004495,0.000060,3164,249,1,0,--profile insert_copy mysql 250 250
+insert_copy,sqlserver,250,250,1,2677,3427,0.005852,,1.909358,0.004596,0.000063,3216,249,1,0,--profile insert_copy sqlserver 250 250
+insert_copy,sqlserver,250,250,2,2677,3427,0.005773,,1.899373,0.004581,0.000062,3216,249,1,0,--profile insert_copy sqlserver 250 250
+insert_copy,sqlserver,250,250,3,2677,3427,0.005781,,1.894272,0.004614,0.000063,3220,249,1,0,--profile insert_copy sqlserver 250 250
+expr_literal,postgresql,100,100,1,3154,3844,0.004044,,0.019956,0.020954,0.000024,4808,1,1,0,--profile expr_literal postgresql 100 100
+expr_literal,postgresql,100,100,2,3154,3844,0.003983,,0.019701,0.020973,0.000024,4808,1,1,0,--profile expr_literal postgresql 100 100
+expr_literal,postgresql,100,100,3,3154,3844,0.004027,,0.019627,0.020645,0.000024,4808,1,1,0,--profile expr_literal postgresql 100 100
+expr_raw,postgresql,100,20,1,3154,3284,0.003906,,0.336587,0.020842,0.000022,4804,20,1,0,--profile expr_raw postgresql 100 20
+expr_raw,postgresql,100,20,2,3154,3284,0.003922,,0.330299,0.020470,0.000022,4800,20,1,0,--profile expr_raw postgresql 100 20
+expr_raw,postgresql,100,20,3,3154,3284,0.003910,,0.329128,0.020388,0.000022,4804,20,1,0,--profile expr_raw postgresql 100 20
+expr_raw,postgresql,100,50,1,3154,3494,0.003942,,0.832826,0.020538,0.000023,4808,50,1,0,--profile expr_raw postgresql 100 50
+expr_raw,postgresql,100,50,2,3154,3494,0.003988,,0.825801,0.020363,0.000023,4804,50,1,0,--profile expr_raw postgresql 100 50
+expr_raw,postgresql,100,50,3,3154,3494,0.003839,,0.825910,0.020279,0.000023,4804,50,1,0,--profile expr_raw postgresql 100 50
+expr_raw,postgresql,100,100,1,3154,3844,0.003929,,1.650611,0.020348,0.000023,4804,100,1,0,--profile expr_raw postgresql 100 100
+expr_raw,postgresql,100,100,2,3154,3844,0.003988,,1.679751,0.020693,0.000023,4804,100,1,0,--profile expr_raw postgresql 100 100
+expr_raw,postgresql,100,100,3,3154,3844,0.004031,,1.673900,0.020622,0.000023,4800,100,1,0,--profile expr_raw postgresql 100 100
+expr_float,oracle,100,100,1,3154,3054,0.006415,,2.131928,0.023383,0.000022,4884,100,1,0,--profile expr_float oracle 100 100
+expr_float,oracle,100,100,2,3154,3054,0.006437,,2.128255,0.023236,0.000022,4884,100,1,0,--profile expr_float oracle 100 100
+expr_float,oracle,100,100,3,3154,3054,0.006316,,2.111092,0.023100,0.000022,4880,100,1,0,--profile expr_float oracle 100 100
+expr_bind,postgresql,100,100,1,3154,2946,0.003949,,2.030729,0.024792,0.000021,4844,100,1,0,--profile expr_bind postgresql 100 100
+expr_bind,postgresql,100,100,2,3154,2946,0.003947,,2.032109,0.024819,0.000031,4844,100,1,0,--profile expr_bind postgresql 100 100
+expr_bind,postgresql,100,100,3,3154,2946,0.004034,,2.053772,0.024924,0.000020,4848,100,1,0,--profile expr_bind postgresql 100 100
+expr_bind,mysql,100,100,1,3154,2754,0.005514,,2.467897,0.027226,0.000020,4952,100,1,0,--profile expr_bind mysql 100 100
+expr_bind,mysql,100,100,2,3154,2754,0.005544,,2.503892,0.028372,0.000021,4952,100,1,0,--profile expr_bind mysql 100 100
+expr_bind,mysql,100,100,3,3154,2754,0.005575,,2.493222,0.027346,0.000020,4956,100,1,0,--profile expr_bind mysql 100 100
+expr_field,oracle,100,100,1,2754,3844,0.006533,,2.099220,0.022098,0.000024,4680,100,1,0,--profile expr_field oracle 100 100
+expr_field,oracle,100,100,2,2754,3844,0.006652,,2.100289,0.021856,0.000023,4676,100,1,0,--profile expr_field oracle 100 100
+expr_field,oracle,100,100,3,2754,3844,0.006497,,2.070392,0.021617,0.000023,4676,100,1,0,--profile expr_field oracle 100 100
+expr_whole,postgresql,100,100,1,3154,3844,0.004036,,1.689242,0.020438,0.000023,4812,100,1,0,--profile expr_whole postgresql 100 100
+expr_whole,postgresql,100,100,2,3154,3844,0.003914,,1.657674,0.020289,0.000023,4808,100,1,0,--profile expr_whole postgresql 100 100
+expr_whole,postgresql,100,100,3,3154,3844,0.003824,,1.673507,0.020558,0.000024,4808,100,1,0,--profile expr_whole postgresql 100 100
+expr_insert,postgresql,100,100,1,3760,5050,0.003954,,1.915665,0.026907,0.000027,5656,100,1,0,--profile expr_insert postgresql 100 100
+expr_insert,postgresql,100,100,2,3760,5050,0.003979,,1.930978,0.027083,0.000027,5652,100,1,0,--profile expr_insert postgresql 100 100
+expr_insert,postgresql,100,100,3,3760,5050,0.003954,,1.914867,0.026959,0.000027,5652,100,1,0,--profile expr_insert postgresql 100 100
+expr_delete,postgresql,100,100,1,3760,3160,0.003949,,1.760105,0.021260,0.000021,4728,100,1,0,--profile expr_delete postgresql 100 100
+expr_delete,postgresql,100,100,2,3760,3160,0.003934,,1.763940,0.021453,0.000021,4728,100,1,0,--profile expr_delete postgresql 100 100
+expr_delete,postgresql,100,100,3,3760,3160,0.003961,,1.757985,0.021266,0.000021,4732,100,1,0,--profile expr_delete postgresql 100 100
+expr_repeat,postgresql,100,100,1,3154,3161,0.003932,,1.670703,0.020533,0.000022,4808,100,1,0,--profile expr_repeat postgresql 100 100
+expr_repeat,postgresql,100,100,2,3154,3161,0.003916,,1.644719,0.020211,0.000022,4804,100,1,0,--profile expr_repeat postgresql 100 100
+expr_repeat,postgresql,100,100,3,3154,3161,0.003992,,1.673193,0.020391,0.000022,4800,100,1,0,--profile expr_repeat postgresql 100 100
+mixed_update_expr,postgresql,200,50,1,4106,4446,0.005192,,0.673730,0.024407,0.000027,5620,50,1,0,--profile mixed_update_expr postgresql 200 50
+mixed_update_expr,postgresql,200,50,2,4106,4446,0.004858,,0.681222,0.024773,0.000035,5620,50,1,0,--profile mixed_update_expr postgresql 200 50
+mixed_update_expr,postgresql,200,50,3,4106,4446,0.004889,,0.681733,0.024666,0.000028,5620,50,1,0,--profile mixed_update_expr postgresql 200 50
+mixed_update_expr,postgresql,200,100,1,4106,4796,0.004870,,1.359225,0.025131,0.000028,5608,100,1,0,--profile mixed_update_expr postgresql 200 100
+mixed_update_expr,postgresql,200,100,2,4106,4796,0.004793,,1.368125,0.024733,0.000037,5604,100,1,0,--profile mixed_update_expr postgresql 200 100
+mixed_update_expr,postgresql,200,100,3,4106,4796,0.004861,,1.371709,0.024853,0.000028,5612,100,1,0,--profile mixed_update_expr postgresql 200 100
+mixed_update_expr,postgresql,200,200,1,4106,5596,0.004867,,2.748687,0.025491,0.000030,5600,200,1,0,--profile mixed_update_expr postgresql 200 200
+mixed_update_expr,postgresql,200,200,2,4106,5596,0.004813,,2.749866,0.024771,0.000029,5600,200,1,0,--profile mixed_update_expr postgresql 200 200
+mixed_update_expr,postgresql,200,200,3,4106,5596,0.004864,,2.726554,0.024665,0.000036,5604,200,1,0,--profile mixed_update_expr postgresql 200 200
+mixed_update_expr,postgresql,400,100,1,8306,8996,0.009263,,4.057064,0.076137,0.000053,9100,100,1,0,--profile mixed_update_expr postgresql 400 100
+mixed_update_expr,postgresql,400,100,2,8306,8996,0.009199,,4.056492,0.076144,0.000052,9100,100,1,0,--profile mixed_update_expr postgresql 400 100
+mixed_update_expr,postgresql,400,100,3,8306,8996,0.009393,,4.115942,0.076933,0.000053,9104,100,1,0,--profile mixed_update_expr postgresql 400 100
+mixed_update_expr,oracle,200,200,1,4106,5596,0.007860,,3.609727,0.027096,0.000029,5636,200,1,0,--profile mixed_update_expr oracle 200 200
+mixed_update_expr,oracle,200,200,2,4106,5596,0.007989,,3.642610,0.029976,0.000029,5636,200,1,0,--profile mixed_update_expr oracle 200 200
+mixed_update_expr,oracle,200,200,3,4106,5596,0.008102,,3.638222,0.027310,0.000029,5640,200,1,0,--profile mixed_update_expr oracle 200 200
+mixed_update_expr,sqlserver,200,200,1,4106,5995,0.010280,,6.047287,0.040685,0.000029,5928,200,1,100,--profile mixed_update_expr sqlserver 200 200
+mixed_update_expr,sqlserver,200,200,2,4106,5995,0.010206,,5.996253,0.040263,0.000029,5932,200,1,100,--profile mixed_update_expr sqlserver 200 200
+mixed_update_expr,sqlserver,200,200,3,4106,5995,0.010422,,6.063908,0.040586,0.000029,5932,200,1,100,--profile mixed_update_expr sqlserver 200 200
+insert_cell,oracle,250,250,1,2677,4567,0.004286,,0.212387,0.004619,0.000074,3276,0,1,0,--profile insert_cell oracle 250 250
+insert_cell,oracle,250,250,2,2677,4567,0.004303,,0.212209,0.004678,0.000073,3276,0,1,0,--profile insert_cell oracle 250 250
+insert_cell,oracle,250,250,3,2677,4567,0.004240,,0.212545,0.004683,0.000077,3272,0,1,0,--profile insert_cell oracle 250 250
+update_literal,postgresql,250,250,1,2678,4568,0.002698,,0.182199,0.005743,0.000029,4144,0,1,0,--profile update_literal postgresql 250 250
+update_literal,postgresql,250,250,2,2678,4568,0.002667,,0.181089,0.005584,0.000029,4144,0,1,0,--profile update_literal postgresql 250 250
+update_literal,postgresql,250,250,3,2678,4568,0.002635,,0.180988,0.005572,0.000029,4148,0,1,0,--profile update_literal postgresql 250 250
+merge_cell,oracle,250,250,1,2727,4617,0.004456,,0.207741,0.005429,0.000032,3656,0,1,0,--profile merge_cell oracle 250 250
+merge_cell,oracle,250,250,2,2727,4617,0.004370,,0.207020,0.005349,0.000033,3656,0,1,0,--profile merge_cell oracle 250 250
+merge_cell,oracle,250,250,3,2727,4617,0.004419,,0.203743,0.005415,0.000033,batch-profile,0,1,0,--profile merge_cell oracle 250 250
+select_target,sqlserver,250,250,1,1514,3653,0.003687,,0.173807,0.006356,0.002200,3920,0,1,0,--profile select_target sqlserver 250 250
+select_target,sqlserver,250,250,2,1514,3653,0.003638,,0.170390,0.006112,0.002089,3916,0,1,0,--profile select_target sqlserver 250 250
+select_target,sqlserver,250,250,3,1514,3653,0.003707,,0.172453,0.006491,0.002116,3916,0,1,0,--profile select_target sqlserver 250 250
+where_literal,postgresql,250,250,1,3659,5549,0.005675,,0.543150,0.012220,0.000262,5376,1,1,0,--profile where_literal postgresql 250 250
+where_literal,postgresql,250,250,2,3659,5549,0.005637,,0.536112,0.011893,0.000257,5376,1,1,0,--profile where_literal postgresql 250 250
+where_literal,postgresql,250,250,3,3659,5549,0.005468,,0.535907,0.011900,0.000283,5380,1,1,0,--profile where_literal postgresql 250 250
+oracle_backup,oracle,50,500,1,27070,147570,0.004180,,0.212858,,0.000186,5252,1,2,4,--bench oracle 50
+oracle_backup,oracle,50,500,2,27070,147570,0.004133,,0.210821,,0.000239,5256,1,2,4,--bench oracle 50
+oracle_backup,oracle,50,500,3,27070,147570,0.004144,,0.214059,,0.000217,5256,1,2,4,--bench oracle 50

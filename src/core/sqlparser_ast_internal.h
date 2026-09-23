@@ -53,8 +53,17 @@ typedef struct {
 	size_t resume;
 	size_t search_position;
 	size_t last_location;
-	int valid;
+	int valid; /* 1: VALUES expression cursor; 2: validated multi-insert cursor. */
+	/* Stack-only cursor; reset whenever the SQL or dialect state changes. */
+	size_t multi_statement_end;
+	size_t multi_branch_index;
 } sqlparser_view_expression_source_cache_t;
+
+int sqlparser_graph_expression_function_info(
+	PgQuery__Node *node,
+	const char **out_name,
+	PgQuery__Node ***out_arguments,
+	size_t *out_argument_count);
 
 typedef struct {
 	size_t seen;

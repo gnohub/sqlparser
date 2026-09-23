@@ -533,6 +533,11 @@ $(BIN_PATH)/%: tests/unit/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
 
+$(BIN_PATH)/test_patch_batch_counts: tests/unit/test_patch_batch.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_PATCH_BATCH_COUNTS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_parse_with_options -Wl,--wrap=sqlparser_handle_clone \
+		-Wl,--wrap=sqlparser_deparse $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/examples/%: examples/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
