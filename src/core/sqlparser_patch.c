@@ -5687,12 +5687,13 @@ static sqlparser_status_t sqlparser_patch_set_legacy_literal_sql(
 
 static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
 	const char *value,
+	int backslash_escapes,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
 	char *sql;
 	size_t len;
-	size_t quote_count;
+	size_t escape_count;
 	size_t index;
 	size_t out_index;
 
@@ -5701,17 +5702,17 @@ static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	len = strlen(value);
-	quote_count = 0U;
+	escape_count = 0U;
 	for (index = 0U; index < len; index++) {
-		if (value[index] == '\'') {
-			quote_count++;
+		if (value[index] == '\'' || (backslash_escapes && value[index] == '\\')) {
+			escape_count++;
 		}
 	}
-	if (len > SIZE_MAX - quote_count - 3U) {
+	if (len > SIZE_MAX - escape_count - 3U) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "literal SQL is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
-	sql = (char *)malloc(len + quote_count + 3U);
+	sql = (char *)malloc(len + escape_count + 3U);
 	if (sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -5720,8 +5721,8 @@ static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
 	sql[out_index++] = '\'';
 	for (index = 0U; index < len; index++) {
 		sql[out_index++] = value[index];
-		if (value[index] == '\'') {
-			sql[out_index++] = '\'';
+		if (value[index] == '\'' || (backslash_escapes && value[index] == '\\')) {
+			sql[out_index++] = value[index];
 		}
 	}
 	sql[out_index++] = '\'';
@@ -5731,6 +5732,7 @@ static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
 }
 
 static sqlparser_status_t sqlparser_patch_render_literal_sql(
+	sqlparser_dialect_t dialect,
 	const sqlparser_literal_value_t *value,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -5752,7 +5754,8 @@ static sqlparser_status_t sqlparser_patch_render_literal_sql(
 			*out_sql = sqlparser_strdup("NULL");
 			break;
 		case SQLPARSER_LITERAL_KIND_STRING:
-			return sqlparser_patch_render_string_literal_sql(value->string_value, out_sql, out_error);
+			return sqlparser_patch_render_string_literal_sql(value->string_value,
+				sqlparser_dialect_is_mysql_compatible(dialect), out_sql, out_error);
 		case SQLPARSER_LITERAL_KIND_INTEGER:
 			(void)snprintf(buffer, sizeof(buffer), "%lld", value->integer_value);
 			*out_sql = sqlparser_strdup(buffer);
@@ -5969,7 +5972,7 @@ static sqlparser_status_t sqlparser_patch_render_structured_sql(
 		return sqlparser_patch_render_source_selector_sql(handle, patch->source_selector, out_sql, out_error);
 	}
 	if (patch->literal != NULL) {
-		return sqlparser_patch_render_literal_sql(patch->literal, out_sql, out_error);
+		return sqlparser_patch_render_literal_sql(handle->dialect, patch->literal, out_sql, out_error);
 	}
 	return sqlparser_render_bind_value_sql(handle, patch->bind, out_sql, out_error);
 }
@@ -8378,13 +8381,8 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 				"literal replacement cannot combine literal with another value source");
 			return SQLPARSER_STATUS_INVALID_ARGUMENT;
 		}
-		if (sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
-		    patch->literal->kind == SQLPARSER_LITERAL_KIND_STRING &&
-		    patch->literal->string_value != NULL &&
-		    strchr(patch->literal->string_value, '\\') != NULL) {
-			return SQLPARSER_STATUS_OK;
-		}
 		status = sqlparser_patch_render_literal_sql(
+			handle->dialect,
 			patch->literal,
 			&rendered,
 			out_error);

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.17
+
+### String Literal Dialect Output and Rewrites
+
+- Corrected backslash-containing strings and national-string `N` prefixes in SQL Server, Oracle, Dameng, and their corresponding compatibility entries, covering complete SQL, fragment reads, and `source_selector` copies.
+- Fixed string literal escaping for MySQL and its compatibility entries, preventing rewrites from changing the supplied string value or generating invalid SQL.
+- Public APIs, public structure layouts, View JSON fields, and ownership rules remain unchanged.
+
+### Cases and Validation
+
+- Added 2,276 string regression combinations across all 13 dialect entries, checking output text, semantic values, complete Views, batch ordering, and rollback.
+- The full `make test` suite passed.
+
 ## 2.16.16
 
 ### Patch Batch Performance

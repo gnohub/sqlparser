@@ -52,6 +52,28 @@ make test
 - `make test-loop LOOP=50`
 - `make verify`
 
+## 字符串方言输出与改写回归
+
+`tests/unit/test_string_literal_surface.c` 通过库 API 验证字符串值、整句 SQL、表达式片段和来源复制，自动纳入 `make test`。共 2,276 组组合，覆盖 13 个方言入口；失败返回非零。
+
+```bash
+make bin/test_string_literal_surface
+./bin/test_string_literal_surface
+./bin/test_string_literal_surface sqlserver set-target
+./bin/test_string_literal_surface mysql patch-literal
+./bin/test_string_literal_surface oracle copy-target
+./bin/test_string_literal_surface postgresql
+```
+
+- 10 组字符串覆盖普通文本、单个/连续/末尾反斜杠、路径、单引号与反斜杠的两种顺序、Unicode、字面上的 `\n`/`\t`/`\r`，以及字符串内容中的 `E'…'`。
+- SELECT 覆盖单 target、selector、target list、patch `sql`/`literal`、直接 literal setter、只读片段和 `source_selector` 复制；同时检查 INSERT cell、UPDATE assignment、WHERE literal、函数参数及注释/定界别名保护。
+- 非 PostgreSQL 入口另覆盖 `N'…'` 的读取、替换和复制。批量用例检查“替换 → 复制 → 再替换 → 再复制”的按序取值；回滚用例校验末项 selector 越界错误码，以及 SQL、完整 View 和 generation 保持不变。
+- 期望字符串 SQL 独立列出，不调用被测渲染器生成。每组先解析期望 SQL 并检查其字符串值，再执行改写；结果检查整句和片段的精确文本、语义值、generation、完整 View，以及输出重解析后的值和 View。
+
+输出按入口对应的语法族验收：MySQL 系使用其反斜杠转义规则；Oracle、达梦和 SQL Server 系使用普通或 national 字符串形式。Vastbase/Kingbase 兼容入口检查对应语法族的库输出约定，不验证服务端对额外语法的支持。PostgreSQL 系接受普通字符串和语义等价的 `E'…'` 形式。
+
+语法依据：[PostgreSQL 字符串常量](https://www.postgresql.org/docs/16/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS-ESCAPE)、[MySQL 字符串字面量](https://dev.mysql.com/doc/refman/8.0/en/string-literals.html)、[Oracle 字面量](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Literals.html)、[SQL Server 常量](https://learn.microsoft.com/en-us/sql/t-sql/data-types/constants-transact-sql)。
+
 ## 批量 patch 回归与性能回放
 
 `test_patch_batch` 验证批内顺序取值、重复修改、插删索引、混合操作、bind、注释、资源限制和失败回滚。性能模式将全部修改放入一个 patch list，只调用一次 `sqlparser_apply_patch()`；分别记录 parse、apply、deparse 耗时，并核对结果值。性能数据不作为依赖机器速度的测试阈值。

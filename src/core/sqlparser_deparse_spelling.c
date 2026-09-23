@@ -3990,6 +3990,52 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* Only for generated deparser output: its E strings double backslashes and quotes. */
+static void sqlparser_deparse_restore_standard_strings(sqlparser_dialect_t dialect, char *sql)
+{
+	size_t read_position = 0U, write_position = 0U;
+
+	if (sql == NULL || strchr(sql, '\\') == NULL) {
+		return;
+	}
+	while (sql[read_position] != '\0') {
+		size_t end;
+
+		if (sql[read_position] == 'E' && sql[read_position + 1U] == '\'' &&
+		    (read_position == 0U ||
+		     !sqlparser_ascii_is_identifier_part((unsigned char)sql[read_position - 1U]))) {
+			read_position++;
+			sql[write_position++] = sql[read_position++];
+			while (sql[read_position] != '\0') {
+				char value = sql[read_position++];
+
+				if (value == '\\' && sql[read_position] == '\\') {
+					read_position++;
+				} else if (value == '\'') {
+					if (sql[read_position] != '\'') {
+						sql[write_position++] = value;
+						break;
+					}
+					sql[write_position++] = value;
+					read_position++;
+				}
+				sql[write_position++] = value;
+			}
+			continue;
+		}
+		end = sqlparser_public_skip_quoted_or_comment(dialect, sql, read_position);
+		if (end > read_position) {
+			if (write_position != read_position)
+				memmove(sql + write_position, sql + read_position, end - read_position);
+			write_position += end - read_position;
+			read_position = end;
+		} else {
+			sql[write_position++] = sql[read_position++];
+		}
+	}
+	sql[write_position] = '\0';
+}
+
 PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 	const sqlparser_handle_t *handle,
 	PgQueryProtobuf parse_tree,
@@ -4099,5 +4145,10 @@ PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 		memset(&result, 0, sizeof(result));
 	}
 	free(resolver.generated_identifiers);
+	if (result.error == NULL &&
+	    (sqlparser_dialect_is_oracle_or_dameng_compatible(handle->dialect) ||
+	     sqlparser_dialect_is_sqlserver_compatible(handle->dialect))) {
+		sqlparser_deparse_restore_standard_strings(handle->dialect, result.query);
+	}
 	return result;
 }

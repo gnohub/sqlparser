@@ -1,11 +1,11 @@
-# v2.16.16 Release Notes
+# v2.16.17 Release Notes
 
-Reduced repeated whole-statement parsing and source scanning in patch batches, covering INSERT value copying, Oracle-family and Dameng `INSERT ALL/FIRST` value replacements, function-expression and argument edits, and mixed batches of UPDATE assignment and argument replacements.
+Corrected string literal output for SQL Server, Oracle, Dameng, and their corresponding compatibility entries, preserving backslashes and national-string `N` prefixes in complete SQL, fragment reads, and source copies.
 
-Compatible consecutive edits are combined, with synchronization when current parsed state is required. Patch order, `source_selector` read semantics, atomic rollback, and existing resource limits remain unchanged, as do public APIs, public structure layouts, View JSON fields, and ownership rules.
+Fixed backslash escaping in string literal rewrites for MySQL and its compatibility entries, preventing changes to the supplied string value or invalid SQL output.
 
-In a same-machine comparison with 2.16.15, one batch of 250 string replacements on a 27,530-byte Oracle `INSERT ALL` sample with 50 branches reduced `sqlparser_apply_patch()` time from approximately 1.41 seconds to 15 milliseconds. Actual gains depend on the SQL and patch mix.
+Public APIs, public structure layouts, View JSON fields, and ownership rules remain unchanged.
 
-Patch batch regressions cover all 13 dialect entries. The full `make test` suite and ABI check passed. Valgrind reported no memory errors or leaks in the patch batch regressions.
+New string regressions cover all 13 dialect entries, including statement and fragment output, string values, source copies, batch ordering, and rollback. The full `make test` suite passed.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.
