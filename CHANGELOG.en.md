@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.19
+
+### Patch Batch and MySQL Preprocessing Performance
+
+- Reduced repeated node lookups for batched UPDATE and WHERE string replacements. Optimized INSERT value-type reads and validation of library-rendered string fragments to reduce temporary parse-tree construction.
+- Consolidated keyword prechecks in MySQL, Vastbase MySQL, and KingbaseES MySQL, skipping inapplicable preprocessing passes by statement type while retaining existing syntax checks and rewrite order.
+- Patch order, source-read semantics, and atomic rollback remain unchanged. Public APIs, public structure layouts, and resource limits are unchanged, with no persistent AST cache added.
+- In a same-machine comparison with 2.16.18, a single `sqlparser_apply_patch()` call for 5,000 string replacements across 5,000 MySQL INSERT rows decreased from approximately 270 milliseconds to 105 milliseconds. Actual gains depend on the SQL and patch mix.
+
+### Cases and Validation
+
+- Added node-lookup, string-byte-boundary, and MySQL preprocessing-dispatch cases, checking delimited identifiers, selectors, mixed edits, and rollback.
+- Related regressions passed. Valgrind reported no memory errors or leaks in the 5,000-row INSERT and MySQL statement-dispatch cases.
+
 ## 2.16.18
 
 ### Batched String Replacement Performance

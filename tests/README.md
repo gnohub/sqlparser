@@ -54,7 +54,7 @@ make test
 
 ## 字符串方言输出与改写回归
 
-`tests/unit/test_string_literal_surface.c` 通过库 API 验证字符串值、整句 SQL、表达式片段和来源复制，自动纳入 `make test`。共 2,276 组组合，覆盖 13 个方言入口；失败返回非零。
+`tests/unit/test_string_literal_surface.c` 通过库 API 验证字符串值、整句 SQL、表达式片段和来源复制，自动纳入 `make test`。共 2,367 组组合，覆盖 13 个方言入口；失败返回非零。
 
 ```bash
 make bin/test_string_literal_surface
@@ -68,7 +68,8 @@ make bin/test_string_literal_surface
 - 10 组字符串覆盖普通文本、单个/连续/末尾反斜杠、路径、单引号与反斜杠的两种顺序、Unicode、字面上的 `\n`/`\t`/`\r`，以及字符串内容中的 `E'…'`。
 - SELECT 覆盖单 target、selector、target list、patch `sql`/`literal`、直接 literal setter、只读片段和 `source_selector` 复制；同时检查 INSERT cell、UPDATE assignment、WHERE literal、函数参数及注释/定界别名保护。
 - 非 PostgreSQL 入口另覆盖 `N'…'` 的读取、替换和复制。批量用例检查“替换 → 复制 → 再替换 → 再复制”的按序取值；回滚用例校验末项 selector 越界错误码，以及 SQL、完整 View 和 generation 保持不变。
-- 期望字符串 SQL 独立列出，不调用被测渲染器生成。每组先解析期望 SQL 并检查其字符串值，再执行改写；结果检查整句和片段的精确文本、语义值、generation、完整 View，以及输出重解析后的值和 View。
+- `typed-string-boundary` 的 91 组组合检查控制字节、Unicode、非 UTF-8 字节及其与引号/反斜杠的组合，保留原有字节行为；同时检查空字符串指针和无效 SQL 片段不能被后续替换掩盖。
+- 常规字符串矩阵的期望 SQL 独立列出，不调用被测渲染器生成。每组先解析期望 SQL 并检查其字符串值，再执行改写；结果检查整句和片段的精确文本、语义值、generation、完整 View，以及输出重解析后的值和 View。
 
 输出按入口对应的语法族验收：MySQL 系使用其反斜杠转义规则；Oracle、达梦和 SQL Server 系使用普通或 national 字符串形式。Vastbase/Kingbase 兼容入口检查对应语法族的库输出约定，不验证服务端对额外语法的支持。PostgreSQL 系接受普通字符串和语义等价的 `E'…'` 形式。
 
@@ -94,6 +95,8 @@ make bin/test_patch_batch
 ### 批处理路径基线
 
 默认运行包括 267 组路径正向检查及其 267 组失败回滚检查、83 组依赖边界正向检查和 86 组回滚检查，以及 85 组原位 AST 批处理边界正向检查和 36 组回滚检查。覆盖 13 个方言入口；`MERGE` 仅用于支持它的 10 个入口，`INSERT ALL/FIRST` 仅用于 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦入口。检查完整 View、输出重解析后的 View、generation、来源读取顺序、bind 生命周期、表达式/参数索引移动、注释以及中间修改超限后的回滚。重复替换额外检查已引入的注释保留，以及中间片段错误不能被后续替换掩盖。伪列检查引入表达式后的编号变化。
+
+另含 39 组节点查找正向检查及其 39 组回滚检查，可通过 `--lookup-boundaries` 单独运行。覆盖括号、CAST、嵌套函数和子查询中的 WHERE 字面量编号、赋值混合修改、乱序及重复替换、跨语句编号与失败回滚。
 
 `patch_batch_oracle_insert_all.sql` 固定样例去掉末尾换行后为 27,530 字节，包含 50 个分支、每分支 16 列。`--fixture` 从查询图读取第 2～6 列的字符串值，通过 `sqlparser_selector_format()` 构造 250 项替换；一次提交所选前缀，核对全部 800 个值和列名，并比较修改后的 View 与输出重解析后的 View。默认测试执行完整 250 项替换。
 
@@ -129,9 +132,9 @@ make -j4 bin/test_patch_batch bin/test_patch_batch_counts SHOW_WARNING=0
 
 时间单位为秒。固定样例另列查询图读取及 patch 构造耗时；生成式场景的 SQL 和 patch 准备不在计时阶段内，对应 `construct_seconds` 留空。`max_rss_kib` 是 GNU time 采集的整个样例进程峰值 RSS，包含校验，不是 apply 独占内存或泄漏指标。功能检查没有硬编码耗时阈值或旧版重解析次数；优化后的性能验收应使用相同参数对比基线，并保留存在来源依赖、索引变化或重叠修改时必要的同步。
 
-优化后的实现已通过完整 `make test`、ABI 检查及普通版和计数版的定向测试；批量 patch 回归的 Valgrind 检查为 0 errors、退出时 0 bytes in 0 blocks。
+2.16.16 的优化实现已通过完整 `make test`、ABI 检查及普通版和计数版的定向测试；批量 patch 回归的 Valgrind 检查为 0 errors、退出时 0 bytes in 0 blocks。
 
-批量原文编辑复用现有编辑列表；读取前序结果、改变表达式/参数编号或涉及原文边界时按需同步。标准字符串与十进制数值仍进行片段解析校验，但不为校验复制整份方言状态；原有输入和输出上限继续生效。多分支插入的位置扫描使用批次内栈上游标，SQL 或方言状态变化后清空，不增加常驻 SQL/AST 缓存。
+批量原文编辑复用现有编辑列表；读取前序结果、改变表达式/参数编号或涉及原文边界时按需同步。库渲染的 typed STRING 保留输入上限检查，不再为片段校验建立临时 AST；原始 SQL 片段及其它类型保留原有校验路径。原有输入和输出上限继续生效。多分支插入的位置扫描使用批次内栈上游标，SQL 或方言状态变化后清空，不增加常驻 SQL/AST 缓存。
 
 ### 原位 AST 批处理回归
 
@@ -160,7 +163,27 @@ make -j4 bin/test_patch_batch bin/test_patch_batch_counts SHOW_WARNING=0
 
 2.16.17 基线下，500 行 MySQL 场景的单次普通版 apply 实测约 1.77 秒；独立计数运行记录 500 次 AST 提交、2,000 次共享 surface 遍历、0 次批内整句重解析。该数据用于后续同机同参数比较，不作为固定耗时或内部调用次数的通过条件。
 
-同机对比中，优化后的 500 行场景 apply 约 25 毫秒，5,000 行场景约 269 毫秒；每个批次仅调用一次 patch API，结果完成完整 View 和逐字节 SQL 对账。5,000 行批次记录 1 次整句重解析、0 次逐项 AST 提交和共享 surface 遍历。耗时不包含初始解析、View 导出和 deparse。
+2.16.18 的同机对比中，500 行场景 apply 约 25 毫秒，5,000 行场景约 269 毫秒；每个批次仅调用一次 patch API，结果完成完整 View 和逐字节 SQL 对账。5,000 行批次记录 1 次整句重解析、0 次逐项 AST 提交和共享 surface 遍历。耗时不包含初始解析、View 导出和 deparse。
+
+### 2.16.19 性能回归
+
+UPDATE 和 WHERE 的字符串批量替换复用已定位的节点，避免通过全局编号重复查找；节点仅在当前解析状态内使用，重建后重新定位，不增加公开字段或常驻缓存。
+
+INSERT 批量字符串替换直接读取已有节点类型，避免仅为判断类型而构造字面量视图。库生成的字符串片段保留输入上限检查，不再为片段校验构建临时 AST；公共字面量读取、quoted 标志和批末整句解析不变。
+
+MySQL、Vastbase MySQL 和 KingbaseES MySQL 的关键词预检查合并为一次原文扫描，保留原有语法判定与报错顺序。CREATE 和 DML 预处理按已知语句类型跳过不适用流程；可保守确定为单语句时，在分段扫描前跳过整个流程。WITH、未知前缀及复杂边界保留原路径，ON DUPLICATE 判断不变。
+
+同机、同参数的普通版单次 apply 实测如下，均通过完整 View 和 SQL 结果检查；耗时不包含初始解析、View 导出和 deparse，不作为固定性能阈值：
+
+| MySQL 场景 | patch 数 | 2.16.18 | 2.16.19 |
+| --- | ---: | ---: | ---: |
+| UPDATE 赋值替换 | 500 | 283.439 ms | 8.106 ms |
+| WHERE 字面量替换 | 500 | 1,020.311 ms | 22.150 ms |
+| INSERT 逐行替换 | 5,000 | 269.921 ms | 105.435 ms |
+
+`test_dialect_surface_state --mysql-guard` 覆盖 3 个 MySQL 入口，共 9 组正向和 24 组拒绝检查，检查关键词保护、词边界、大小写、后段语句及嵌套语句。`--mysql-dispatch` 的 21 组检查覆盖多语句空段、普通和可执行注释、尾部空白、REPLACE SET、WITH UPDATE/DELETE、后段 CREATE 扩展及字符串内分号；核对精确 SQL、完整 View、relation 定界标志和 selector 编号。两组用例在优化前后均通过。
+
+批量 patch、字符串输出、surface 状态及 3 个 MySQL 用例矩阵的相关回归通过。5,000 行 INSERT 和 MySQL 语句分派用例的 Valgrind 检查均为 0 errors、退出时 0 bytes in 0 blocks。
 
 ## 用例文件
 

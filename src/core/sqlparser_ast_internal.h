@@ -28,6 +28,8 @@ typedef struct {
 	size_t target_index;
 	int want_target;
 	PgQuery__AConst *literal_node;
+	PgQuery__Node *expression_node;
+	ProtobufCMessage *literal_parent;
 	const char *parser_sql;
 	sqlparser_where_literal_view_t *literal_view;
 } sqlparser_where_literal_search_t;
@@ -240,6 +242,13 @@ sqlparser_status_t sqlparser_get_insert_values_stmt(
 	PgQuery__InsertStmt **out_insert_stmt,
 	PgQuery__SelectStmt **out_values_stmt,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_insert_cell_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	PgQuery__Node **out_value_node,
+	sqlparser_error_t *out_error);
 
 void sqlparser_fill_relation_view(
 	const PgQuery__RangeVar *relation,
@@ -360,6 +369,7 @@ sqlparser_status_t sqlparser_find_statement_a_const_node(
 	PgQuery__AConst *a_const,
 	PgQuery__Node **out_node,
 	size_t *out_index,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 	sqlparser_handle_t *handle,
@@ -375,6 +385,7 @@ sqlparser_status_t sqlparser_find_statement_literal_node(
 	int where_only,
 	PgQuery__Node **out_node,
 	size_t *out_node_index,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error);
 
 int sqlparser_node_string_value(const PgQuery__Node *node, const char **out_text);
@@ -530,10 +541,12 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 	const sqlparser_selector_t *selector,
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_assignment_value_node_index_by_selector(
+sqlparser_status_t sqlparser_assignment_value_node_by_selector(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	size_t *out_node_index,
+	PgQuery__Node **out_node,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_statement_set_literal_in_place(
 	sqlparser_handle_t *handle,

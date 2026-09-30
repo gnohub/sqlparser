@@ -743,25 +743,30 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 
-sqlparser_status_t sqlparser_assignment_value_node_index_by_selector(
+sqlparser_status_t sqlparser_assignment_value_node_by_selector(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	size_t *out_node_index,
+	PgQuery__Node **out_node,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_assignment_list_ref_t list;
 	PgQuery__ResTarget *target;
 	PgQuery__Node *value_node;
+	ProtobufCMessage *parent;
 	sqlparser_status_t status;
 
-	if (out_node_index == NULL) {
+	if (out_node_index == NULL && out_node == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"out_node_index must not be NULL");
+			"assignment value output must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_node_index = 0U;
+	if (out_node_index != NULL) *out_node_index = 0U;
+	if (out_node != NULL) *out_node = NULL;
+	if (out_parent != NULL) *out_parent = NULL;
 	status = sqlparser_get_assignment_list_ref(
 		handle,
 		selector,
@@ -778,7 +783,12 @@ sqlparser_status_t sqlparser_assignment_value_node_index_by_selector(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	value_node = sqlparser_unwrap_grouping_node(target->val);
+	value_node = target->val;
+	parent = (ProtobufCMessage *)target;
+	while (sqlparser_node_is_grouping_wrapper(value_node)) {
+		parent = (ProtobufCMessage *)value_node->a_indirection;
+		value_node = value_node->a_indirection->arg;
+	}
 	if (value_node == NULL ||
 	    (value_node->node_case != PG_QUERY__NODE__NODE_A_CONST &&
 	     value_node->node_case != PG_QUERY__NODE__NODE_PARAM_REF)) {
@@ -788,6 +798,9 @@ sqlparser_status_t sqlparser_assignment_value_node_index_by_selector(
 			"update assignment value is not a literal or bind");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
+	if (out_node != NULL) *out_node = value_node;
+	if (out_parent != NULL) *out_parent = parent;
+	if (out_node_index == NULL) return SQLPARSER_STATUS_OK;
 	return sqlparser_find_statement_node_index_by_node(
 		handle,
 		selector->statement_index,

@@ -1461,7 +1461,184 @@ static int sqlparser_surface_test_pagination_fallbacks(void)
 	return failed;
 }
 
-int main(void)
+static int sqlparser_surface_test_mysql_unsupported_guard(void)
+{
+	static const struct {
+		const char *name;
+		const char *sql;
+		int unsupported;
+	} cases[] = {
+		{
+			"protected keyword text",
+			"SELECT 'On DuPlIcAtE KeY UpDaTe; UPDATE JOIN; DELETE JOIN; AUTO_INCREMENT UNSIGNED ZEROFILL; "
+			"ENGINE= CHARSET= CHARACTER SET= COLLATE=' AS msg, `unsigned`, `auto_increment`, `zerofill`, "
+			"`engine`, `charset`, `character set`, `collate` FROM `t` "
+			"/* ON DUPLICATE KEY UPDATE; UNSIGNED ENGINE= */ WHERE id=1; -- CHARSET= COLLATE=\n",
+			0
+		},
+		{
+			"identifier token boundaries",
+			"SELECT pre_unsigned, unsigned_value, auto_incremental, zerofill9, engineer, charset_value, "
+			"character_set, collate_value FROM t WHERE id=1;",
+			0
+		},
+		{
+			"rewritten extension in later statement",
+			"SELECT id FROM t WHERE note='unsigned'; INSERT INTO dst(id,v) VALUES(1,'x') "
+			"ON DUPLICATE KEY UPDATE v='y';",
+			0
+		},
+		{
+			"mixed-case unsupported cast in later statement",
+			"SELECT 'unsigned' AS msg; SELECT CAST(1 AS UnSiGnEd) AS value;",
+			1
+		},
+		{
+			"unsupported cast in nested query",
+			"SELECT (SELECT CAST(1 AS UNSIGNED)) AS value;",
+			1
+		},
+		{"unsupported ALTER column auto_increment", "ALTER TABLE t MODIFY id INT AUTO_INCREMENT;", 1},
+		{"unsupported ALTER column zerofill", "ALTER TABLE t MODIFY id INT ZEROFILL;", 1},
+		{"unsupported ALTER engine option", "ALTER TABLE t ENGINE=InnoDB;", 1},
+		{"unsupported ALTER charset option", "ALTER TABLE t DEFAULT CHARSET=utf8mb4;", 1},
+		{"unsupported ALTER character set option", "ALTER TABLE t DEFAULT CHARACTER SET = utf8mb4;", 1},
+		{"unsupported ALTER collation option", "ALTER TABLE t COLLATE=utf8mb4_bin;", 1}
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL, SQLPARSER_DIALECT_VASTBASE_MYSQL, SQLPARSER_DIALECT_KINGBASE_MYSQL
+	};
+	size_t d, i;
+	int failed = 0;
+
+	for (d = 0U; d < sizeof(dialects) / sizeof(dialects[0]); d++) {
+		for (i = 0U; i < sizeof(cases) / sizeof(cases[0]); i++) {
+			sqlparser_parse_options_t options;
+			sqlparser_error_t error = {0};
+			sqlparser_handle_t *handle = NULL;
+			char *sql = NULL;
+			sqlparser_status_t status;
+			int ok;
+
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[d];
+			status = sqlparser_parse_with_options(cases[i].sql, &options, &handle, &error);
+			if (cases[i].unsupported) {
+				ok = status == SQLPARSER_STATUS_UNSUPPORTED && handle == NULL &&
+					strstr(error.message, "unsupported MySQL syntax: ") != NULL;
+			} else {
+				ok = status == SQLPARSER_STATUS_OK &&
+					sqlparser_deparse(handle, &sql, &error) == SQLPARSER_STATUS_OK &&
+					sql != NULL && strcmp(sql, cases[i].sql) == 0;
+				if (ok) ok = sqlparser_surface_verify_closure(handle, sql, cases[i].name) == 0;
+			}
+			if (!ok) {
+				fprintf(stderr, "FAIL: MySQL unsupported guard %s dialect=%d status=%d error=%s\n",
+					cases[i].name, (int)dialects[d], (int)status, error.message);
+				failed = 1;
+			}
+			sqlparser_string_free(sql);
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return failed;
+}
+
+static int sqlparser_surface_test_mysql_preprocess_dispatch(void)
+{
+	static const sqlparser_surface_case_t cases[] = {
+		{
+			"plain statement kinds with empty segments", SQLPARSER_DIALECT_MYSQL,
+			"SELECT `v` FROM `t`; ; INSERT INTO `t` (`v`) VALUES ('old'); REPLACE INTO `t` (`v`) VALUES ('old'); "
+			"UPDATE `t` SET `v`='old'; DELETE FROM `t` WHERE `v`='old'; CREATE TABLE `new_t` (`id` INT);",
+			"stmt[3].assignment[0]", "'new'",
+			"SELECT `v` FROM `t`; ; INSERT INTO `t` (`v`) VALUES ('old'); REPLACE INTO `t` (`v`) VALUES ('old'); "
+			"UPDATE `t` SET `v` = 'new'; DELETE FROM `t` WHERE `v` = 'old'; CREATE TABLE `new_t` (`id` INT);"
+		},
+		{
+			"ordinary leading trivia before insert extension", SQLPARSER_DIALECT_MYSQL,
+			"/* before */ # hash\n-- dash\nINSERT IGNORE INTO `t` (`v`) VALUES ('old'); \n",
+			"stmt[0].insert_cell[0][0]", "'new'",
+			"/* before */ # hash\n-- dash\nINSERT IGNORE INTO `t` (`v`) VALUES ('new'); \n"
+		},
+		{
+			"whole executable comment before insert extension", SQLPARSER_DIALECT_MYSQL,
+			"/* before */ /*!80000 INSERT IGNORE INTO `t` (`v`) VALUES ('old') */;",
+			"stmt[0].insert_cell[0][0]", "'new'",
+			"/* before */ /*!80000 INSERT IGNORE INTO `t` (`v`) VALUES ('new') */;"
+		},
+		{
+			"commented replace set extension", SQLPARSER_DIALECT_MYSQL,
+			"# before\nREPLACE INTO `t` SET `v`='old';",
+			"stmt[0].insert_cell[0][0]", "'new'",
+			"# before\nREPLACE INTO `t` SET `v` = 'new';"
+		},
+		{
+			"WITH update keeps order limit extension", SQLPARSER_DIALECT_MYSQL,
+			"WITH c AS (SELECT id FROM src) UPDATE `t` SET `v`='old' WHERE id IN (SELECT id FROM c) ORDER BY id LIMIT 1;",
+			"stmt[0].assignment[0]", "'new'",
+			"WITH c AS (SELECT id FROM src) UPDATE `t` SET `v` = 'new' WHERE id IN (SELECT id FROM c) ORDER BY id LIMIT 1;"
+		},
+		{
+			"WITH delete keeps order limit extension", SQLPARSER_DIALECT_MYSQL,
+			"WITH c AS (SELECT id FROM src) DELETE FROM `t` WHERE `v`='old' AND id IN (SELECT id FROM c) ORDER BY id LIMIT 1;",
+			"stmt[0].where_literal[0]", "'new'",
+			"WITH c AS (SELECT id FROM src) DELETE FROM `t` WHERE `v` = 'new' AND id IN (SELECT id FROM c) ORDER BY id LIMIT 1;"
+		},
+		{
+			"later create extension after protected delimiter and empty segment", SQLPARSER_DIALECT_MYSQL,
+			"SELECT 'CREATE; UPDATE; DELETE;' AS `v` FROM `t`; ; /* before */ CREATE TABLE `new_t` "
+			"(`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+			"stmt[0].select_target[0][0]", "'new' AS `v`",
+			"SELECT 'new' AS `v` FROM `t`; ; /* before */ CREATE TABLE `new_t` "
+			"(`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+		}
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL, SQLPARSER_DIALECT_VASTBASE_MYSQL, SQLPARSER_DIALECT_KINGBASE_MYSQL
+	};
+	size_t d, i;
+	int failed = 0;
+
+	for (d = 0U; d < sizeof(dialects) / sizeof(dialects[0]); d++) {
+		for (i = 0U; i < sizeof(cases) / sizeof(cases[0]); i++) {
+			sqlparser_handle_t *handle = NULL;
+			sqlparser_error_t error = {0};
+			sqlparser_selector_t selector;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_graph_relation_t relation;
+			char *sql = NULL, *relation_selector = NULL;
+			char expected_selector[64];
+			int ok;
+
+			ok = sqlparser_surface_apply(dialects[d], cases[i].input_sql, cases[i].selector,
+				cases[i].patch_sql, &handle, &sql) == 0;
+			if (ok) ok = strcmp(sql, cases[i].expected_sql) == 0 &&
+				sqlparser_surface_verify_closure(handle, sql, cases[i].name) == 0;
+			if (ok) ok = sqlparser_selector_parse(cases[i].selector, &selector, &error) == SQLPARSER_STATUS_OK &&
+				sqlparser_statement_query_graph(handle, selector.statement_index, &graph, &error) == SQLPARSER_STATUS_OK &&
+				sqlparser_query_graph_relation_at(&graph, 0U, &relation, &error) == SQLPARSER_STATUS_OK &&
+				relation.object_name != NULL && strcmp(relation.object_name, "t") == 0 && relation.quoted_identifier &&
+				!relation.schema_quoted_identifier && !relation.database_quoted_identifier && relation.has_selector &&
+				sqlparser_selector_format(&relation.selector, &relation_selector, &error) == SQLPARSER_STATUS_OK;
+			if (ok) {
+				snprintf(expected_selector, sizeof(expected_selector), "stmt[%zu].relation[0]", selector.statement_index);
+				ok = strcmp(relation_selector, expected_selector) == 0;
+			}
+			if (!ok) {
+				fprintf(stderr, "FAIL: MySQL preprocess dispatch %s dialect=%d error=%s\nexpected: %s\nactual: %s\n",
+					cases[i].name, (int)dialects[d], error.message, cases[i].expected_sql, sql != NULL ? sql : "<null>");
+				failed = 1;
+			}
+			sqlparser_string_free(relation_selector);
+			sqlparser_string_free(sql);
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return failed;
+}
+
+int main(int argc, char **argv)
 {
 	static const sqlparser_surface_case_t cases[] = {
 		{
@@ -1930,11 +2107,18 @@ int main(void)
 	size_t index;
 	int failed;
 
+	if (argc == 2 && strcmp(argv[1], "--mysql-guard") == 0)
+		return sqlparser_surface_test_mysql_unsupported_guard();
+	if (argc == 2 && strcmp(argv[1], "--mysql-dispatch") == 0)
+		return sqlparser_surface_test_mysql_preprocess_dispatch();
+	if (argc != 1) return 1;
 	failed = 0;
 	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
 		failed |= sqlparser_surface_run_exact(&cases[index]);
 	}
 	failed |= sqlparser_surface_test_mysql_join_owner();
+	failed |= sqlparser_surface_test_mysql_unsupported_guard();
+	failed |= sqlparser_surface_test_mysql_preprocess_dispatch();
 	failed |= sqlparser_surface_test_structured_literal_owner(
 		SQLPARSER_DIALECT_MYSQL,
 		"MySQL");

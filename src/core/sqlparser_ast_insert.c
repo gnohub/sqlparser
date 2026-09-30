@@ -7,14 +7,6 @@
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
 
-static sqlparser_status_t sqlparser_get_insert_cell_node(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t row_index,
-	size_t column_index,
-	PgQuery__Node **out_value_node,
-	sqlparser_error_t *out_error);
-
 static sqlparser_status_t sqlparser_get_insert_cell_slot(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -237,7 +229,7 @@ static sqlparser_status_t sqlparser_get_insert_cell_a_const(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_get_insert_cell_node(
+sqlparser_status_t sqlparser_get_insert_cell_node(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t row_index,

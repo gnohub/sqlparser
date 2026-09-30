@@ -2032,6 +2032,7 @@ sqlparser_status_t sqlparser_find_statement_a_const_node(
 	PgQuery__AConst *a_const,
 	PgQuery__Node **out_node,
 	size_t *out_index,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error)
 {
 	PgQuery__Node *statement;
@@ -2092,6 +2093,9 @@ sqlparser_status_t sqlparser_find_statement_a_const_node(
 	}
 	if (out_index != NULL) {
 		*out_index = search.target_index;
+	}
+	if (out_parent != NULL) {
+		*out_parent = search.target_parent;
 	}
 	return SQLPARSER_STATUS_OK;
 }

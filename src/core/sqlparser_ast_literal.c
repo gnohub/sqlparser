@@ -193,7 +193,10 @@ static sqlparser_status_t sqlparser_walk_expression_literals(
 
 	switch (node->node_case) {
 		case PG_QUERY__NODE__NODE_A_CONST:
-			return sqlparser_record_where_literal(node->a_const, context, search, out_error);
+			status = sqlparser_record_where_literal(node->a_const, context, search, out_error);
+			if (status == SQLPARSER_STATUS_OK && node->a_const != NULL && search->literal_node == node->a_const)
+				search->expression_node = node;
+			return status;
 		case PG_QUERY__NODE__NODE_A_EXPR:
 			if (node->a_expr != NULL) {
 				sqlparser_predicate_context_t left_context;
@@ -258,11 +261,15 @@ static sqlparser_status_t sqlparser_walk_expression_literals(
 			if (node->type_cast == NULL) {
 				return SQLPARSER_STATUS_OK;
 			}
-			return sqlparser_walk_expression_literals(
+			status = sqlparser_walk_expression_literals(
 				node->type_cast->arg,
 				context,
 				search,
 				out_error);
+			if (status == SQLPARSER_STATUS_OK && search->expression_node != NULL &&
+			    search->expression_node == node->type_cast->arg)
+				search->literal_parent = (ProtobufCMessage *)node->type_cast;
+			return status;
 		case PG_QUERY__NODE__NODE_COLLATE_CLAUSE:
 			if (node->collate_clause == NULL) {
 				return SQLPARSER_STATUS_OK;
@@ -421,6 +428,7 @@ sqlparser_status_t sqlparser_find_statement_literal_node(
 	int where_only,
 	PgQuery__Node **out_node,
 	size_t *out_node_index,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_where_literal_search_t search;
@@ -441,6 +449,9 @@ sqlparser_status_t sqlparser_find_statement_literal_node(
 	}
 	if (out_node_index != NULL) {
 		*out_node_index = 0U;
+	}
+	if (out_parent != NULL) {
+		*out_parent = NULL;
 	}
 
 	a_const = NULL;
@@ -491,12 +502,19 @@ sqlparser_status_t sqlparser_find_statement_literal_node(
 				"literal_index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	/* The WHERE walker already has the exact Node; no global ordinal is needed. */
+	if (where_only && out_node_index == NULL) {
+		*out_node = search.expression_node;
+		if (out_parent != NULL) *out_parent = search.literal_parent;
+		return SQLPARSER_STATUS_OK;
+	}
 	return sqlparser_find_statement_a_const_node(
 		handle,
 		statement_index,
 		a_const,
 		out_node,
 		out_node_index,
+		out_parent,
 		out_error);
 }
 
@@ -520,6 +538,7 @@ sqlparser_status_t sqlparser_statement_set_literal_in_place(
 		literal_index,
 		where_only,
 		&literal_node,
+		NULL,
 		NULL,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {

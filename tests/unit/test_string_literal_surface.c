@@ -416,6 +416,76 @@ done:
 	return failed;
 }
 
+static int check_typed_string_boundary(size_t sample)
+{
+	static const char *names[] = {
+		"controls", "unicode-escapes", "invalid-utf8", "truncated-utf8",
+		"invalid-byte-with-quote", "null-string", "invalid-sql-before-overwrite"
+	};
+	/* Ordinary quoted strings preserve these bytes; this is not an encoding validator. */
+	static const char *values[] = {
+		"\001\010\t\n\r\032\177", "中😀'\\tail\\", "\377", "\342\202", "\377'\\", NULL, NULL
+	};
+	const char *sql = "INSERT INTO t(a,b) VALUES ('old','old');";
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error = {0};
+	sqlparser_handle_t *handle = NULL, *reparsed = NULL;
+	sqlparser_query_graph_view_t before, after;
+	sqlparser_literal_value_t first = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = values[sample]};
+	sqlparser_literal_value_t last = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = "safe"};
+	sqlparser_patch_t items[] = {
+		{.op = SQLPARSER_PATCH_REPLACE, .selector = "stmt[0].insert_cell[0][0]", .literal = &first},
+		{.op = SQLPARSER_PATCH_REPLACE, .selector = "stmt[0].insert_cell[0][1]", .literal = &last}
+	};
+	sqlparser_patch_list_t patches = {items, 2U};
+	string_case_t expected_first = {.value = values[sample]};
+	string_case_t expected_last = {.value = "safe"};
+	const string_case_t *expected[] = {&expected_first, &expected_last};
+	char *output = NULL;
+	sqlparser_status_t status;
+	int failed = 1;
+
+	current_method = "typed-string-boundary";
+	current_sample = names[sample];
+	if (sample >= 5U) items[1].selector = items[0].selector;
+	if (sample == 6U) { items[0].literal = NULL; items[0].sql = "'unterminated"; }
+	sqlparser_parse_options_default(&options);
+	options.dialect = current_dialect;
+	if (sqlparser_parse_with_options(sql, &options, &handle, &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_query_graph(handle, 0U, &before, &error) != SQLPARSER_STATUS_OK) {
+		failure("boundary setup", error.message, NULL);
+		goto done;
+	}
+	status = sqlparser_apply_patch(handle, &patches, &error);
+	if (sample >= 5U) {
+		if (status != (sample == 5U ? SQLPARSER_STATUS_INVALID_ARGUMENT : SQLPARSER_STATUS_PARSE_ERROR)) {
+			failure("invalid first patch must not be hidden by overwrite", error.message, NULL);
+			goto done;
+		}
+		if (sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK ||
+		    output == NULL || strcmp(output, sql) != 0 ||
+		    sqlparser_statement_query_graph(handle, 0U, &after, &error) != SQLPARSER_STATUS_OK ||
+		    after.generation != before.generation) {
+			failure("invalid first patch changed SQL or generation", error.message, sql);
+			goto done;
+		}
+		failed = 0;
+	} else {
+		if (status != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_parse_with_options(output, &options, &reparsed, &error) != SQLPARSER_STATUS_OK) {
+			failure("typed string boundary must round trip", error.message, NULL);
+			goto done;
+		}
+		failed = check_values(handle, expected, 2U) | check_values(reparsed, expected, 2U);
+	}
+done:
+	sqlparser_string_free(output);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+	return failed;
+}
+
 int main(int argc, char **argv)
 {
 	size_t total = 0U, total_failed = 0U, index;
@@ -441,6 +511,12 @@ int main(int argc, char **argv)
 			if (argc > 2 && strcmp(argv[2], method ? "batch-rollback" : "batch-source-order") != 0) continue;
 			failed += check_batch(method) != 0;
 			count++;
+		}
+		if (argc <= 2 || strcmp(argv[2], "typed-string-boundary") == 0) {
+			for (index = 0U; index < 7U; index++) {
+				failed += check_typed_string_boundary(index) != 0;
+				count++;
+			}
 		}
 		printf("string-literal dialect=%s cases=%zu passed=%zu failed=%zu\n",
 			sqlparser_dialect_name(current_dialect), count, count - failed, failed);

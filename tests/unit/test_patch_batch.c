@@ -814,6 +814,95 @@ done:
 	return failed;
 }
 
+static int check_literal_lookup_boundaries(void)
+{
+	const char *where_sql = "SELECT id FROM t WHERE a=('a') AND b=CAST('b' AS CHAR(8)) "
+		"AND c=COALESCE('c','d') AND EXISTS(SELECT 'excluded' FROM u WHERE u.id=t.id AND u.v='e') AND n=7;";
+	const char *update_sql = "UPDATE t SET a=('a'),b='b',c=CAST('keep' AS CHAR(8)),"
+		"d=COALESCE('keep','fallback') WHERE id=1;";
+	const char *multi_sql = "SELECT id FROM t WHERE a='a' AND b='b'; SELECT id FROM u WHERE a='c' AND b='d';";
+	const char *strings[] = {"a", "b", "c", "d", "e"};
+	sqlparser_literal_value_t x = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="x"};
+	sqlparser_literal_value_t y = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="y"};
+	sqlparser_patch_t items[6];
+	size_t positive = 0U, rollback = 0U;
+	int d;
+
+	for (d = SQLPARSER_DIALECT_POSTGRESQL; d <= SQLPARSER_DIALECT_KINGBASE_SQLSERVER; d++) {
+		sqlparser_dialect_t dialect = (sqlparser_dialect_t)d;
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle = NULL;
+		sqlparser_error_t error = {0};
+		sqlparser_where_literal_view_t literal;
+		char expected[768];
+		size_t count = 0U, i;
+		int ok;
+
+		case_name = "where_literal_nested_enumeration";
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect;
+		ok = sqlparser_parse_with_options(where_sql, &options, &handle, &error) == SQLPARSER_STATUS_OK &&
+			sqlparser_statement_where_literal_count(handle, 0U, &count, &error) == SQLPARSER_STATUS_OK && count == 6U;
+		/* CAST's type modifier and the subquery target are not WHERE literals. */
+		for (i = 0U; ok && i < count; i++) {
+			ok = sqlparser_statement_where_literal(handle, 0U, i, &literal, &error) == SQLPARSER_STATUS_OK;
+			if (ok && i < 5U)
+				ok = literal.literal.kind == SQLPARSER_LITERAL_KIND_STRING && literal.literal.string_value != NULL &&
+					strcmp(literal.literal.string_value, strings[i]) == 0;
+			else if (ok)
+				ok = literal.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER && literal.literal.integer_value == 7;
+		}
+		sqlparser_handle_destroy(handle);
+		if (!ok) {
+			fprintf(stderr, "batch lookup enumeration failed dialect=%d count=%zu error=%s\n", d, count, error.message);
+			return 1;
+		}
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[4]", .literal=&x};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[0]", .literal=&x};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[3]", .literal=&x};
+		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[0]", .literal=&y};
+		items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[1]", .literal=&y};
+		snprintf(expected, sizeof(expected), "SELECT id FROM t WHERE a = ('y') AND b = %s AND c = COALESCE('c', 'x') "
+			"AND EXISTS (SELECT 'excluded' FROM u WHERE u.id = t.id AND u.v = 'x') AND n = 7;",
+			sqlparser_dialect_uses_postgresql_placeholders(dialect) ? "'y'::CHAR(8)" : "CAST('y' AS CHAR(8))");
+		if (check_case(dialect, where_sql, items, 5U, expected)) return 1;
+		positive++;
+		items[4].selector = "stmt[0].where_literal[6]";
+		if (check_rollback(dialect, where_sql, items, 5U)) return 1;
+		rollback++;
+
+		case_name = "assignment_lookup_after_structure_change";
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[1]", .literal=&x};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[0]", .literal=&x};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[1]", .literal=&y};
+		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[0]", .sql="COALESCE('raw','fallback')"};
+		items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[1]", .literal=&x};
+		snprintf(expected, sizeof(expected), "UPDATE t SET a = (COALESCE('raw', 'fallback')), b = 'x', c = %s, "
+			"d = COALESCE('keep', 'fallback') WHERE id = 1;",
+			sqlparser_dialect_uses_postgresql_placeholders(dialect) ? "'keep'::CHAR(8)" : "CAST('keep' AS CHAR(8))");
+		if (check_case(dialect, update_sql, items, 5U, expected)) return 1;
+		positive++;
+		items[3].sql = "(";
+		if (check_rollback(dialect, update_sql, items, 5U)) return 1;
+		rollback++;
+
+		case_name = "where_literal_statement_isolation";
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[1].where_literal[1]", .literal=&x};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[0]", .literal=&y};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[1].where_literal[0]", .literal=&y};
+		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[1]", .literal=&x};
+		items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[1].where_literal[1]", .literal=&y};
+		if (check_case(dialect, multi_sql, items, 5U,
+			"SELECT id FROM t WHERE a='y' AND b='x'; SELECT id FROM u WHERE a='y' AND b='y';")) return 1;
+		positive++;
+		items[4].selector = "stmt[1].where_literal[2]";
+		if (check_rollback(dialect, multi_sql, items, 5U)) return 1;
+		rollback++;
+	}
+	printf("batch-lookup-boundaries positive=%zu rollback=%zu check=ok\n", positive, rollback);
+	return 0;
+}
+
 static int benchmark_fixture(const char *path, size_t limit)
 {
 	sqlparser_parse_options_t options;
@@ -1088,6 +1177,8 @@ done:
 int main(int argc, char **argv)
 {
 	int d;
+	if (argc == 2 && strcmp(argv[1], "--lookup-boundaries") == 0)
+		return check_literal_lookup_boundaries();
 	if (argc == 2 && strcmp(argv[1], "--profile-all") == 0) {
 		profile_case = 1;
 		return check_batch_paths();
@@ -1108,6 +1199,6 @@ int main(int argc, char **argv)
 			argc == 5 ? (size_t)strtoul(argv[4], NULL, 10) : 0U);
 	if (argc != 1) return 1;
 	return check_semantics() || check_resource_limits() || check_batch_paths() || check_batch_dependencies() ||
-		check_native_batch_boundaries() ||
+		check_native_batch_boundaries() || check_literal_lookup_boundaries() ||
 		benchmark_fixture("tests/cases/patch_batch_oracle_insert_all.sql", 250U) || benchmark("oracle", 3U, 0U);
 }
