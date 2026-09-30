@@ -2452,7 +2452,7 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	if (cache != NULL) {
 		cache->valid = 2;
 		cache->search_position = statement_start;
-		cache->multi_statement_end = statement_end;
+		cache->statement_end = statement_end;
 		cache->multi_branch_index = target_branch;
 		cache->resume = target_values_position;
 	}
@@ -2637,7 +2637,7 @@ int sqlparser_view_insert_cell_source_span(
 		if (statement_index != 0U) return 0;
 		if (cache != NULL && cache->valid == 2) {
 			statement_start = cache->search_position;
-			statement_end = cache->multi_statement_end;
+			statement_end = cache->statement_end;
 		} else if (!sqlparser_view_public_statement_span_in_sql(
 			    handle,
 			    handle->sql,
@@ -2712,6 +2712,8 @@ int sqlparser_view_insert_cell_source_span(
 		    (value_node = row_node->list->items[column_index]) == NULL) {
 			return 0;
 		}
+		statement_start = cache != NULL && cache->valid == 1 ? cache->statement_start : 0U;
+		statement_end = cache != NULL && cache->valid == 1 ? cache->statement_end : 0U;
 		origins = NULL;
 		source_status = sqlparser_view_expression_source_span(
 			handle,
@@ -2725,7 +2727,8 @@ int sqlparser_view_insert_cell_source_span(
 		if (source_status <= 0) {
 			return source_status;
 		}
-		if (!sqlparser_view_public_statement_span_in_sql(
+		if ((statement_start >= statement_end || *out_start < statement_start || *out_end > statement_end) &&
+		    !sqlparser_view_public_statement_span_in_sql(
 			    handle,
 			    handle->sql,
 			    0,
@@ -2735,6 +2738,10 @@ int sqlparser_view_insert_cell_source_span(
 			*out_start = 0U;
 			*out_end = 0U;
 			return 0;
+		}
+		if (cache != NULL && cache->valid == 1) {
+			cache->statement_start = statement_start;
+			cache->statement_end = statement_end;
 		}
 	}
 	if (*out_start < statement_start || *out_end > statement_end ||
@@ -3832,9 +3839,10 @@ static int sqlparser_view_expression_source_span_between(
 	if (source_start >= source_end) {
 		return 0;
 	}
-	if (surface_edits != NULL) {
+	if (surface_edits != NULL && surface_edits->count > 0U &&
+	    surface_edits->items[surface_edits->count - 1U].source_end >= source_start) {
 		for (edit_index = 0U;
-		     edit_index < surface_edits->count;
+		     edit_index < surface_edits->count && surface_edits->items[edit_index].source_start <= source_end;
 		     edit_index++) {
 			const sqlparser_surface_source_edit_t *edit;
 

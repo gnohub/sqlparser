@@ -55,8 +55,11 @@ typedef struct {
 	size_t last_location;
 	int valid; /* 1: VALUES expression cursor; 2: validated multi-insert cursor. */
 	/* Stack-only cursor; reset whenever the SQL or dialect state changes. */
-	size_t multi_statement_end;
-	size_t multi_branch_index;
+	size_t statement_end;
+	union {
+		size_t statement_start; /* Ordinary VALUES cursor. */
+		size_t multi_branch_index; /* Multi-insert cursor. */
+	};
 } sqlparser_view_expression_source_cache_t;
 
 int sqlparser_graph_expression_function_info(

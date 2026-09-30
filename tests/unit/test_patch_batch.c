@@ -7,12 +7,15 @@
 #include <jansson.h>
 #include "sqlparser_internal.h"
 #include "../../src/dialect/sqlparser_dialect_internal.h"
+#include "../../src/dialect/sqlparser_dialect_ast_surface_internal.h"
 
 static double now(void);
 static int profile_case;
+static int exact_sql;
 static const char *case_name = "legacy";
 static int count_active;
 static size_t full_parse_calls, handle_clone_calls, deparse_calls;
+static size_t ast_commit_calls, state_commit_calls, surface_visits, surface_root_visits;
 
 #ifdef SQLPARSER_PATCH_BATCH_COUNTS
 sqlparser_status_t __real_sqlparser_parse_with_options(const char *, const sqlparser_parse_options_t *, sqlparser_handle_t **, sqlparser_error_t *);
@@ -33,6 +36,30 @@ sqlparser_status_t __wrap_sqlparser_deparse(const sqlparser_handle_t *handle, ch
 	if (count_active) deparse_calls++;
 	return __real_sqlparser_deparse(handle, sql, error);
 }
+sqlparser_status_t __real_sqlparser_handle_commit_ast(sqlparser_handle_t *, sqlparser_error_t *);
+sqlparser_status_t __wrap_sqlparser_handle_commit_ast(sqlparser_handle_t *handle, sqlparser_error_t *error)
+{
+	if (count_active) ast_commit_calls++;
+	return __real_sqlparser_handle_commit_ast(handle, error);
+}
+sqlparser_status_t __real_sqlparser_handle_commit_ast_with_dialect_state(sqlparser_handle_t *, void *, sqlparser_error_t *);
+sqlparser_status_t __wrap_sqlparser_handle_commit_ast_with_dialect_state(sqlparser_handle_t *handle, void *state, sqlparser_error_t *error)
+{
+	if (count_active) state_commit_calls++;
+	return __real_sqlparser_handle_commit_ast_with_dialect_state(handle, state, error);
+}
+void __real_sqlparser_dialect_ast_surface_visit(const PgQuery__ParseResult *, const sqlparser_dialect_ast_surface_visitor_t *);
+void __wrap_sqlparser_dialect_ast_surface_visit(const PgQuery__ParseResult *ast, const sqlparser_dialect_ast_surface_visitor_t *visitor)
+{
+	if (count_active) surface_visits++;
+	__real_sqlparser_dialect_ast_surface_visit(ast, visitor);
+}
+void __real_sqlparser_dialect_ast_surface_visit_roots(ProtobufCMessage *const *, size_t, size_t, const sqlparser_dialect_ast_surface_visitor_t *);
+void __wrap_sqlparser_dialect_ast_surface_visit_roots(ProtobufCMessage *const *roots, size_t count, size_t statement, const sqlparser_dialect_ast_surface_visitor_t *visitor)
+{
+	if (count_active) surface_root_visits++;
+	__real_sqlparser_dialect_ast_surface_visit_roots(roots, count, statement, visitor);
+}
 #endif
 
 static sqlparser_status_t apply_batch(sqlparser_handle_t *handle,
@@ -40,6 +67,7 @@ static sqlparser_status_t apply_batch(sqlparser_handle_t *handle,
 {
 	sqlparser_status_t status;
 	full_parse_calls = handle_clone_calls = deparse_calls = 0U;
+	ast_commit_calls = state_commit_calls = surface_visits = surface_root_visits = 0U;
 	count_active = 1;
 	status = sqlparser_apply_patch(handle, list, error);
 	count_active = 0;
@@ -51,6 +79,8 @@ static void print_patch_counts(void)
 #ifdef SQLPARSER_PATCH_BATCH_COUNTS
 	printf(" full_parses=%zu handle_clones=%zu deparse_calls=%zu",
 		full_parse_calls, handle_clone_calls, deparse_calls);
+	printf(" ast_commits=%zu state_commits=%zu surface_visits=%zu surface_root_visits=%zu",
+		ast_commit_calls, state_commit_calls, surface_visits, surface_root_visits);
 #endif
 }
 
@@ -88,6 +118,7 @@ static int check_case(sqlparser_dialect_t dialect, const char *sql,
 	deparse_start = now();
 	if (sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK) goto done;
 	end = now();
+	if (exact_sql && strcmp(output, expected) != 0) goto done;
 	if (sqlparser_parse_with_options(expected, &options, &reference, &error) != SQLPARSER_STATUS_OK ||
 	    sqlparser_export_view_json(reference, 0, &reference_view, &error) != SQLPARSER_STATUS_OK)
 		goto done;
@@ -354,6 +385,7 @@ static double now(void)
 
 static const char *batch_path_names[] = {
 	"insert_cell", "insert_copy", "update_literal", "where_literal", "select_target", "merge_cell",
+	"insert_rows", "insert_rows_quoted", "merge_assignment",
 	"expr_literal", "expr_raw", "expr_float", "expr_bind", "expr_field", "expr_whole",
 	"expr_insert", "expr_delete", "expr_repeat", "mixed_update_expr",
 	"multi_all", "multi_first", "multi_raw", "multi_float", "multi_bind", "multi_copy",
@@ -377,6 +409,9 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	int raw = strstr(name, "raw") != NULL, floating = strstr(name, "float") != NULL;
 	int binding = strstr(name, "bind") != NULL;
 	int update = strcmp(name, "update_literal") == 0, merge = strcmp(name, "merge_cell") == 0;
+	int merge_update = strcmp(name, "merge_assignment") == 0;
+	int rows = strncmp(name, "insert_rows", 11U) == 0;
+	int quoted_rows = strcmp(name, "insert_rows_quoted") == 0;
 	int where = strcmp(name, "where_literal") == 0, target = strcmp(name, "select_target") == 0;
 	int insert_arg = strcmp(name, "expr_insert") == 0, delete_arg = strcmp(name, "expr_delete") == 0;
 	int field = strcmp(name, "expr_field") == 0, whole = strcmp(name, "expr_whole") == 0;
@@ -386,8 +421,9 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	int mssql = sqlparser_dialect_is_sqlserver_compatible(dialect);
 	for (i = 0U; i < sizeof(batch_path_names)/sizeof(batch_path_names[0]); i++)
 		if (strcmp(name, batch_path_names[i]) == 0) known = 1;
-	if (!known || n == 0U || n > 500U || limit == 0U || limit > n || (mixed && n % 2U != 0U) ||
-	    (multi && !sqlparser_dialect_is_oracle_or_dameng_compatible(dialect)) || (merge && mysql)) return 1;
+	if (!known || n == 0U || n > (rows ? 5000U : 500U) || limit == 0U || limit > n || (mixed && n % 2U != 0U) ||
+	    (multi && !sqlparser_dialect_is_oracle_or_dameng_compatible(dialect)) ||
+	    ((merge || merge_update) && mysql) || (rows && sqlparser_dialect_is_oracle_compatible(dialect))) return 1;
 	items = calloc(n, sizeof(*items)); literals = calloc(n, sizeof(*literals)); binds = calloc(n, sizeof(*binds));
 	selectors = calloc(n, sizeof(*selectors)); text = calloc(n, sizeof(*text)); payload = calloc(n, sizeof(*payload));
 	keys = calloc(n, sizeof(*keys)); bind_sql = calloc(n, sizeof(*bind_sql));
@@ -399,6 +435,7 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	snprintf(source, sizeof(source), multi ? "stmt[0].insert_cell[%zu][0]" : "stmt[0].insert_cell[0][%zu]", n);
 	for (i = 0U; i < n; i++) {
 		snprintf(text[i], sizeof(text[i]), "changed_%zu", i);
+		if (rows) snprintf(text[i], sizeof(text[i]), "other-secret-%04zu", i + 1U);
 		snprintf(keys[i], sizeof(keys[i]), pg || mysql ? "%zu" : "p%zu", i + 1U);
 		binds[i].kind = pg || mysql ? SQLPARSER_BIND_KIND_POSITIONAL : SQLPARSER_BIND_KIND_NAMED;
 		binds[i].key = keys[i];
@@ -407,8 +444,10 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 		literals[i].string_value = text[i]; literals[i].float_value = "1.25";
 		snprintf(payload[i], sizeof(payload[i]), whole ? "CONCAT('%s','z')" : "'%s'", text[i]);
 		if (mixed) snprintf(selectors[i], sizeof(selectors[i]), i % 2U ? "stmt[0].expression_arg[%zu][0]" : "stmt[0].assignment[%zu]", i/2U);
+		else if (rows) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].insert_cell[%zu][1]", i);
 		else if (multi) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].insert_cell[%zu][0]", i);
 		else if (merge) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].merge_insert_cell[0][%zu]", i);
+		else if (merge_update) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].merge_assignment[0][%zu]", i);
 		else if (update) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].assignment[%zu]", i);
 		else if (where) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].where_literal[%zu]", i);
 		else if (target) snprintf(selectors[i], sizeof(selectors[i]), "stmt[0].select_target[0][%zu]", i);
@@ -425,7 +464,16 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	}
 	for (side = 0U; side < 2U; side++) {
 		buffer_t *s = &sql[side];
-		if (mixed) {
+		if (rows) {
+			const char *q = !quoted_rows ? "" : mysql ? "\x60" : mssql ? "[" : "\"";
+			const char *endq = !quoted_rows ? "" : mssql ? "]" : q;
+			append(s, "INSERT INTO %stest_table%s (%sID%s, %sSECRET_VALUE%s)\nVALUES\n",
+				q, endq, q, endq, q, endq);
+			for (i = 0U; i < n; i++) {
+				append(s, "  (%zu, '%s-secret-%04zu')%s\n", i + 1U,
+					side && i < limit ? "other" : "small", i + 1U, i + 1U == n ? ";" : ",");
+			}
+		} else if (mixed) {
 			append(s, "UPDATE t SET ");
 			for (i = 0U; i < n/2U; i++) append(s, "%sc%zu='%s'", i ? "," : "", i, side && i*2U < limit ? text[i*2U] : "old");
 			append(s, " WHERE ");
@@ -466,7 +514,8 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 			}
 			append(s, where ? ";" : " FROM t;");
 		} else {
-			if (update) append(s, "UPDATE t SET ");
+			if (merge_update) append(s, "MERGE INTO t USING s ON(t.id=s.id) WHEN MATCHED THEN UPDATE SET ");
+			else if (update) append(s, "UPDATE t SET ");
 			else {
 				append(s, merge ? "MERGE INTO t USING s ON(t.id=s.id) WHEN NOT MATCHED THEN INSERT(" : "INSERT INTO t(");
 				for (i = 0U; i <= n; i++) append(s, "%sc%zu", i ? "," : "", i);
@@ -474,13 +523,14 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 			}
 			for (i = 0U; i <= n; i++) {
 				if (i) append(s, ",");
-				if (update) append(s, "c%zu=", i);
+				if (update || merge_update) append(s, "c%zu=", i);
 				append(s, "'%s'", i == n ? "source" : !side || i >= limit ? "old" : copy ? "source" : text[i]);
 			}
-			append(s, update ? " WHERE id=1;" : ");");
+			append(s, merge_update ? ";" : update ? " WHERE id=1;" : ");");
 		}
 	}
 	case_name = name;
+	exact_sql = rows;
 	if (check_case(dialect, sql[0].text, items, limit, sql[1].text)) goto done;
 	if (!profile_case) {
 		const char *saved = items[limit - 1U].selector;
@@ -490,6 +540,7 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	}
 	result = 0;
 done:
+	exact_sql = 0;
 	free(sql[0].text); free(sql[1].text); free(items); free(literals); free(binds);
 	free(selectors); free(text); free(payload); free(keys); free(bind_sql);
 	return result;
@@ -503,7 +554,9 @@ static int check_batch_paths(void)
 		for (i = 0U; i < sizeof(batch_path_names)/sizeof(batch_path_names[0]); i++) {
 			const char *name = batch_path_names[i];
 			if ((strncmp(name, "multi_", 6U) == 0 && !sqlparser_dialect_is_oracle_or_dameng_compatible((sqlparser_dialect_t)d)) ||
-			    (strcmp(name, "merge_cell") == 0 && sqlparser_dialect_is_mysql_compatible((sqlparser_dialect_t)d))) continue;
+			    ((strcmp(name, "merge_cell") == 0 || strcmp(name, "merge_assignment") == 0) &&
+			     sqlparser_dialect_is_mysql_compatible((sqlparser_dialect_t)d)) ||
+			    (strncmp(name, "insert_rows", 11U) == 0 && sqlparser_dialect_is_oracle_compatible((sqlparser_dialect_t)d))) continue;
 			if (check_batch_path((sqlparser_dialect_t)d, name, 6U, 6U)) return 1;
 			count++;
 		}
@@ -623,6 +676,142 @@ static int check_batch_dependencies(void)
 	rollback++;
 	printf("batch-dependency-cases positive=%zu rollback=%zu check=ok\n", positive, rollback);
 	return 0;
+}
+
+static int check_native_batch_boundaries(void)
+{
+	sqlparser_literal_value_t x = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="x'\\z"};
+	sqlparser_literal_value_t y = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="y"};
+	sqlparser_literal_value_t v = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="v"};
+	sqlparser_literal_value_t number = {.kind=SQLPARSER_LITERAL_KIND_INTEGER, .integer_value=7};
+	sqlparser_patch_t items[5];
+	char sql[1024], expected[1024], large[601];
+	sqlparser_literal_value_t large_value = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value=large};
+	size_t positive = 0U, rollback = 0U;
+	int d, failed = 1;
+	memset(large, 'x', sizeof(large) - 1U); large[sizeof(large) - 1U] = '\0';
+
+	for (d = SQLPARSER_DIALECT_POSTGRESQL; d <= SQLPARSER_DIALECT_KINGBASE_SQLSERVER; d++) {
+		sqlparser_dialect_t dialect = (sqlparser_dialect_t)d;
+		int mysql = sqlparser_dialect_is_mysql_compatible(dialect);
+		int mssql = sqlparser_dialect_is_sqlserver_compatible(dialect);
+		int pg = sqlparser_dialect_uses_postgresql_placeholders(dialect);
+		const char *q = mysql ? "\x60" : mssql ? "[" : "\"";
+		const char *endq = mssql ? "]" : q;
+		const char *bind = pg ? "$1" : mysql ? "?" : mssql ? "@p" : ":p";
+		const char *national = pg ? "'keep'" : "N'keep'";
+		const char *changed = mysql ? "'x''\\\\z'" : "'x''\\z'";
+
+		case_name = "native_quoted_source_bind_national";
+		snprintf(sql, sizeof(sql),
+			"INSERT INTO %sT%s(%sA%s,%sB%s,%sC%s,%sD%s) VALUES('a','b',%s,%s);",
+			q, endq, q, endq, q, endq, q, endq, q, endq, bind, national);
+		snprintf(expected, sizeof(expected),
+			"INSERT INTO %sT%s(%sA%s,%sB%s,%sC%s,%sD%s) VALUES(%s,%s,%s,%s);",
+			q, endq, q, endq, q, endq, q, endq, q, endq, changed, changed, bind, national);
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&x};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .source_selector="stmt[0].insert_cell[0][0]"};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&y};
+		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .source_selector="stmt[0].insert_cell[0][1]"};
+		exact_sql = 1;
+		if (check_case(dialect, sql, items, 4U, expected)) goto done;
+		positive++;
+		items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][99]", .literal=&x};
+		if (check_rollback(dialect, sql, items, 5U)) goto done;
+		rollback++;
+
+		/* Invalid intermediate dialect structure must not be hidden by a later overwrite. */
+		case_name = "native_intermediate_dialect_validation";
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="2 AS probe"};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="PRIOR id AS probe"};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="1 AS probe"};
+		if (check_rollback(dialect, "SELECT 1 AS probe FROM t;", items, 3U)) goto done;
+		rollback++;
+
+		if (!pg) {
+			case_name = "native_national_type_cycle";
+			items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&number};
+			items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&v};
+			/* Leaving the string type removes its national-literal owner record. */
+			if (check_case(dialect, "INSERT INTO t(a,b) VALUES(N'v','b');", items, 2U,
+				"INSERT INTO t (a, b) VALUES ('v', 'b');")) goto done;
+			positive++;
+		}
+		case_name = "native_repeated_cell_then_source";
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&x};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&y};
+		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .source_selector="stmt[0].insert_cell[0][0]"};
+		exact_sql = 0;
+		if (check_case(dialect, "INSERT INTO t(a,b) VALUES('v','b');", items, 3U,
+			"INSERT INTO t(a,b) VALUES('y','y');")) goto done;
+		positive++;
+
+		case_name = "native_where_literal_after_expression_bind";
+		{
+			sqlparser_bind_value_t value = {.kind=pg || mysql ? SQLPARSER_BIND_KIND_POSITIONAL : SQLPARSER_BIND_KIND_NAMED,
+				.key=pg || mysql ? "1" : "p"};
+			items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][0]", .bind=&value};
+			/* After 'a' becomes a bind, literal 1 is c='c', not CONCAT's 'b'. */
+			items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].where_literal[1]", .literal=&y};
+			snprintf(expected, sizeof(expected), mysql || mssql ?
+				"SELECT name FROM t WHERE name LIKE CONCAT(%s, 'b') AND c = 'y';" :
+				"SELECT name FROM t WHERE name LIKE CONCAT(%s,'b') AND c='y';", bind);
+			if (check_case(dialect, "SELECT name FROM t WHERE name LIKE CONCAT('a','b') AND c='c';",
+				items, 2U, expected)) goto done;
+			positive++;
+		}
+
+		/* A large intermediate INSERT literal may be overwritten before serialization. */
+		case_name = "native_oversized_intermediate_restored";
+		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&large_value};
+		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&y};
+		for (int output_limit = 0; output_limit < 2; output_limit++) {
+			sqlparser_parse_options_t options;
+			sqlparser_handle_t *handle = NULL;
+			sqlparser_patch_list_t list = {items, 2U};
+			sqlparser_error_t error = {0};
+			char *output = NULL;
+			int ok;
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialect;
+			if (output_limit) options.limits.max_output_bytes = 256U;
+			else options.limits.max_sql_bytes = 256U;
+			ok = sqlparser_parse_with_options("INSERT INTO t(a,b) VALUES('v','b');", &options, &handle, &error) == SQLPARSER_STATUS_OK &&
+				sqlparser_apply_patch(handle, &list, &error) == SQLPARSER_STATUS_OK &&
+				handle->generation == 1UL &&
+				sqlparser_deparse(handle, &output, &error) == SQLPARSER_STATUS_OK &&
+				strcmp(output, "INSERT INTO t (a, b) VALUES ('y', 'b');") == 0;
+			sqlparser_string_free(output);
+			sqlparser_handle_destroy(handle);
+			if (!ok) {
+				fprintf(stderr, "batch boundary failed case=%s dialect=%d output_limit=%d error=%s\n",
+					case_name, d, output_limit, error.message);
+				goto done;
+			}
+			positive++;
+		}
+		exact_sql = 1;
+
+		if (!sqlparser_dialect_is_oracle_compatible(dialect)) {
+			case_name = "native_cross_row_source_dependency";
+			strcpy(sql, "INSERT INTO t(id,v) VALUES (1,'a'),(2,'b'),(3,'c');");
+			snprintf(expected, sizeof(expected), "INSERT INTO t(id,v) VALUES (1,'y'),(2,%s),(3,%s);", changed, changed);
+			items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .literal=&x};
+			items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[1][1]", .source_selector="stmt[0].insert_cell[0][1]"};
+			items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .literal=&y};
+			items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[2][1]", .source_selector="stmt[0].insert_cell[1][1]"};
+			if (check_case(dialect, sql, items, 4U, expected)) goto done;
+			positive++;
+			items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[99][1]", .literal=&x};
+			if (check_rollback(dialect, sql, items, 5U)) goto done;
+			rollback++;
+		}
+	}
+	printf("batch-native-boundaries positive=%zu rollback=%zu check=ok\n", positive, rollback);
+	failed = 0;
+done:
+	exact_sql = 0;
+	return failed;
 }
 
 static int benchmark_fixture(const char *path, size_t limit)
@@ -919,5 +1108,6 @@ int main(int argc, char **argv)
 			argc == 5 ? (size_t)strtoul(argv[4], NULL, 10) : 0U);
 	if (argc != 1) return 1;
 	return check_semantics() || check_resource_limits() || check_batch_paths() || check_batch_dependencies() ||
+		check_native_batch_boundaries() ||
 		benchmark_fixture("tests/cases/patch_batch_oracle_insert_all.sql", 250U) || benchmark("oracle", 3U, 0U);
 }

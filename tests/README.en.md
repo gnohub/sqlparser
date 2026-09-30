@@ -93,7 +93,7 @@ make bin/test_patch_batch
 
 ### Batch Path Baseline
 
-The default run also includes 237 positive path checks with 237 rollback checks, plus 83 positive dependency checks and 86 rollback checks. These cover all 13 dialect entries; MERGE runs only on the 10 supporting entries, and INSERT ALL/FIRST only on Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng. Checks cover complete Views, Views reparsed from output, generation, ordered source reads, bind lifetimes, expression/argument index shifts, comments, and rollback when an intermediate edit exceeds a resource limit. Repeated replacements also verify that introduced comments survive and that later edits cannot hide intermediate fragment errors. Pseudo columns check ordinal shifts caused by newly introduced expressions.
+The default run includes 267 positive path checks with 267 rollback checks, 83 positive dependency checks with 86 rollback checks, and 85 positive native-AST batch boundary checks with 36 rollback checks. These cover all 13 dialect entries; MERGE runs only on the 10 supporting entries, and INSERT ALL/FIRST only on Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng. Checks cover complete Views, Views reparsed from output, generation, ordered source reads, bind lifetimes, expression/argument index shifts, comments, and rollback when an intermediate edit exceeds a resource limit. Repeated replacements also verify that introduced comments survive and that later edits cannot hide intermediate fragment errors. Pseudo columns check ordinal shifts caused by newly introduced expressions.
 
 The fixed `patch_batch_oracle_insert_all.sql` input is 27,530 bytes after removing its final newline, with 50 branches and 16 columns per branch. `--fixture` reads string values in columns 2–6 from the query graph and constructs 250 replacements using `sqlparser_selector_format()`. It submits the selected prefix in one API call, verifies all 800 values and column names, and compares the patched View with the View reparsed from output. The default test applies all 250 replacements.
 
@@ -113,6 +113,8 @@ For `--profile scenario dialect size [patch_count]`, `size` fixes the candidate 
 | Group | Scenarios |
 | --- | --- |
 | Controls | `insert_cell`, `update_literal`, `where_literal`, `select_target`, `merge_cell`, `expr_literal` |
+| Ordinary multi-row inserts | `insert_rows`, `insert_rows_quoted`: two columns per row, replacing only the second column |
+| MERGE UPDATE | `merge_assignment`: literal replacements in matched-branch assignments |
 | Source copying | `insert_copy`: repeated reads from an unchanged source value |
 | Functions and expressions | `expr_raw`, `expr_float`, `expr_bind`, `expr_field`, `expr_whole`, `expr_insert`, `expr_delete`, `expr_repeat` |
 | Mixed edits | `mixed_update_expr`: alternating UPDATE assignment and function-argument literal replacements |
@@ -123,13 +125,42 @@ The baseline uses the unmodified production code from `v2.16.15` (`05590bb599420
 - [Timing baseline](../bench/baselines/patch_batch_v2.16.15.csv): 45 argument combinations, each run in three independent processes, yielding 135 raw records. The `arguments` column supports direct replay.
 - [Call-count baseline](../bench/baselines/patch_batch_v2.16.15_counts.csv): 237 small path checks across 13 dialect entries, each using one API call with six patches.
 
-The normal test binary measures timings. The optional `_counts` binary uses linker wrapping only to count `sqlparser_parse_with_options()`, handle clone, and `sqlparser_deparse()` calls during `sqlparser_apply_patch()`, without production-source instrumentation. Full-statement parse counts exclude initial parsing, result verification, and local expression-fragment parsing. Clone/deparse counts do not represent all memory copying or AST serialization. CSV call counts come from separate instrumented runs; their timings are not used.
+The normal test binary measures timings. The optional `_counts` binary uses linker wrapping to count full-statement parses, handle clones, deparses, both AST commit entry points, and shared surface visitors during `sqlparser_apply_patch()`, without production-source instrumentation. Full-statement parse counts exclude initial parsing, result verification, and local expression-fragment parsing. Clone/deparse counts do not represent all memory copying or AST serialization. `ast_commits` and `state_commits` record cross-object calls to the two commit entry points, not actual full-tree validation counts. `surface_visits` and `surface_root_visits` exclude SQL Server's independent walker. CSV call counts come from separate instrumented runs; their timings are not used.
 
 Times are in seconds. The fixed fixture also reports query-graph access and patch construction time. Generated scenarios prepare SQL and patches outside the timed stages, leaving `construct_seconds` empty. GNU time's `max_rss_kib` is peak RSS for the whole sample process, including verification, not apply-only memory or a leak metric. Functional checks hard-code neither elapsed-time thresholds nor the old reparse counts. Performance acceptance should compare identical arguments against this baseline while retaining synchronization required by source dependencies, index changes, or overlapping edits.
 
 The optimized implementation passed the full `make test` suite, the ABI check, and targeted tests for both normal and counter builds. Valgrind on the patch batch regressions reported zero errors and zero bytes in zero blocks at exit.
 
 Batch source edits reuse the existing edit list, synchronizing when earlier results must be read, expression/argument indices change, or source boundaries require it. Standard strings and decimal numbers still undergo fragment parsing, without copying a whole dialect state just for validation; existing input and output limits remain in force. Multi-insert source scans use batch-local stack cursors, cleared whenever SQL or dialect state changes, with no persistent SQL/AST cache added.
+
+### Native-AST Batch Regression
+
+At size 500, `insert_rows` generates exactly 500 rows with `ID` and `SECRET_VALUE`, replacing `small-secret-NNNN` with `other-secret-NNNN`. `insert_rows_quoted` uses the dialect's table/column delimiters. Both check complete Views and byte-for-byte deparse output. The optional final argument edits only a row prefix and verifies that other rows remain unchanged.
+
+Multi-row scenarios cover PostgreSQL, MySQL, SQL Server, Dameng, and their corresponding compatibility entries, totaling 10 entries. Oracle, Vastbase Oracle, and Kingbase Oracle use the existing single-row, multi-column `insert_cell` scenario. `merge_assignment` covers the 10 non-MySQL entries. Default path matrices use six edits; replay 500-edit scenarios separately:
+
+```bash
+./bin/test_patch_batch --profile insert_rows mysql 500 500
+./bin/test_patch_batch --profile insert_rows mysql 5000 5000
+./bin/test_patch_batch_counts --profile insert_rows mysql 500 500
+./bin/test_patch_batch --profile insert_rows_quoted mysql 500 125
+./bin/test_patch_batch --profile insert_cell oracle 500 500
+./bin/test_patch_batch --profile update_literal mysql 500 500
+./bin/test_patch_batch --profile where_literal mysql 500 500
+./bin/test_patch_batch --profile select_target mysql 500 500
+./bin/test_patch_batch --profile merge_cell oracle 500 500
+./bin/test_patch_batch --profile merge_assignment oracle 500 500
+```
+
+Native batch boundary cases cover delimiters, quotes/backslashes, untouched binds and national strings, repeated edits and ordered source reads, cross-row copies, invalid-selector rollback, and invalid intermediate hierarchy expressions that must not be hidden by later overwrites. Existing mixed-operation, resource-limit, INSERT ALL/FIRST, and function-argument cases remain regression controls.
+
+Additional boundaries cover national strings across type changes, copying an overwritten cell, literal numbering after a function argument becomes a bind, and restoring oversized intermediate values permitted by native replacement. The multi-row generator supports up to 5,000 rows without changing library resource limits.
+
+Compatible string replacements reuse batch source edits and rebuild parsed state once at the end, synchronizing when source dependencies, type changes, or structural changes require it. Ordinary VALUES reuse stack cursors for statement boundaries, and ordered edits no longer scan all earlier edits. No public fields or persistent AST cache are added.
+
+On the 2.16.17 baseline, one native timing run of the 500-row MySQL scenario measured approximately 1.77 seconds for apply. A separate counter run recorded 500 AST commits, 2,000 shared surface visits, and zero full-statement reparses during the batch. These figures support subsequent same-machine, same-argument comparisons, not fixed timing or internal-call-count pass criteria.
+
+On the same machine, optimized apply measured approximately 25 milliseconds for 500 rows and 269 milliseconds for 5,000 rows. Each batch used one patch API call and passed complete View and byte-for-byte SQL checks. The 5,000-row batch recorded one full-statement reparse and zero per-edit AST commits or shared surface visits. Timings exclude initial parsing, View export, and deparse.
 
 ## Representative Files
 

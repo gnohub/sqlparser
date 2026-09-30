@@ -93,7 +93,7 @@ make bin/test_patch_batch
 
 ### 批处理路径基线
 
-默认运行还包括 237 组路径正向检查及其 237 组失败回滚检查、83 组依赖边界正向检查和 86 组回滚检查。覆盖 13 个方言入口；`MERGE` 仅用于支持它的 10 个入口，`INSERT ALL/FIRST` 仅用于 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦入口。检查完整 View、输出重解析后的 View、generation、来源读取顺序、bind 生命周期、表达式/参数索引移动、注释以及中间修改超限后的回滚。重复替换额外检查已引入的注释保留，以及中间片段错误不能被后续替换掩盖。伪列检查引入表达式后的编号变化。
+默认运行包括 267 组路径正向检查及其 267 组失败回滚检查、83 组依赖边界正向检查和 86 组回滚检查，以及 85 组原位 AST 批处理边界正向检查和 36 组回滚检查。覆盖 13 个方言入口；`MERGE` 仅用于支持它的 10 个入口，`INSERT ALL/FIRST` 仅用于 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦入口。检查完整 View、输出重解析后的 View、generation、来源读取顺序、bind 生命周期、表达式/参数索引移动、注释以及中间修改超限后的回滚。重复替换额外检查已引入的注释保留，以及中间片段错误不能被后续替换掩盖。伪列检查引入表达式后的编号变化。
 
 `patch_batch_oracle_insert_all.sql` 固定样例去掉末尾换行后为 27,530 字节，包含 50 个分支、每分支 16 列。`--fixture` 从查询图读取第 2～6 列的字符串值，通过 `sqlparser_selector_format()` 构造 250 项替换；一次提交所选前缀，核对全部 800 个值和列名，并比较修改后的 View 与输出重解析后的 View。默认测试执行完整 250 项替换。
 
@@ -113,6 +113,8 @@ make -j4 bin/test_patch_batch bin/test_patch_batch_counts SHOW_WARNING=0
 | 分组 | 场景 |
 | --- | --- |
 | 对照 | `insert_cell`、`update_literal`、`where_literal`、`select_target`、`merge_cell`、`expr_literal` |
+| 普通批量插入 | `insert_rows`、`insert_rows_quoted`：每行两列，只替换第二列 |
+| MERGE UPDATE | `merge_assignment`：匹配分支的赋值字面量替换 |
 | 来源复制 | `insert_copy`：连续读取未修改的源值 |
 | 函数及表达式 | `expr_raw`、`expr_float`、`expr_bind`、`expr_field`、`expr_whole`、`expr_insert`、`expr_delete`、`expr_repeat` |
 | 混合修改 | `mixed_update_expr`：交替替换 UPDATE 赋值和函数参数字面量 |
@@ -123,13 +125,42 @@ make -j4 bin/test_patch_batch bin/test_patch_batch_counts SHOW_WARNING=0
 - [计时基线](../bench/baselines/patch_batch_v2.16.15.csv)：45 个参数组合，每组 3 次独立进程运行，共 135 条原始记录；`arguments` 列可直接用于复跑。
 - [调用次数基线](../bench/baselines/patch_batch_v2.16.15_counts.csv)：13 个方言入口的 237 组小规模路径检查，每组一次 API 调用、6 项 patch。
 
-正常测试二进制用于计时；可选的 `_counts` 二进制仅通过链接包装统计 `sqlparser_apply_patch()` 期间的 `sqlparser_parse_with_options()`、handle clone 和 `sqlparser_deparse()` 调用，不修改生产源码。整句解析次数不包括初始解析、结果校验和局部表达式片段解析；clone/deparse 调用数不代表全部内存复制或 AST 序列化次数。CSV 中的调用次数来自单独的计数运行，不取计数运行的耗时。
+正常测试二进制用于计时；可选的 `_counts` 二进制通过链接包装统计 `sqlparser_apply_patch()` 期间的整句解析、handle clone、deparse、两种 AST 提交入口和共享 surface visitor 调用，不修改生产源码。整句解析次数不包括初始解析、结果校验和局部表达式片段解析；clone/deparse 调用数不代表全部内存复制或 AST 序列化次数。`ast_commits` 与 `state_commits` 分别记录跨目标文件调用的提交入口，不等同于实际整树校验次数；`surface_visits` 和 `surface_root_visits` 不包含 SQL Server 的独立 walker。CSV 中的调用次数来自单独的计数运行，不取计数运行的耗时。
 
 时间单位为秒。固定样例另列查询图读取及 patch 构造耗时；生成式场景的 SQL 和 patch 准备不在计时阶段内，对应 `construct_seconds` 留空。`max_rss_kib` 是 GNU time 采集的整个样例进程峰值 RSS，包含校验，不是 apply 独占内存或泄漏指标。功能检查没有硬编码耗时阈值或旧版重解析次数；优化后的性能验收应使用相同参数对比基线，并保留存在来源依赖、索引变化或重叠修改时必要的同步。
 
 优化后的实现已通过完整 `make test`、ABI 检查及普通版和计数版的定向测试；批量 patch 回归的 Valgrind 检查为 0 errors、退出时 0 bytes in 0 blocks。
 
 批量原文编辑复用现有编辑列表；读取前序结果、改变表达式/参数编号或涉及原文边界时按需同步。标准字符串与十进制数值仍进行片段解析校验，但不为校验复制整份方言状态；原有输入和输出上限继续生效。多分支插入的位置扫描使用批次内栈上游标，SQL 或方言状态变化后清空，不增加常驻 SQL/AST 缓存。
+
+### 原位 AST 批处理回归
+
+`insert_rows` 精确生成 500 行时，每行包含 `ID` 和 `SECRET_VALUE`，将 `small-secret-NNNN` 替换为 `other-secret-NNNN`。`insert_rows_quoted` 使用对应方言的表名和列名定界符。两种场景都检查完整 View 和逐字节 deparse，并可通过最后一个参数只修改前缀行，验证其它行未变。
+
+多行场景覆盖 PostgreSQL、MySQL、SQL Server、达梦及对应兼容入口，共 10 个入口；Oracle、Vastbase Oracle 和 Kingbase Oracle 使用已有单行多列 `insert_cell` 场景。`merge_assignment` 覆盖非 MySQL 的 10 个入口。默认路径矩阵使用 6 项修改，500 项用以下命令专项回放：
+
+```bash
+./bin/test_patch_batch --profile insert_rows mysql 500 500
+./bin/test_patch_batch --profile insert_rows mysql 5000 5000
+./bin/test_patch_batch_counts --profile insert_rows mysql 500 500
+./bin/test_patch_batch --profile insert_rows_quoted mysql 500 125
+./bin/test_patch_batch --profile insert_cell oracle 500 500
+./bin/test_patch_batch --profile update_literal mysql 500 500
+./bin/test_patch_batch --profile where_literal mysql 500 500
+./bin/test_patch_batch --profile select_target mysql 500 500
+./bin/test_patch_batch --profile merge_cell oracle 500 500
+./bin/test_patch_batch --profile merge_assignment oracle 500 500
+```
+
+原位批处理边界用例检查定界符、单引号/反斜杠、未修改的 bind 和 national 字符串、重复修改及来源读取顺序、多行之间的来源复制、非法 selector 回滚，以及中间无效的层次表达式不能被后续覆盖掩盖。已有混合操作、资源限制、INSERT ALL/FIRST 和函数参数场景继续作为回归对照。
+
+额外边界检查 national 字符串跨类型替换、同单元格覆盖后复制、函数参数变成 bind 后的 literal 编号，以及原位替换允许的超限中间值恢复行为。多行生成器支持最多 5,000 行，不修改库的资源上限。
+
+可合并的字符串替换复用批量原文编辑，批末一次重建解析状态；来源依赖、类型或结构变化时按需同步。普通 VALUES 复用栈上游标保存语句边界，顺序修改不再遍历全部已有编辑；不增加公开字段或常驻 AST 缓存。
+
+2.16.17 基线下，500 行 MySQL 场景的单次普通版 apply 实测约 1.77 秒；独立计数运行记录 500 次 AST 提交、2,000 次共享 surface 遍历、0 次批内整句重解析。该数据用于后续同机同参数比较，不作为固定耗时或内部调用次数的通过条件。
+
+同机对比中，优化后的 500 行场景 apply 约 25 毫秒，5,000 行场景约 269 毫秒；每个批次仅调用一次 patch API，结果完成完整 View 和逐字节 SQL 对账。5,000 行批次记录 1 次整句重解析、0 次逐项 AST 提交和共享 surface 遍历。耗时不包含初始解析、View 导出和 deparse。
 
 ## 用例文件
 
