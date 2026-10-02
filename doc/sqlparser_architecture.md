@@ -106,6 +106,19 @@ View 层用于把语句树按需导出为可供外部程序消费的结构化视
 
 generation 大于 `0` 时，非控制流 handle 使用 `libpg_query` protobuf 反解析器生成 SQL，方言层随后恢复对应的公开语法形态；控制流 handle 根据当前控制流和语句状态生成 SQL。
 
+### 3.6 patch 生命周期
+
+初始解析创建一个公开 handle，成功的 patch/deparse 可在其上连续执行多轮。
+apply 不保留整 handle 回滚副本。SQL 改写路径先构建拥有所有权的计划，释放旧
+AST、graph 和方言状态，再解析新 SQL 完成强制校验。这减少新旧状态同时存活，
+不代表没有临时 SQL 缓冲、解析器分配或校验工作。既有资源限制不变。
+
+patch 读取顺序执行的当前状态。通用修改在失效前快照借用的 patch 输入字符串，
+而 `source_selector` 的值在对应操作时解析。已确认的错误立即停止执行；延迟到
+合并结果校验的错误可能较晚才被确认。apply/deparse 失败会释放部分状态并标记
+同一 handle 失败，之后必须恰好销毁一次。deparse 成功保留 handle 并返回独立分配。
+语义不兼容变更及借用视图规则详见[发布说明](../RELEASE_NOTES.md)。
+
 ## 4. 数据模型与缓存
 
 一个 `sqlparser_handle_t` 持有以下几类数据：
@@ -120,7 +133,7 @@ generation 大于 `0` 时，非控制流 handle 使用 `libpg_query` protobuf �
 - 初次解析时只建立必要的统一语法树
 - generation 为 `0` 的未改写 handle 反解析时直接复制原始 SQL
 - View JSON 等派生输出按需生成
-- 成功改写后，派生缓存会统一失效
+- 每次非空 apply 均使派生缓存和借用视图失效，包括同值替换和先修改后撤销；成功的空列表保留它们
 - 再次访问派生结构时，会基于最新 AST 重新生成
 
 ## 5. 公共接口组织方式

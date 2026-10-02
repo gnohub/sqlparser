@@ -58,11 +58,11 @@ void sqlparser_name_view_clear(sqlparser_name_view_t *view)
 
 static int sqlparser_quoted_identifier_token_matches(
 	const char *parser_sql,
+	size_t len,
 	int32_t location,
 	const char *value)
 {
 	size_t pos;
-	size_t len;
 	size_t value_pos;
 
 	if (parser_sql == NULL || location < 0 || value == NULL) {
@@ -70,7 +70,6 @@ static int sqlparser_quoted_identifier_token_matches(
 	}
 
 	pos = (size_t)location;
-	len = strlen(parser_sql);
 	if (pos >= len) {
 		return 0;
 	}
@@ -647,6 +646,21 @@ sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql(
 	sqlparser_literal_view_t *out_literal,
 	sqlparser_error_t *out_error)
 {
+	return sqlparser_fill_literal_view_from_a_const_with_sql_length(
+		a_const, parser_sql, parser_sql != NULL && out_literal != NULL &&
+			a_const != NULL && !a_const->isnull &&
+			a_const->val_case == PG_QUERY__A__CONST__VAL_SVAL ?
+			strlen(parser_sql) : 0U,
+		out_literal, out_error);
+}
+
+sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql_length(
+	const PgQuery__AConst *a_const,
+	const char *parser_sql,
+	size_t parser_sql_length,
+	sqlparser_literal_view_t *out_literal,
+	sqlparser_error_t *out_error)
+{
 	if (out_literal == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -677,6 +691,7 @@ sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql(
 			out_literal->quoted_identifier =
 				sqlparser_quoted_identifier_token_matches(
 					parser_sql,
+					parser_sql_length,
 					a_const->location,
 					out_literal->string_value);
 			return SQLPARSER_STATUS_OK;
@@ -5151,6 +5166,8 @@ static void sqlparser_mark_proto_generated_internal(
 	const sqlparser_generated_source_t *source)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	unsigned index;
 
@@ -5159,11 +5176,18 @@ static void sqlparser_mark_proto_generated_internal(
 	}
 
 	descriptor = message->descriptor;
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
 		    *(const int *)(base + field->quantifier_offset) != (int)field->id) {
 			continue;

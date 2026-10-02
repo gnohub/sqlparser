@@ -1,5 +1,40 @@
 # Test Guide
 
+## Pipeline Regression Coverage
+
+The public-API benchmark in `tools/sqlparser_pipeline_bench.c` measures a fresh
+explicit-MySQL parse, query graph, real selector traversal and patch construction,
+one batch application, and allocated SQL retrieval. It checks every output byte
+outside the timer and reports cleanup separately. See
+[`bench/README.en.md`](../bench/README.en.md) for the exact
+5,000-row workload and reproducible comparison commands.
+
+Additional regression programs cover:
+
+- `test_protobuf_node` and `test_protobuf_fastpath`: exact descriptor invariants,
+  generic/fast byte parity, unknown and duplicate wire fields, malformed input,
+  buffer packing, allocation failures, and deterministic wire fuzzing
+- `test_mysql_validation_observer`: live-tree/fallback parity, parser-context
+  lifetime, parse/validation error precedence, statement limits, and optional
+  error outputs, including malformed SQL with a NULL error pointer
+- `test_mysql_scanner_differential`: masks, quote/comment handling, origin maps,
+  statement boundaries, absent-keyword gates, and available locale behavior
+- `test_surface_scanner_differential`: every-index source span parity across
+  all dialects, quote/comment variants, malformed input, random bytes and locales
+- `test_insert_graph_fast_paths`: native literal and fallback graph construction,
+  selector boundaries, graph growth, relation binding, rewrites and terminal failure cleanup
+- `test_insert_string_batch` and `test_ascii_string_validation`: raw/typed string
+  equivalence, exact source preservation, fragment limits and terminal-failure cleanup
+- `test_validation_arena`: allocation-failure cleanup for the serialized fallback
+- `test_distinct_handle_concurrency`: independent handles across all 13 dialects;
+  `./bin/test_distinct_handle_concurrency 20` exercises 1,040 small and 80 bulk
+  MySQL lifecycles. It does not establish shared-handle mutation safety
+
+The GNU-linker build enables observer and allocation wrappers. The Windows
+concurrency test explicitly skips where pthreads are unavailable. Performance
+measurements are diagnostics, not machine-dependent unit-test thresholds.
+
+
 The `tests/` directory records functional coverage for `sqlparser`.
 
 ## Layout
@@ -52,6 +87,55 @@ Common quality-gate entry points:
 - `make test-loop LOOP=50`
 - `make verify`
 
+## Memory Checks
+
+The following checks ran on Linux AArch64 with Valgrind 3.27.1:
+
+- Lifecycle and borrowed inputs: `test_patch_lifecycle`, `test_direct_wire_lifecycle`, `test_patch_graph_borrowed`.
+- Dialect state and structural changes: `test_mutation_dialect_state`, `test_patch_structural_rows`, `test_patch_batch`.
+- Encoding, conversion and allocation failure: `test_protobuf_output_oom`, `test_protobuf_scalar_lifetime`, `test_parser_conversion_lifetime`, `test_validation_arena`, `test_mysql_validation_observer`, `test_protobuf_fastpath`.
+- Threads and independent handles: `test_pg_query_thread_lifecycle`, `test_distinct_handle_concurrency` (the default two waves).
+- Full batch pipelines: `sqlparser_pipeline_bench 5000 1 0 literal mysql` and `sqlparser_pipeline_bench 5000 1 0 replace mysql`.
+
+All 16 checks reported zero errors and zero bytes in zero blocks at exit, with no suppressions. GNU linker wrappers enabled failure injection for lifecycle, direct encoding, output allocation and validation fallback. Optional extended mutation/structural allocation sweeps were not enabled separately. This is not a full-suite Valgrind result or a process peak-memory measurement.
+
+The options were `--leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --track-origins=yes --error-exitcode=99`; logs are separate from normal timing. `make verify-valgrind` remains the full-suite entry point.
+
+## In-place Patch Lifecycle
+
+`test_patch_lifecycle` parses one handle and performs eight successive batch
+apply/deparse rounds on each of all 13 dialect entries. Every successful
+nonempty batch increments generation once and invalidates borrowed Views,
+including identical replacements and modify-then-restore batches. Generation-positive
+deparse may canonicalize otherwise unchanged SQL: the COPY no-op regression
+now expects `FORMAT CSV, HEADER true` and retains exact relation/option checks,
+rather than requiring the original keyword/boolean letter case. An empty
+patch list leaves generation and borrowed Views unchanged.
+
+Apply and deparse failures poison the handle: subsequent reads or patches are
+rejected, and the caller destroys it. Tests preserve specific selector,
+malformed-fragment, and resource-limit error checks, including invalid
+intermediate edits that later replacements must not hide. The caller's input
+buffer remains unchanged on success and failure; independently allocated SQL
+outputs remain valid across later edits, failures and handle destruction.
+Borrowed literal strings supplied as later patch inputs are snapshotted before
+an earlier edit invalidates their storage.
+
+The GNU-linker target sweeps allocation failure through generic apply, direct
+deparse, fast MySQL string batches, and a second fast batch on the same handle.
+Each rejected operation must leave a safely destructible terminal handle;
+optional allocation fallbacks that succeed must preserve the complete expected
+SQL. Dedicated serializer/deparse allocation boundaries retain their exact
+`NO_MEMORY` assertions. Generic historical protobuf-unpack failures can report
+`INTERNAL_ERROR`. The counter build of `test_patch_batch` also asserts zero
+whole-handle clones during application across its existing scenario matrix.
+
+```bash
+make -j4 bin/test_patch_lifecycle bin/test_patch_batch_counts SHOW_WARNING=0
+./bin/test_patch_lifecycle
+./bin/test_patch_batch_counts
+```
+
 ## String Literal Dialect Output and Rewrite Regression
 
 `tests/unit/test_string_literal_surface.c` exercises library APIs for string values, complete SQL, expression fragments, and source copies. It is discovered automatically by `make test`. Its 2,367 combinations cover all 13 dialect entries. Failures return a nonzero exit status.
@@ -67,7 +151,7 @@ make bin/test_string_literal_surface
 
 - Ten string fixtures cover plain text, single/consecutive/trailing backslashes, paths, both orders of quotes adjacent to backslashes, Unicode, literal backslash sequences such as `\n`/`\t`/`\r`, and embedded `E'…'` text.
 - SELECT paths cover individual targets, selectors, target lists, patch `sql`/`literal` inputs, direct literal setters, read-only fragments, and `source_selector` copies. Additional checks cover INSERT cells, UPDATE assignments, WHERE literals, function arguments, and protected comments/delimited aliases.
-- Non-PostgreSQL entries also cover reading, replacing, and copying `N'…'` strings. Batch cases verify ordered reads through replace/copy/replace/copy. Rollback checks require the final selector's out-of-range error code and unchanged SQL, complete View, and generation.
+- Non-PostgreSQL entries also cover reading, replacing, and copying `N'…'` strings. Batch cases verify ordered reads through replace/copy/replace/copy. Failure checks require the final selector's out-of-range error code, rejected access to the poisoned handle, and safe destruction.
 - The 91 `typed-string-boundary` combinations check control bytes, Unicode, non-UTF-8 bytes, and combinations with quotes/backslashes, preserving existing byte behavior. They also check that later replacements cannot hide a null string pointer or an invalid SQL fragment.
 - The regular string matrix lists expected literal spellings independently, not generated by the renderer under test. Each matrix case parses its expected SQL and checks its string values before rewriting. Results verify exact statement/fragment text, semantic values, generation, complete Views, and values/Views after reparsing the output.
 
@@ -77,7 +161,7 @@ Syntax references: [PostgreSQL string constants](https://www.postgresql.org/docs
 
 ## Patch Batch Regression and Benchmarks
 
-`test_patch_batch` checks ordered source reads, repeated edits, insertion/deletion indices, mixed operations, binds, comments, resource limits, and rollback. Benchmark mode puts every edit in one patch list and calls `sqlparser_apply_patch()` once. It measures parse, apply, and deparse separately and verifies the resulting values. Timings are not machine-dependent test thresholds.
+`test_patch_batch` checks ordered source reads, repeated edits, insertion/deletion indices, mixed operations, binds, comments, resource limits, and terminal failure cleanup. Benchmark mode puts every edit in one patch list and calls `sqlparser_apply_patch()` once. It measures parse, apply, and deparse separately and verifies the resulting values. Timings are not machine-dependent test thresholds.
 
 ```bash
 make bin/test_patch_batch
@@ -94,9 +178,9 @@ make bin/test_patch_batch
 
 ### Batch Path Baseline
 
-The default run includes 267 positive path checks with 267 rollback checks, 83 positive dependency checks with 86 rollback checks, and 85 positive native-AST batch boundary checks with 36 rollback checks. These cover all 13 dialect entries; MERGE runs only on the 10 supporting entries, and INSERT ALL/FIRST only on Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng. Checks cover complete Views, Views reparsed from output, generation, ordered source reads, bind lifetimes, expression/argument index shifts, comments, and rollback when an intermediate edit exceeds a resource limit. Repeated replacements also verify that introduced comments survive and that later edits cannot hide intermediate fragment errors. Pseudo columns check ordinal shifts caused by newly introduced expressions.
+The default run includes 267 positive path checks with 267 terminal-failure checks, 83 positive dependency checks with 86 terminal-failure checks, and 85 positive native-AST batch boundary checks with 36 terminal-failure checks. These cover all 13 dialect entries; MERGE runs only on the 10 supporting entries, and INSERT ALL/FIRST only on Oracle, Vastbase Oracle, KingbaseES Oracle, and Dameng. Checks cover complete Views, Views reparsed from output, generation, ordered source reads, bind lifetimes, expression/argument index shifts, comments, and terminal failure cleanup when an intermediate edit exceeds a resource limit. Repeated replacements also verify that introduced comments survive and that later edits cannot hide intermediate fragment errors. Pseudo columns check ordinal shifts caused by newly introduced expressions.
 
-Another 39 positive node-lookup checks and 39 rollback checks can run separately with `--lookup-boundaries`. They cover WHERE literal numbering in parentheses, CASTs, nested functions and subqueries, mixed assignment edits, out-of-order and repeated replacements, statement-local numbering, and rollback.
+Another 39 positive node-lookup checks and 39 terminal-failure checks can run separately with `--lookup-boundaries`. They cover WHERE literal numbering in parentheses, CASTs, nested functions and subqueries, mixed assignment edits, out-of-order and repeated replacements, statement-local numbering, and terminal failure cleanup.
 
 The fixed `patch_batch_oracle_insert_all.sql` input is 27,530 bytes after removing its final newline, with 50 branches and 16 columns per branch. `--fixture` reads string values in columns 2–6 from the query graph and constructs 250 replacements using `sqlparser_selector_format()`. It submits the selected prefix in one API call, verifies all 800 values and column names, and compares the patched View with the View reparsed from output. The default test applies all 250 replacements.
 
@@ -155,7 +239,7 @@ Multi-row scenarios cover PostgreSQL, MySQL, SQL Server, Dameng, and their corre
 ./bin/test_patch_batch --profile merge_assignment oracle 500 500
 ```
 
-Native batch boundary cases cover delimiters, quotes/backslashes, untouched binds and national strings, repeated edits and ordered source reads, cross-row copies, invalid-selector rollback, and invalid intermediate hierarchy expressions that must not be hidden by later overwrites. Existing mixed-operation, resource-limit, INSERT ALL/FIRST, and function-argument cases remain regression controls.
+Native batch boundary cases cover delimiters, quotes/backslashes, untouched binds and national strings, repeated edits and ordered source reads, cross-row copies, terminal invalid-selector failures, and invalid intermediate hierarchy expressions that must not be hidden by later overwrites. Existing mixed-operation, resource-limit, INSERT ALL/FIRST, and function-argument cases remain regression controls.
 
 Additional boundaries cover national strings across type changes, copying an overwritten cell, literal numbering after a function argument becomes a bind, and restoring oversized intermediate values permitted by native replacement. The multi-row generator supports up to 5,000 rows without changing library resource limits.
 
@@ -244,7 +328,7 @@ The test coverage includes:
 - KingbaseES conversion, deparse output, and patch replay through four explicit compatibility entries; each mode uses one unified entry without V8/V9 version dispatch
 - crash-resistance regression for public API NULL arguments, out-of-range access,
   invalid selectors, invalid patches, malformed input, and repeated parsing
-- argument validation, resource limits, malformed SQL, failed-rewrite rollback,
+- argument validation, resource limits, malformed SQL, terminal rewrite failure cleanup,
   and dialect public-output stability
 
 ## Case Matrix

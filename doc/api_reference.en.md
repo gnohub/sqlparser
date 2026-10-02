@@ -3,6 +3,10 @@
 This document describes the public C API types, lifecycle rules, structured
 read APIs, and rewrite APIs exposed by `sqlparser`.
 
+This reference describes the 2.17.0 API. A handle cannot be reused after
+patch/deparse failure, unlike the rollback behavior in 2.16.x. Public ABI remains
+unchanged; see the [Release notes](../RELEASE_NOTES.en.md).
+
 ## Overview
 
 `sqlparser` is centered around `sqlparser_handle_t`. The standard flow is:
@@ -305,9 +309,19 @@ Defined dialects:
   and rendering APIs are released by `sqlparser_string_free()`.
 - Strings inside C view structs are borrowed from the handle and must not be
   freed by the caller.
-- After a successful patch or AST mutation that actually changes the handle,
-  previous borrowed pointers, selector read results, bind occurrence views,
-  and query graph views are invalid.
+- Parse creates one public handle; repeat successful apply/deparse rounds on
+  that same handle. Successful deparse does not consume it. Caller-owned input
+  SQL is never modified, and each successful deparse returns an independently
+  allocated string that remains valid until `sqlparser_string_free()`.
+- A failed `sqlparser_apply_patch()` or `sqlparser_deparse()` on a valid handle
+  releases partial/internal state and marks the handle failed. There is no
+  rollback. Only `sqlparser_handle_destroy()` is permitted afterward; call it
+  exactly once. Do not read, patch, or deparse the failed handle.
+- Every nonempty apply invalidates previous borrowed pointers, selector read
+  results, bind occurrence views, and query graph views, including identical-value
+  replacements and modify-then-undo batches. Only a successful empty patch list
+  preserves them. Reacquire views after a successful nonempty apply; never
+  dereference an old borrowed pointer. A failed deparse also invalidates views.
 - A single handle does not support concurrent read/write access and is not
   guaranteed to be safe for concurrent read-only access. Use one owning thread
   per handle.
@@ -382,9 +396,10 @@ successful rewrite, the list is rebuilt from the current SQL corresponding to
 | `sqlparser_handle_bind_occurrences()` | gets the handle-level occurrence view |
 | `sqlparser_bind_occurrence_at()` | reads an occurrence by zero-based index |
 
-Any successful rewrite that changes the handle advances its generation and
-invalidates the previous view and its item `key` and `sql` pointers. A failed
-or effective no-op rewrite does not invalidate them. `key` and `sql` are
+Every nonempty apply invalidates the previous view and its item `key` and `sql`
+pointers, including identical-value replacements and modify-then-undo batches.
+Only a successful empty patch list preserves them. A failed apply/deparse also
+invalidates views and marks the handle failed. `key` and `sql` are
 borrowed NUL-terminated strings owned by the handle; callers must not free them
 or access them after destroying the handle. An empty list is a successful
 result with `count = 0`, and every item index is out of range. NULL handle,
@@ -469,8 +484,9 @@ represented by ordered roots, nodes, branches, and items.
 
 The roots, `node.branches`, and `branch.items` fields are index-pool spans. Read
 them through `sqlparser_control_span_index_at()` rather than treating `offset`
-as an object index. The view borrows handle-owned memory and becomes stale when
-a successful rewrite changes the handle generation.
+as an object index. The view borrows handle-owned memory and becomes stale on
+every nonempty apply, including an identical-value replacement, or on failed
+deparse. A successful empty patch list preserves it.
 
 ```c
 sqlparser_control_flow_view_t flow;
@@ -743,14 +759,17 @@ column and target-list selectors.
 `sqlparser_apply_patch()` is the recommended mutation gateway. Existing
 statement, selector, and structured convenience mutation functions remain
 available and retain their public argument validation. After conversion to a
-patch, they share atomic rollback, handle-generation updates, and derived-cache
-invalidation rules.
+patch, they share the destructive failure lifecycle, handle-generation updates,
+and derived-cache invalidation rules. Argument checks performed before that
+conversion are not a promise that all convenience-API errors destroy the handle;
+callers should still stop and destroy after any mutation error.
 
 Structured rewrite APIs use selectors to locate their targets, render
 `sqlparser_identifier_path_view_t` values and other structured inputs for the
-handle dialect, then apply them through the same patch transaction. When an
-existing assignment value is reused, the corresponding node is cloned on the
-transaction candidate. Callers provide identifier parts and source selectors;
+handle dialect, then apply them through the same in-place patch path. When an
+existing assignment value is reused, its value is copied from the current
+sequential state; this does not create a whole-handle rollback copy. Callers
+provide identifier parts and source selectors;
 they do not build SQL fragments or pass quote characters.
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` inserts a
@@ -813,8 +832,8 @@ sqlparser_selector_replace_select_target_with_columns(
 ```
 
 The input arrays are borrowed views. The library does not store caller pointers
-inside the handle. On failure, these APIs return an error status and preserve
-the original handle.
+inside the handle. Mutation failures do not guarantee preservation of the
+original state; stop and destroy the handle after an error.
 
 ## query_graph C Traversal
 
@@ -833,8 +852,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 ```
 
 `sqlparser_query_graph_view_t` contains statement-local counts and root block
-information. It does not own memory and is valid only for the handle generation
-from which it was read.
+information. It does not own memory. Every nonempty apply, failed deparse, or
+handle destruction invalidates it; only a successful empty patch list preserves
+it across apply. Do not dereference old view pointers after invalidation.
 
 ### Read Functions
 
@@ -1140,8 +1160,8 @@ from which it was read.
 - A DDL target/reference with a relation selector continues to support the
   existing `SQLPARSER_PATCH_REPLACE`. After a successful patch, quote flags,
   name segments, DDL role, and source block are rebuilt in the new generation;
-  old graph views become stale, and a clone remains independent of its source
-  handle. Drop relations have no selector and cannot be patched directly
+  old graph views become stale, and independently parsed handles remain
+  independent. Drop relations have no selector and cannot be patched directly
   through this projection.
 - Strings, spans, and structs in a DDL graph remain owned by the handle and
   must not be freed by the caller. No ownership or lifetime rule is added.
@@ -1245,7 +1265,7 @@ Patch operations:
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, MERGE branch condition, MERGE attached-delete condition, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
 | `SQLPARSER_PATCH_INSERT_COLUMN` | adds only a column name or a paired column/value to a regular `INSERT ... VALUES`, adds an `INSERT ... SELECT` target column, adds only a column name or a paired column/value to an explicit VALUES branch of Oracle/Dameng `INSERT ALL/FIRST`, adds a target column only, a value only, or both to a MERGE INSERT, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
-| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
+| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, deletes a MERGE INSERT target/value pair together, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts an assignment into a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
@@ -1254,11 +1274,22 @@ Patch operations:
 | `SQLPARSER_PATCH_INSERT_ARGUMENT` | inserts a function argument at an index selected by `expression_args` |
 | `SQLPARSER_PATCH_DELETE_ARGUMENT` | deletes a function argument selected by `expression_args`, including deletion to zero arguments |
 
-`sqlparser_apply_patch()` commits and increments the generation once only when
-the candidate produces an actual change from the current handle; previous
-query graph views then become invalid. An empty patch list or effective no-op
-does not increment the generation, and failure of any patch leaves the whole
-list uncommitted.
+`sqlparser_apply_patch()` mutates the same handle in list order. Each
+`source_selector` reads the current state after earlier patches. Borrowed patch
+input strings are snapshotted before the generic path can invalidate their
+storage; source-selector values are resolved sequentially, not snapshotted from
+the initial AST. The first confirmed error stops application. Some checks,
+including completed-SQL parsing and final list-width validation, occur only
+after a combined batch, so an invalid intermediate fragment may be diagnosed
+later. Failure releases partial state and marks the handle failed; there is no
+rollback or usable partial result.
+
+Every successful nonempty apply advances the generation and invalidates old
+views, uniformly across identical-value replacements, modify-then-undo batches,
+and other patch shapes. Failure also invalidates views and leaves only a failed
+handle to destroy. A successful empty patch list preserves the generation and
+views. SQL equality does not change this rule. See
+[Release notes](../RELEASE_NOTES.en.md).
 
 `stmt[S].expression[E]` and `stmt[S].expression_arg[E][A]` are valid `SQLPARSER_PATCH_REPLACE` targets. `stmt[S].expression_args[E]` is used for argument insertion and deletion. Functions are treated as variadic: the library validates selectors, indices, and parseability of the resulting SQL, but not function signatures, arity, or argument types. Opaque expressions support whole-expression replacement only.
 
@@ -1274,9 +1305,9 @@ combine multiple name-only column patches, paired insertion, and
 `REPLACE insert_cell`.
 Column and cell counts may differ temporarily within the batch, but every
 VALUES row must contain exactly as many cells as the final explicit column
-list before commit. Otherwise the whole batch returns
-`SQLPARSER_STATUS_INVALID_ARGUMENT` and leaves the original handle
-unchanged. The name-only VALUES mode does not apply to `DEFAULT VALUES` or
+list before successful completion. Otherwise the whole batch returns
+`SQLPARSER_STATUS_INVALID_ARGUMENT`, releases its state and marks the handle
+failed. The name-only VALUES mode does not apply to `DEFAULT VALUES` or
 MySQL `INSERT ... SET`; the existing target-column insertion semantics for
 `INSERT ... SELECT` remain unchanged.
 
@@ -1287,11 +1318,11 @@ same name-only payload adds a column name only to that branch and does not
 modify its cells, any other branch, or the source SELECT. Supplying one value
 source keeps the existing paired insertion behavior. One patch list may
 modify multiple branches and combine these operations with
-`REPLACE insert_cell`. Before commit, every branch touched by a name-only
-patch must have the same number of columns and cells; otherwise the whole
-batch rolls back. The current boundary excludes a branch without `VALUES`
-and multiple tuples within one branch. MERGE INSERT follows the separate rules
-below.
+`REPLACE insert_cell`. Before successful completion, every branch touched by a
+name-only patch must have the same number of columns and cells; otherwise the
+batch fails, releases its state and marks the handle failed. The current boundary
+excludes a branch without `VALUES` and multiple tuples within one branch. MERGE
+INSERT follows the separate rules below.
 
 All three assignment patch operations accept `stmt[S].assignment[A]`,
 `stmt[S].assignment[D][A]`, `stmt[S].merge_assignment[W][A]`, or
@@ -1308,9 +1339,9 @@ omitted.
 
 One patch batch may combine all three insertion shapes with individual
 replacement, and its intermediate column and value counts may differ. Before
-commit, every touched branch that ends with an explicit target-column list
-must have equal column and value counts. A mismatch returns
-`SQLPARSER_STATUS_INVALID_ARGUMENT` and rolls back the whole batch atomically.
+successful completion, every touched branch that ends with an explicit
+target-column list must have equal column and value counts. A mismatch returns
+`SQLPARSER_STATUS_INVALID_ARGUMENT`, releases state and marks the handle failed.
 A branch whose list remains omitted permits value-only insertion and is not
 subject to explicit-list width validation. For individual replacement, target
 `merge_insert_column` or `merge_insert_cell` with `SQLPARSER_PATCH_REPLACE`.
@@ -1336,9 +1367,10 @@ For a DML result channel with an explicit paired receiver list, target the
 the new target SQL, and `name` supplies its receiver. The receiver is a colon
 bind for Oracle, Dameng, Vastbase-Oracle, and KingbaseES-Oracle compatibility
 mode, and an explicit sink column for SQL Server, Vastbase SQL Server, and
-KingbaseES SQLServer compatibility mode. `sqlparser_apply_patch()` inserts both sides atomically in one
-transaction. Unequal list lengths, an invalid index or receiver, or an invalid
-payload-field combination fails without changing the handle.
+KingbaseES SQLServer compatibility mode. `sqlparser_apply_patch()` inserts both
+sides as one paired operation. Unequal list lengths, an invalid index or receiver,
+or an invalid payload-field combination fails, releases state and marks the
+handle failed; the caller must destroy it.
 
 The value-source fields in `sqlparser_patch_t` are mutually exclusive for one
 rewrite position: provide only one of `sql`, `default_sql`, `source_selector`,
@@ -1353,6 +1385,13 @@ and `bind` are rendered by the library according to the handle dialect.
 | --- | --- |
 | `sqlparser_deparse()` | deparses the current AST into SQL |
 | `sqlparser_string_free()` | releases strings returned by the library |
+
+Each successful `sqlparser_deparse()` returns independently allocated SQL and
+keeps the current handle usable for further apply/deparse rounds. Free each
+output with `sqlparser_string_free()`, independently of handle destruction. On
+failure, partial state is released and the handle is marked failed; destroy it
+exactly once without further use. The `const` parameter type does not grant
+post-failure reusability or concurrent-read safety.
 
 When `sqlparser_deparse()` succeeds and the handle generation is `0`, it
 returns the input SQL byte for byte, including identifier quoting, case,

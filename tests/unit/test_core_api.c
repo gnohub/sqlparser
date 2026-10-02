@@ -428,6 +428,66 @@ static int expect_status_ok(sqlparser_status_t status, const sqlparser_error_t *
 	return 0;
 }
 
+/* Failed in-place operations leave only a safely destroyable handle. */
+static int expect_poisoned_handle(sqlparser_handle_t *handle, const char *message)
+{
+	sqlparser_error_t error;
+	sqlparser_handle_t *clone;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_patch_list_t empty;
+	char *sql;
+	char *view;
+	int failed;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	memset(&empty, 0, sizeof(empty));
+	clone = NULL;
+	sql = NULL;
+	view = NULL;
+	failed = expect_true(
+		sqlparser_deparse(handle, &sql, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			sql == NULL,
+		message);
+	failed |= expect_true(
+		sqlparser_export_view_json(handle, 0, &view, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			view == NULL,
+		"poisoned handle must reject View export");
+	failed |= expect_true(
+		sqlparser_statement_query_graph(handle, 0U, &graph, &error) ==
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"poisoned handle must reject query graph access");
+	failed |= expect_true(
+		sqlparser_handle_clone(handle, &clone, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			clone == NULL,
+		"poisoned handle must reject cloning");
+	failed |= expect_true(
+		sqlparser_apply_patch(handle, &empty, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"poisoned handle must reject even an empty patch");
+	sqlparser_string_free(sql);
+	sqlparser_string_free(view);
+	sqlparser_handle_destroy(clone);
+	return failed;
+}
+
+/* Continuation tests must use a newly parsed handle after a failed patch. */
+static int rebuild_test_handle(
+	sqlparser_handle_t **handle,
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	const char *message)
+{
+	sqlparser_error_t error;
+
+	sqlparser_handle_destroy(*handle);
+	*handle = NULL;
+	memset(&error, 0, sizeof(error));
+	return expect_status_ok(
+		sqlparser_parse_with_options(sql, options, handle, &error),
+		&error,
+		message);
+}
+
 static int expect_merge_branch_detail(
 	const sqlparser_query_graph_view_t *graph,
 	size_t branch_index,
@@ -1820,7 +1880,8 @@ static int test_update_assignment_list_patch_api(void)
 		return 1;
 	}
 	rc = sqlparser_update_delete_assignment(guard_handle, 0U, 0U, &error);
-	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "delete last update assignment should be rejected") != 0) {
+	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "delete last update assignment should be rejected") != 0 ||
+	    expect_poisoned_handle(guard_handle, "rejected assignment deletion must poison its handle") != 0) {
 		sqlparser_handle_destroy(guard_handle);
 		return 1;
 	}
@@ -1905,14 +1966,14 @@ static int test_update_assignment_list_apply_patch(void)
 	if (expect_true(
 		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
 		    "conflicting cloned assignment sources should be rejected") != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "failed cloned assignment patch should preserve generation") != 0 ||
-	    expect_deparse_equals_and_reparse(
-		    handle,
-		    "UPDATE SERVERS SET IP = :ip, \"port\" = :ip, STATUS = :status WHERE ID = :id",
-		    "failed cloned assignment patch should preserve SQL") != 0) {
+	    expect_poisoned_handle(handle, "failed cloned assignment patch should poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	if (rebuild_test_handle(&handle,
+		"UPDATE SERVERS SET IP = :ip, \"port\" = :ip, STATUS = :status WHERE ID = :id",
+		&options, "assignment cleanup fixture should reparse after failure") != 0) {
 		return 1;
 	}
 
@@ -2034,13 +2095,7 @@ static int test_typed_literal_replace_apply_patch(void)
 	if (expect_true(
 		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
 		    "conflicting typed literal sources should be rejected") != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "failed typed literal patch list should preserve generation") != 0 ||
-	    expect_deparse_equals_and_reparse(
-		    handle,
-		    expected_sql,
-		    "failed typed literal patch list should preserve SQL") != 0) {
+	    expect_poisoned_handle(handle, "failed typed literal patch list should poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -3006,7 +3061,8 @@ static int test_update_assignment_literal_rewrite_rejects_complex_rhs(void)
 		encrypted.kind = SQLPARSER_LITERAL_KIND_STRING;
 		encrypted.string_value = "encrypted";
 		rc = sqlparser_selector_set_update_assignment_literal(handle, &selector, &encrypted, &error);
-		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "complex RHS replacement should be unsupported") != 0) {
+		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "complex RHS replacement should be unsupported") != 0 ||
+		    expect_poisoned_handle(handle, "rejected assignment literal patch must poison its handle") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -9233,9 +9289,9 @@ static int test_semantic_comment_ambiguous_anchor_fails_closed(void)
 		deparsed = NULL;
 		rc = sqlparser_deparse(handle, &deparsed, &error);
 		if (expect_true(
-			    rc == SQLPARSER_STATUS_INTERNAL_ERROR &&
+			    rc == (attempt == 0 ? SQLPARSER_STATUS_INTERNAL_ERROR : SQLPARSER_STATUS_INVALID_ARGUMENT) &&
 				    deparsed == NULL &&
-				    strstr(error.message, "ambiguous") != NULL,
+				    (attempt != 0 || strstr(error.message, "ambiguous") != NULL),
 			    "ambiguous semantic comment deparse must fail closed without output") != 0) {
 			sqlparser_string_free(deparsed);
 			sqlparser_handle_destroy(handle);
@@ -9243,16 +9299,22 @@ static int test_semantic_comment_ambiguous_anchor_fails_closed(void)
 		}
 	}
 
+	if (expect_poisoned_handle(handle, "semantic comment deparse failure must poison its handle") != 0 ||
+	    rebuild_test_handle(&handle, source_sql, &options,
+		"semantic comment recovery must start with a fresh handle") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	patch.sql = recovered_sql;
 	rc = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status_ok(
 		    rc,
 		    &error,
-		    "handle should remain patchable after semantic comment deparse failure") != 0 ||
+		    "fresh handle should accept the unambiguous semantic comment patch") != 0 ||
 	    expect_deparse_equals_and_reparse(
 		    handle,
 		    expected_sql,
-		    "semantic comment deparse failure must not poison handle state") != 0) {
+		    "fresh semantic comment patch should deparse exactly") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -9960,6 +10022,7 @@ static int test_sqlserver_literal_mutation_preserves_bracket_identifiers(void)
 static int test_copy_same_name_mutation_preserves_options(void)
 {
 	const char *sql;
+	const char *expected_sql;
 	sqlparser_handle_t *handle;
 	sqlparser_handle_t *reparsed_handle;
 	sqlparser_error_t error;
@@ -9968,6 +10031,8 @@ static int test_copy_same_name_mutation_preserves_options(void)
 	int rc;
 
 	sql = "COPY Foo TO STDOUT WITH (format CSV, header TRUE)";
+	/* Every nonempty patch advances to generation-positive deparse formatting. */
+	expected_sql = "COPY Foo TO STDOUT WITH (FORMAT CSV, HEADER true)";
 	handle = NULL;
 	reparsed_handle = NULL;
 	deparsed_sql = NULL;
@@ -9995,7 +10060,9 @@ static int test_copy_same_name_mutation_preserves_options(void)
 		relation_name_index,
 		"Foo",
 		&error);
-	if (expect_status_ok(rc, &error, "COPY same-name mutation should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "COPY same-name mutation should succeed") != 0 ||
+	    expect_true(handle->generation == 1UL,
+		"COPY same-name patch must advance generation once") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -10004,8 +10071,8 @@ static int test_copy_same_name_mutation_preserves_options(void)
 	if (expect_status_ok(rc, &error, "COPY option mutation deparse should succeed") != 0 ||
 	    expect_true(
 		    deparsed_sql != NULL &&
-			    strcmp(deparsed_sql, sql) == 0,
-		    "same-name mutation should preserve original COPY SQL") != 0) {
+			    strcmp(deparsed_sql, expected_sql) == 0,
+		    "same-name mutation should preserve COPY relation and options") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -10706,9 +10773,9 @@ static int test_mysql_dml_tail_ast_surface(void)
 		goto fail;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "MySQL LIMIT-only DELETE should remain deparseable") != 0 ||
-	    expect_true(deparsed_sql != NULL && strcmp(deparsed_sql, delete_sql) == 0,
-		"rejected synthetic WHERE access must leave MySQL DELETE unchanged") != 0) {
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT && deparsed_sql == NULL,
+		"rejected synthetic WHERE patch must prevent later deparse") != 0 ||
+	    expect_poisoned_handle(handle, "rejected synthetic WHERE patch must poison its handle") != 0) {
 		goto fail;
 	}
 
@@ -10924,7 +10991,8 @@ static int test_mysql_dml_tail_value_selector_surface(void)
 			deparsed_sql = NULL;
 		} else if (expect_true(
 			rc == SQLPARSER_STATUS_UNSUPPORTED,
-			"an existing non-value node selector should be rejected as unsupported") != 0) {
+			"an existing non-value node selector should be rejected as unsupported") != 0 ||
+		    expect_poisoned_handle(handle, "rejected non-value node patch must poison its handle") != 0) {
 			goto fail;
 		}
 		sqlparser_handle_destroy(handle);
@@ -10955,10 +11023,9 @@ static int test_mysql_dml_tail_value_selector_surface(void)
 		goto fail;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error,
-		"rejected MySQL value selector should leave SQL deparseable") != 0 ||
-	    expect_true(deparsed_sql != NULL && strcmp(deparsed_sql, sql) == 0,
-		"rejected MySQL value selector should leave SQL unchanged") != 0) {
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT && deparsed_sql == NULL,
+		"rejected MySQL value selector must prevent later deparse") != 0 ||
+	    expect_poisoned_handle(handle, "rejected MySQL value selector must poison its handle") != 0) {
 		goto fail;
 	}
 
@@ -12847,7 +12914,6 @@ static int test_sqlserver_control_flow_and_patch(void)
 	size_t dialect_index;
 	size_t index;
 	size_t count;
-	unsigned long generation;
 	int found_new_name;
 	int rc;
 
@@ -13021,7 +13087,6 @@ static int test_sqlserver_control_flow_and_patch(void)
 
 		before_invalid = deparsed_sql;
 		deparsed_sql = NULL;
-		generation = handle->generation;
 		memset(&invalid_patch, 0, sizeof(invalid_patch));
 		invalid_patch.op = SQLPARSER_PATCH_REPLACE;
 		invalid_patch.selector = "stmt[0].clause[0]";
@@ -13029,14 +13094,14 @@ static int test_sqlserver_control_flow_and_patch(void)
 		patch_list.items = &invalid_patch;
 		patch_list.count = 1U;
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
-		if (expect_true(rc != SQLPARSER_STATUS_OK && handle->generation == generation,
-			    "failed SQL Server condition patch should not mutate the handle") != 0) {
+		if (expect_true(rc != SQLPARSER_STATUS_OK,
+			    "invalid SQL Server condition patch should fail") != 0 ||
+		    expect_poisoned_handle(handle, "failed SQL Server condition patch must poison its handle") != 0) {
 			goto fail;
 		}
 		rc = sqlparser_deparse(handle, &after_invalid, &error);
-		if (expect_status_ok(rc, &error, "SQL Server control SQL should deparse after failed patch") != 0 ||
-		    expect_true(strcmp(before_invalid, after_invalid) == 0,
-			    "failed SQL Server condition patch should preserve every control unit") != 0) {
+		if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT && after_invalid == NULL,
+			    "failed SQL Server condition patch must reject subsequent deparse") != 0) {
 			goto fail;
 		}
 
@@ -16898,33 +16963,35 @@ static int test_paired_dml_result_contract(void)
 	patch_list.count = 1U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_true(
-		    rc != SQLPARSER_STATUS_OK &&
-			    handle->generation == generation,
-		    "invalid paired sink insertion should fail atomically") != 0 ||
+		    rc != SQLPARSER_STATUS_OK,
+		    "invalid paired sink insertion should fail") != 0 ||
+	    expect_poisoned_handle(handle, "rejected paired sink insertion must poison its handle") != 0 ||
+	    rebuild_test_handle(&handle, before_sql, &options,
+		"paired sink continuation fixture should reparse") != 0 ||
 	    expect_status_ok(
 		    sqlparser_deparse(handle, &after_sql, &error),
 		    &error,
-		    "SQL Server OUTPUT should deparse after rejected paired insertion") != 0 ||
+		    "rebuilt SQL Server OUTPUT fixture should deparse") != 0 ||
 	    expect_true(
 		    strcmp(before_sql, after_sql) == 0,
-		    "rejected paired sink insertion must preserve SQL") != 0 ||
+		    "rebuilt paired sink fixture must retain its SQL") != 0 ||
 	    expect_status_ok(
 		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
 		    &error,
-		    "SQL Server OUTPUT graph should survive rejected paired insertion") != 0 ||
+		    "rebuilt SQL Server OUTPUT fixture graph should resolve") != 0 ||
 	    expect_status_ok(
 		    sqlparser_query_graph_dml_result_at(
 			    &graph, 0U, 0U, &result, &error),
 		    &error,
-		    "SQL Server OUTPUT result should survive rejected paired insertion") != 0 ||
+		    "rebuilt SQL Server OUTPUT fixture result should resolve") != 0 ||
 	    expect_status_ok(
 		    sqlparser_query_graph_block_at(
 			    &graph, result.block_index, &block, &error),
 		    &error,
-		    "SQL Server OUTPUT block should survive rejected paired insertion") != 0 ||
+		    "rebuilt SQL Server OUTPUT fixture block should resolve") != 0 ||
 	    expect_true(
 		    block.targets.count == 2U && result.sink_columns.count == 2U,
-		    "rejected paired sink insertion must preserve both list counts") != 0) {
+		    "rebuilt paired sink fixture must retain both list counts") != 0) {
 		sqlparser_string_free(before_sql);
 		sqlparser_string_free(after_sql);
 		sqlparser_handle_destroy(handle);
@@ -16935,16 +17002,18 @@ static int test_paired_dml_result_contract(void)
 	patch.name = "column --comment";
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_true(
-		    rc == SQLPARSER_STATUS_PARSE_ERROR &&
-			    handle->generation == generation,
-		    "comment-bearing paired sink insertion should fail atomically") != 0 ||
+		    rc == SQLPARSER_STATUS_PARSE_ERROR,
+		    "comment-bearing paired sink insertion should fail") != 0 ||
+	    expect_poisoned_handle(handle, "rejected paired sink insertion must poison its handle") != 0 ||
+	    rebuild_test_handle(&handle, before_sql, &options,
+		"paired sink continuation fixture should reparse") != 0 ||
 	    expect_status_ok(
 		    sqlparser_deparse(handle, &after_sql, &error),
 		    &error,
-		    "SQL Server OUTPUT should deparse after rejected sink comment") != 0 ||
+		    "rebuilt sink-comment fixture should deparse") != 0 ||
 	    expect_true(
 		    strcmp(before_sql, after_sql) == 0,
-		    "rejected sink comment must preserve SQL") != 0) {
+		    "rebuilt sink-comment fixture must retain its SQL") != 0) {
 		sqlparser_string_free(before_sql);
 		sqlparser_string_free(after_sql);
 		sqlparser_handle_destroy(handle);
@@ -16953,6 +17022,7 @@ static int test_paired_dml_result_contract(void)
 	sqlparser_string_free(after_sql);
 	after_sql = NULL;
 	patch.name = "[Postal Code]";
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_status_ok(
 		    rc,
@@ -17022,33 +17092,35 @@ static int test_paired_dml_result_contract(void)
 	patch.default_sql = "INSERTED.id";
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_true(
-		    rc == SQLPARSER_STATUS_UNSUPPORTED &&
-			    handle->generation == generation,
+		    rc == SQLPARSER_STATUS_UNSUPPORTED,
 		    "paired insertion should reject unequal explicit OUTPUT lists") != 0 ||
+	    expect_poisoned_handle(handle, "rejected paired sink insertion must poison its handle") != 0 ||
+	    rebuild_test_handle(&handle, before_sql, &options,
+		"paired sink continuation fixture should reparse") != 0 ||
 	    expect_status_ok(
 		    sqlparser_deparse(handle, &after_sql, &error),
 		    &error,
-		    "unequal OUTPUT lists should deparse after rejected paired insertion") != 0 ||
+		    "rebuilt unequal OUTPUT fixture should deparse") != 0 ||
 	    expect_true(
 		    strcmp(before_sql, after_sql) == 0,
-		    "rejected unequal OUTPUT insertion must preserve SQL") != 0 ||
+		    "rebuilt unequal OUTPUT fixture must retain its SQL") != 0 ||
 	    expect_status_ok(
 		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
 		    &error,
-		    "unequal OUTPUT graph should survive rejected paired insertion") != 0 ||
+		    "rebuilt unequal OUTPUT fixture graph should resolve") != 0 ||
 	    expect_status_ok(
 		    sqlparser_query_graph_dml_result_at(
 			    &graph, 0U, 0U, &result, &error),
 		    &error,
-		    "unequal OUTPUT result should survive rejected paired insertion") != 0 ||
+		    "rebuilt unequal OUTPUT fixture result should resolve") != 0 ||
 	    expect_status_ok(
 		    sqlparser_query_graph_block_at(
 			    &graph, result.block_index, &block, &error),
 		    &error,
-		    "unequal OUTPUT block should survive rejected paired insertion") != 0 ||
+		    "rebuilt unequal OUTPUT fixture block should resolve") != 0 ||
 	    expect_true(
 		    block.targets.count == 1U && result.sink_columns.count == 2U,
-		    "rejected unequal OUTPUT insertion must preserve both list counts") != 0) {
+		    "rebuilt unequal OUTPUT fixture must retain both list counts") != 0) {
 		sqlparser_string_free(before_sql);
 		sqlparser_string_free(after_sql);
 		sqlparser_handle_destroy(handle);
@@ -17938,7 +18010,7 @@ static int test_sqlserver_delete_output_source_graph_and_patch(void)
 	return 0;
 }
 
-static int test_sqlserver_output_failure_is_non_destructive(void)
+static int test_sqlserver_output_failure_poisons_handle(void)
 {
 	static const sqlparser_dialect_t dialects[] = {
 		SQLPARSER_DIALECT_SQLSERVER,
@@ -17985,11 +18057,7 @@ static int test_sqlserver_output_failure_is_non_destructive(void)
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
 		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED,
 		                "deleting the last OUTPUT target should be rejected") != 0 ||
-		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
-		                     "rejected OUTPUT patch should leave handle deparseable") != 0 ||
-		    expect_true(strcmp(before_sql, after_sql) == 0,
-		                "rejected OUTPUT patch must not modify SQL") != 0 ||
-		    expect_deparse_reparse_ok(handle, "rejected OUTPUT patch should leave valid SQL") != 0) {
+		    expect_poisoned_handle(handle, "rejected OUTPUT patch must poison its handle") != 0) {
 			sqlparser_string_free(before_sql);
 			sqlparser_string_free(after_sql);
 			sqlparser_handle_destroy(handle);
@@ -18015,8 +18083,6 @@ static int test_sqlserver_output_sink_patch_validation(void)
 		sqlparser_parse_options_t options;
 		sqlparser_handle_t *handle;
 		sqlparser_error_t error;
-		sqlparser_query_graph_view_t graph;
-		sqlparser_graph_dml_result_t result;
 		sqlparser_patch_t patch;
 		sqlparser_patch_list_t patch_list;
 		char *before_sql;
@@ -18051,10 +18117,7 @@ static int test_sqlserver_output_sink_patch_validation(void)
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
 		if (expect_true(rc == SQLPARSER_STATUS_PARSE_ERROR,
 		                "invalid OUTPUT sink relation should be rejected") != 0 ||
-		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
-		                     "rejected OUTPUT sink relation patch should leave handle deparseable") != 0 ||
-		    expect_true(strcmp(before_sql, after_sql) == 0,
-		                "rejected OUTPUT sink relation patch must not modify SQL") != 0) {
+		    expect_poisoned_handle(handle, "rejected OUTPUT sink relation patch must poison its handle") != 0) {
 			sqlparser_string_free(before_sql);
 			sqlparser_string_free(after_sql);
 			sqlparser_handle_destroy(handle);
@@ -18063,22 +18126,17 @@ static int test_sqlserver_output_sink_patch_validation(void)
 		sqlparser_string_free(after_sql);
 		after_sql = NULL;
 
+		if (rebuild_test_handle(&handle, before_sql, &options,
+			"OUTPUT sink column rejection fixture should reparse") != 0) {
+			sqlparser_string_free(before_sql);
+			return 1;
+		}
 		patch.selector = "stmt[0].dml_result_sink_column[0][0][0]";
 		patch.sql = "audit_id, injected";
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
 		if (expect_true(rc == SQLPARSER_STATUS_PARSE_ERROR,
 		                "invalid OUTPUT sink column should be rejected") != 0 ||
-		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
-		                     "rejected OUTPUT sink column patch should leave handle deparseable") != 0 ||
-		    expect_true(strcmp(before_sql, after_sql) == 0,
-		                "rejected OUTPUT sink column patch must not modify SQL") != 0 ||
-		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
-		                     "rejected OUTPUT sink patch should leave graph available") != 0 ||
-		    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
-		                     "rejected OUTPUT sink patch should leave result available") != 0 ||
-		    expect_true(result.has_sink_relation != 0 && result.sink_columns.count == 1U,
-		                "rejected OUTPUT sink patch should preserve sink metadata") != 0 ||
-		    expect_deparse_reparse_ok(handle, "rejected OUTPUT sink patches should leave valid SQL") != 0) {
+		    expect_poisoned_handle(handle, "rejected OUTPUT sink column patch must poison its handle") != 0) {
 			sqlparser_string_free(before_sql);
 			sqlparser_string_free(after_sql);
 			sqlparser_handle_destroy(handle);
@@ -18842,16 +18900,12 @@ static int test_bind_occurrence_public_lifecycle(void)
 		    &error,
 		    "effective no-op bind patch should succeed") != 0 ||
 	    expect_true(
-		    handle->generation == generation,
-		    "effective no-op bind patch should preserve generation") != 0 ||
-	    expect_bind_occurrence_item(
-		    &occurrences,
-		    1U,
-		    2U,
-		    SQLPARSER_BIND_KIND_NAMED,
-		    "b1",
-		    ":b1",
-		    "effective no-op bind patch should preserve the old view") != 0) {
+		    handle->generation == generation + 1UL,
+		    "effective no-op bind patch should advance generation once") != 0 ||
+	    expect_true(
+		    sqlparser_bind_occurrence_at(&occurrences, 1U, &occurrence, &error) ==
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "effective no-op bind patch must invalidate the old view") != 0) {
 		goto fail;
 	}
 	rc = sqlparser_handle_bind_occurrences(
@@ -18863,9 +18917,12 @@ static int test_bind_occurrence_public_lifecycle(void)
 		    &error,
 		    "bind occurrence view should remain readable after no-op") != 0 ||
 	    expect_true(
-		    repeated_occurrences.generation == occurrences.generation &&
-			    repeated_occurrences.count == occurrences.count,
-		    "effective no-op bind patch should preserve occurrence metadata") != 0) {
+		    repeated_occurrences.generation == handle->generation &&
+			    repeated_occurrences.count == 3U,
+		    "effective no-op bind patch should rebuild occurrence metadata") != 0 ||
+	    expect_bind_occurrence_item(&repeated_occurrences, 1U, 2U,
+		SQLPARSER_BIND_KIND_NAMED, "b1", ":b1",
+		"effective no-op bind patch must preserve bind values") != 0) {
 		goto fail;
 	}
 
@@ -18877,19 +18934,22 @@ static int test_bind_occurrence_public_lifecycle(void)
 	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_true(
-		    rc != SQLPARSER_STATUS_OK && handle->generation == generation,
-		    "failed bind patch should preserve generation") != 0 ||
-	    expect_bind_occurrence_item(
-		    &occurrences,
-		    0U,
-		    1U,
-		    SQLPARSER_BIND_KIND_NAMED,
-		    "b1",
-		    ":b1",
-		    "failed bind patch should preserve the old view") != 0) {
+		    rc != SQLPARSER_STATUS_OK,
+		    "invalid bind patch should fail") != 0 ||
+	    expect_poisoned_handle(handle, "failed bind patch must poison its handle") != 0 ||
+	    expect_true(
+		    sqlparser_bind_occurrence_at(&repeated_occurrences, 0U, &occurrence, &error) ==
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "failed bind patch must invalidate the old occurrence view") != 0) {
 		goto fail;
 	}
 
+	if (rebuild_test_handle(&handle, source_sql, &options,
+		"bind continuation fixture should reparse after failure") != 0 ||
+	    expect_status_ok(sqlparser_handle_bind_occurrences(handle, &occurrences, &error),
+		&error, "bind continuation view should refresh") != 0) {
+		goto fail;
+	}
 	patch.selector = "stmt[0].select_target[0][1]";
 	patch.sql = ":b2 + :b3";
 	generation = handle->generation;
@@ -27456,7 +27516,6 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	sqlparser_string_free(sql);
 	memset(&patch, 0, sizeof(patch));
 	memset(&patch_list, 0, sizeof(patch_list));
 	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
@@ -27473,12 +27532,15 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	if (expect_true(
 		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
 		    "Oracle INSERT ALL selector with a DML index must fail") != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "invalid Oracle INSERT ALL selector changed generation") != 0) {
+	    expect_poisoned_handle(handle, "invalid Oracle INSERT ALL selector must poison its handle") != 0 ||
+	    rebuild_test_handle(&handle, sql, &options,
+		"Oracle INSERT ALL continuation fixture should reparse") != 0) {
+		sqlparser_string_free(sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	sqlparser_string_free(sql);
+	sql = NULL;
 	memset(&error, 0, sizeof(error));
 	memset(&patch, 0, sizeof(patch));
 	memset(&patch_list, 0, sizeof(patch_list));
@@ -29294,91 +29356,44 @@ static int test_sqlserver_merge_raw_question_bind_positions(void)
 	return 0;
 }
 
-static int expect_merge_patch_failure_is_atomic(
-	sqlparser_handle_t *handle,
+static int expect_merge_patch_failure_poisons_handle(
+	sqlparser_handle_t **handle,
 	const sqlparser_patch_t *patch,
 	const char *message)
 {
 	sqlparser_error_t error;
+	sqlparser_parse_options_t options;
 	sqlparser_patch_list_t patch_list;
 	sqlparser_query_graph_view_t before_graph;
-	sqlparser_query_graph_view_t after_graph;
-	sqlparser_graph_dml_t before_dml;
-	sqlparser_graph_dml_t after_dml;
+	sqlparser_graph_dml_t dml;
 	char *before_sql;
-	char *after_sql;
+	int failed;
 	int rc;
 
 	memset(&error, 0, sizeof(error));
 	memset(&before_graph, 0, sizeof(before_graph));
-	memset(&after_graph, 0, sizeof(after_graph));
-	memset(&before_dml, 0, sizeof(before_dml));
-	memset(&after_dml, 0, sizeof(after_dml));
 	before_sql = NULL;
-	after_sql = NULL;
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(*handle);
 	patch_list.items = patch;
 	patch_list.count = 1U;
-	rc = sqlparser_deparse(handle, &before_sql, &error);
-	if (expect_status_ok(rc, &error, message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_statement_query_graph(
-			    handle,
-			    0U,
-			    &before_graph,
-			    &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_query_graph_dml(
-			    &before_graph,
-			    &before_dml,
-			    &error),
-		    &error,
-		    message) != 0) {
+	if (expect_status_ok(sqlparser_deparse(*handle, &before_sql, &error), &error, message) != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(*handle, 0U, &before_graph, &error),
+		&error, message) != 0) {
 		sqlparser_string_free(before_sql);
 		return 1;
 	}
-	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_true(
-		    rc != SQLPARSER_STATUS_OK,
-		    "invalid MERGE assignment patch should fail") != 0) {
-		sqlparser_string_free(before_sql);
-		return 1;
+	rc = sqlparser_apply_patch(*handle, &patch_list, &error);
+	failed = expect_true(rc != SQLPARSER_STATUS_OK, "invalid MERGE assignment patch should fail");
+	failed |= expect_poisoned_handle(*handle, "failed MERGE assignment patch must poison its handle");
+	failed |= expect_true(
+		sqlparser_query_graph_dml(&before_graph, &dml, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"failed MERGE assignment patch must invalidate the borrowed graph");
+	if (!failed) {
+		failed = rebuild_test_handle(handle, before_sql, &options, message);
 	}
-	rc = sqlparser_deparse(handle, &after_sql, &error);
-	if (expect_status_ok(rc, &error, message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_statement_query_graph(
-			    handle,
-			    0U,
-			    &after_graph,
-			    &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_query_graph_dml(
-			    &after_graph,
-			    &after_dml,
-			    &error),
-		    &error,
-		    message) != 0 ||
-	    expect_true(
-		    before_sql != NULL &&
-			    after_sql != NULL &&
-			    strcmp(before_sql, after_sql) == 0,
-		    "failed MERGE assignment patch must preserve SQL") != 0 ||
-	    expect_true(
-		    before_graph.generation == after_graph.generation &&
-			    before_dml.assignments.count ==
-				    after_dml.assignments.count,
-		    "failed MERGE assignment patch must preserve graph generation") != 0) {
-		sqlparser_string_free(after_sql);
-		sqlparser_string_free(before_sql);
-		return 1;
-	}
-	sqlparser_string_free(after_sql);
 	sqlparser_string_free(before_sql);
-	return 0;
+	return failed;
 }
 
 static int test_oracle_merge_assignment_patch_failures(void)
@@ -29412,28 +29427,28 @@ static int test_oracle_merge_assignment_patch_failures(void)
 	patch.op = SQLPARSER_PATCH_REPLACE;
 	patch.selector = "stmt[0].merge_assignment[1][0]";
 	patch.sql = "s.ID";
-	if (expect_merge_patch_failure_is_atomic(
-		    handle,
+	if (expect_merge_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
-		    "MERGE INSERT branch assignment patch should be atomic") != 0) {
+		    "MERGE INSERT branch assignment patch should poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	patch.selector = "stmt[0].merge_assignment[9][0]";
-	if (expect_merge_patch_failure_is_atomic(
-		    handle,
+	if (expect_merge_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
-		    "MERGE WHEN overflow patch should be atomic") != 0) {
+		    "MERGE WHEN overflow patch should poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	patch.selector = "stmt[0].merge_assignment[0][9]";
-	if (expect_merge_patch_failure_is_atomic(
-		    handle,
+	if (expect_merge_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
-		    "MERGE assignment overflow patch should be atomic") != 0) {
+		    "MERGE assignment overflow patch should poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -29441,8 +29456,8 @@ static int test_oracle_merge_assignment_patch_failures(void)
 	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
 	patch.selector = "stmt[0].merge_assignment[0][0]";
 	patch.sql = "u.BROKEN";
-	if (expect_merge_patch_failure_is_atomic(
-		    handle,
+	if (expect_merge_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    "bad MERGE assignment fragment should be atomic") != 0) {
 		sqlparser_handle_destroy(handle);
@@ -29452,8 +29467,8 @@ static int test_oracle_merge_assignment_patch_failures(void)
 	memset(&patch, 0, sizeof(patch));
 	patch.op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
 	patch.selector = "stmt[0].merge_assignment[0][0]";
-	if (expect_merge_patch_failure_is_atomic(
-		    handle,
+	if (expect_merge_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    "deleting the last MERGE assignment should be atomic") != 0) {
 		sqlparser_handle_destroy(handle);
@@ -30594,11 +30609,7 @@ static int test_relation_patch_identifier_path_spelling(void)
 		patch_list.count = 1U;
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
 		if (expect_true(rc != SQLPARSER_STATUS_OK, "invalid relation identifier path should fail") != 0 ||
-		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
-		                     "failed relation patch should leave handle deparseable") != 0 ||
-		    expect_true(
-			    before_sql != NULL && after_sql != NULL && strcmp(before_sql, after_sql) == 0,
-			    "failed relation identifier patch must be atomic") != 0) {
+		    expect_poisoned_handle(handle, "failed relation identifier patch must poison its handle") != 0) {
 			sqlparser_string_free(before_sql);
 			sqlparser_string_free(after_sql);
 			sqlparser_handle_destroy(handle);
@@ -32093,8 +32104,8 @@ static int test_relation_name_setter_qualifier_parity(void)
 		&error);
 	if (expect_status_ok(rc, &error, "statement relation setter no-op should succeed") != 0 ||
 	    expect_true(
-		    statement_handle->generation == generation,
-		    "statement relation setter no-op should not advance generation") != 0 ||
+		    statement_handle->generation == generation + 1UL,
+		    "statement relation setter no-op should advance generation once") != 0 ||
 	    expect_deparse_equals_and_reparse(
 		    statement_handle,
 		    expected_sql,
@@ -32113,8 +32124,8 @@ static int test_relation_name_setter_qualifier_parity(void)
 		&error);
 	if (expect_status_ok(rc, &error, "selector relation setter no-op should succeed") != 0 ||
 	    expect_true(
-		    selector_handle->generation == generation,
-		    "selector relation setter no-op should not advance generation") != 0 ||
+		    selector_handle->generation == generation + 1UL,
+		    "selector relation setter no-op should advance generation once") != 0 ||
 	    expect_deparse_equals_and_reparse(
 		    selector_handle,
 		    expected_sql,
@@ -32129,96 +32140,32 @@ static int test_relation_name_setter_qualifier_parity(void)
 	return 0;
 }
 
-static int test_relation_name_setter_commit_failure_atomicity(void)
+static int test_relation_name_setter_commit_failure_poisons_handle(void)
 {
 	static const char sql[] =
 		"SELECT users.id FROM public.users; "
 		"SELECT audit_log.id FROM audit_log";
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	sqlparser_limits_t saved_limits;
-	sqlparser_identifier_mutation_t *saved_mutations;
-	sqlparser_identifier_spelling_t *saved_spellings;
-	char *before_sql;
-	size_t saved_mutation_count;
-	size_t saved_mutation_capacity;
-	size_t saved_spelling_count;
-	size_t saved_spelling_capacity;
-	size_t saved_spelling_free_group;
-	size_t saved_spelling_build_group;
-	int32_t saved_spelling_last_location;
-	sqlparser_status_t saved_spelling_status;
-	unsigned long generation;
 	int rc;
 
 	handle = NULL;
-	before_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "relation setter atomicity baseline should parse") != 0 ||
-	    expect_status_ok(
-		    sqlparser_deparse(handle, &before_sql, &error),
-		    &error,
-		    "relation setter atomicity baseline should deparse") != 0 ||
-	    expect_true(
-		    before_sql != NULL && strcmp(before_sql, sql) == 0,
-		    "relation setter atomicity baseline SQL should be exact") != 0) {
-		sqlparser_string_free(before_sql);
+	if (expect_status_ok(rc, &error, "relation setter failure baseline should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(handle, sql,
+		"relation setter failure baseline SQL should be exact") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	generation = handle->generation;
-	saved_limits = handle->limits;
-	saved_mutations = handle->identifier_mutations;
-	saved_mutation_count = handle->identifier_mutation_count;
-	saved_mutation_capacity = handle->identifier_mutation_capacity;
-	saved_spellings = handle->identifier_spellings;
-	saved_spelling_count = handle->identifier_spelling_count;
-	saved_spelling_capacity = handle->identifier_spelling_capacity;
-	saved_spelling_free_group = handle->identifier_spelling_free_group;
-	saved_spelling_build_group = handle->identifier_spelling_build_group;
-	saved_spelling_last_location = handle->identifier_spelling_last_location;
-	saved_spelling_status = handle->identifier_spelling_status;
 	handle->limits.max_statement_count = 1U;
-	rc = sqlparser_statement_set_relation_name(
-		handle,
-		0U,
-		0U,
-		"archive",
-		"users_new",
-		&error);
-	handle->limits = saved_limits;
-	if (expect_true(
-		    rc == SQLPARSER_STATUS_RESOURCE_LIMIT,
-		    "relation setter commit should report the forced statement limit") != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "failed relation setter commit should preserve generation") != 0 ||
-	    expect_true(
-		    handle->identifier_mutations == saved_mutations &&
-			    handle->identifier_mutation_count == saved_mutation_count &&
-			    handle->identifier_mutation_capacity == saved_mutation_capacity,
-		    "failed relation setter commit should preserve identifier mutations") != 0 ||
-	    expect_true(
-		    handle->identifier_spellings == saved_spellings &&
-			    handle->identifier_spelling_count == saved_spelling_count &&
-			    handle->identifier_spelling_capacity == saved_spelling_capacity &&
-			    handle->identifier_spelling_free_group == saved_spelling_free_group &&
-			    handle->identifier_spelling_build_group == saved_spelling_build_group &&
-			    handle->identifier_spelling_last_location == saved_spelling_last_location &&
-			    handle->identifier_spelling_status == saved_spelling_status,
-		    "failed relation setter commit should preserve identifier spellings") != 0 ||
-	    expect_deparse_equals_and_reparse(
-		    handle,
-		    before_sql,
-		    "failed relation setter commit should preserve exact reparsable SQL") != 0) {
-		sqlparser_string_free(before_sql);
+	rc = sqlparser_statement_set_relation_name(handle, 0U, 0U, "archive", "users_new", &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT,
+		"relation setter commit should report the forced statement limit") != 0 ||
+	    expect_poisoned_handle(handle, "failed relation setter patch must poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	sqlparser_string_free(before_sql);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -32381,11 +32328,7 @@ static int test_insert_column_patch_identifier_spelling(void)
 		patch_list.count = 1U;
 		rc = sqlparser_apply_patch(handle, &patch_list, &error);
 		if (expect_true(rc != SQLPARSER_STATUS_OK, "qualified insert-column name should fail") != 0 ||
-		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
-		                     "failed insert-column patch should leave handle deparseable") != 0 ||
-		    expect_true(
-			    before_sql != NULL && after_sql != NULL && strcmp(before_sql, after_sql) == 0,
-			    "failed insert-column identifier patch must be atomic") != 0) {
+		    expect_poisoned_handle(handle, "failed insert-column identifier patch must poison its handle") != 0) {
 			sqlparser_string_free(before_sql);
 			sqlparser_string_free(after_sql);
 			sqlparser_handle_destroy(handle);
@@ -34168,73 +34111,44 @@ static int expect_update_assignment_relations(
 	return 0;
 }
 
-static int expect_patch_failure_is_atomic(
-	sqlparser_handle_t *handle,
+static int expect_patch_failure_poisons_handle(
+	sqlparser_handle_t **handle,
 	const sqlparser_patch_t *patches,
 	size_t patch_count,
 	sqlparser_status_t expected_status,
 	const char *message)
 {
 	sqlparser_patch_list_t patch_list;
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	size_t count;
 	char *before_sql;
-	char *after_sql;
-	char *before_view;
-	char *after_view;
-	unsigned long generation;
 	int failed;
 	int rc;
 
 	before_sql = NULL;
-	after_sql = NULL;
-	before_view = NULL;
-	after_view = NULL;
-	failed = 0;
 	memset(&error, 0, sizeof(error));
-	if (expect_status_ok(
-		    sqlparser_deparse(handle, &before_sql, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_export_view_json(handle, 0, &before_view, &error),
-		    &error,
-		    message) != 0) {
+	memset(&graph, 0, sizeof(graph));
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(*handle);
+	if (expect_status_ok(sqlparser_deparse(*handle, &before_sql, &error), &error, message) != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(*handle, 0U, &graph, &error),
+		&error, message) != 0) {
 		sqlparser_string_free(before_sql);
-		sqlparser_string_free(before_view);
 		return 1;
 	}
-	generation = handle->generation;
 	patch_list.items = patches;
 	patch_list.count = patch_count;
-	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_true(rc == (int)expected_status, message) != 0) {
-		failed = 1;
+	rc = sqlparser_apply_patch(*handle, &patch_list, &error);
+	failed = expect_true(rc == (int)expected_status, message);
+	failed |= expect_poisoned_handle(*handle, "failed patch batch must poison its handle");
+	failed |= expect_true(
+		sqlparser_query_graph_dml_count(&graph, &count, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"failed patch batch must invalidate its borrowed graph");
+	if (!failed) {
+		failed = rebuild_test_handle(handle, before_sql, &options, message);
 	}
-	memset(&error, 0, sizeof(error));
-	if (expect_status_ok(
-		    sqlparser_deparse(handle, &after_sql, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_export_view_json(handle, 0, &after_view, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "failed patch batch must preserve generation") != 0 ||
-	    expect_true(
-		    before_sql != NULL && after_sql != NULL &&
-			    strcmp(before_sql, after_sql) == 0,
-		    "failed patch batch must preserve SQL") != 0 ||
-	    expect_true(
-		    before_view != NULL && after_view != NULL &&
-			    strcmp(before_view, after_view) == 0,
-		    "failed patch batch must preserve View") != 0) {
-		failed = 1;
-	}
-	sqlparser_string_free(after_view);
-	sqlparser_string_free(before_view);
-	sqlparser_string_free(after_sql);
 	sqlparser_string_free(before_sql);
 	return failed;
 }
@@ -34280,76 +34194,34 @@ static int expect_update_roundtrip_relations(
 	return failed;
 }
 
-static int expect_assignment_clone_failure_is_atomic(
-	sqlparser_handle_t *handle,
+static int expect_assignment_clone_failure_poisons_handle(
+	sqlparser_handle_t **handle,
 	const sqlparser_selector_t *insert_selector,
 	const sqlparser_identifier_path_view_t *target,
 	const sqlparser_selector_t *source_selector,
 	sqlparser_status_t expected_status,
 	const char *message)
 {
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	char *before_sql;
-	char *after_sql;
-	char *before_view;
-	char *after_view;
-	unsigned long generation;
 	int failed;
 	int rc;
 
 	before_sql = NULL;
-	after_sql = NULL;
-	before_view = NULL;
-	after_view = NULL;
-	failed = 0;
 	memset(&error, 0, sizeof(error));
-	if (expect_status_ok(
-		    sqlparser_deparse(handle, &before_sql, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_export_view_json(handle, 0, &before_view, &error),
-		    &error,
-		    message) != 0) {
-		sqlparser_string_free(before_sql);
-		sqlparser_string_free(before_view);
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(*handle);
+	if (expect_status_ok(sqlparser_deparse(*handle, &before_sql, &error), &error, message) != 0) {
 		return 1;
 	}
-	generation = handle->generation;
 	rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
-		handle,
-		insert_selector,
-		target,
-		source_selector,
-		&error);
-	if (expect_true(rc == (int)expected_status, message) != 0) {
-		failed = 1;
+		*handle, insert_selector, target, source_selector, &error);
+	failed = expect_true(rc == (int)expected_status, message);
+	failed |= expect_poisoned_handle(*handle, "failed assignment clone patch must poison its handle");
+	if (!failed) {
+		failed = rebuild_test_handle(handle, before_sql, &options, message);
 	}
-	memset(&error, 0, sizeof(error));
-	if (expect_status_ok(
-		    sqlparser_deparse(handle, &after_sql, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_status_ok(
-		    sqlparser_export_view_json(handle, 0, &after_view, &error),
-		    &error,
-		    message) != 0 ||
-	    expect_true(
-		    handle->generation == generation,
-		    "failed assignment clone must preserve generation") != 0 ||
-	    expect_true(
-		    before_sql != NULL && after_sql != NULL &&
-			    strcmp(before_sql, after_sql) == 0,
-		    "failed assignment clone must preserve SQL") != 0 ||
-	    expect_true(
-		    before_view != NULL && after_view != NULL &&
-			    strcmp(before_view, after_view) == 0,
-		    "failed assignment clone must preserve View") != 0) {
-		failed = 1;
-	}
-	sqlparser_string_free(after_view);
-	sqlparser_string_free(before_view);
-	sqlparser_string_free(after_sql);
 	sqlparser_string_free(before_sql);
 	return failed;
 }
@@ -34475,12 +34347,12 @@ static int test_mysql_multitable_update_target_and_patch_contract(void)
 		patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 		patches[1].selector = "stmt[0].assignment[99]";
 		patches[1].sql = "o.status = ?";
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    patches,
 			    sizeof(patches) / sizeof(patches[0]),
 			    SQLPARSER_STATUS_INVALID_ARGUMENT,
-			    "mixed-target valid-plus-invalid patch batch must fail atomically") != 0) {
+			    "mixed-target valid-plus-invalid patch batch must fail and poison its handle") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -34793,12 +34665,12 @@ static int test_mysql_multitable_update_state_transitions(void)
 		patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 		patch.selector = "stmt[0].assignment[0]";
 		patch.sql = "z.status = ?";
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    &patch,
 			    1U,
 			    SQLPARSER_STATUS_UNSUPPORTED,
-			    "unknown MySQL assignment qualifier patch must roll back") != 0) {
+			    "unknown MySQL assignment qualifier patch must fail and poison its handle") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -34892,12 +34764,12 @@ static int test_mysql_multitable_update_state_transitions(void)
 		patch.op = SQLPARSER_PATCH_REPLACE;
 		patch.selector = name_selector;
 		patch.default_sql = "a";
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    &patch,
 			    1U,
 			    SQLPARSER_STATUS_UNSUPPORTED,
-			    "duplicate MySQL relation alias patch must roll back") != 0) {
+			    "duplicate MySQL relation alias patch must fail and poison its handle") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -35128,12 +35000,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	invalid_patches[1].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
 	invalid_patches[1].selector = "stmt[0].assignment[1]";
 	invalid_patches[1].sql = "c.note = :bad_note";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    invalid_patches,
 		    sizeof(invalid_patches) / sizeof(invalid_patches[0]),
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng other-relation insert batch must fail atomically") != 0) {
+		    "Dameng other-relation insert batch must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35145,12 +35017,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	invalid_patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 	invalid_patches[1].selector = "stmt[0].assignment[1]";
 	invalid_patches[1].sql = "a.note = :bad_note";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    invalid_patches,
 		    sizeof(invalid_patches) / sizeof(invalid_patches[0]),
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng other-relation replacement batch must fail atomically") != 0) {
+		    "Dameng other-relation replacement batch must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35160,12 +35032,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	patch.selector = "stmt[0].assignment[1]";
 	patch.name = "c.cloned_note";
 	patch.source_selector = "stmt[0].assignment[0]";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng structured other-relation assignment must fail atomically") != 0) {
+		    "Dameng structured other-relation assignment must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35183,13 +35055,13 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	target_parts[1] = "cloned_applied";
 	target.parts = target_parts;
 	target.part_count = 2U;
-	if (expect_assignment_clone_failure_is_atomic(
-		    handle,
+	if (expect_assignment_clone_failure_poisons_handle(
+		    &handle,
 		    &insert_selector,
 		    &target,
 		    &source_selector,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng cross-target identifier-path clone must roll back") != 0) {
+		    "Dameng cross-target identifier-path clone must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35212,12 +35084,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE;
 	patch.selector = name_selector;
 	patch.default_sql = "target_b";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng target alias NAME patch must fail atomically") != 0 ||
+		    "Dameng target alias NAME patch must fail and poison its handle") != 0 ||
 	    find_name_index(
 		    handle,
 		    0U,
@@ -35237,12 +35109,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE;
 	patch.selector = name_selector;
 	patch.default_sql = "adjustments_v2";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng target relation NAME patch must fail atomically") != 0) {
+		    "Dameng target relation NAME patch must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35265,12 +35137,12 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE;
 	patch.selector = name_selector;
 	patch.default_sql = "b";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng non-target alias collision must fail atomically") != 0) {
+		    "Dameng non-target alias collision must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35291,23 +35163,23 @@ static int test_dameng_multitable_update_target_and_patch_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE;
 	patch.selector = "stmt[0].relation[0]";
 	patch.sql = "app.adjustments";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng target-to-source relation collision must fail atomically") != 0) {
+		    "Dameng target-to-source relation collision must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	patch.selector = "stmt[0].relation[1]";
 	patch.sql = "app.accounts";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "Dameng source-to-target relation collision must fail atomically") != 0) {
+		    "Dameng source-to-target relation collision must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -35646,8 +35518,8 @@ static int test_dameng_multitable_update_marker_and_qualifier_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 	patch.selector = "stmt[0].assignment[0]";
 	patch.sql = "\"a\".balance = :bad_balance";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
@@ -35733,8 +35605,8 @@ static int test_dameng_multitable_update_marker_and_qualifier_contract(void)
 	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 	patch.selector = "stmt[0].assignment[0]";
 	patch.sql = "A.B.balance = :bad_balance";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    &patch,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
@@ -37782,18 +37654,28 @@ static int test_control_flow_patch_and_limits(void)
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
 		    "failed control patch should report the invalid selector") != 0 ||
-	    expect_true(handle->generation == generation,
-		    "failed control patch should not change the handle") != 0) {
+	    expect_poisoned_handle(handle, "failed control patch must poison its handle") != 0 ||
+	    expect_true(sqlparser_control_node_at(&stale_flow, 0U, &node, &error) ==
+		SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"failed control patch must invalidate the previous control view") != 0) {
 		goto fail;
 	}
 	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &condition_sql, &error);
-	if (expect_status_ok(rc, &error, "condition should remain readable after rollback") != 0 ||
-	    expect_true(condition_sql != NULL && strstr(condition_sql, "a = 1") != NULL,
-		    "failed control patch should preserve the original condition") != 0) {
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT && condition_sql == NULL,
+		"failed control patch must prevent condition reads") != 0) {
 		goto fail;
 	}
 	sqlparser_string_free(condition_sql);
 	condition_sql = NULL;
+
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	if (test_control_handle_new(&handle) != 0 ||
+	    expect_status_ok(sqlparser_handle_control_flow(handle, &stale_flow, &error),
+		&error, "control continuation view should refresh") != 0) {
+		goto fail;
+	}
+	generation = handle->generation;
 
 	memset(&patch, 0, sizeof(patch));
 	patch.op = SQLPARSER_PATCH_REPLACE;
@@ -40112,10 +39994,7 @@ static int test_vastbase_hierarchical_target_patch_gate(void)
 	if (expect_true(
 		    status == SQLPARSER_STATUS_UNSUPPORTED,
 		    "implicit CONNECT_BY_ROOT target patch should be rejected") != 0 ||
-	    expect_deparse_equals_and_reparse(
-		    handle,
-		    sql,
-		    "rejected CONNECT_BY_ROOT target patch must remain atomic") != 0) {
+	    expect_poisoned_handle(handle, "rejected CONNECT_BY_ROOT target patch must poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -40452,10 +40331,10 @@ static int test_insert_column_name_only_patch_batches(void)
 		(void)snprintf(
 			message,
 			sizeof(message),
-			"%s incomplete name-only patch batch must fail atomically",
+			"%s incomplete name-only patch batch must fail and poison its handle",
 			dialects[dialect_index].name);
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    patches,
 			    2U,
 			    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -40537,8 +40416,8 @@ static int test_insert_column_name_only_patch_batches(void)
 		patch.selector = "stmt[0].insert_columns";
 		patch.index = 0U;
 		patch.name = "ID";
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    &patch,
 			    1U,
 			    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -40631,8 +40510,8 @@ static int test_insert_column_name_only_patch_batches(void)
 		patch.selector = "stmt[0].insert_columns";
 		patch.index = 0U;
 		patch.name = "ID";
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    &patch,
 			    1U,
 			    SQLPARSER_STATUS_UNSUPPORTED,
@@ -40678,8 +40557,8 @@ static int test_insert_column_name_only_patch_batches(void)
 			patch.selector = "stmt[0].insert_columns";
 			patch.index = 1U;
 			patch.name = "EXTRA";
-			if (expect_patch_failure_is_atomic(
-				    handle,
+			if (expect_patch_failure_poisons_handle(
+				    &handle,
 				    &patch,
 				    1U,
 				    SQLPARSER_STATUS_UNSUPPORTED,
@@ -41007,10 +40886,10 @@ static int test_multi_insert_branch_name_only_patch_batches(void)
 		(void)snprintf(
 			message,
 			sizeof(message),
-			"%s must validate every touched multi-insert branch atomically",
+			"%s must reject any invalid touched multi-insert branch",
 			dialects[dialect_index].name);
-		if (expect_patch_failure_is_atomic(
-			    handle,
+		if (expect_patch_failure_poisons_handle(
+			    &handle,
 			    patches,
 			    2U,
 			    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -41715,7 +41594,7 @@ static int test_merge_insert_independent_patch_batches(void)
 	return 0;
 }
 
-static int test_merge_insert_independent_patch_atomicity(void)
+static int test_merge_insert_independent_patch_failure_lifecycle(void)
 {
 	static const char explicit_sql[] =
 		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
@@ -41756,12 +41635,12 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].selector = "stmt[0].insert_branch_columns[0]";
 	patches[0].index = 1U;
 	patches[0].name = "SECRET";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
-		    "explicit MERGE INSERT column-only final mismatch must roll back") != 0) {
+		    "explicit MERGE INSERT column-only final mismatch must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -41769,12 +41648,12 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
 	patches[0].selector = "stmt[0].insert_branch_columns[0]";
 	patches[0].index = 1U;
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
-		    "MERGE INSERT_COLUMN without a name or value must roll back") != 0) {
+		    "MERGE INSERT_COLUMN without a name or value must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -41784,12 +41663,12 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].index = 1U;
 	patches[0].name = "";
 	patches[0].default_sql = "";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
-		    "MERGE INSERT_COLUMN with empty name and value must roll back") != 0) {
+		    "MERGE INSERT_COLUMN with empty name and value must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -41800,8 +41679,8 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].name = "SECRET";
 	patches[0].sql = "s.NOTE";
 	patches[0].default_sql = "s.SECRET";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -41816,8 +41695,8 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].name = "SECRET";
 	patches[0].default_sql = "s.SECRET";
 	patches[0].source_selector = "stmt[0].merge_insert_cell[0][0]";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -41835,8 +41714,8 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].name = "SECRET";
 	patches[0].default_sql = "s.SECRET";
 	patches[0].bind = &bind;
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -41865,12 +41744,12 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].selector = "stmt[0].insert_branch_columns[0]";
 	patches[0].index = 1U;
 	patches[0].default_sql = "s.SECRET";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
-		    "explicit MERGE INSERT value-only final mismatch must roll back") != 0) {
+		    "explicit MERGE INSERT value-only final mismatch must fail and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -41899,8 +41778,8 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[1].selector = "stmt[0].insert_branch_columns[0]";
 	patches[1].index = 1U;
 	patches[1].name = "SECRET";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    2U,
 		    SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -41942,12 +41821,12 @@ static int test_merge_insert_independent_patch_atomicity(void)
 	patches[0].selector = "stmt[0].insert_branch_columns[0]";
 	patches[0].index = 0U;
 	patches[0].name = "ID";
-	if (expect_patch_failure_is_atomic(
-		    handle,
+	if (expect_patch_failure_poisons_handle(
+		    &handle,
 		    patches,
 		    1U,
 		    SQLPARSER_STATUS_UNSUPPORTED,
-		    "name-only MERGE INSERT must reject DEFAULT VALUES atomically") != 0) {
+		    "name-only MERGE INSERT must reject DEFAULT VALUES and poison its handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -42191,7 +42070,7 @@ int main(void)
 	if (test_relation_name_setter_qualifier_parity() != 0) {
 		return 1;
 	}
-	if (test_relation_name_setter_commit_failure_atomicity() != 0) {
+	if (test_relation_name_setter_commit_failure_poisons_handle() != 0) {
 		return 1;
 	}
 	if (test_insert_column_patch_identifier_spelling() != 0) {
@@ -42206,7 +42085,7 @@ int main(void)
 	if (test_merge_insert_independent_patch_batches() != 0) {
 		return 1;
 	}
-	if (test_merge_insert_independent_patch_atomicity() != 0) {
+	if (test_merge_insert_independent_patch_failure_lifecycle() != 0) {
 		return 1;
 	}
 	if (test_merge_insert_independent_patch_coordinates() != 0) {
@@ -42644,7 +42523,7 @@ int main(void)
 	if (test_sqlserver_delete_output_source_graph_and_patch() != 0) {
 		return 1;
 	}
-	if (test_sqlserver_output_failure_is_non_destructive() != 0) {
+	if (test_sqlserver_output_failure_poisons_handle() != 0) {
 		return 1;
 	}
 	if (test_sqlserver_output_sink_patch_validation() != 0) {

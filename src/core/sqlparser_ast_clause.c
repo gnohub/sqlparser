@@ -680,7 +680,7 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	parser_sql = NULL;
 	origins = NULL;
 	dialect_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		statement_index,
 		sql_text,

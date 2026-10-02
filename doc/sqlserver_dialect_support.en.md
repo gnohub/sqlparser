@@ -1,5 +1,9 @@
 # SQL Server Dialect Support
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 `SQLPARSER_DIALECT_SQLSERVER` provides parsing, structured traversal, rewrite,
 and deparse support for SQL Server T-SQL. Callers select it explicitly through
 `sqlparser_parse_with_options()`; when no dialect is specified, parsing uses the
@@ -29,7 +33,7 @@ The executable case matrix defines the SQL Server dialect support boundary:
   `DELETED`, source fields, `$action`, expressions, aliases, and binds
 - `OUTPUT ... INTO relation [(column, ...)]`, `OUTPUT ... INTO @table_variable`,
   and ordered sink/client dual channels
-- atomic insertion of one OUTPUT-target/sink-column pair at the same ordinal
+- paired insertion of one OUTPUT-target/sink-column pair at the same ordinal
   when an explicit sink-column list is initially equal in length to the OUTPUT
   target list
 - nested DML where an outer `INSERT` consumes an inner DML `OUTPUT`
@@ -63,7 +67,7 @@ The executable case matrix defines the SQL Server dialect support boundary:
 
 Paired `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
 explicit non-empty sink-column list when the OUTPUT-target and sink-column
-counts are strictly equal before the rewrite. The operation atomically inserts
+counts are strictly equal before the rewrite. The operation inserts
 one OUTPUT target and one sink column at the same ordinal.
 
 SQL Server OUTPUT forms whose counts are legally unequal still parse and
@@ -118,7 +122,8 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   value-only patch can append a VALUES cell while keeping the list omitted, and
   an explicit list continues to support paired insertion on both sides. If an
   explicit list exists when the patch batch finishes, the core patch API
-  validates equal column/value widths and rolls back the batch on failure.
+  validates equal column/value widths; failure releases state and marks the
+  handle failed, which must then be destroyed.
 - Query Graph uses `alias_quoted_identifier` for bracket-delimited relation
   aliases and `output_quoted_identifier` for explicit bracket-delimited output
   aliases or inherited bracket-delimited field names when no explicit alias
@@ -142,8 +147,9 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   by compatibility entries.
 - Control conditions and branch SQL are emitted as ordered statement units;
   View JSON `control_flow` mirrors the public read-only control structures.
-- Failed expression-fragment rewrites are not committed to the handle; the
-  previous AST, parameter mapping, and deparse output remain usable.
+- Failed expression-fragment patches release the AST, mapping and other
+  internal state, and mark the handle failed. Destroy it exactly once; do not
+  deparse or reuse it. Previously returned owned SQL strings remain valid.
 
 - A T-SQL explicit CTE column list must match the result width. Directly
   enumerable source-block targets receive ordinal name and bracket-state
@@ -162,5 +168,5 @@ The SQL Server support boundary is defined by:
 
 The SQL Server matrix contains 645 cases, all with `status = "final"`, and 1909
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
-with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
+with 8↔8 OUTPUT-target/sink-column pairs and paired head, middle, and tail
 insertions that produce 9↔9 pairs.

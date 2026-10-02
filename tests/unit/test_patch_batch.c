@@ -6,6 +6,7 @@
 
 #include <jansson.h>
 #include "sqlparser_internal.h"
+#include "sqlparser_test_failure.h"
 #include "../../src/dialect/sqlparser_dialect_internal.h"
 #include "../../src/dialect/sqlparser_dialect_ast_surface_internal.h"
 
@@ -71,6 +72,12 @@ static sqlparser_status_t apply_batch(sqlparser_handle_t *handle,
 	count_active = 1;
 	status = sqlparser_apply_patch(handle, list, error);
 	count_active = 0;
+#ifdef SQLPARSER_PATCH_BATCH_COUNTS
+	if (handle_clone_calls != 0U) {
+		fprintf(stderr, "in-place apply cloned the whole handle: %zu calls\n", handle_clone_calls);
+		abort();
+	}
+#endif
 	return status;
 }
 
@@ -112,7 +119,7 @@ static int check_case(sqlparser_dialect_t dialect, const char *sql,
 	apply_start = now();
 	generation = handle->generation;
 	if (apply_batch(handle, &list, &error) != SQLPARSER_STATUS_OK ||
-	    handle->generation != generation + (strcmp(sql, expected) != 0 ? 1UL : 0UL)) goto done;
+	    handle->generation != generation + (count != 0U ? 1UL : 0UL)) goto done;
 	json_start = now();
 	if (sqlparser_export_view_json(handle, 0, &view, &error) != SQLPARSER_STATUS_OK) goto done;
 	deparse_start = now();
@@ -164,58 +171,40 @@ done:
 	return result;
 }
 
-static int check_rollback_limits(sqlparser_dialect_t dialect, const char *sql,
+static int check_failure_limits(sqlparser_dialect_t dialect, const char *sql,
 	const sqlparser_patch_t *items, size_t count, size_t limit, size_t output_limit)
 {
 	sqlparser_parse_options_t options;
 	sqlparser_patch_list_t list = {items, count};
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle = NULL;
-	char *output = NULL;
-	char *before = NULL;
-	char *after = NULL;
-	unsigned long generation;
+	char *input = NULL;
 	int result = 1;
-	sqlparser_status_t status;
 
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = dialect;
-	if (limit != 0U) {
-		options.limits.max_sql_bytes = limit;
-	}
+	if (limit != 0U) options.limits.max_sql_bytes = limit;
 	if (output_limit != 0U) options.limits.max_output_bytes = output_limit;
-	if (sqlparser_parse_with_options(sql, &options, &handle, &error) != SQLPARSER_STATUS_OK) goto done;
-	/* JSON snapshots can exceed a deliberately small SQL output cap. */
-	handle->limits.max_output_bytes = SIZE_MAX;
-	status = sqlparser_export_view_json(handle, 0, &before, &error);
-	handle->limits.max_output_bytes = options.limits.max_output_bytes;
-	if (status != SQLPARSER_STATUS_OK) goto done;
-	generation = handle->generation;
+	input = malloc(strlen(sql) + 1U);
+	if (input == NULL) goto done;
+	strcpy(input, sql);
+	if (sqlparser_parse_with_options(input, &options, &handle, &error) != SQLPARSER_STATUS_OK) goto done;
 	if (sqlparser_apply_patch(handle, &list, &error) == SQLPARSER_STATUS_OK ||
-	    handle->generation != generation ||
-	    sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK ||
-	    strcmp(output, sql) != 0)
-		goto done;
-	handle->limits.max_output_bytes = SIZE_MAX;
-	status = sqlparser_export_view_json(handle, 0, &after, &error);
-	handle->limits.max_output_bytes = options.limits.max_output_bytes;
-	if (status != SQLPARSER_STATUS_OK || strcmp(before, after) != 0) goto done;
+	    strcmp(input, sql) != 0 || !sqlparser_test_failed_handle(handle)) goto done;
 	result = 0;
 done:
 	if (result != 0)
-		fprintf(stderr, "batch rollback failed case=%s dialect=%d error=%s\n", case_name, (int)dialect, error.message);
-	sqlparser_string_free(output);
-	sqlparser_string_free(before);
-	sqlparser_string_free(after);
+		fprintf(stderr, "batch terminal failure check failed case=%s dialect=%d error=%s\n", case_name, (int)dialect, error.message);
 	sqlparser_handle_destroy(handle);
+	free(input);
 	return result;
 }
 
-static int check_rollback(sqlparser_dialect_t dialect, const char *sql,
+static int check_failure(sqlparser_dialect_t dialect, const char *sql,
 	const sqlparser_patch_t *items, size_t count)
 {
-	return check_rollback_limits(dialect, sql, items, count, 0U, 0U);
+	return check_failure_limits(dialect, sql, items, count, 0U, 0U);
 }
 
 static int check_resource_limits(void)
@@ -232,12 +221,12 @@ static int check_resource_limits(void)
 	snprintf(sql, sizeof(sql), "SELECT a FROM t WHERE a LIKE CONCAT('%s','%s')", original, original);
 	items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][0]", .literal=&large_literal};
 	items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][1]", .literal=&small_literal};
-	if (check_rollback_limits(SQLPARSER_DIALECT_POSTGRESQL, sql, items, 2U, 500U, 0U)) return 1;
+	if (check_failure_limits(SQLPARSER_DIALECT_POSTGRESQL, sql, items, 2U, 500U, 0U)) return 1;
 	snprintf(sql, sizeof(sql), "INSERT ALL INTO t(a,b,c) VALUES('orig','%s','%s') SELECT 1 FROM dual", original, original);
 	items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_INSERT_COLUMN, .selector="stmt[0].insert_branch_columns[0]", .index=3U, .name="backup", .source_selector="stmt[0].insert_cell[0][0]"};
 	items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .literal=&large_literal};
 	items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][2]", .literal=&small_literal};
-	return check_rollback_limits(SQLPARSER_DIALECT_ORACLE, sql, items, 3U, 500U, 0U);
+	return check_failure_limits(SQLPARSER_DIALECT_ORACLE, sql, items, 3U, 500U, 0U);
 }
 
 static int check_semantics(void)
@@ -265,9 +254,9 @@ static int check_semantics(void)
 		if (check_case(dialect, sql, items, 5U,
 		    "UPDATE t SET a = 20, a_copy = 10, second_copy = 10 WHERE id = 3")) return 1;
 		items[5] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[999]", .literal=&ten};
-		if (check_rollback(dialect, sql, items, 6U)) return 1;
+		if (check_failure(dialect, sql, items, 6U)) return 1;
 		items[2] = items[5];
-		if (check_rollback(dialect, sql, items, 5U)) return 1;
+		if (check_failure(dialect, sql, items, 5U)) return 1;
 		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[0]", .literal=&one};
 		if (check_case(dialect, sql, items, 2U, sql)) return 1;
 		{
@@ -299,13 +288,13 @@ static int check_semantics(void)
 		if (check_case(dialect, sql, items, 6U,
 		    "SELECT c, b FROM t WHERE name LIKE CONCAT('y', 'x')")) return 1;
 		items[6] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][99]", .literal=&x};
-		if (check_rollback(dialect, sql, items, 7U)) return 1;
+		if (check_failure(dialect, sql, items, 7U)) return 1;
 		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][1]", .sql="LOWER('z')"};
 		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[1][0]", .literal=&x};
 		if (check_case(dialect, sql, items, 4U,
 		    "SELECT a, b FROM t WHERE name LIKE CONCAT('x', LOWER('x'))")) return 1;
 		items[2].sql = "(";
-		if (check_rollback(dialect, sql, items, 3U)) return 1;
+		if (check_failure(dialect, sql, items, 3U)) return 1;
 		sql = "/*batch-head*/ SELECT a FROM t WHERE name LIKE CONCAT('a', 'b') /*batch-tail*/";
 		if (check_case(dialect, sql, items, 2U,
 		    "/*batch-head*/ SELECT a FROM t WHERE name LIKE CONCAT('x', 'y') /*batch-tail*/")) return 1;
@@ -318,7 +307,7 @@ static int check_semantics(void)
 		if (check_case(dialect, sql, items, 4U,
 		    "UPDATE t SET a = 20; UPDATE u SET b = 20, copied = 20")) return 1;
 		items[2].source_selector = "stmt[0].assignment[0]";
-		if (check_rollback(dialect, sql, items, 4U)) return 1;
+		if (check_failure(dialect, sql, items, 4U)) return 1;
 
 		sql = "INSERT INTO t (a, b) VALUES (1, 2)";
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&ten};
@@ -326,7 +315,7 @@ static int check_semantics(void)
 		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&twenty};
 		if (check_case(dialect, sql, items, 3U, "INSERT INTO t (a, b, a_copy) VALUES (20, 2, 10)")) return 1;
 		items[3] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_INSERT_COLUMN, .selector="stmt[0].insert_columns", .index=3U, .name="missing_value"};
-		if (check_rollback(dialect, sql, items, 4U)) return 1;
+		if (check_failure(dialect, sql, items, 4U)) return 1;
 		if (dialect != SQLPARSER_DIALECT_MYSQL && dialect != SQLPARSER_DIALECT_VASTBASE_MYSQL &&
 		    dialect != SQLPARSER_DIALECT_KINGBASE_MYSQL) {
 			sql = "MERGE INTO t USING s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET a = 1, b = 2 WHEN NOT MATCHED THEN INSERT(id,a) VALUES(s.id,3)";
@@ -347,17 +336,17 @@ static int check_semantics(void)
 			if (check_case(dialect, sql, items, 4U,
 			    "INSERT ALL INTO t(a,b,a_copy) VALUES(10,2,1) INTO t(other_copy,a,b) VALUES(10,20,4) SELECT 1 FROM dual")) return 1;
 			items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[90][0]", .literal=&ten};
-			if (check_rollback(dialect, sql, items, 5U)) return 1;
+			if (check_failure(dialect, sql, items, 5U)) return 1;
 			items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="99"};
 			items[5] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_INSERT_COLUMN, .selector="stmt[0].insert_branch_columns[0]", .index=3U, .name="source_copy", .source_selector="stmt[0].select_target[0][0]"};
 			if (check_case(dialect, sql, items, 6U,
 			    "INSERT ALL INTO t(a,b,a_copy,source_copy) VALUES(10,2,1,99) INTO t(other_copy,a,b) VALUES(10,20,4) SELECT 99 FROM dual")) return 1;
 			items[6] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_INSERT_COLUMN, .selector="stmt[0].insert_branch_columns[0]", .index=4U, .name="without_value"};
-			if (check_rollback(dialect, sql, items, 7U)) return 1;
+			if (check_failure(dialect, sql, items, 7U)) return 1;
 			items[6] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .sql="("};
-			if (check_rollback(dialect, sql, items, 7U)) return 1;
+			if (check_failure(dialect, sql, items, 7U)) return 1;
 			items[7] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&ten};
-			if (check_rollback(dialect, sql, items, 8U)) return 1;
+			if (check_failure(dialect, sql, items, 8U)) return 1;
 		}
 	}
 	return 0;
@@ -535,7 +524,7 @@ static int check_batch_path(sqlparser_dialect_t dialect, const char *name, size_
 	if (!profile_case) {
 		const char *saved = items[limit - 1U].selector;
 		items[limit - 1U].selector = "stmt[999].assignment[0]";
-		if (check_rollback(dialect, sql[0].text, items, limit)) goto done;
+		if (check_failure(dialect, sql[0].text, items, limit)) goto done;
 		items[limit - 1U].selector = saved;
 	}
 	result = 0;
@@ -561,7 +550,7 @@ static int check_batch_paths(void)
 			count++;
 		}
 	}
-	printf("batch-path-cases positive=%zu rollback=%zu check=ok\n", count, profile_case ? 0U : count);
+	printf("batch-path-cases positive=%zu failure=%zu check=ok\n", count, profile_case ? 0U : count);
 	return 0;
 }
 
@@ -572,7 +561,7 @@ static int check_batch_dependencies(void)
 	sqlparser_patch_t items[7];
 	char sql[1024], expected[1024], original[181], large[301];
 	sqlparser_literal_value_t large_value = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value=large};
-	size_t positive = 0U, rollback = 0U;
+	size_t positive = 0U, failures = 0U;
 	int d, output_limit, commented;
 	memset(original, 'o', 180U); original[180] = 0;
 	memset(large, 'l', 300U); large[300] = 0;
@@ -590,8 +579,8 @@ static int check_batch_dependencies(void)
 		if (check_case(dialect, sql, items, 5U, "INSERT INTO t(a,b,c,d) VALUES('y','x''/*literal*/','x''/*literal*/','y')")) return 1;
 		positive++;
 		items[3].selector = "stmt[0].insert_cell[0][99]";
-		if (check_rollback(dialect, sql, items, 5U)) return 1;
-		rollback++;
+		if (check_failure(dialect, sql, items, 5U)) return 1;
+		failures++;
 		case_name = "copied_bind_lifetime";
 		snprintf(sql, sizeof(sql), "INSERT INTO t(a,b,c) VALUES(%s,'old','tail')", bind);
 		snprintf(expected, sizeof(expected), "INSERT INTO t(a,b,c) VALUES('y',%s,'tail')", bind);
@@ -612,14 +601,14 @@ static int check_batch_dependencies(void)
 		if (check_case(dialect, sql, items, 3U, "SELECT id FROM t WHERE name LIKE COALESCE(/*batch-head*/'a','x''/*literal*/','y') /*batch-tail*/")) return 1;
 		positive++;
 		items[1].literal = NULL; items[1].sql = "(";
-		if (check_rollback(dialect, sql, items, 3U)) return 1;
-		rollback++;
+		if (check_failure(dialect, sql, items, 3U)) return 1;
+		failures++;
 		case_name = "fragment_boundary_before_later_replacement";
 		strcpy(sql, "SELECT id FROM t WHERE name LIKE CONCAT('a','b')");
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][0]", .sql="1) RETURNING 1 --"};
 		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][0]", .literal=&y};
-		if (check_rollback(dialect, sql, items, 2U)) return 1;
-		rollback++;
+		if (check_failure(dialect, sql, items, 2U)) return 1;
+		failures++;
 		case_name = "replacement_trivia_survives_repeated_argument";
 		items[0].sql = "/*batch-head*/ 'x' /*batch-tail*/";
 		if (check_case(dialect, sql, items, 2U, "SELECT id FROM t WHERE name LIKE CONCAT(/*batch-head*/ 'y' /*batch-tail*/,'b')")) return 1;
@@ -632,16 +621,16 @@ static int check_batch_dependencies(void)
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][0]", .literal=&large_value};
 		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].expression_arg[0][1]", .literal=&y};
 		for (output_limit = 0; output_limit < 2; output_limit++) {
-			if (check_rollback_limits(dialect, sql, items, 2U, output_limit ? 0U : 500U, output_limit ? 500U : 0U)) return 1;
-			rollback++;
+			if (check_failure_limits(dialect, sql, items, 2U, output_limit ? 0U : 500U, output_limit ? 500U : 0U)) return 1;
+			failures++;
 		}
 		if (sqlparser_dialect_is_oracle_or_dameng_compatible(dialect)) {
 			case_name = "multi_fragment_boundary_before_later_replacement";
 			strcpy(sql, "INSERT ALL INTO t(a,b) VALUES('a','b') SELECT 1 FROM dual");
 			items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .sql="1) RETURNING 1 --"};
 			items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&y};
-			if (check_rollback(dialect, sql, items, 2U)) return 1;
-			rollback++;
+			if (check_failure(dialect, sql, items, 2U)) return 1;
+			failures++;
 			case_name = "cross_branch_source_dependency";
 			strcpy(sql, "INSERT ALL INTO t(a,b) VALUES('a','b') INTO t(a,b) VALUES('c','d') INTO t(a,b) VALUES('e','f') SELECT 1 FROM dual");
 			items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&x};
@@ -656,8 +645,8 @@ static int check_batch_dependencies(void)
 				items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .literal=&large_value};
 				items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][1]", .literal=&y};
 				for (output_limit = 0; output_limit < 2; output_limit++) {
-					if (check_rollback_limits(dialect, sql, items, 2U, output_limit ? 0U : 500U, output_limit ? 500U : 0U)) return 1;
-					rollback++;
+					if (check_failure_limits(dialect, sql, items, 2U, output_limit ? 0U : 500U, output_limit ? 500U : 0U)) return 1;
+					failures++;
 				}
 			}
 		}
@@ -672,9 +661,9 @@ static int check_batch_dependencies(void)
 	case_name = "system_variable_before_later_replacement";
 	items[0].sql = "@@VERSION";
 	items[1].selector = "stmt[0].expression_arg[0][0]";
-	if (check_rollback(SQLPARSER_DIALECT_SQLSERVER, sql, items, 2U)) return 1;
-	rollback++;
-	printf("batch-dependency-cases positive=%zu rollback=%zu check=ok\n", positive, rollback);
+	if (check_failure(SQLPARSER_DIALECT_SQLSERVER, sql, items, 2U)) return 1;
+	failures++;
+	printf("batch-dependency-cases positive=%zu failure=%zu check=ok\n", positive, failures);
 	return 0;
 }
 
@@ -687,7 +676,7 @@ static int check_native_batch_boundaries(void)
 	sqlparser_patch_t items[5];
 	char sql[1024], expected[1024], large[601];
 	sqlparser_literal_value_t large_value = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value=large};
-	size_t positive = 0U, rollback = 0U;
+	size_t positive = 0U, failures = 0U;
 	int d, failed = 1;
 	memset(large, 'x', sizeof(large) - 1U); large[sizeof(large) - 1U] = '\0';
 
@@ -717,16 +706,16 @@ static int check_native_batch_boundaries(void)
 		if (check_case(dialect, sql, items, 4U, expected)) goto done;
 		positive++;
 		items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][99]", .literal=&x};
-		if (check_rollback(dialect, sql, items, 5U)) goto done;
-		rollback++;
+		if (check_failure(dialect, sql, items, 5U)) goto done;
+		failures++;
 
 		/* Invalid intermediate dialect structure must not be hidden by a later overwrite. */
 		case_name = "native_intermediate_dialect_validation";
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="2 AS probe"};
 		items[1] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="PRIOR id AS probe"};
 		items[2] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].select_target[0][0]", .sql="1 AS probe"};
-		if (check_rollback(dialect, "SELECT 1 AS probe FROM t;", items, 3U)) goto done;
-		rollback++;
+		if (check_failure(dialect, "SELECT 1 AS probe FROM t;", items, 3U)) goto done;
+		failures++;
 
 		if (!pg) {
 			case_name = "native_national_type_cycle";
@@ -803,11 +792,11 @@ static int check_native_batch_boundaries(void)
 			if (check_case(dialect, sql, items, 4U, expected)) goto done;
 			positive++;
 			items[4] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[99][1]", .literal=&x};
-			if (check_rollback(dialect, sql, items, 5U)) goto done;
-			rollback++;
+			if (check_failure(dialect, sql, items, 5U)) goto done;
+			failures++;
 		}
 	}
-	printf("batch-native-boundaries positive=%zu rollback=%zu check=ok\n", positive, rollback);
+	printf("batch-native-boundaries positive=%zu failure=%zu check=ok\n", positive, failures);
 	failed = 0;
 done:
 	exact_sql = 0;
@@ -825,7 +814,7 @@ static int check_literal_lookup_boundaries(void)
 	sqlparser_literal_value_t x = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="x"};
 	sqlparser_literal_value_t y = {.kind=SQLPARSER_LITERAL_KIND_STRING, .string_value="y"};
 	sqlparser_patch_t items[6];
-	size_t positive = 0U, rollback = 0U;
+	size_t positive = 0U, failures = 0U;
 	int d;
 
 	for (d = SQLPARSER_DIALECT_POSTGRESQL; d <= SQLPARSER_DIALECT_KINGBASE_SQLSERVER; d++) {
@@ -868,8 +857,8 @@ static int check_literal_lookup_boundaries(void)
 		if (check_case(dialect, where_sql, items, 5U, expected)) return 1;
 		positive++;
 		items[4].selector = "stmt[0].where_literal[6]";
-		if (check_rollback(dialect, where_sql, items, 5U)) return 1;
-		rollback++;
+		if (check_failure(dialect, where_sql, items, 5U)) return 1;
+		failures++;
 
 		case_name = "assignment_lookup_after_structure_change";
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].assignment[1]", .literal=&x};
@@ -883,8 +872,8 @@ static int check_literal_lookup_boundaries(void)
 		if (check_case(dialect, update_sql, items, 5U, expected)) return 1;
 		positive++;
 		items[3].sql = "(";
-		if (check_rollback(dialect, update_sql, items, 5U)) return 1;
-		rollback++;
+		if (check_failure(dialect, update_sql, items, 5U)) return 1;
+		failures++;
 
 		case_name = "where_literal_statement_isolation";
 		items[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[1].where_literal[1]", .literal=&x};
@@ -896,10 +885,10 @@ static int check_literal_lookup_boundaries(void)
 			"SELECT id FROM t WHERE a='y' AND b='x'; SELECT id FROM u WHERE a='y' AND b='y';")) return 1;
 		positive++;
 		items[4].selector = "stmt[1].where_literal[2]";
-		if (check_rollback(dialect, multi_sql, items, 5U)) return 1;
-		rollback++;
+		if (check_failure(dialect, multi_sql, items, 5U)) return 1;
+		failures++;
 	}
-	printf("batch-lookup-boundaries positive=%zu rollback=%zu check=ok\n", positive, rollback);
+	printf("batch-lookup-boundaries positive=%zu failure=%zu check=ok\n", positive, failures);
 	return 0;
 }
 

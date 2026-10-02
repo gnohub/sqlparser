@@ -715,7 +715,7 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 	parser_sql = NULL;
 	origins = NULL;
 	candidate_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		statement_index,
 		sql_text,
@@ -1170,8 +1170,8 @@ sqlparser_status_t sqlparser_handle_control_flow(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	memset(out_flow, 0, sizeof(*out_flow));
-	if (handle == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+	if (handle == NULL || handle->failed) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must be valid; destroy a failed handle");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	out_flow->handle = handle;

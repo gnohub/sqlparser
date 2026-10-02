@@ -1,5 +1,9 @@
 # Oracle Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file records Oracle dialect coverage against the Oracle Database SQL
 Language Reference. The complete checklist is
 [oracle_official_syntax_coverage.csv](oracle_official_syntax_coverage.csv).
@@ -54,7 +58,8 @@ its list selector and can materialize the list, append a VALUES cell while
 keeping the list omitted, or replace an existing cell; explicit lists retain
 paired insertion. Three executable cases and 11 independent patches verify
 these boundaries; the three patches in the omitted-list case run independently.
-Core API unit tests verify final equal-width validation and whole-batch rollback.
+Final equal-width validation remains required. In this version, failure
+releases state and marks the handle failed instead of rolling back.
 
 The Oracle hierarchical-query `CURRENT` boundary includes `START WITH`,
 `CONNECT BY`, unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`,

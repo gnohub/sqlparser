@@ -1,5 +1,9 @@
 # Dameng Dialect Support
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 `SQLPARSER_DIALECT_DAMENG` provides a conversion layer from Dameng DM_SQL to the
 current `sqlparser` AST model. Callers select it explicitly through
 `sqlparser_parse_with_options()`; when no dialect is specified, parsing uses the
@@ -96,7 +100,8 @@ handle:
   value-only patch can append a VALUES cell while keeping the list omitted, and
   an explicit list continues to support paired insertion on both sides. If an
   explicit list exists when the patch batch finishes, the core patch API
-  validates equal column/value widths and rolls back the batch on failure.
+  validates equal column/value widths; failure releases state and marks the
+  handle failed, which must then be destroyed.
 - Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
@@ -118,8 +123,9 @@ handle:
   compatibility entries.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
-- Failed expression-fragment rewrites are not committed to the handle; the
-  previous AST, bind mapping, and deparse output remain usable.
+- Failed expression-fragment patches release the AST, mapping and other
+  internal state, and mark the handle failed. Destroy it exactly once; do not
+  deparse or reuse it. Previously returned owned SQL strings remain valid.
 
 - Explicit CTE column names override directly enumerable source-block target
   names and double-quote state by ordinal. Repeated references share one

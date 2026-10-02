@@ -166,11 +166,12 @@ struct sqlparser_bind_occurrence_cache {
 	(SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE - \
 	 SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED)
 
-/* Deferred work is owned by the private candidate of an atomic patch batch. */
+/* Deferred work belongs to the current, destructively updated handle. */
 enum {
 	SQLPARSER_PATCH_BATCH_ACTIVE = 1U,
 	SQLPARSER_PATCH_BATCH_AST_DIRTY = 2U,
-	SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY = 4U
+	SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY = 4U,
+	SQLPARSER_PATCH_BATCH_IN_PLACE = 8U
 };
 
 struct sqlparser_handle {
@@ -207,6 +208,7 @@ struct sqlparser_handle {
 	sqlparser_surface_source_edits_t surface_source_edits;
 	int surface_source_complete;
 	unsigned int patch_batch_flags;
+	int failed; /* Only destruction is supported after patch/deparse failure. */
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -272,6 +274,11 @@ int sqlparser_handle_identifier_spelling(
 	const char **out_spelling,
 	size_t *out_length);
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
+void sqlparser_handle_mark_failed(sqlparser_handle_t *handle);
+sqlparser_status_t sqlparser_handle_reparse_destructive(
+	sqlparser_handle_t *handle,
+	char **owned_sql,
+	sqlparser_error_t *out_error);
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_handle_ensure_bind_occurrences(
@@ -394,6 +401,19 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_with_origins(
 	char **out_parser_sql,
 	void **out_dialect_state,
 	sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_for_mutation(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *public_sql,
+	const char *field_name,
+	char **out_parser_sql,
+	void **out_dialect_state,
+	sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_handle_clone_dialect_state_for_mutation(
+	const sqlparser_handle_t *handle,
+	void **out_state,
 	sqlparser_error_t *out_error);
 void sqlparser_handle_discard_dialect_state(
 	const sqlparser_handle_t *handle,

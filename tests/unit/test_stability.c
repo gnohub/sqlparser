@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_test_failure.h"
 
 #define SQLPARSER_ARRAY_LEN(array_value) (sizeof(array_value) / sizeof((array_value)[0]))
 
@@ -360,7 +361,7 @@ static int test_resource_limits(void)
 	return 0;
 }
 
-static int test_failed_fragment_write_is_atomic(void)
+static int test_failed_fragment_write_is_terminal(void)
 {
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
@@ -398,16 +399,16 @@ static int test_failed_fragment_write_is_atomic(void)
 		return 1;
 	}
 
-	status = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "deparse after failed fragment write should succeed") != 0 ||
-	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, ":name") != NULL, "failed fragment write should preserve old bind") != 0 ||
-	    expect_true(strstr(deparsed_sql, "$1") == NULL, "failed fragment write should not expose internal bind") != 0) {
-		sqlparser_string_free(deparsed_sql);
+	if (!sqlparser_test_failed_handle(handle)) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	sqlparser_string_free(deparsed_sql);
-	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle); handle = NULL;
+	status = parse_with_dialect(
+		"UPDATE users SET name = :name WHERE id = :id",
+		SQLPARSER_DIALECT_ORACLE, &handle, &error);
+	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "fresh handle after failed fragment") != 0)
+		return 1;
 
 	status = sqlparser_update_set_assignment_sql(handle, 0U, 0U, ":new_name", &error);
 	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "valid Oracle assignment fragment should succeed") != 0) {
@@ -435,7 +436,7 @@ int main(void)
 	    test_malformed_inputs_do_not_return_handles() != 0 ||
 	    test_argument_validation() != 0 ||
 	    test_resource_limits() != 0 ||
-	    test_failed_fragment_write_is_atomic() != 0) {
+	    test_failed_fragment_write_is_terminal() != 0) {
 		return 1;
 	}
 

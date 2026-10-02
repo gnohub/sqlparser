@@ -353,111 +353,131 @@ size_t sqlparser_public_skip_quoted_or_comment(
 	size_t index)
 {
 	char quote;
+	char stops[3];
+	int backslash_escapes;
+	int nested_comments;
 	size_t depth;
 	size_t pos;
 
-	if (sql == NULL || sql[index] == '\0') {
+	if (sql == NULL) {
 		return index;
 	}
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
-	    sqlparser_dialect_is_oracle_compatible(dialect)) {
-		pos = sqlparser_public_skip_dollar_quote(sql, index);
-		if (pos != index) {
-			return pos;
-		}
-	}
-	pos = sqlparser_public_skip_oracle_q_quote(dialect, sql, index);
-	if (pos != index) {
-		return pos;
-	}
-	if (sql[index] == '-' && sql[index + 1U] == '-') {
-		if (sqlparser_dialect_is_mysql_compatible(dialect) &&
-		    sql[index + 2U] != '\0' &&
-		    !isspace((unsigned char)sql[index + 2U]) &&
-		    !iscntrl((unsigned char)sql[index + 2U])) {
-			return index;
-		}
-		pos = index + 2U;
-		while (sql[pos] != '\0' && sql[pos] != '\n') {
-			pos++;
-		}
-		return pos;
-	}
-	if (sqlparser_dialect_is_mysql_compatible(dialect) &&
-	    sql[index] == '#') {
-		pos = index + 1U;
-		while (sql[pos] != '\0' && sql[pos] != '\n') {
-			pos++;
-		}
-		return pos;
-	}
-	if (sql[index] == '/' && sql[index + 1U] == '*') {
-		pos = index + 2U;
-		depth = 1U;
-		while (sql[pos] != '\0' && sql[pos + 1U] != '\0') {
-			if (sqlparser_public_nested_comments(dialect) &&
-			    sql[pos] == '/' && sql[pos + 1U] == '*') {
-				depth++;
-				pos += 2U;
-				continue;
+	/* Most callers visit every source byte. Only query dialect capabilities
+	 * after a byte that can actually open that dialect's quote or comment. */
+	switch (sql[index]) {
+		case '$':
+			if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+			    sqlparser_dialect_is_oracle_compatible(dialect)) {
+				return sqlparser_public_skip_dollar_quote(sql, index);
 			}
-			if (sql[pos] == '*' && sql[pos + 1U] == '/') {
-				depth--;
-				pos += 2U;
-				if (depth == 0U) {
+			return index;
+		case 'q':
+		case 'Q':
+		case 'n':
+		case 'N':
+			return sqlparser_public_skip_oracle_q_quote(dialect, sql, index);
+		case '-':
+			if (sql[index + 1U] != '-') {
+				return index;
+			}
+			if (sqlparser_dialect_is_mysql_compatible(dialect) &&
+			    sql[index + 2U] != '\0' &&
+			    !isspace((unsigned char)sql[index + 2U]) &&
+			    !iscntrl((unsigned char)sql[index + 2U])) {
+				return index;
+			}
+			pos = index + 2U;
+			return pos + strcspn(sql + pos, "\n");
+		case '#':
+			if (!sqlparser_dialect_is_mysql_compatible(dialect)) {
+				return index;
+			}
+			pos = index + 1U;
+			return pos + strcspn(sql + pos, "\n");
+		case '/':
+			if (sql[index + 1U] != '*') {
+				return index;
+			}
+			pos = index + 2U;
+			depth = 1U;
+			nested_comments = sqlparser_public_nested_comments(dialect);
+			for (;;) {
+				pos += strcspn(sql + pos, nested_comments ? "/*" : "*");
+				if (sql[pos] == '\0') {
 					return pos;
 				}
-				continue;
-			}
-			pos++;
-		}
-		return sql[pos] == '\0' ? pos : pos + 1U;
-	}
-	if (sqlparser_dialect_is_sqlserver_compatible(dialect) &&
-	    sql[index] == '[') {
-		pos = index + 1U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == ']') {
-				if (sql[pos + 1U] == ']') {
+				if (sql[pos + 1U] == '\0') {
+					return pos + 1U;
+				}
+				if (nested_comments && sql[pos] == '/' && sql[pos + 1U] == '*') {
+					depth++;
 					pos += 2U;
 					continue;
 				}
-				return pos + 1U;
+				if (sql[pos] == '*' && sql[pos + 1U] == '/') {
+					depth--;
+					pos += 2U;
+					if (depth == 0U) {
+						return pos;
+					}
+					continue;
+				}
+				pos++;
 			}
-			pos++;
-		}
-		return pos;
-	}
-	if (sql[index] != '\'' && sql[index] != '"' &&
-	    (!sqlparser_dialect_is_mysql_compatible(dialect) ||
-	     sql[index] != '`')) {
-		return index;
+		case '[':
+			if (!sqlparser_dialect_is_sqlserver_compatible(dialect)) {
+				return index;
+			}
+			pos = index + 1U;
+			for (;;) {
+				pos += strcspn(sql + pos, "]");
+				if (sql[pos] == '\0') {
+					return pos;
+				}
+				if (sql[pos + 1U] != ']') {
+					return pos + 1U;
+				}
+				pos += 2U;
+			}
+		case '`':
+			if (!sqlparser_dialect_is_mysql_compatible(dialect)) {
+				return index;
+			}
+			/* fall through */
+		case '\'':
+		case '"':
+			break;
+		default:
+			return index;
 	}
 
 	quote = sql[index];
+	backslash_escapes = sqlparser_dialect_is_mysql_compatible(dialect) ||
+		(quote == '\'' && index > 0U &&
+		 (sql[index - 1U] == 'e' || sql[index - 1U] == 'E') &&
+		 (index == 1U ||
+		  !sqlparser_public_char_is_ident((unsigned char)sql[index - 2U])));
+	stops[0] = quote;
+	stops[1] = backslash_escapes ? '\\' : '\0';
+	stops[2] = '\0';
 	pos = index + 1U;
-	while (sql[pos] != '\0') {
-		if (sql[pos] == '\\' &&
-		    (sqlparser_dialect_is_mysql_compatible(dialect) ||
-		     (quote == '\'' && index > 0U &&
-		      (sql[index - 1U] == 'e' || sql[index - 1U] == 'E') &&
-		      (index == 1U ||
-		       !sqlparser_public_char_is_ident(
-			       (unsigned char)sql[index - 2U])))) &&
-		    sql[pos + 1U] != '\0') {
+	for (;;) {
+		pos += strcspn(sql + pos, stops);
+		if (sql[pos] == '\0') {
+			return pos;
+		}
+		if (sql[pos] == '\\' && backslash_escapes) {
+			if (sql[pos + 1U] == '\0') {
+				return pos + 1U;
+			}
 			pos += 2U;
 			continue;
 		}
-		if (sql[pos] == quote) {
-			if (sql[pos + 1U] == quote) {
-				pos += 2U;
-				continue;
-			}
+		if (sql[pos + 1U] != quote) {
 			return pos + 1U;
 		}
-		pos++;
+		pos += 2U;
 	}
-	return pos;
 }
 
 int sqlparser_public_comment_at(

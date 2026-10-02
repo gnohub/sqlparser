@@ -1,5 +1,9 @@
 # SQL Server Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file records SQL Server dialect coverage against the Microsoft Transact-SQL Reference. The complete item-by-item list is available in [sqlserver_official_syntax_coverage.csv](sqlserver_official_syntax_coverage.csv).
 
 ## Sources
@@ -52,7 +56,7 @@ Within `MIXED_MODEL`, 95 basic cases now have executable regression coverage, in
 
 The `OUTPUT` item has 33 successful and 10 error-path cases covering `INSERT`,
 `UPDATE`, `DELETE`, `MERGE`, ordered sink/client channels, and nested DML. A
-paired `insert_column` can atomically insert both sides at the same ordinal when
+paired `insert_column` can insert both sides at the same ordinal when
 the sink column list is explicit and nonempty and the target/column counts are
 equal before the mutation. Otherwise-valid unequal `OUTPUT ... INTO` lists
 remain parseable and deparseable, but do not support this paired mutation.
@@ -79,8 +83,9 @@ not-matched INSERT with an omitted target-column list still emits its list
 selector and can materialize the list, append a VALUES cell while keeping the
 list omitted, or replace an existing cell; explicit lists retain paired
 insertion. Two executable cases and 6 independent patches verify these
-boundaries; the three patches in the omitted-list case run independently. Core
-API unit tests verify final equal-width validation and whole-batch rollback.
+boundaries; the three patches in the omitted-list case run independently.
+Final equal-width validation remains required. In this version, failure
+releases state and marks the handle failed instead of rolling back.
 
 ## By Directory
 

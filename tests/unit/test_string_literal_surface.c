@@ -4,6 +4,7 @@
 
 #include <jansson.h>
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_test_failure.h"
 
 typedef struct {
 	const char *name;
@@ -345,12 +346,12 @@ done:
 	return failed;
 }
 
-static int check_batch(int rollback)
+static int check_batch(int terminal_failure)
 {
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error = {0};
 	sqlparser_handle_t *handle = NULL, *expected_handle = NULL;
-	sqlparser_query_graph_view_t before, after;
+	sqlparser_query_graph_view_t before;
 	sqlparser_literal_value_t first = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = strings[1].value};
 	sqlparser_literal_value_t last = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = strings[3].value};
 	sqlparser_patch_t items[] = {
@@ -360,14 +361,14 @@ static int check_batch(int rollback)
 		{.op = SQLPARSER_PATCH_REPLACE, .selector = "stmt[0].select_target[0][2]", .source_selector = "stmt[0].select_target[0][0]"},
 		{.op = SQLPARSER_PATCH_REPLACE, .selector = "stmt[0].select_target[0][99]", .literal = &first}
 	};
-	sqlparser_patch_list_t patches = {items, rollback ? 5U : 4U};
+	sqlparser_patch_list_t patches = {items, terminal_failure ? 5U : 4U};
 	const string_case_t *values[] = {&strings[3], &strings[1], &strings[3]};
 	char sql[512], format[512], expected_sql[512];
-	char *output = NULL, *before_view = NULL, *after_view = NULL;
+	char *output = NULL, *before_view = NULL;
 	sqlparser_status_t status;
 	int failed = 1;
 
-	current_method = rollback ? "batch-rollback" : "batch-source-order";
+	current_method = terminal_failure ? "batch-failure" : "batch-source-order";
 	current_sample = "replace-copy-replace-copy";
 	sqlparser_parse_options_default(&options);
 	options.dialect = current_dialect;
@@ -386,7 +387,7 @@ static int check_batch(int rollback)
 		goto done;
 	}
 	status = sqlparser_apply_patch(handle, &patches, &error);
-	if (!rollback) {
+	if (!terminal_failure) {
 		if (status != SQLPARSER_STATUS_OK) {
 			failure("batch rewrite must succeed", error.message, NULL);
 			goto done;
@@ -397,20 +398,14 @@ static int check_batch(int rollback)
 		if (status != SQLPARSER_STATUS_INVALID_ARGUMENT)
 			failed |= failure("batch must reach final invalid selector", error.message,
 				"SQLPARSER_STATUS_INVALID_ARGUMENT");
-		if (sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK ||
-		    output == NULL || strcmp(output, sql) != 0 ||
-		    sqlparser_statement_query_graph(handle, 0U, &after, &error) != SQLPARSER_STATUS_OK ||
-		    after.generation != before.generation ||
-		    sqlparser_export_view_json(handle, 0, &after_view, &error) != SQLPARSER_STATUS_OK ||
-		    before_view == NULL || after_view == NULL || strcmp(before_view, after_view) != 0) {
-			failed |= failure("batch rollback changed SQL, View or generation", error.message, sql);
+		if (!sqlparser_test_failed_handle(handle)) {
+			failed |= failure("failed batch must poison handle", error.message, sql);
 			goto done;
 		}
 	}
 done:
 	sqlparser_string_free(output);
 	sqlparser_string_free(before_view);
-	sqlparser_string_free(after_view);
 	sqlparser_handle_destroy(expected_handle);
 	sqlparser_handle_destroy(handle);
 	return failed;
@@ -430,7 +425,7 @@ static int check_typed_string_boundary(size_t sample)
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error = {0};
 	sqlparser_handle_t *handle = NULL, *reparsed = NULL;
-	sqlparser_query_graph_view_t before, after;
+	sqlparser_query_graph_view_t before;
 	sqlparser_literal_value_t first = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = values[sample]};
 	sqlparser_literal_value_t last = {.kind = SQLPARSER_LITERAL_KIND_STRING, .string_value = "safe"};
 	sqlparser_patch_t items[] = {
@@ -462,11 +457,8 @@ static int check_typed_string_boundary(size_t sample)
 			failure("invalid first patch must not be hidden by overwrite", error.message, NULL);
 			goto done;
 		}
-		if (sqlparser_deparse(handle, &output, &error) != SQLPARSER_STATUS_OK ||
-		    output == NULL || strcmp(output, sql) != 0 ||
-		    sqlparser_statement_query_graph(handle, 0U, &after, &error) != SQLPARSER_STATUS_OK ||
-		    after.generation != before.generation) {
-			failure("invalid first patch changed SQL or generation", error.message, sql);
+		if (!sqlparser_test_failed_handle(handle)) {
+			failure("invalid first patch must poison handle", error.message, sql);
 			goto done;
 		}
 		failed = 0;
@@ -508,7 +500,7 @@ int main(int argc, char **argv)
 			}
 		}
 		for (method = 0; method < 2; method++) {
-			if (argc > 2 && strcmp(argv[2], method ? "batch-rollback" : "batch-source-order") != 0) continue;
+			if (argc > 2 && strcmp(argv[2], method ? "batch-failure" : "batch-source-order") != 0) continue;
 			failed += check_batch(method) != 0;
 			count++;
 		}

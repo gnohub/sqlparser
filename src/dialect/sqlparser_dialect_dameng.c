@@ -9459,8 +9459,14 @@ sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql_in_place(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	handle->generation++;
+	sqlparser_handle_invalidate_derived(handle);
 	status = sqlparser_deparse(handle, &public_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_IN_PLACE) != 0U) {
+		status = sqlparser_handle_reparse_destructive(handle, &public_sql, out_error);
+		free(public_sql);
 		return status;
 	}
 	sqlparser_parse_options_default(&options);
@@ -9604,7 +9610,7 @@ sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 	next_cells = NULL;
 	public_sql = NULL;
 
-	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) != 0U) {
+	if ((handle->patch_batch_flags & (SQLPARSER_PATCH_BATCH_ACTIVE | SQLPARSER_PATCH_BATCH_IN_PLACE)) != 0U) {
 		candidate = handle;
 	} else {
 		status = sqlparser_handle_clone(handle, &candidate, out_error);
@@ -9708,11 +9714,21 @@ sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 	}
 
 	candidate->generation++;
-	if (candidate == handle) {
+	if (candidate == handle &&
+	    (handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) != 0U) {
 		handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY;
 		handle->surface_source_complete = 0;
 		sqlparser_handle_invalidate_derived(handle);
 		return SQLPARSER_STATUS_OK;
+	}
+	if (candidate == handle) {
+		sqlparser_handle_invalidate_derived(handle);
+		status = sqlparser_deparse(handle, &public_sql, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_handle_reparse_destructive(handle, &public_sql, out_error);
+		}
+		free(public_sql);
+		return status;
 	}
 	status = sqlparser_deparse(candidate, &public_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {

@@ -726,7 +726,7 @@ sqlparser_status_t sqlparser_insert_set_cell_sql_in_place(
 			sql_text,
 			out_error);
 	}
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		statement_index,
 		sql_text,

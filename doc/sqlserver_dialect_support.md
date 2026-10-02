@@ -1,5 +1,8 @@
 # SQL Server 方言支持
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 `SQLPARSER_DIALECT_SQLSERVER` 提供 SQL Server T-SQL 的解析、结构化遍历、改写和反解析能力。调用方需要通过 `sqlparser_parse_with_options()` 显式指定 SQL Server 方言；未指定方言时仍按 PostgreSQL 语法解析。
 
 ## 支持范围
@@ -20,7 +23,7 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 - `UPDATE`、`DELETE`
 - `INSERT`、`UPDATE`、`DELETE`、`MERGE` 的 `OUTPUT`；支持 `INSERTED`、`DELETED`、来源字段、`$action`、表达式、别名和 bind
 - `OUTPUT ... INTO relation [(column, ...)]`、`OUTPUT ... INTO @table_variable` 及 sink/client 双通道
-- 显式 sink column list 与 OUTPUT target 初始等长时，支持按同一序号原子插入一组 OUTPUT target/sink column
+- 显式 sink column list 与 OUTPUT target 初始等长时，支持按同一序号配对插入一组 OUTPUT target/sink column
 - 外层 `INSERT` 消费内层 DML `OUTPUT` 的嵌套 DML 形态
 - `UPDATE TOP (...) ... OUTPUT` 和 INSERT 目标表 hint 与 `OUTPUT` 的组合
 - `IF...ELSE` 单语句分支、`BEGIN...END` 多语句分支、`ELSE IF` 和嵌套控制流；条件支持布尔表达式、bind、`EXISTS` 和括号子查询
@@ -41,7 +44,7 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 
 ## OUTPUT 成对改写边界
 
-成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道具有显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景。该操作按同一序号原子插入一个 OUTPUT target 和一个 sink column。
+成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道具有显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景。该操作按同一序号配对插入一个 OUTPUT target 和一个 sink column。
 
 SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持这个成对插入操作。client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入成对改写边界。这是 patch 能力边界，不改变这些 SQL 形态本身的解析支持边界。
 
@@ -74,12 +77,12 @@ SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不�
 - 表提示、`FOR JSON` 后缀和查询提示以原始公开片段恢复到 deparse 输出；View JSON 不定义独立的结构化 hint 或 JSON 后缀字段。
 - `N'...'` Unicode 字符串在可保留语义的场景中输出 `N` 前缀。
 - View JSON 中可归属的表达式片段使用公共 SQL Server 形态。
-- 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
+- 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时核心 patch API 释放内部状态并标记 handle 失败，随后必须销毁该 handle。
 - Query Graph 以 `alias_quoted_identifier` 标记方括号 relation alias，以 `output_quoted_identifier` 标记方括号显式 output alias 或无显式别名时继承的方括号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的方括号定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier`，以及存在 database link 时的 `link_quoted_identifier`；DML 目标列与 `OUTPUT ... INTO` sink column 共用 `dml_column.quoted_identifier`。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断。SQL Server 入口没有 database-link relation，因此 link 标志不适用。
 - relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK 引用；VIEW 与 `SELECT INTO` target 通过 `source_block` 指向 SELECT block。多对象 DROP target 没有 relation selector，quoted/unquoted 同名分段仍按精确来源 token 输出方括号状态。relation patch 在单语句和普通多语句 batch 中均保持 SQL Server 公开 surface：CREATE INDEX 不增加 `USING btree`，TRUNCATE 不丢失 `TABLE`。该合同不自动外推到兼容入口。
 - 控制流条件和分支 SQL 作为有序 statement unit 输出；View JSON 的 `control_flow` 与公共控制流只读结构一致。
-- 失败的表达式片段改写不会提交到 handle；原有 AST、参数映射和 deparse 输出保持可用。
+- 表达式片段 patch 失败会释放 AST、参数映射等内部状态并标记 handle 失败；须恰好销毁一次，不得继续 deparse 或复用。此前已返回且尚未释放的独立 SQL 字符串仍有效。
 
 - T-SQL CTE 显式列名数量必须与结果宽度相等；来源 block 直接可枚举 targets 按 ordinal 覆盖输出名和方括号状态，重复引用共享该来源，UPDATE assignment 可解析 `source_target`。SET/recursive branch 与 star 保留自身边界。
 
@@ -92,4 +95,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 645 条用例，全部为 `status = "final"`，共包含 1909 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前 SQL Server 矩阵包含 645 条用例，全部为 `status = "final"`，共包含 1909 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾配对插入后的 9↔9 配对。

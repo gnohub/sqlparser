@@ -79,20 +79,6 @@ static void sqlparser_select_copy_with_insert(
 	}
 }
 
-static void sqlparser_select_copy_with_delete(
-	PgQuery__Node **dest,
-	PgQuery__Node **source,
-	size_t count,
-	size_t index)
-{
-	if (index > 0U && source != NULL) {
-		memcpy(dest, source, index * sizeof(*dest));
-	}
-	if (index + 1U < count && source != NULL) {
-		memcpy(dest + index, source + index + 1U, (count - index - 1U) * sizeof(*dest));
-	}
-}
-
 sqlparser_status_t sqlparser_get_select_stmt_by_target_list_index(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -666,7 +652,7 @@ sqlparser_status_t sqlparser_select_parse_public_targets(
 	parser_sql = NULL;
 	origins = NULL;
 	dialect_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		statement_index,
 		sql_text,
@@ -1038,7 +1024,6 @@ sqlparser_status_t sqlparser_select_delete_target_in_place(
 	sqlparser_error_t *out_error)
 {
 	PgQuery__SelectStmt *stmt;
-	PgQuery__Node **next_targets;
 	PgQuery__Node *removed;
 	sqlparser_status_t status;
 
@@ -1048,7 +1033,6 @@ sqlparser_status_t sqlparser_select_delete_target_in_place(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	stmt = NULL;
-	next_targets = NULL;
 	removed = NULL;
 	if (sqlparser_get_select_stmt_by_target_list_index(handle, statement_index, target_list_index, &stmt, out_error) != SQLPARSER_STATUS_OK) {
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -1061,15 +1045,13 @@ sqlparser_status_t sqlparser_select_delete_target_in_place(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "cannot delete the last select target");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
-	next_targets = sqlparser_select_alloc_node_array(stmt->n_target_list - 1U, out_error);
-	if (next_targets == NULL) {
-		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
-	}
-	sqlparser_select_copy_with_delete(next_targets, stmt->target_list, stmt->n_target_list, target_index);
 	removed = stmt->target_list[target_index];
-	free(stmt->target_list);
-	stmt->target_list = next_targets;
+	if (target_index + 1U < stmt->n_target_list) {
+		memmove(stmt->target_list + target_index, stmt->target_list + target_index + 1U,
+			(stmt->n_target_list - target_index - 1U) * sizeof(*stmt->target_list));
+	}
 	stmt->n_target_list--;
+	stmt->target_list[stmt->n_target_list] = NULL;
 	status = sqlparser_handle_commit_ast(handle, out_error);
 	sqlparser_free_proto_node(removed);
 	return status;

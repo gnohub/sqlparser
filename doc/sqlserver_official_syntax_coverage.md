@@ -1,5 +1,8 @@
 # SQL Server 官方语法覆盖统计
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 本文件记录 SQL Server 方言相对于 Microsoft 官方 Transact-SQL Reference 的覆盖统计。完整逐条清单见 [sqlserver_official_syntax_coverage.csv](sqlserver_official_syntax_coverage.csv)。
 
 ## 统计来源
@@ -50,7 +53,7 @@
 
 `MIXED_MODEL` 中已有 95 条基础 case 进入可执行回归，包括数据库、schema、role、application role、user、synonym、type、index、sequence、view、statistics、`SELECT INTO`、基础全文谓词、CTAS、别名、子查询、基础 `ALTER DATABASE`、基础 `ALTER TABLE`、`DROP TYPE`、`DROP USER` 公开形态恢复、`CREATE USER` 专属选项、`ALTER USER` 常见选项、`CREATE ROLE AUTHORIZATION`、`ALTER ROLE` 成员/重命名、`ALTER SCHEMA TRANSFER`、`ALTER AUTHORIZATION` 基础形态、`DROP SCHEMA IF EXISTS`、基础表提示和查询提示、基础 `SET` 会话/执行环境语句，以及 `IF...ELSE` 分支内的 `BEGIN...END`。完整官方语法仍按 `MIXED_MODEL` 统计。
 
-`OUTPUT` 条目由 33 条成功路径和 10 条错误路径覆盖，包含 `INSERT`、`UPDATE`、`DELETE`、`MERGE`、sink/client 双通道和嵌套 DML。具有显式非空 sink column list 且改写前 target/column 数量相等时，paired `insert_column` 可在同一序号原子插入两侧；原本合法的不等长 `OUTPUT ... INTO` 仍可解析和反解析，但不支持该成对改写。sink relation 的 database/schema/object 方括号状态按段保留，sink column 使用独立 `quoted_identifier`；1 条新增用例和 7 个独立 patch 覆盖四类 DML sink 与 patch 后重算。
+`OUTPUT` 条目由 33 条成功路径和 10 条错误路径覆盖，包含 `INSERT`、`UPDATE`、`DELETE`、`MERGE`、sink/client 双通道和嵌套 DML。具有显式非空 sink column list 且改写前 target/column 数量相等时，paired `insert_column` 可在同一序号配对插入两侧；原本合法的不等长 `OUTPUT ... INTO` 仍可解析和反解析，但不支持该成对改写。sink relation 的 database/schema/object 方括号状态按段保留，sink column 使用独立 `quoted_identifier`；1 条新增用例和 7 个独立 patch 覆盖四类 DML sink 与 patch 后重算。
 
 普通 relation 同样按 database、schema、object 名称段保留方括号状态，DML target column 独立保留定界状态；未定界或不存在的段不输出 true 标志。另一条新增用例和 7 个独立 patch 覆盖 SELECT、INSERT、UPDATE FROM、DELETE 与 MERGE。
 
@@ -58,7 +61,7 @@
 
 T-SQL `WITH` CTE 的显式列名在数量合法时按 ordinal 投影到 `source_block` 中直接可枚举、连续且不含 `*`/`alias.*` 的 targets，并同步方括号状态；DML assignment 可据此解析 `source_target`。重复引用共享同一来源块，SET/递归 branch 保留自身输出，星号不展开或猜测映射。SQL Server 基础可执行夹具现包含 645 条 `final` 用例和 1909 个独立 patch。
 
-`MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。2 条可执行用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
+`MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。2 条可执行用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验仍适用；本版本失败后释放内部状态并标记 handle 失败，不再保证整批回滚。
 
 relation DDL 的当前基础合同使用 `kind = "ddl"` 根 block 和 `ddl_role = "target"|"reference"`，覆盖 CREATE/ALTER TABLE 的 FK、CREATE INDEX、TRUNCATE、多对象 DROP、CREATE VIEW 和正式 `SELECT INTO`。查询支撑型 target 通过 `source_block` 指向 SELECT block；DROP target 无 relation selector，同名 quoted/unquoted 分段按精确来源输出。10 条新增 final 用例和 12 个独立 patch 还验证单语句和普通多语句 batch 中的 relation patch 均不给 CREATE INDEX 增加 `USING btree`，并保留 `TRUNCATE TABLE` 公开 surface。该基础入口证据不自动代表兼容入口。
 

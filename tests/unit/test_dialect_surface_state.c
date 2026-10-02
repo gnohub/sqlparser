@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_test_failure.h"
 
 typedef struct {
 	const char *name;
@@ -1098,8 +1099,9 @@ static int sqlparser_surface_test_multi_insert_public_wrappers(
 		failed = 1;
 		goto cleanup;
 	}
+	/* The bind renderer rejects this before entering apply_patch. */
 	if (sqlparser_surface_expect_exact_state(
-		    handle, expected_sql[5], name, "long bind rollback") != 0) {
+		    handle, expected_sql[5], name, "long bind early rejection") != 0) {
 		failed = 1;
 		goto cleanup;
 	}
@@ -1110,8 +1112,13 @@ static int sqlparser_surface_test_multi_insert_public_wrappers(
 		failed = 1;
 		goto cleanup;
 	}
-	if (sqlparser_surface_expect_exact_state(
-		    handle, expected_sql[5], name, "empty SQL rollback") != 0) {
+	if (!sqlparser_test_failed_handle(handle)) {
+		fprintf(stderr, "FAIL: empty-sql %s terminal expectation\n", name);
+		failed = 1;
+		goto cleanup;
+	}
+	sqlparser_handle_destroy(handle); handle = NULL;
+	if (sqlparser_parse_with_options(expected_sql[5], &options, &handle, &error) != SQLPARSER_STATUS_OK) {
 		failed = 1;
 		goto cleanup;
 	}
@@ -1124,9 +1131,15 @@ static int sqlparser_surface_test_multi_insert_public_wrappers(
 		failed = 1;
 		goto cleanup;
 	}
-	if (sqlparser_surface_expect_exact_state(
-		    handle, expected_sql[5], name, "invalid SQL rollback") != 0) {
+	if (!sqlparser_test_failed_handle(handle)) {
+		fprintf(stderr, "FAIL: null-sql %s terminal expectation\n", name);
 		failed = 1;
+		goto cleanup;
+	}
+	sqlparser_handle_destroy(handle); handle = NULL;
+	if (sqlparser_parse_with_options(expected_sql[5], &options, &handle, &error) != SQLPARSER_STATUS_OK) {
+		failed = 1;
+		goto cleanup;
 	}
 
 cleanup:

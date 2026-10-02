@@ -34,7 +34,8 @@ VENDOR_PG_QUERY_SRC_FILES := $(sort \
 	$(VENDOR_PG_QUERY_DIR)/vendor/xxhash/xxhash.c \
 	$(VENDOR_PG_QUERY_DIR)/protobuf/pg_query.pb-c.c)
 VENDOR_PG_QUERY_HEADER_FILES := $(sort \
-	$(call rwildcard,$(VENDOR_PG_QUERY_DIR),*.h))
+	$(call rwildcard,$(VENDOR_PG_QUERY_DIR),*.h) \
+	$(call rwildcard,$(VENDOR_PG_QUERY_DIR),*.inc))
 VENDOR_PG_QUERY_INPUTS := \
 	$(VENDOR_PG_QUERY_DIR)/Makefile \
 	$(VENDOR_PG_QUERY_SRC_FILES) \
@@ -102,6 +103,9 @@ DIST_NAME := $(LIB_NAME)-$(VERSION_STRING)
 DIST_DIR := $(BUILD_PATH)/dist
 DIST_TARBALL := $(DIST_DIR)/$(DIST_NAME).tar.gz
 DIST_SOURCE_PATHS := \
+	./Makefile.msvc \
+	./RELEASE_NOTES.md \
+	./RELEASE_NOTES.en.md \
 	./.github \
 	./bench \
 	./CHANGELOG.en.md \
@@ -529,9 +533,47 @@ $(JANSSON_OBJ_PATH)/%.o: $(JANSSON_SRC_DIR)/%.c $(BUILD_SIGNATURE_FILE) $(VENDOR
 
 $(CASE_MATRIX_BINS): $(CASE_RUNNER_HEADER)
 
+$(UNIT_TEST_BINS): tests/unit/sqlparser_test_failure.h
+
 $(BIN_PATH)/%: tests/unit/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_patch_lifecycle: tests/unit/test_patch_lifecycle.c tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_LIFECYCLE_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_pg_query_thread_lifecycle: tests/unit/test_pg_query_thread_lifecycle.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_THREAD_LIFECYCLE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pthread_key_create -Wl,--wrap=pthread_setspecific $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_protobuf_output_oom: tests/unit/test_protobuf_output_oom.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_PROTOBUF_OUTPUT_OOM_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=pg_query_protobuf_alloc_output \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_parser_conversion_lifetime: tests/unit/test_parser_conversion_lifetime.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_CONVERSION_OUTPUT_OOM_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query_protobuf_alloc_output $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_direct_wire_lifecycle: tests/unit/test_direct_wire_lifecycle.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_DIRECT_WIRE_FAILURE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=realloc -Wl,--wrap=pg_query_protobuf_alloc_output \
+		-Wl,--wrap=pg_query_nodes_to_protobuf_observed -Wl,--wrap=pg_query_nodes_to_protobuf_certified \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_validation_arena: tests/unit/test_validation_arena.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ARENA_ALLOC_COUNTS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified \
+		-Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_mysql_validation_observer: tests/unit/test_mysql_validation_observer.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_OBSERVER_TEST_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified \
+		-Wl,--wrap=calloc -Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_patch_batch_counts: tests/unit/test_patch_batch.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_PATCH_BATCH_COUNTS $< $(STATIC_LIB_PATH) \

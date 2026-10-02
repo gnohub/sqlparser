@@ -1,5 +1,9 @@
 # Dameng Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file records Dameng dialect coverage against the official DM_SQL
 documentation. The complete checklist is
 [dameng_official_syntax_coverage.csv](dameng_official_syntax_coverage.csv).
@@ -66,8 +70,9 @@ not-matched INSERT with an omitted target-column list still emits its list
 selector and can materialize the list, append a VALUES cell while keeping the
 list omitted, or replace an existing cell; explicit lists retain paired
 insertion. Two executable cases and 6 independent patches verify these
-boundaries; the three patches in the omitted-list case run independently. Core
-API unit tests verify final equal-width validation and whole-batch rollback.
+boundaries; the three patches in the omitted-list case run independently.
+Final equal-width validation remains required. In this version, failure
+releases state and marks the handle failed instead of rolling back.
 
 The Dameng hierarchical-query `CURRENT` boundary accepts both source clause
 orders for `START WITH` and `CONNECT BY`, two parent-child field orientations
@@ -100,6 +105,6 @@ privilege, current-schema statements, representative session-parameter
 statements, basic remote object references, and the `N >= 1`, strictly
 equal-length, ordinally paired `RETURN` / `RETURNING ... INTO` forms defined
 above. Three executable cases cover 8↔8 pairs for INSERT, UPDATE, and DELETE,
-plus atomic head, middle, and tail insertions that produce 9↔9 pairs. The
+plus paired head, middle, and tail insertions that produce 9↔9 pairs. The
 remaining five syntax groups depend on Dameng-specific query-model or
 program-unit semantics and are not handled by PostgreSQL-compatible conversion.

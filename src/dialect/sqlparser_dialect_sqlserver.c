@@ -12576,6 +12576,13 @@ static sqlparser_status_t sqlparser_sqlserver_apply_odbc_fn_public(
 		free(scratch);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	if (parse_result.parse_tree.data == NULL) {
+		pg_query_free_protobuf_parse_result(parse_result);
+		free(intervals);
+		free(scratch);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
 	ast = pg_query__parse_result__unpack(
 		NULL,
 		parse_result.parse_tree.len,
@@ -12652,12 +12659,17 @@ static void sqlparser_sqlserver_bind_odbc_fn_owner(
 		target -= bind->parser_base;
 		memset(&key, 0, sizeof(key));
 		key.parser_offset = target;
-		restore = (sqlparser_sqlserver_odbc_fn_restore_t *)bsearch(
-			&key,
-			bind->state->odbc_fn_restores + bind->odbc_start,
-			bind->odbc_end - bind->odbc_start,
-			sizeof(*bind->state->odbc_fn_restores),
-			sqlparser_sqlserver_odbc_fn_offset_compare);
+		/* An ordinary call can have no ODBC restoration entries. Avoid
+		 * passing a null array (and null pointer arithmetic) to bsearch. */
+		restore = NULL;
+		if (bind->odbc_start < bind->odbc_end) {
+			restore = (sqlparser_sqlserver_odbc_fn_restore_t *)bsearch(
+				&key,
+				bind->state->odbc_fn_restores + bind->odbc_start,
+				bind->odbc_end - bind->odbc_start,
+				sizeof(*bind->state->odbc_fn_restores),
+				sqlparser_sqlserver_odbc_fn_offset_compare);
+		}
 		if (restore != NULL) {
 			if (restore->owner != NULL) {
 				bind->invalid = 1;

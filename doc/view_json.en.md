@@ -1,5 +1,9 @@
 # View JSON Guide
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 View JSON is the on-demand JSON serialization of statement query graphs and control-flow topology. It is intended for regression tests, integration checks, and language-neutral inspection. Production code should prefer the public C structs and does not need to generate JSON before rewriting SQL.
 
 ## Export API
@@ -289,8 +293,8 @@ SELECT; `INTO` does not create a target relation.
 A DDL target/reference that has a `selector` continues to support relation
 `REPLACE` patches. A View exported after a successful patch recomputes name
 segments, quoted flags, `ddl_role`, and `source_block` for the new generation.
-Old C graph views become stale under the existing generation rule, and a clone
-remains independent of its source handle. This feature adds no selector, patch
+Old C graph views follow the candidate's nonempty-apply lifetime rule;
+independently parsed handles remain independent. This feature adds no selector, patch
 kind, or ownership rule.
 
 ## target
@@ -708,9 +712,9 @@ Single-column and complete-cell selectors independently support
 `SQLPARSER_PATCH_INSERT_COLUMN` payload shapes: name-only inserts a target
 column at `index`, value-only inserts a VALUES cell at `index`, and name plus
 value inserts both at the same position. Intermediate counts may differ within
-a batch. Before commit, every touched branch that ends with an explicit target
-column list must have equal column and value counts; otherwise the whole batch
-rolls back atomically. Value-only insertion is valid when the list remains
+a batch. Before successful completion, every touched branch that ends with an explicit target
+column list must have equal column and value counts; otherwise the batch
+fails, releases state and marks the handle failed. Value-only insertion is valid when the list remains
 omitted. `SQLPARSER_PATCH_DELETE_COLUMN` remains paired and requires matching
 explicit lists before deletion; an omitted list does not support that deletion.
 DEFAULT VALUES has no VALUES list, so neither the three insertion shapes nor

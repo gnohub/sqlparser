@@ -1,5 +1,8 @@
 # Vastbase 方言支持
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 `sqlparser` 为 Vastbase 提供四个显式兼容模式：
 
 | CLI 名称 | C 枚举 | 兼容入口 |
@@ -47,7 +50,7 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 
 四个项目兼容入口均只对各自 fixture 中合法的 CTE 显式列名形态验证按 ordinal 覆盖 source block 中可直接枚举的 target，并保留列名 token 的定界状态；Vastbase PostgreSQL 另验证短列表只覆盖 target 前缀。显式列名可参与 DML `source_target` lineage，重复 CTE 引用共享同一已覆盖 source block。相应入口按各自 fixture 分别验证 SET 结果、递归 SET 或 star 边界，不伪造结果 target、不跨分支覆盖，也不展开 star。该能力是项目 fixture 合同，不代表 Vastbase 服务端官方语法范围。
 
-四个 Vastbase 项目兼容入口的 `MERGE ... WHEN NOT MATCHED THEN INSERT ... VALUES` 改写复用 `insert_column`：仅提供 `name` 时只增加目标列，仅提供一个 value source 时只增加 VALUES cell，同时提供时成对增加。省略目标列清单但存在 VALUES 时仍输出 `target_list_selector`，既可按需物化清单，也可在保持清单省略的情况下仅增加 cell；已有目标列和 cell 可分别替换。同一 patch batch 内允许两侧暂时不等长；批末存在显式目标列清单时必须与 VALUES 等长，否则整批原子回滚。成对删除语义不变，`MERGE INSERT DEFAULT VALUES` 不在该改写范围内。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
+四个 Vastbase 项目兼容入口的 `MERGE ... WHEN NOT MATCHED THEN INSERT ... VALUES` 改写复用 `insert_column`：仅提供 `name` 时只增加目标列，仅提供一个 value source 时只增加 VALUES cell，同时提供时成对增加。省略目标列清单但存在 VALUES 时仍输出 `target_list_selector`，既可按需物化清单，也可在保持清单省略的情况下仅增加 cell；已有目标列和 cell 可分别替换。同一 patch batch 内允许两侧暂时不等长；批末存在显式目标列清单时必须与 VALUES 等长，否则批次失败，释放内部状态并标记 handle 失败。成对删除语义不变，`MERGE INSERT DEFAULT VALUES` 不在该改写范围内。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
 
 `vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力。
 
@@ -56,7 +59,7 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 `vastbase-sqlserver` 兼容模式支持基础 `CONNECT BY` 条件。`START WITH`、`PRIOR`、`NOCYCLE` 和 `CONNECT_BY_ROOT` 不在该兼容入口的支持范围内。
 在包含基础 `CONNECT BY` 的查询块中，无显式 `AS` 的 `CONNECT_BY_ROOT expr` 形态按边界外层次操作符拒绝；同名普通字段可使用显式 `AS` 别名或定界标识符。
 
-作为 `vastbase-sqlserver` 项目兼容入口合同，成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道具有显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景；操作按同一序号原子插入两侧。原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持该成对插入；client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入该改写边界。3 条用例分别覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾原子插入后的 9↔9 配对。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
+作为 `vastbase-sqlserver` 项目兼容入口合同，成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道具有显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景；操作按同一序号配对插入两侧。原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持该成对插入；client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入该改写边界。3 条用例分别覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾配对插入后的 9↔9 配对。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
 
 作为 `vastbase-oracle` 项目兼容入口合同，`INSERT ... VALUES`、`UPDATE` 和 `DELETE` 的 `RETURNING ... INTO` 支持 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 配对；不接受 `BULK COLLECT`、非冒号 bind receiver 或数量不等的两侧列表。同一 `insert_column` patch 成对插入 target 和 receiver，不拆分单侧操作。该合同及可执行证据不声称 Vastbase 服务端官方支持同一语法范围。
 

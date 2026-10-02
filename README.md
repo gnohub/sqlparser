@@ -4,6 +4,11 @@
 
 `sqlparser` 是一个通用 SQL 解析、改写与反解析库，提供稳定的 C API，用于解析 SQL、读取结构信息、执行受控改写，并将结果重新生成 SQL。
 
+**兼容性说明：** patch 或 deparse 失败后 handle 失效，须销毁一次，不能重试
+或读取旧状态。成功的 patch/deparse 可在同一 handle 上连续执行多轮。每次非空
+apply 均使借用视图失效，即使 SQL 相同；成功的空列表保留视图。公开 ABI
+不变，但这是语义不兼容变更。接入前请阅读[发布说明](./RELEASE_NOTES.md)。
+
 解析内核基于仓库内固定版本的 `libpg_query`：
 
 - tag: `17-6.2.2`

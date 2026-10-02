@@ -3854,6 +3854,8 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 				handle->parser_sql);
 		if (reference_parse.error != NULL ||
 		    reference_parse.parse_tree.data == NULL) {
+			status = reference_parse.error != NULL ?
+				SQLPARSER_STATUS_INTERNAL_ERROR : SQLPARSER_STATUS_NO_MEMORY;
 			if (reference_parse.error != NULL) {
 				sqlparser_error_from_pg(
 					out_error,
@@ -3863,13 +3865,13 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 			} else {
 				sqlparser_error_set_message(
 					out_error,
-					SQLPARSER_STATUS_INTERNAL_ERROR,
-					"failed to rebuild identifier audit AST");
+					status,
+					"out of memory");
 			}
 			pg_query_free_protobuf_parse_result(reference_parse);
 			free(reference_resolver.consumed);
 			free(resolver.consumed);
-			return SQLPARSER_STATUS_INTERNAL_ERROR;
+			return status;
 		}
 		options.identifier_resolver_context =
 			&reference_resolver;

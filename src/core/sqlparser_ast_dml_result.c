@@ -329,7 +329,7 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 		out_action_marker,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+		status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 			handle,
 			statement_index,
 			result_sql,
@@ -478,6 +478,8 @@ static sqlparser_status_t sqlparser_dml_result_parse_target_receiver(
 	return status;
 }
 
+/* Target deletion retains its isolated state path. Reusing live state here
+ * also changes dialect reconciliation work, which needs separate review. */
 static sqlparser_status_t sqlparser_dml_result_clone_state(
 	const sqlparser_handle_t *handle,
 	void **out_state,
@@ -490,6 +492,20 @@ static sqlparser_status_t sqlparser_dml_result_clone_state(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	return handle->dialect_ops->clone_state(handle->dialect_state, out_state, out_error);
+}
+
+static sqlparser_status_t sqlparser_dml_result_mutation_state(
+	const sqlparser_handle_t *handle,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	*out_state = NULL;
+	if (handle->dialect_state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "DML result dialect state is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	return sqlparser_handle_clone_dialect_state_for_mutation(
+		handle, out_state, out_error);
 }
 
 static sqlparser_status_t sqlparser_dml_result_commit_state(
@@ -985,7 +1001,6 @@ sqlparser_status_t sqlparser_dml_result_delete_target(
 	sqlparser_dialect_dml_result_dml_t dml;
 	sqlparser_dialect_dml_result_channel_t channel;
 	sqlparser_dml_result_list_t list;
-	PgQuery__Node **next;
 	PgQuery__Node *removed;
 	void *candidate_state;
 	size_t absolute_index;
@@ -1025,25 +1040,18 @@ sqlparser_status_t sqlparser_dml_result_delete_target(
 	}
 	old_count = *list.count;
 	absolute_index = channel.target_offset + target_index;
-	next = old_count > 1U ? (PgQuery__Node **)malloc((old_count - 1U) * sizeof(*next)) : NULL;
-	if (old_count > 1U && next == NULL) {
-		sqlparser_handle_discard_dialect_state(handle, candidate_state);
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	if (absolute_index > 0U) {
-		memcpy(next, *list.items, absolute_index * sizeof(*next));
-	}
-	if (absolute_index + 1U < old_count) {
-		memcpy(
-			next + absolute_index,
-			*list.items + absolute_index + 1U,
-			(old_count - absolute_index - 1U) * sizeof(*next));
-	}
 	removed = (*list.items)[absolute_index];
-	free(*list.items);
-	*list.items = next;
+	if (absolute_index + 1U < old_count) {
+		memmove(*list.items + absolute_index, *list.items + absolute_index + 1U,
+			(old_count - absolute_index - 1U) * sizeof(**list.items));
+	}
 	*list.count = old_count - 1U;
+	if (*list.count == 0U) {
+		free(*list.items);
+		*list.items = NULL;
+	} else {
+		(*list.items)[*list.count] = NULL;
+	}
 	sqlparser_free_proto_node(removed);
 	return sqlparser_handle_commit_ast_with_dialect_state(
 		handle, candidate_state, out_error);
@@ -1061,7 +1069,7 @@ static sqlparser_status_t sqlparser_dml_result_mutate_sink(
 	sqlparser_status_t status;
 
 	candidate_state = NULL;
-	status = sqlparser_dml_result_clone_state(handle, &candidate_state, out_error);
+	status = sqlparser_dml_result_mutation_state(handle, &candidate_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}

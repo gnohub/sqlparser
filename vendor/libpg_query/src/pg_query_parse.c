@@ -1,6 +1,7 @@
 #include "pg_query.h"
 #include "pg_query_internal.h"
 #include "pg_query_outfuncs.h"
+#include "pg_query_observer.h"
 
 #include "parser/parser.h"
 #include "parser/scanner.h"
@@ -186,6 +187,17 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling(
 	const char* input,
 	int parser_options)
 {
+	return pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
+		input, parser_options, NULL, NULL);
+}
+
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
+	const char* input,
+	int parser_options,
+	PgQueryProtobufObserver observer,
+	void *context)
+{
 	MemoryContext ctx = NULL;
 	PgQueryInternalParsetreeAndError parsetree_and_error;
 	PgQueryProtobufParseResult result = {0};
@@ -200,11 +212,43 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling(
 	// These are all malloc-ed and will survive exiting the memory context, the caller is responsible to free them now
 	result.stderr_buffer = parsetree_and_error.stderr_buffer;
 	result.error = parsetree_and_error.error;
-	result.parse_tree = pg_query_nodes_to_protobuf(parsetree_and_error.tree);
+	/* Parse errors take precedence; never validate a partial/empty error tree. */
+	result.parse_tree = pg_query_nodes_to_protobuf_observed(
+		parsetree_and_error.tree,
+		result.error == NULL ? observer : NULL,
+		context);
 
 	pg_query_exit_memory_context(ctx);
 
 	return result;
+}
+
+
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
+    const char *input, int parser_options,
+    PgQueryProtobufObserver observer, void *context,
+    size_t *statement_count, int *certified)
+{
+    MemoryContext ctx;
+    PgQueryInternalParsetreeAndError parsed;
+    PgQueryProtobufParseResult result = {0};
+    *statement_count = 0;
+    *certified = 0;
+    ctx = pg_query_enter_memory_context();
+    parsed = pg_query_raw_parse_with_options(input, parser_options, true);
+    result.stderr_buffer = parsed.stderr_buffer;
+    result.error = parsed.error;
+    result.parse_tree = pg_query_nodes_to_protobuf_certified(parsed.tree,
+        result.error == NULL ? observer : NULL, context,
+        statement_count, certified);
+    pg_query_exit_memory_context(ctx);
+    return result;
+}
+
+void *pg_query_protobuf_alloc_output(size_t size)
+{
+    return malloc(size);
 }
 
 void pg_query_free_parse_result(PgQueryParseResult result)

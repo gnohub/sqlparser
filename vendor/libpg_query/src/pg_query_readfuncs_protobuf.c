@@ -229,8 +229,13 @@ List * pg_query_protobuf_to_nodes_opts(
 	pg_query_readfuncs_options = opts;
 	result = pg_query__parse_result__unpack(NULL, protobuf.len, (const uint8_t *) protobuf.data);
 
-	// TODO: Handle this by returning an error instead
-	Assert(result != NULL);
+	/* Unpack uses malloc rather than the PostgreSQL memory context.
+	 * Propagate allocation failure through the caller's PG_CATCH block. */
+	if (result == NULL)
+	{
+		pg_query_readfuncs_options = previous_options;
+		elog(ERROR, "could not unpack protobuf parse result");
+	}
 
 	// TODO: Handle this by returning an error instead
 	Assert(result->version == PG_VERSION_NUM);

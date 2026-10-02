@@ -1,5 +1,8 @@
 # 达梦官方语法覆盖统计
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 本文件记录达梦方言相对于达梦官方 DM_SQL 文档的覆盖统计。完整逐条清单见 [dameng_official_syntax_coverage.csv](dameng_official_syntax_coverage.csv)。
 
 ## 统计来源
@@ -46,7 +49,7 @@
 
 达梦 `WITH` 公用表表达式的合法显式列名按 ordinal 投影到 `source_block` 中直接可枚举、连续的 targets，并同步引号状态；SET 结果块及其分支保留自身输出，不伪造 CTE 结果名映射。基础可执行夹具现包含 217 条 `final` 用例和 694 个独立 patch。
 
-达梦 `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE` 以及归属同一 UPDATE 分支的附属 `DELETE WHERE`。`insert_column` 支持 column-only、value-only、paired 三态；省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell，显式列表继续支持 paired 添加。可执行矩阵使用 2 条用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
+达梦 `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE` 以及归属同一 UPDATE 分支的附属 `DELETE WHERE`。`insert_column` 支持 column-only、value-only、paired 三态；省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell，显式列表继续支持 paired 添加。可执行矩阵使用 2 条用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验仍适用；本版本失败后释放内部状态并标记 handle 失败，不再保证整批回滚。
 
 达梦层次查询的 `CURRENT` 边界包括 `START WITH` 与 `CONNECT BY` 两种源文本顺序、一元 `PRIOR` 的两种父子字段方向、`LEVEL`、`CONNECT_BY_ROOT` 和 `NOCYCLE`。可执行矩阵包含 4 条 `final` 用例和 20 个独立 patch。
 
@@ -56,4 +59,4 @@ relation DDL 的 `CURRENT` 合同使用 `kind = "ddl"` 根 block 和 `ddl_role =
 
 达梦多表 `UPDATE` 的 `CURRENT` 边界始终只有一个写入目标。可执行矩阵包含 6 条 `final` 用例和 17 个独立 patch，覆盖首、中、末 relation 目标、同表不同 alias、JOIN 链及 JOIN/逗号混合形态。
 
-达梦当前已覆盖常用查询、DML、DDL、事务、权限、`SET SCHEMA`、代表性会话参数设置语句、远程对象引用基础形态，以及上述 `N >= 1` 严格等长、按序配对的 `RETURN`/`RETURNING ... INTO` 形态。可执行矩阵使用 3 条用例覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾原子插入后的 9↔9 配对。其余 5 个语法组依赖达梦专属查询模型或程序单元语义，当前不纳入 PostgreSQL 兼容转换。
+达梦当前已覆盖常用查询、DML、DDL、事务、权限、`SET SCHEMA`、代表性会话参数设置语句、远程对象引用基础形态，以及上述 `N >= 1` 严格等长、按序配对的 `RETURN`/`RETURNING ... INTO` 形态。可执行矩阵使用 3 条用例覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾配对插入后的 9↔9 配对。其余 5 个语法组依赖达梦专属查询模型或程序单元语义，当前不纳入 PostgreSQL 兼容转换。

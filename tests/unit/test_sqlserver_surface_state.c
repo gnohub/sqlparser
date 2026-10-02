@@ -557,7 +557,7 @@ static int verify_sqlserver_assignment_value_clone_state(void)
 	return 0;
 }
 
-static int verify_sqlserver_surface_state_failure_rollback(void)
+static int verify_sqlserver_surface_state_failure_poisoning(void)
 {
 	static const char sql[] =
 		"SELECT (SELECT TOP (2) TRY_CAST({fn ABS(-2)} AS BIT) "
@@ -572,6 +572,9 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 	sqlparser_handle_t *handle;
 	sqlparser_patch_t patch_items[2];
 	sqlparser_patch_list_t patches;
+	sqlparser_patch_list_t empty_patches;
+	sqlparser_statement_kind_t kind;
+	sqlparser_query_graph_view_t graph;
 	char *baseline_sql;
 	char *baseline_view;
 	char *after_sql;
@@ -586,6 +589,8 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 	after_view = NULL;
 	memset(&error, 0, sizeof(error));
 	memset(patch_items, 0, sizeof(patch_items));
+	memset(&empty_patches, 0, sizeof(empty_patches));
+	memset(&graph, 0, sizeof(graph));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
 	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
@@ -594,7 +599,7 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 		    SQLPARSER_STATUS_OK ||
 	    sqlparser_export_view_json(handle, 0, &baseline_view, &error) !=
 		    SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "FAIL [SSL006 sqlserver-surface-rollback]: setup failed: %s\n", error.message);
+		fprintf(stderr, "FAIL [SSL006 sqlserver-surface-failure]: setup failed: %s\n", error.message);
 		sqlparser_string_free(baseline_sql);
 		sqlparser_string_free(baseline_view);
 		sqlparser_handle_destroy(handle);
@@ -611,6 +616,35 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 	for (iteration = 0U; iteration < 16U; iteration++) {
 		status = sqlparser_apply_patch(handle, &patches, &error);
 		if (status == SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_count(handle) != 0U ||
+		    sqlparser_statement_kind(handle, 0U, &kind, &error) !=
+			    SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error) !=
+			    SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    sqlparser_deparse(handle, &after_sql, &error) !=
+			    SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    sqlparser_export_view_json(handle, 0, &after_view, &error) !=
+			    SQLPARSER_STATUS_INVALID_ARGUMENT ||
+		    after_sql != NULL || after_view != NULL ||
+		    sqlparser_apply_patch(handle, &empty_patches, &error) !=
+			    SQLPARSER_STATUS_INVALID_ARGUMENT) {
+			fprintf(
+				stderr,
+				"FAIL [SSL006 sqlserver-surface-failure]: iteration %lu did not poison the handle: %s\n",
+				(unsigned long)iteration,
+				error.message);
+			sqlparser_string_free(after_sql);
+			sqlparser_string_free(after_view);
+			sqlparser_string_free(baseline_sql);
+			sqlparser_string_free(baseline_view);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		/* A failed in-place batch is destroy-only. Each attempt gets a fresh parse. */
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+		status = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (status != SQLPARSER_STATUS_OK || handle == NULL ||
 		    sqlparser_deparse(handle, &after_sql, &error) !=
 			    SQLPARSER_STATUS_OK ||
 		    sqlparser_export_view_json(handle, 0, &after_view, &error) !=
@@ -620,7 +654,7 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 		    strcmp(after_view, baseline_view) != 0) {
 			fprintf(
 				stderr,
-				"FAIL [SSL006 sqlserver-surface-rollback]: iteration %lu changed the handle: %s\n",
+				"FAIL [SSL006 sqlserver-surface-failure]: iteration %lu fresh parse differs: %s\n",
 				(unsigned long)iteration,
 				error.message);
 			sqlparser_string_free(after_sql);
@@ -636,7 +670,7 @@ static int verify_sqlserver_surface_state_failure_rollback(void)
 		after_view = NULL;
 	}
 	if (verify_sqlserver_closure(
-		    "SSL006", "sqlserver-surface-rollback", handle, NULL, 0, NULL) != 0) {
+		    "SSL006", "sqlserver-surface-failure", handle, NULL, 0, NULL) != 0) {
 		sqlparser_string_free(baseline_sql);
 		sqlparser_string_free(baseline_view);
 		sqlparser_handle_destroy(handle);
@@ -1668,7 +1702,7 @@ int main(void)
 	if (verify_sqlserver_assignment_value_clone_state() != 0) {
 		failed = 1;
 	}
-	if (verify_sqlserver_surface_state_failure_rollback() != 0) {
+	if (verify_sqlserver_surface_state_failure_poisoning() != 0) {
 		failed = 1;
 	}
 	if (verify_sqlserver_partition_generated_identifier() != 0) {

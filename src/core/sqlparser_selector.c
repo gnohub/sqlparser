@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,12 @@
 
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
+
+#ifdef SQLPARSER_DISABLE_INSERT_SELECTOR_FAST_PATH
+#define SQLPARSER_INSERT_SELECTOR_FAST_PATH_ENABLED 0
+#else
+#define SQLPARSER_INSERT_SELECTOR_FAST_PATH_ENABLED 1
+#endif
 
 sqlparser_status_t sqlparser_selector_apply_single_patch(
 	sqlparser_handle_t *handle,
@@ -572,6 +579,65 @@ sqlparser_status_t sqlparser_selector_parse(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* Decimal selector indices are ASCII, just like ungrouped %zu. Avoid the
+ * variadic formatter on the per-cell export path, retaining the buffer limit. */
+static int sqlparser_selector_append_index(
+	char *buffer,
+	size_t capacity,
+	size_t *length,
+	size_t value)
+{
+	char digits[sizeof(size_t) * CHAR_BIT];
+	size_t count;
+
+	count = 0U;
+	do {
+		digits[count++] = (char)('0' + value % 10U);
+		value /= 10U;
+	} while (value != 0U);
+	if (*length >= capacity || capacity - *length <= 2U ||
+	    count >= capacity - *length - 2U) {
+		return -1;
+	}
+	buffer[(*length)++] = '[';
+	do {
+		buffer[(*length)++] = digits[--count];
+	} while (count != 0U);
+	buffer[(*length)++] = ']';
+	return 0;
+}
+
+static int sqlparser_selector_format_insert_cell(
+	const sqlparser_selector_t *selector,
+	char *buffer,
+	size_t capacity)
+{
+	static const char suffix[] = ".insert_cell";
+	size_t length;
+
+	if (capacity <= sizeof("stmt") - 1U) {
+		return -1;
+	}
+	memcpy(buffer, "stmt", sizeof("stmt") - 1U);
+	length = sizeof("stmt") - 1U;
+	if (sqlparser_selector_append_index(
+		    buffer, capacity, &length, selector->statement_index) != 0 ||
+	    sizeof(suffix) > capacity - length) {
+		return -1;
+	}
+	memcpy(buffer + length, suffix, sizeof(suffix) - 1U);
+	length += sizeof(suffix) - 1U;
+	if (sqlparser_selector_append_index(
+		    buffer, capacity, &length, selector->row_index) != 0 ||
+	    sqlparser_selector_append_index(
+		    buffer, capacity, &length, selector->column_index) != 0 ||
+	    length > INT_MAX) {
+		return -1;
+	}
+	buffer[length] = '\0';
+	return (int)length;
+}
+
 sqlparser_status_t sqlparser_selector_format(
 	const sqlparser_selector_t *selector,
 	char **out_text,
@@ -780,13 +846,15 @@ sqlparser_status_t sqlparser_selector_format(
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
-			length = snprintf(
-				buffer,
-				sizeof(buffer),
-				"stmt[%zu].insert_cell[%zu][%zu]",
-				selector->statement_index,
-				selector->row_index,
-				selector->column_index);
+			if (SQLPARSER_INSERT_SELECTOR_FAST_PATH_ENABLED) {
+				length = sqlparser_selector_format_insert_cell(
+					selector, buffer, sizeof(buffer));
+			} else {
+				length = snprintf(buffer, sizeof(buffer),
+					"stmt[%zu].insert_cell[%zu][%zu]",
+					selector->statement_index, selector->row_index,
+					selector->column_index);
+			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:
 			length = snprintf(
@@ -910,11 +978,12 @@ sqlparser_status_t sqlparser_selector_format(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	*out_text = sqlparser_strdup(buffer);
+	*out_text = (char *)malloc((size_t)length + 1U);
 	if (*out_text == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	memcpy(*out_text, buffer, (size_t)length + 1U);
 
 	return SQLPARSER_STATUS_OK;
 }

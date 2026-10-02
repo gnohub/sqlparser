@@ -1,5 +1,9 @@
 # PostgreSQL Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file records PostgreSQL default-dialect coverage against the official
 PostgreSQL SQL Commands documentation. The complete checklist is
 [postgresql_official_syntax_coverage.csv](postgresql_official_syntax_coverage.csv).
@@ -53,8 +57,9 @@ list still emits its list selector and can materialize the list, append a VALUES
 cell while keeping the list omitted, or replace an existing cell; explicit
 lists retain paired insertion. Two executable cases and 6 independent patches
 verify these boundaries; the three patches in the omitted-list case run
-independently. Core API unit tests verify final equal-width validation and
-whole-batch rollback.
+independently. Final equal-width validation remains required. In this version,
+failure
+releases state and marks the handle failed instead of rolling back.
 
 Query Graph preserves delimiter state independently for the database, schema,
 and object segments of a relation and for each DML target column; no true flag

@@ -1,5 +1,36 @@
 # 测试说明
 
+## 全流程性能回归覆盖
+
+`tools/sqlparser_pipeline_bench.c` 使用显式 MySQL 方言，每次重新解析 SQL、
+构建 QueryGraph、遍历真实 selector 并构造 patch，一次提交整批修改，最后取得
+新分配的 SQL。完整输出逐字节比较与对象销毁放在计时之外，销毁单独报告。
+5,000 行固定样例及复现命令见
+[`bench/README.md`](../bench/README.md)。
+
+新增或扩展的回归程序：
+
+- `test_protobuf_node`、`test_protobuf_fastpath`：精确描述符约束、通用与快速路径
+  字节一致性、未知与重复 wire 字段、畸形输入、缓冲区编码、分配失败及确定性模糊测试
+- `test_mysql_validation_observer`：存活树校验与解包回退一致性、解析上下文生命周期、
+  解析与方言错误优先级、语句数限制，以及错误输出为 NULL 时的畸形 SQL
+- `test_mysql_scanner_differential`：掩码、引号与注释、原文位置映射、语句边界、
+  缺失关键词快速判定及可用 locale 下的行为
+- `test_surface_scanner_differential`：逐位置比较各方言原文扫描，覆盖引号、
+  注释、畸形输入、随机字节及 locale
+- `test_insert_graph_fast_paths`：原生字面量与回退图构建、selector 边界、图扩容、
+  关系绑定、改写与失败后失效清理
+- `test_insert_string_batch`、`test_ascii_string_validation`：SQL 与类型化字符串
+  替换、原文保留、片段限制及整批失败后失效清理
+- `test_validation_arena`：序列化回退路径的分配失败清理
+- `test_distinct_handle_concurrency`：13 个方言入口上的独立 handle 并发；
+  `./bin/test_distinct_handle_concurrency 20` 覆盖 1,040 次小样例及 80 次大批量
+  MySQL 生命周期，不表示同一个 handle 可并发修改
+
+GNU 链接器构建启用 observer 和分配包装检查；不提供 pthreads 的 Windows
+并发用例会明确跳过。性能数据属于诊断结果，不作为依赖机器速度的单元测试阈值。
+
+
 `tests/` 目录用于记录和验证 `sqlparser` 的功能覆盖。
 
 ## 目录结构
@@ -52,6 +83,48 @@ make test
 - `make test-loop LOOP=50`
 - `make verify`
 
+## 内存检查
+
+Linux AArch64、Valgrind 3.27.1 下执行了以下检查：
+
+- 生命周期和借用输入：`test_patch_lifecycle`、`test_direct_wire_lifecycle`、`test_patch_graph_borrowed`。
+- 方言状态和结构修改：`test_mutation_dialect_state`、`test_patch_structural_rows`、`test_patch_batch`。
+- 编码、转换和分配失败：`test_protobuf_output_oom`、`test_protobuf_scalar_lifetime`、`test_parser_conversion_lifetime`、`test_validation_arena`、`test_mysql_validation_observer`、`test_protobuf_fastpath`。
+- 线程与独立 handle：`test_pg_query_thread_lifecycle`、`test_distinct_handle_concurrency`（默认 2 轮）。
+- 完整批量流程：`sqlparser_pipeline_bench 5000 1 0 literal mysql` 与 `sqlparser_pipeline_bench 5000 1 0 replace mysql`。
+
+以上 16 项均为 0 错误，退出时 0 bytes in 0 blocks，未使用抑制规则。GNU 链接包装启用了生命周期、直接编码、输出分配和校验回退的故障注入；可选的额外 mutation/structural 分配扫描未单独启用。这不是完整测试套件逐项运行 Valgrind 的结果，也不代表进程峰值内存。
+
+检查使用 `--leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --track-origins=yes --error-exitcode=99`，日志与正常计时分开。完整 Valgrind 套件入口仍为 `make verify-valgrind`。
+
+## 原位 patch 生命周期
+
+`test_patch_lifecycle` 在全部 13 个方言入口中，每个 handle 仅解析一次，连续进行
+8 轮批量 apply/deparse。每次成功的非空批次都使 generation 增加一次，并使旧的
+借用 View 失效，包括同值替换和先修改再还原；空列表保持 generation 和 View。
+generation 大于零时，deparse 可以规范化原本未改变的 SQL。COPY 同值修改用例
+改为精确检查 `FORMAT CSV, HEADER true`，保留表名和选项检查，不再要求输入的
+关键词/布尔值大小写。
+
+apply 或 deparse 失败后，handle 不可继续使用，调用者只需销毁它。测试仍检查
+selector、无效片段和资源限制的具体错误码，并验证后续覆盖不能隐藏中间错误。
+调用者输入缓冲区在成功和失败后都保持不变；已分配的独立 SQL 输出在后续修改、
+失败和 handle 销毁后仍然有效。后项 patch 引用旧 handle 内的字符串时，必须在
+前项修改使借用存储失效之前完成快照。
+
+GNU 链接包装测试逐个注入分配失败，覆盖普通 apply、deparse、MySQL 快速字符串
+批次和同一个 handle 上第二轮快速批次。失败必须进入可安全销毁的终止状态；
+可选缓存分配失败后若成功回退，仍需逐字节核对完整 SQL。专门的序列化及输出
+分配错误继续断言 `NO_MEMORY`；历史 protobuf 解包路径的通用分配错误可能报告
+`INTERNAL_ERROR`。`test_patch_batch_counts` 在既有场景矩阵中还检查 apply 期间
+整 handle 克隆次数为零。
+
+```bash
+make -j4 bin/test_patch_lifecycle bin/test_patch_batch_counts SHOW_WARNING=0
+./bin/test_patch_lifecycle
+./bin/test_patch_batch_counts
+```
+
 ## 字符串方言输出与改写回归
 
 `tests/unit/test_string_literal_surface.c` 通过库 API 验证字符串值、整句 SQL、表达式片段和来源复制，自动纳入 `make test`。共 2,367 组组合，覆盖 13 个方言入口；失败返回非零。
@@ -67,7 +140,7 @@ make bin/test_string_literal_surface
 
 - 10 组字符串覆盖普通文本、单个/连续/末尾反斜杠、路径、单引号与反斜杠的两种顺序、Unicode、字面上的 `\n`/`\t`/`\r`，以及字符串内容中的 `E'…'`。
 - SELECT 覆盖单 target、selector、target list、patch `sql`/`literal`、直接 literal setter、只读片段和 `source_selector` 复制；同时检查 INSERT cell、UPDATE assignment、WHERE literal、函数参数及注释/定界别名保护。
-- 非 PostgreSQL 入口另覆盖 `N'…'` 的读取、替换和复制。批量用例检查“替换 → 复制 → 再替换 → 再复制”的按序取值；回滚用例校验末项 selector 越界错误码，以及 SQL、完整 View 和 generation 保持不变。
+- 非 PostgreSQL 入口另覆盖 `N'…'` 的读取、替换和复制。批量用例检查“替换 → 复制 → 再替换 → 再复制”的按序取值；失败用例保留末项 selector 越界错误码断言，并检查 handle 已失效、拒绝再次使用且可以安全销毁。
 - `typed-string-boundary` 的 91 组组合检查控制字节、Unicode、非 UTF-8 字节及其与引号/反斜杠的组合，保留原有字节行为；同时检查空字符串指针和无效 SQL 片段不能被后续替换掩盖。
 - 常规字符串矩阵的期望 SQL 独立列出，不调用被测渲染器生成。每组先解析期望 SQL 并检查其字符串值，再执行改写；结果检查整句和片段的精确文本、语义值、generation、完整 View，以及输出重解析后的值和 View。
 
@@ -77,7 +150,7 @@ make bin/test_string_literal_surface
 
 ## 批量 patch 回归与性能回放
 
-`test_patch_batch` 验证批内顺序取值、重复修改、插删索引、混合操作、bind、注释、资源限制和失败回滚。性能模式将全部修改放入一个 patch list，只调用一次 `sqlparser_apply_patch()`；分别记录 parse、apply、deparse 耗时，并核对结果值。性能数据不作为依赖机器速度的测试阈值。
+`test_patch_batch` 验证批内顺序取值、重复修改、插删索引、混合操作、bind、注释、资源限制和失败后失效清理。性能模式将全部修改放入一个 patch list，只调用一次 `sqlparser_apply_patch()`；分别记录 parse、apply、deparse 耗时，并核对结果值。性能数据不作为依赖机器速度的测试阈值。
 
 ```bash
 make bin/test_patch_batch
@@ -94,9 +167,9 @@ make bin/test_patch_batch
 
 ### 批处理路径基线
 
-默认运行包括 267 组路径正向检查及其 267 组失败回滚检查、83 组依赖边界正向检查和 86 组回滚检查，以及 85 组原位 AST 批处理边界正向检查和 36 组回滚检查。覆盖 13 个方言入口；`MERGE` 仅用于支持它的 10 个入口，`INSERT ALL/FIRST` 仅用于 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦入口。检查完整 View、输出重解析后的 View、generation、来源读取顺序、bind 生命周期、表达式/参数索引移动、注释以及中间修改超限后的回滚。重复替换额外检查已引入的注释保留，以及中间片段错误不能被后续替换掩盖。伪列检查引入表达式后的编号变化。
+默认运行包括 267 组路径正向检查及其 267 组失败后失效清理检查、83 组依赖边界正向检查和 86 组失败清理检查，以及 85 组原位 AST 批处理边界正向检查和 36 组失败清理检查。覆盖 13 个方言入口；`MERGE` 仅用于支持它的 10 个入口，`INSERT ALL/FIRST` 仅用于 Oracle、Vastbase Oracle、KingbaseES Oracle 和达梦入口。检查完整 View、输出重解析后的 View、generation、来源读取顺序、bind 生命周期、表达式/参数索引移动、注释以及中间修改超限后的失败清理。重复替换额外检查已引入的注释保留，以及中间片段错误不能被后续替换掩盖。伪列检查引入表达式后的编号变化。
 
-另含 39 组节点查找正向检查及其 39 组回滚检查，可通过 `--lookup-boundaries` 单独运行。覆盖括号、CAST、嵌套函数和子查询中的 WHERE 字面量编号、赋值混合修改、乱序及重复替换、跨语句编号与失败回滚。
+另含 39 组节点查找正向检查及其 39 组失败清理检查，可通过 `--lookup-boundaries` 单独运行。覆盖括号、CAST、嵌套函数和子查询中的 WHERE 字面量编号、赋值混合修改、乱序及重复替换、跨语句编号与失败后失效清理。
 
 `patch_batch_oracle_insert_all.sql` 固定样例去掉末尾换行后为 27,530 字节，包含 50 个分支、每分支 16 列。`--fixture` 从查询图读取第 2～6 列的字符串值，通过 `sqlparser_selector_format()` 构造 250 项替换；一次提交所选前缀，核对全部 800 个值和列名，并比较修改后的 View 与输出重解析后的 View。默认测试执行完整 250 项替换。
 
@@ -155,7 +228,7 @@ make -j4 bin/test_patch_batch bin/test_patch_batch_counts SHOW_WARNING=0
 ./bin/test_patch_batch --profile merge_assignment oracle 500 500
 ```
 
-原位批处理边界用例检查定界符、单引号/反斜杠、未修改的 bind 和 national 字符串、重复修改及来源读取顺序、多行之间的来源复制、非法 selector 回滚，以及中间无效的层次表达式不能被后续覆盖掩盖。已有混合操作、资源限制、INSERT ALL/FIRST 和函数参数场景继续作为回归对照。
+原位批处理边界用例检查定界符、单引号/反斜杠、未修改的 bind 和 national 字符串、重复修改及来源读取顺序、多行之间的来源复制、非法 selector 失败清理，以及中间无效的层次表达式不能被后续覆盖掩盖。已有混合操作、资源限制、INSERT ALL/FIRST 和函数参数场景继续作为回归对照。
 
 额外边界检查 national 字符串跨类型替换、同单元格覆盖后复制、函数参数变成 bind 后的 literal 编号，以及原位替换允许的超限中间值恢复行为。多行生成器支持最多 5,000 行，不修改库的资源上限。
 
@@ -245,7 +318,7 @@ MySQL、Vastbase MySQL 和 KingbaseES MySQL 的关键词预检查合并为一次
 - Vastbase 四个显式兼容模式的解析、反解析和明确不支持语法返回码
 - KingbaseES 四个显式兼容入口的解析、反解析和 patch 回放；每种模式只保留统一入口，不按 V8/V9 分派
 - 公共 API 空指针、越界访问、错误 selector、错误 patch、畸形输入和重复解析的抗崩溃回归
-- 参数校验、资源限制、畸形 SQL、失败改写回滚和方言公共输出稳定性
+- 参数校验、资源限制、畸形 SQL、失败改写失败清理和方言公共输出稳定性
 
 ## 用例矩阵
 

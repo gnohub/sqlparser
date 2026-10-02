@@ -101,6 +101,16 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_dialect_registry.obj
 
 UNIT_TEST_BINS = \
+	$(BIN_DIR)\test_surface_scanner_differential.exe \
+	$(BIN_DIR)\test_insert_graph_fast_paths.exe \
+	$(BIN_DIR)\test_mysql_validation_observer.exe \
+	$(BIN_DIR)\test_mysql_scanner_differential.exe \
+	$(BIN_DIR)\test_protobuf_fastpath.exe \
+	$(BIN_DIR)\test_distinct_handle_concurrency.exe \
+	$(BIN_DIR)\test_ascii_string_validation.exe \
+	$(BIN_DIR)\test_protobuf_node.exe \
+	$(BIN_DIR)\test_insert_string_batch.exe \
+	$(BIN_DIR)\test_validation_arena.exe \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
 	$(BIN_DIR)\test_bind_occurrence_internal.exe \
@@ -171,6 +181,16 @@ cli: $(CLI_BIN)
 examples: $(EXAMPLE_BINS)
 
 test: all $(UNIT_TEST_BINS) examples
+	$(BIN_DIR)\test_surface_scanner_differential.exe
+	$(BIN_DIR)\test_insert_graph_fast_paths.exe
+	$(BIN_DIR)\test_mysql_validation_observer.exe
+	$(BIN_DIR)\test_mysql_scanner_differential.exe
+	$(BIN_DIR)\test_protobuf_fastpath.exe
+	$(BIN_DIR)\test_distinct_handle_concurrency.exe
+	$(BIN_DIR)\test_ascii_string_validation.exe
+	$(BIN_DIR)\test_protobuf_node.exe
+	$(BIN_DIR)\test_insert_string_batch.exe
+	$(BIN_DIR)\test_validation_arena.exe
 	$(BIN_DIR)\test_api_smoke.exe
 	$(BIN_DIR)\test_api_case_matrix.exe
 	$(BIN_DIR)\test_bind_occurrence_internal.exe
@@ -542,3 +562,33 @@ $(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe: examples\con
 $(BIN_DIR)\examples\patch\19_oracle_multi_insert_patch.exe: examples\patch\19_oracle_multi_insert_patch.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
 	$(CC) $(CFLAGS) /Fe$@ examples\patch\19_oracle_multi_insert_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_distinct_handle_concurrency.exe: tests\unit\test_distinct_handle_concurrency.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_distinct_handle_concurrency.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_ascii_string_validation.exe: tests\unit\test_ascii_string_validation.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_ascii_string_validation.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_protobuf_node.exe: tests\unit\test_protobuf_node.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_protobuf_node.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_insert_string_batch.exe: tests\unit\test_insert_string_batch.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_string_batch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_validation_arena.exe: tests\unit\test_validation_arena.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_validation_arena.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_mysql_validation_observer.exe: tests\unit\test_mysql_validation_observer.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_mysql_validation_observer.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_mysql_scanner_differential.exe: tests\unit\test_mysql_scanner_differential.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_mysql_scanner_differential.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_protobuf_fastpath.exe: tests\unit\test_protobuf_fastpath.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_protobuf_fastpath.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_insert_graph_fast_paths.exe: tests\unit\test_insert_graph_fast_paths.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_graph_fast_paths.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_surface_scanner_differential.exe: tests\unit\test_surface_scanner_differential.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_surface_scanner_differential.c /link $(LDFLAGS) $(LDLIBS)

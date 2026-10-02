@@ -124,6 +124,24 @@ When the generation is greater than `0`, a non-control-flow handle uses the
 control-flow handle generates SQL from its current control-flow and statement
 state.
 
+### 3.6 Patch Lifecycle
+
+The initial parse creates one public handle, reused for repeated successful
+patch/deparse rounds. Apply does not retain a whole-handle rollback clone.
+SQL-rewrite paths first build an owned plan, release the old AST, graph, and
+dialect state, and then parse the new SQL for mandatory validation. This reduces
+coexistence of old and new state; it does not eliminate temporary SQL buffers,
+parser allocations, or validation work. Existing resource limits are unchanged.
+
+Patches read sequential current state. Generic mutation snapshots borrowed
+patch input strings before invalidation, but resolves `source_selector` values
+at their turn. A confirmed error stops processing; checks deferred to a combined
+final validation can report errors later. Failed apply/deparse releases partial
+state, marks the same handle failed, and requires one final destroy. Successful
+deparse retains the handle and returns an independent allocation. See
+[Release notes](../RELEASE_NOTES.en.md) for the semantic breaking
+change and borrowed-view rules.
+
 ## 4. Data Model and Caching
 
 A `sqlparser_handle_t` holds the following categories of data:
@@ -138,7 +156,8 @@ Caching behavior is:
 - only the required canonical syntax tree is created during the initial parse
 - deparsing an unchanged generation-`0` handle copies the original SQL
 - View JSON and other derived outputs are generated on demand
-- a successful rewrite invalidates the derived caches
+- every nonempty apply invalidates derived caches and borrowed views, including
+  identical-value and modify-then-undo batches; a successful empty list preserves them
 - subsequent structural reads regenerate those derived results from the latest AST
 
 ## 5. Public API Organization

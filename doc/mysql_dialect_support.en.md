@@ -1,5 +1,9 @@
 # MySQL Dialect Support
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 `SQLPARSER_DIALECT_MYSQL` provides a conversion layer from MySQL SQL to the
 current `sqlparser` AST model. Callers select it explicitly through
 `sqlparser_parse_with_options()`; when no dialect is specified, parsing uses the
@@ -68,7 +72,8 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
   value-only patch can append a VALUES cell while keeping the list omitted, and
   an explicit list continues to support paired insertion on both sides. If an
   explicit list exists when the patch batch finishes, the core patch API
-  validates equal column/value widths and rolls back the batch on failure.
+  validates equal column/value widths; failure releases state and marks the
+  handle failed, which must then be destroyed.
 - Query Graph uses `alias_quoted_identifier` for backtick-delimited relation
   aliases and `output_quoted_identifier` for explicit backtick-delimited output
   aliases or inherited backtick-delimited field names when no explicit alias

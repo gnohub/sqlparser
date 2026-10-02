@@ -956,7 +956,7 @@ sqlparser_status_t sqlparser_assignment_set_sql_by_selector(
 		return status;
 	}
 
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		selector->statement_index,
 		sql_text,
@@ -1069,7 +1069,7 @@ sqlparser_status_t sqlparser_assignment_insert_sql_by_selector(
 		return status;
 	}
 
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		selector->statement_index,
 		assignment_sql,
@@ -1242,22 +1242,13 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	if (handle->dialect_state != NULL) {
-		if (handle->dialect_ops == NULL ||
-		    handle->dialect_ops->clone_state == NULL) {
-			sqlparser_error_set_message(
-				out_error,
-				SQLPARSER_STATUS_INTERNAL_ERROR,
-				"dialect state cannot be cloned");
-			return SQLPARSER_STATUS_INTERNAL_ERROR;
-		}
-		status = handle->dialect_ops->clone_state(
-			handle->dialect_state,
-			&candidate_state,
-			out_error);
+		status = sqlparser_handle_clone_dialect_state_for_mutation(
+			handle, &candidate_state, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		if (handle->dialect_ops->bind_ast_state != NULL) {
+		if (handle->dialect_ops != NULL &&
+		    handle->dialect_ops->bind_ast_state != NULL) {
 			status = handle->dialect_ops->bind_ast_state(
 				candidate_state, handle->ast, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -1268,6 +1259,8 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 		}
 	}
 
+	/* The inserted value always needs its own AST ownership, even when the
+	 * destructive mutation shares the handle's dialect state. */
 	status = sqlparser_clone_proto_node(source_target->val, &cloned_value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
@@ -1358,18 +1351,12 @@ sqlparser_status_t sqlparser_assignment_delete_by_selector(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_assignment_list_ref_t list;
-	PgQuery__Node **next_nodes;
-	PgQuery__Node **old_nodes;
 	PgQuery__Node *deleted_node;
 	size_t old_count;
-	size_t index;
-	size_t next_index;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
 	memset(&list, 0, sizeof(list));
-	next_nodes = NULL;
-	old_nodes = NULL;
 	deleted_node = NULL;
 
 	status = sqlparser_get_assignment_list_ref(handle, selector, &list, out_error);
@@ -1390,27 +1377,13 @@ sqlparser_status_t sqlparser_assignment_delete_by_selector(
 		return status;
 	}
 
-	next_nodes = sqlparser_update_alloc_node_array(old_count - 1U, out_error);
-	if (next_nodes == NULL) {
-		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
-			out_error->code :
-			SQLPARSER_STATUS_NO_MEMORY;
+	deleted_node = (*list.items)[list.assignment_index];
+	if (list.assignment_index + 1U < old_count) {
+		memmove(*list.items + list.assignment_index, *list.items + list.assignment_index + 1U,
+			(old_count - list.assignment_index - 1U) * sizeof(**list.items));
 	}
-
-	old_nodes = *list.items;
-	next_index = 0U;
-	for (index = 0U; index < old_count; index++) {
-		if (index == list.assignment_index) {
-			deleted_node = old_nodes[index];
-			continue;
-		}
-		next_nodes[next_index] = old_nodes[index];
-		next_index++;
-	}
-	*list.items = next_nodes;
 	*list.count = old_count - 1U;
-	next_nodes = NULL;
-	free(old_nodes);
+	(*list.items)[*list.count] = NULL;
 	sqlparser_free_proto_node(deleted_node);
 
 	return sqlparser_handle_commit_ast(handle, out_error);
@@ -1477,7 +1450,7 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 		return status;
 	}
 
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		selector->statement_index,
 		assignment_sql,
@@ -1778,7 +1751,7 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 		return status;
 	}
 
-	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		statement_index,
 		sql_text,

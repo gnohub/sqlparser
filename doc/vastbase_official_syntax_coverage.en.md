@@ -1,5 +1,9 @@
 # Vastbase Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file maps Vastbase compatibility modes to the current executable
 regression matrices. Vastbase publishes Oracle, MySQL, PostgreSQL, and SQL
 Server compatibility areas; `sqlparser` exposes each area through an explicit
@@ -39,7 +43,7 @@ dialect entry.
   independent patches. The project compatibility-entry paired `insert_column`
   applies only to a sink `OUTPUT ... INTO` with an explicit non-empty
   sink-column list when the OUTPUT-target and sink-column counts are strictly
-  equal before the rewrite, and atomically inserts both sides at the same
+  equal before the rewrite, and inserts both sides at the same
   ordinal. Legally unequal OUTPUT lists still parse and deparse but do not
   support paired insertion; client `OUTPUT` and `OUTPUT ... INTO` without an
   explicit sink-column list are outside this mutation boundary. Three cases
@@ -53,8 +57,7 @@ dialect entry.
   An omitted target list with VALUES exposes `target_list_selector` and may be
   materialized or remain omitted. The two sides may be temporarily unequal
   within a patch batch; if an explicit target list exists at batch completion,
-  its width must match the VALUES width or the whole batch rolls back
-  atomically. Paired deletion is unchanged, and `MERGE INSERT DEFAULT VALUES`
+  its width must match the VALUES width or the batch fails, releases state and marks the handle failed. Paired deletion is unchanged, and `MERGE INSERT DEFAULT VALUES`
   is outside this mutation boundary. This is executable project-contract
   evidence, not a claim that Vastbase server documentation defines the same
   syntax scope.

@@ -1,5 +1,8 @@
 # View JSON 手册
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 View JSON 是 `sqlparser` 对语句 query graph 和控制流拓扑的按需 JSON 导出，主要用于回归测试、集成验证和跨语言查看解析结果。业务代码优先使用公共 C 结构接口，不需要为了改写 SQL 先生成 JSON。
 
 ## 导出接口
@@ -251,7 +254,7 @@ Drop AST 中的对象由名称列表表示，没有可写 relation 节点，因�
 
 `CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不生成 DDL block/relation；方言 raw-surface DDL 只有归一为上述受支持节点后才进入该投影。Oracle、Dameng 和 Vastbase-Oracle 的 `SELECT ... INTO` 仍按普通 SELECT 输出，`INTO` 不产生 target relation。
 
-具有 `selector` 的 DDL target/reference 可以继续使用 relation `REPLACE` patch。成功 patch 后重新导出的 View 会按新 generation 重算名称分段、quoted flags、`ddl_role` 和 `source_block`；旧 C graph view 按既有 generation 规则失效，clone 与原 handle 保持独立。该能力不增加新的 selector、patch 类型或所有权规则。
+具有 `selector` 的 DDL target/reference 可以继续使用 relation `REPLACE` patch。成功 patch 后重新导出的 View 会按新 generation 重算名称分段、quoted flags、`ddl_role` 和 `source_block`；旧 C graph view 遵循本版本的非空 apply 生命周期规则；独立解析的 handle 相互独立。该能力不增加新的 selector、patch 类型或所有权规则。
 
 ## target
 
@@ -558,7 +561,7 @@ branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 
 
 MERGE INSERT 的每个 `target_columns[]` 对象包含单列 `selector`，每个 `rows[]` cell 包含完整表达式 `selector`。根 MERGE 分别使用 `stmt[S].merge_insert_column[W][C]` 和 `stmt[S].merge_insert_cell[W][C]`；嵌套 MERGE 在 `W` 前增加当前 statement 内的 DML 索引 `D`。具有 VALUES 的分支还包含 `target_list_selector`，其形式为 `stmt[S].insert_branch_columns[W]` 或嵌套形式 `stmt[S].insert_branch_columns[D][W]`；省略目标列列表时仍输出该 selector，以便物化列表或单独增加 cell。省略目标列列表的 `INSERT DEFAULT VALUES` 分支为 0 列、0 行，不输出该 selector；显式目标列列表的 DEFAULT VALUES 分支仍可能输出既有单列和目标列表 selector。
 
-单列和完整 cell selector 可分别用于 `SQLPARSER_PATCH_REPLACE`。目标列表 selector 可用于 `SQLPARSER_PATCH_INSERT_COLUMN` 的三种载荷：name-only 在 `index` 处增加目标列，value-only 在 `index` 处增加 VALUES cell，name + value 在两侧同位增加。批次中间允许列值暂时不等长；本批次触及且最终具有显式目标列列表的分支必须在提交前等宽，否则整批原子回滚。最终仍省略列表时允许 value-only。`SQLPARSER_PATCH_DELETE_COLUMN` 继续成对删除，并要求删除前存在等长的显式列表；省略列表不支持该删除。DEFAULT VALUES 没有 VALUES 列表，因此三态插入和成对删除均不支持；显式列表产生的 selector 也不会使这两类操作可用。
+单列和完整 cell selector 可分别用于 `SQLPARSER_PATCH_REPLACE`。目标列表 selector 可用于 `SQLPARSER_PATCH_INSERT_COLUMN` 的三种载荷：name-only 在 `index` 处增加目标列，value-only 在 `index` 处增加 VALUES cell，name + value 在两侧同位增加。批次中间允许列值暂时不等长；本批次触及且最终具有显式目标列列表的分支必须在成功返回前等宽，否则批次失败，释放内部状态并标记 handle 失败。最终仍省略列表时允许 value-only。`SQLPARSER_PATCH_DELETE_COLUMN` 继续成对删除，并要求删除前存在等长的显式列表；省略列表不支持该删除。DEFAULT VALUES 没有 VALUES 列表，因此三态插入和成对删除均不支持；显式列表产生的 selector 也不会使这两类操作可用。
 
 以上是本项目十三个方言入口对成功解析 MERGE 的 View 与 patch 合同，不表示对应数据库服务端均原生提供该语法。
 

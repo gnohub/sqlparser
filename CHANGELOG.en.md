@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.17.0
+
+### Performance and Memory
+
+- Optimize protobuf encoding, decoding and active-node traversal while retaining generic fallbacks for unsupported structures.
+- Reduce selector lookup/formatting, literal QueryGraph construction, source scanning and redundant parsing in eligible string INSERT batches.
+- Encode directly from the parser's raw tree and reduce temporary copies of dialect state, structural rows and internal SQL.
+
+### Calling Compatibility
+
+- Apply or deparse failure releases internal state; the handle must be destroyed and cannot be reused. Whole-handle rollback copies are removed.
+- Every nonempty apply invalidates borrowed views, including identical-value and modify-then-undo batches. Only a successful empty list preserves views.
+- Public signatures, layouts, exports and resource limits remain unchanged. Calling-rule changes and validation scope are described in the [Release notes](RELEASE_NOTES.en.md).
+
 ## 2.16.19
 
 ### Patch Batch and MySQL Preprocessing Performance
@@ -689,7 +703,7 @@
 
 - `sqlparser_graph_dml_assignment_t` adds three public span fields, changing the public structure layout. C consumers must rebuild against the 2.14.0 header. View consumers must handle the mutually exclusive `dml` and `dmls` shapes.
 - The nine executable dialect fixtures contain 2,752 final cases and 8,890 independent patches. The runner separately checks original deparse, View JSON structure, patched deparse, a second deparse after a fresh parse, and patched/fresh View equivalence.
-- The release-candidate code completed one ASan run, one UBSan run, one Valgrind run, ten full regression loops, and the full benchmark. The benchmark executed 530,100 measured operations with zero error operations; this is a stability result, not a claim of improvement over a historical baseline.
+- The release code completed one ASan run, one UBSan run, one Valgrind run, ten full regression loops, and the full benchmark. The benchmark executed 530,100 measured operations with zero error operations; this is a stability result, not a claim of improvement over a historical baseline.
 
 ## 2.13.0
 

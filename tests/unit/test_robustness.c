@@ -356,16 +356,116 @@ static int find_clause_index(
 	return 1;
 }
 
-static int verify_patch_failure_preserves_handle(sqlparser_handle_t *handle, sqlparser_dialect_t dialect)
+static int verify_validation_failure_preserves_handle(sqlparser_handle_t *handle, sqlparser_dialect_t dialect)
 {
-	if (verify_deparse_is_parseable(handle, dialect, "handle should remain parseable after failed patch") != 0) {
+	if (verify_deparse_is_parseable(handle, dialect, "handle should remain parseable after early validation failure") != 0) {
 		return 1;
+	}
+	return 0;
+}
+
+static int verify_failed_handle(sqlparser_handle_t *handle)
+{
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+	sqlparser_statement_kind_t kind;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_patch_list_t patches;
+	char *sql_text;
+	char *json_text;
+
+	sql_text = NULL;
+	json_text = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	memset(&patches, 0, sizeof(patches));
+	if (expect_true(sqlparser_statement_count(handle) == 0U,
+	                "failed handle should expose no statements") != 0) {
+		return 1;
+	}
+	status = sqlparser_statement_kind(handle, 0U, &kind, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+	                  "failed handle should reject statement access") != 0) {
+		return 1;
+	}
+	status = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+	                  "failed handle should reject new borrowed graph views") != 0) {
+		return 1;
+	}
+	status = sqlparser_export_view_json(handle, 0, &json_text, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+	                  "failed handle should reject JSON export") != 0 ||
+	    expect_true(json_text == NULL, "failed handle should return no JSON") != 0) {
+		sqlparser_string_free(json_text);
+		return 1;
+	}
+	status = sqlparser_deparse(handle, &sql_text, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+	                  "failed handle should reject deparse") != 0 ||
+	    expect_true(sql_text == NULL, "failed handle should return no SQL") != 0) {
+		sqlparser_string_free(sql_text);
+		return 1;
+	}
+	status = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+	                  "failed handle should reject even an empty patch list") != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int verify_patch_failure_and_reparse(
+	sqlparser_handle_t **handle,
+	const char *sql,
+	sqlparser_dialect_t dialect)
+{
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+
+	if (verify_failed_handle(*handle) != 0) {
+		return 1;
+	}
+	sqlparser_handle_destroy(*handle);
+	*handle = NULL;
+	memset(&error, 0, sizeof(error));
+	status = parse_with_dialect(sql, dialect, handle, &error);
+	return expect_ok(status, &error, "next validation case should use a fresh handle") ||
+	       expect_true(*handle != NULL, "fresh parse should return a handle");
+}
+
+static int test_deparse_failure_poisoning(void)
+{
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+	size_t iteration;
+
+	for (iteration = 0U; iteration < 2U; iteration++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		status = sqlparser_parse("SELECT 1", &handle, &error);
+		if (expect_ok(status, &error, "deparse failure setup should parse") != 0 ||
+		    expect_true(handle != NULL, "deparse failure setup should return a handle") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		status = sqlparser_deparse(handle, NULL, iteration == 0U ? &error : NULL);
+		if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error,
+		                  "NULL deparse output should fail on a live handle") != 0 ||
+		    verify_failed_handle(handle) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
 	}
 	return 0;
 }
 
 static int test_patch_and_clause_validation(void)
 {
+	static const char sql[] =
+		"SELECT id, name FROM public.users WHERE id = 1 ORDER BY name";
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_status_t status;
@@ -381,10 +481,7 @@ static int test_patch_and_clause_validation(void)
 	clause_sql = NULL;
 	memset(&error, 0, sizeof(error));
 
-	status = sqlparser_parse(
-		"SELECT id, name FROM public.users WHERE id = 1 ORDER BY name",
-		&handle,
-		&error);
+	status = sqlparser_parse(sql, &handle, &error);
 	if (expect_ok(status, &error, "select statement should parse") != 0 ||
 	    expect_true(handle != NULL, "select parse should return handle") != 0) {
 		sqlparser_handle_destroy(handle);
@@ -444,14 +541,15 @@ static int test_patch_and_clause_validation(void)
 	}
 
 	status = sqlparser_statement_set_clause_sql(handle, 0U, 0U, NULL, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL clause replacement SQL should be rejected") != 0) {
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL clause replacement SQL should be rejected") != 0 ||
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	status = sqlparser_statement_set_clause_sql(handle, 0U, 99U, "x", &error);
 	if (expect_not_ok(status, "out-of-range clause replacement should fail") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -464,7 +562,7 @@ static int test_patch_and_clause_validation(void)
 		"name <> 'x'",
 		&error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "append condition on non-WHERE clause should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -505,7 +603,7 @@ static int test_patch_and_clause_validation(void)
 
 	status = sqlparser_apply_patch(handle, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL patch list should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -514,7 +612,7 @@ static int test_patch_and_clause_validation(void)
 	patches.count = 1U;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "patch list with NULL items should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -527,7 +625,7 @@ static int test_patch_and_clause_validation(void)
 	patches.count = 1U;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_not_ok(status, "out-of-range replacement patch should fail") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -539,7 +637,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "replace patch without SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -552,7 +650,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "append condition with wrong selector should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -564,7 +662,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "insert assignment with wrong selector should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -576,7 +674,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "replace assignment with wrong selector should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -587,7 +685,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "delete assignment with wrong selector should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -599,7 +697,7 @@ static int test_patch_and_clause_validation(void)
 	patches.items = &patch;
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "unknown patch op should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&handle, sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -619,6 +717,9 @@ static int test_patch_and_clause_validation(void)
 
 static int test_statement_api_validation(void)
 {
+	static const char select_sql[] = "SELECT id, name FROM users WHERE id = 1";
+	static const char insert_sql[] = "INSERT INTO users (id, name) VALUES (1, 'bob')";
+	static const char update_sql[] = "UPDATE users SET name = 'bob' WHERE id = 1";
 	sqlparser_handle_t *select_handle;
 	sqlparser_handle_t *insert_handle;
 	sqlparser_handle_t *update_handle;
@@ -654,16 +755,16 @@ static int test_statement_api_validation(void)
 	valid_parts[0] = "id";
 	empty_parts[0] = "";
 
-	status = sqlparser_parse("SELECT id, name FROM users WHERE id = 1", &select_handle, &error);
+	status = sqlparser_parse(select_sql, &select_handle, &error);
 	if (expect_ok(status, &error, "select should parse") != 0) {
 		return 1;
 	}
-	status = sqlparser_parse("INSERT INTO users (id, name) VALUES (1, 'bob')", &insert_handle, &error);
+	status = sqlparser_parse(insert_sql, &insert_handle, &error);
 	if (expect_ok(status, &error, "insert should parse") != 0) {
 		sqlparser_handle_destroy(select_handle);
 		return 1;
 	}
-	status = sqlparser_parse("UPDATE users SET name = 'bob' WHERE id = 1", &update_handle, &error);
+	status = sqlparser_parse(update_sql, &update_handle, &error);
 	if (expect_ok(status, &error, "update should parse") != 0) {
 		sqlparser_handle_destroy(update_handle);
 		sqlparser_handle_destroy(insert_handle);
@@ -702,7 +803,7 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_statement_set_relation_name(select_handle, 0U, 99U, NULL, "t", &error);
 	if (expect_not_ok(status, "out-of-range relation rewrite should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -736,7 +837,7 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_insert_set_cell_literal(insert_handle, 0U, 0U, 0U, NULL, &error);
 	if (expect_not_ok(status, "NULL insert literal value should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&insert_handle, insert_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	memset(&value, 0, sizeof(value));
@@ -744,7 +845,7 @@ static int test_statement_api_validation(void)
 	status = sqlparser_insert_set_cell_literal(
 		insert_handle, 0U, 0U, 0U, &value, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "normal INSERT string literal requires string_value") != 0 ||
-	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&insert_handle, insert_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	value.kind = SQLPARSER_LITERAL_KIND_INTEGER;
@@ -752,7 +853,7 @@ static int test_statement_api_validation(void)
 	status = sqlparser_insert_set_cell_literal(
 		insert_handle, 0U, 0U, 0U, &value, &error);
 	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "normal INSERT integer literal remains int32-bounded") != 0 ||
-	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&insert_handle, insert_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_insert_cell_sql(insert_handle, 0U, 0U, 99U, &sql_text, &error);
@@ -766,7 +867,7 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_insert_set_cell_sql(insert_handle, 0U, 0U, 0U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL insert replacement SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&insert_handle, insert_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -785,12 +886,12 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_select_set_target_sql(select_handle, 0U, 0U, 99U, "id", &error);
 	if (expect_not_ok(status, "out-of-range select target replacement should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_select_set_targets_sql(select_handle, 0U, 0U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL select target list SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
@@ -806,25 +907,25 @@ static int test_statement_api_validation(void)
 	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
 	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, &identifier_path, 1U, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "wrong selector structured select replacement should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
 	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, NULL, 1U, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL columns structured select replacement should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	identifier_path.parts = empty_parts;
 	identifier_path.part_count = 1U;
 	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, &identifier_path, 1U, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "empty identifier structured select replacement should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_select_delete_target(select_handle, 0U, 0U, 99U, &error);
 	if (expect_not_ok(status, "out-of-range select target delete should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -842,7 +943,7 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_update_set_assignment_literal(update_handle, 0U, 0U, NULL, &error);
 	if (expect_not_ok(status, "NULL update assignment value should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_update_assignment_sql(update_handle, 0U, 99U, &sql_text, &error);
@@ -856,17 +957,17 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_update_set_assignment_sql(update_handle, 0U, 0U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL update assignment replacement SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_update_insert_assignment_sql(update_handle, 0U, 99U, "nickname = 'bob'", &error);
 	if (expect_not_ok(status, "out-of-range update assignment insert should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_update_insert_assignment_sql(update_handle, 0U, 1U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL update assignment insert SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
@@ -892,7 +993,7 @@ static int test_statement_api_validation(void)
 		&source_selector,
 		&error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "wrong insert selector structured update insert should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
@@ -904,7 +1005,7 @@ static int test_statement_api_validation(void)
 		&source_selector,
 		&error);
 	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "cross-statement structured update insert should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	source_selector.statement_index = 0U;
@@ -917,17 +1018,17 @@ static int test_statement_api_validation(void)
 		&source_selector,
 		&error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "empty identifier structured update insert should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_validation_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_update_set_assignment_full_sql(update_handle, 0U, 0U, "name = 'alice', nickname = 'ally'", &error);
 	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "multi-assignment full replacement should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_update_delete_assignment(update_handle, 0U, 99U, &error);
 	if (expect_not_ok(status, "out-of-range update assignment delete should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&update_handle, update_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -946,12 +1047,12 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_statement_set_where_sql(select_handle, 0U, 0U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL where replacement SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 	status = sqlparser_statement_append_where_sql(select_handle, 0U, 0U, SQLPARSER_BOOL_OPERATOR_AND, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL where append SQL should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -969,7 +1070,7 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_statement_set_literal(select_handle, 0U, 0U, NULL, &error);
 	if (expect_not_ok(status, "NULL literal value should be rejected") != 0 ||
-	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+	    verify_patch_failure_and_reparse(&select_handle, select_sql, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
 
@@ -1050,7 +1151,8 @@ static int exercise_parse_no_crash(
 			return 1;
 		}
 		if (status != SQLPARSER_STATUS_OK &&
-		    expect_true(deparsed_sql == NULL, "failed deparse should not return text") != 0) {
+		    (expect_true(deparsed_sql == NULL, "failed deparse should not return text") != 0 ||
+		     verify_failed_handle(handle) != 0)) {
 			sqlparser_string_free(deparsed_sql);
 			sqlparser_string_free(json_text);
 			sqlparser_handle_destroy(handle);
@@ -1156,6 +1258,7 @@ int main(void)
 	if (test_null_safe_entry_points() != 0 ||
 	    test_selector_validation() != 0 ||
 	    test_view_access_validation() != 0 ||
+	    test_deparse_failure_poisoning() != 0 ||
 	    test_patch_and_clause_validation() != 0 ||
 	    test_statement_api_validation() != 0 ||
 	    test_malformed_and_stress_inputs() != 0) {

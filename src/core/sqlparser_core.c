@@ -16,6 +16,7 @@
 #endif
 
 #include "protobuf/pg_query.pb-c.h"
+#include "src/pg_query_observer.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_ast_internal.h"
 #include "sqlparser_bind_occurrence_internal.h"
@@ -385,6 +386,9 @@ void sqlparser_error_from_pg(
 	const char *sql,
 	const PgQueryError *error)
 {
+	if (out_error == NULL) {
+		return;
+	}
 	if (error == NULL) {
 		sqlparser_error_set_message(out_error, code, "unknown parser error");
 		return;
@@ -1026,6 +1030,11 @@ static void sqlparser_handle_discard_ast_changes(
 		return;
 	}
 	sqlparser_handle_clear_ast(handle);
+	/* A destructive patch failure is terminal. Do not unpack an obsolete
+	 * serialization merely to restore spelling bookkeeping before destroy. */
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_IN_PLACE) != 0U) {
+		return;
+	}
 	if (handle->identifier_spelling_count == 0U ||
 	    handle->parse_tree.data == NULL) {
 		return;
@@ -1409,6 +1418,25 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	handle->patch_batch_flags = 0U;
 }
 
+/* Invalidate borrowed generations before releasing all possibly partial state.
+ * This does not destroy the public allocation; the caller must do that once. */
+void sqlparser_handle_mark_failed(sqlparser_handle_t *handle)
+{
+	unsigned long generation;
+	sqlparser_dialect_t dialect;
+	sqlparser_limits_t limits;
+
+	if (handle == NULL || handle->failed) return;
+	generation = handle->generation + 1UL;
+	dialect = handle->dialect;
+	limits = handle->limits;
+	sqlparser_handle_release_contents(handle);
+	handle->generation = generation;
+	handle->dialect = dialect;
+	handle->limits = limits;
+	handle->failed = 1;
+}
+
 sqlparser_status_t sqlparser_handle_clone(
 	const sqlparser_handle_t *source,
 	sqlparser_handle_t **out_handle,
@@ -1654,7 +1682,7 @@ void sqlparser_handle_replace_contents(
 		return;
 	}
 
-	batch_active = target->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE;
+	batch_active = target->patch_batch_flags & (SQLPARSER_PATCH_BATCH_ACTIVE | SQLPARSER_PATCH_BATCH_IN_PLACE);
 	sqlparser_handle_release_contents(target);
 	*target = *source;
 	target->patch_batch_flags |= batch_active;
@@ -1690,6 +1718,14 @@ sqlparser_status_t sqlparser_handle_flush_ast(
 			SQLPARSER_STATUS_INTERNAL_ERROR,
 			"failed to repack parse tree protobuf");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	/* The mutable AST is authoritative inside a destructive patch. The old
+	 * blob is not needed by packing or terminal failure cleanup. */
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_IN_PLACE) != 0U) {
+		free(handle->parse_tree.data);
+		handle->parse_tree.data = NULL;
+		handle->parse_tree.len = 0U;
 	}
 
 	packed = (char *)malloc(packed_size);
@@ -1800,13 +1836,16 @@ sqlparser_status_t sqlparser_handle_commit_ast_with_dialect_state(
 	previous_state = handle->dialect_state;
 	handle->dialect_state = state;
 	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status == SQLPARSER_STATUS_OK) {
+	/* Keep one owner on a terminal failure; callers may still have detached
+	 * nodes to release, so the outer patch boundary destroys the handle. */
+	if (status == SQLPARSER_STATUS_OK ||
+	    (handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_IN_PLACE) != 0U) {
 		if (previous_state != NULL &&
 		    handle->dialect_ops != NULL &&
 		    handle->dialect_ops->destroy_state != NULL) {
 			handle->dialect_ops->destroy_state(previous_state);
 		}
-		return SQLPARSER_STATUS_OK;
+		return status;
 	}
 
 	handle->dialect_state = previous_state;
@@ -3157,6 +3196,25 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* Real mutations in a public destructive batch need no rollback state.
+ * Scratch parsers/validators keep using the isolated preprocessing entry. */
+sqlparser_status_t sqlparser_handle_clone_dialect_state_for_mutation(
+	const sqlparser_handle_t *handle,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	*out_state = NULL;
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_IN_PLACE) != 0U) {
+		*out_state = handle->dialect_state;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->dialect_ops != NULL && handle->dialect_ops->clone_state != NULL) {
+		return handle->dialect_ops->clone_state(
+			handle->dialect_state, out_state, out_error);
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 void sqlparser_handle_discard_dialect_state(
 	const sqlparser_handle_t *handle,
 	void *state)
@@ -3207,6 +3265,7 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	char **out_parser_sql,
 	void **out_dialect_state,
 	sqlparser_identifier_origin_map_t **out_origins,
+	int destructive,
 	sqlparser_error_t *out_error)
 {
 	void *candidate_state;
@@ -3262,12 +3321,18 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	}
 
 	candidate_state = NULL;
-	if (handle->dialect_ops->clone_state != NULL) {
-		status = handle->dialect_ops->clone_state(handle->dialect_state, &candidate_state, out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_identifier_origin_map_destroy(origins);
-			return status;
-		}
+	if (destructive) {
+		status = sqlparser_handle_clone_dialect_state_for_mutation(
+			handle, &candidate_state, out_error);
+	} else if (handle->dialect_ops->clone_state != NULL) {
+		status = handle->dialect_ops->clone_state(
+			handle->dialect_state, &candidate_state, out_error);
+	} else {
+		status = SQLPARSER_STATUS_OK;
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_map_destroy(origins);
+		return status;
 	}
 
 	dameng_target_relation_index = 0U;
@@ -3408,6 +3473,36 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_with_origins(
 		out_parser_sql,
 		out_dialect_state,
 		out_origins,
+		0,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_for_mutation(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *public_sql,
+	const char *field_name,
+	char **out_parser_sql,
+	void **out_dialect_state,
+	sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error)
+{
+	if (out_origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"fragment identifier origins output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return sqlparser_preprocess_handle_sql_fragment_internal(
+		handle,
+		statement_index,
+		public_sql,
+		field_name,
+		out_parser_sql,
+		out_dialect_state,
+		out_origins,
+		1,
 		out_error);
 }
 
@@ -4342,11 +4437,21 @@ static sqlparser_status_t sqlparser_validate_dialect_message(
 	sqlparser_error_t *out_error)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	const uint8_t *base;
 	unsigned field_index;
 	sqlparser_status_t status;
 
 	if (message == NULL || message->descriptor == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	/* A_Const contains scalar literal wrappers only, never statements or
+	 * hierarchy operators. Avoid descriptor walks for each VALUES cell. */
+	if (message->descriptor == &pg_query__a__const__descriptor ||
+	    (message->descriptor == &pg_query__node__descriptor &&
+	     ((const PgQuery__Node *)message)->node_case ==
+		     PG_QUERY__NODE__NODE_A_CONST)) {
 		return SQLPARSER_STATUS_OK;
 	}
 	if (message->descriptor == &pg_query__merge_stmt__descriptor) {
@@ -4383,14 +4488,21 @@ static sqlparser_status_t sqlparser_validate_dialect_message(
 		}
 	}
 	descriptor = message->descriptor;
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (const uint8_t *)message;
 	for (field_index = 0U;
-	     field_index < descriptor->n_fields;
+	     field_index < field_count;
 	     field_index++) {
 		const ProtobufCFieldDescriptor *field;
 		sqlparser_hierarchy_expression_context_t child_context;
 
-		field = &descriptor->fields[field_index];
+		field = &fields[field_index];
 		if (field->type != PROTOBUF_C_TYPE_MESSAGE ||
 		    ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
 		     *(const int *)(base + field->quantifier_offset) !=
@@ -4465,13 +4577,118 @@ static sqlparser_status_t sqlparser_validate_dialect_statements(
 		out_error);
 }
 
-sqlparser_status_t sqlparser_parse_with_options(
+/* Parsing needs an AST briefly for dialect validation, then discards it.
+ * These blocks are confined to that read-only validation phase; no pointer
+ * allocated here can escape into a public handle or a mutable AST. */
+typedef struct sqlparser_validation_block {
+	struct sqlparser_validation_block *next;
+	size_t used;
+	size_t capacity;
+	max_align_t data[];
+} sqlparser_validation_block_t;
+
+typedef struct {
+	sqlparser_validation_block_t *blocks;
+} sqlparser_validation_arena_t;
+
+static void *sqlparser_validation_alloc(void *context, size_t size)
+{
+	sqlparser_validation_arena_t *arena = context;
+	sqlparser_validation_block_t *block = arena->blocks;
+	size_t alignment = sizeof(max_align_t), rounded, capacity;
+	void *result;
+
+	if (size == 0U) size = 1U;
+	if (size > SIZE_MAX - (alignment - 1U)) return NULL;
+	rounded = ((size + alignment - 1U) / alignment) * alignment;
+	if (block == NULL || rounded > block->capacity - block->used) {
+		capacity = block == NULL ? 512U :
+			(block->capacity >= 32768U ? 65536U : block->capacity * 2U);
+		if (capacity < rounded) capacity = rounded;
+		if (capacity > SIZE_MAX - sizeof(*block)) return NULL;
+		block = malloc(sizeof(*block) + capacity);
+		if (block == NULL) return NULL;
+		block->next = arena->blocks;
+		block->used = 0U;
+		block->capacity = capacity;
+		arena->blocks = block;
+	}
+	result = (unsigned char *)block->data + block->used;
+	block->used += rounded;
+	return result;
+}
+
+static void sqlparser_validation_free(void *context, void *pointer)
+{
+	/* Partial protobuf-unpack failures are released with the complete arena. */
+	(void)context;
+	(void)pointer;
+}
+
+static sqlparser_status_t sqlparser_validate_parse_tree_arena(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_validation_arena_t arena = {0};
+	ProtobufCAllocator allocator = {
+		sqlparser_validation_alloc, sqlparser_validation_free, &arena
+	};
+	sqlparser_validation_block_t *block;
+	sqlparser_status_t status;
+
+	handle->ast = pg_query__parse_result__unpack(&allocator,
+		handle->parse_tree.len, (const uint8_t *)handle->parse_tree.data);
+	if (handle->ast == NULL) {
+		status = SQLPARSER_STATUS_INTERNAL_ERROR;
+		sqlparser_error_set_message(out_error, status, "failed to unpack parse tree protobuf");
+	} else {
+		handle->statement_count = handle->ast->n_stmts;
+		status = sqlparser_validate_dialect_statements(handle, out_error);
+	}
+	/* Validation only reads the AST; discard all borrowed pointers before
+	 * releasing blocks so normal handle cleanup never sees arena storage. */
+	handle->ast = NULL;
+	while ((block = arena.blocks) != NULL) {
+		arena.blocks = block->next;
+		free(block);
+	}
+	return status;
+}
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	sqlparser_error_t *error;
+	size_t statement_count;
+	sqlparser_status_t status;
+	int observed;
+} sqlparser_validation_observer_t;
+
+static void sqlparser_observe_validation_tree(
+	const PgQuery__ParseResult *tree,
+	void *context)
+{
+	sqlparser_validation_observer_t *validation = context;
+
+	/* Only scalar outcomes survive the callback; not even the temporary
+	 * handle's ast member is assigned a parser-context pointer. */
+	validation->statement_count = tree->n_stmts;
+	validation->status = sqlparser_validate_dialect_message(
+		(const ProtobufCMessage *)tree, validation->handle, 0,
+		SQLPARSER_HIERARCHY_EXPRESSION_NONE, validation->error);
+	validation->observed = 1;
+}
+
+static sqlparser_status_t sqlparser_parse_with_options_into(
 	const char *sql,
 	const sqlparser_parse_options_t *options,
 	sqlparser_handle_t **out_handle,
+	sqlparser_handle_t *reuse_handle,
+	char **owned_sql,
 	sqlparser_error_t *out_error)
 {
 	PgQueryProtobufParseResult parse_result;
+	sqlparser_handle_t validation_handle;
+	sqlparser_validation_observer_t validation;
 	sqlparser_handle_t *handle;
 	sqlparser_status_t status;
 	sqlparser_parse_options_t effective_options;
@@ -4545,10 +4762,56 @@ sqlparser_status_t sqlparser_parse_with_options(
 		return status;
 	}
 
+	/* Only internally generated, independently owned text is consumable.
+	 * Preprocessing owns all retained dialect strings; public caller input
+	 * never enters this branch. Merge identical source/parser buffers before
+	 * allocating the raw tree and synchronous protobuf conversion tree. */
+	if (owned_sql != NULL && sql_len == parser_sql_len &&
+	    memcmp(sql, parser_sql, sql_len) == 0) {
+		free(*owned_sql);
+		*owned_sql = NULL;
+		sql = parser_sql;
+	}
+
 	sqlparser_pg_query_prepare();
-	parse_result =
-		sqlparser_parse_protobuf_preserving_identifier_spelling(
-			parser_sql);
+	memset(&validation, 0, sizeof(validation));
+	if (effective_options.dialect == SQLPARSER_DIALECT_MYSQL &&
+	    dialect_ops->take_control_state == NULL) {
+		memset(&validation_handle, 0, sizeof(validation_handle));
+		validation_handle.sql = (char *)sql;
+		validation_handle.parser_sql = parser_sql;
+		validation_handle.sql_len = sql_len;
+		validation_handle.parser_sql_len = parser_sql_len;
+		validation_handle.limits = effective_options.limits;
+		validation_handle.dialect = effective_options.dialect;
+		validation_handle.dialect_ops = dialect_ops;
+		validation_handle.dialect_state = dialect_state;
+		validation.handle = &validation_handle;
+		validation.error = out_error;
+		if (parser_sql_len >= 4096U) {
+			size_t certified_statements = 0;
+			int certified = 0;
+			parse_result =
+				pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
+					parser_sql, PG_QUERY_PARSE_DEFAULT,
+					sqlparser_observe_validation_tree, &validation,
+					&certified_statements, &certified);
+			if (certified) {
+				validation.statement_count = certified_statements;
+				validation.status = SQLPARSER_STATUS_OK;
+				validation.observed = 1;
+			}
+		} else {
+		parse_result =
+			pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
+				parser_sql, PG_QUERY_PARSE_DEFAULT,
+				sqlparser_observe_validation_tree, &validation);
+		}
+	} else {
+		parse_result =
+			sqlparser_parse_protobuf_preserving_identifier_spelling(
+				parser_sql);
+	}
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, parser_sql, parse_result.error);
 		pg_query_free_protobuf_parse_result(parse_result);
@@ -4559,7 +4822,18 @@ sqlparser_status_t sqlparser_parse_with_options(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	handle = (sqlparser_handle_t *)calloc(1U, sizeof(*handle));
+	if (parse_result.parse_tree.data == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		pg_query_free_protobuf_parse_result(parse_result);
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	handle = reuse_handle != NULL ? reuse_handle :
+		(sqlparser_handle_t *)calloc(1U, sizeof(*handle));
 	if (handle == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		pg_query_free_protobuf_parse_result(parse_result);
@@ -4572,8 +4846,11 @@ sqlparser_status_t sqlparser_parse_with_options(
 
 	handle->parser_sql = parser_sql;
 	parser_sql = NULL;
-	if (strcmp(sql, handle->parser_sql) == 0) {
+	if (sql == handle->parser_sql || strcmp(sql, handle->parser_sql) == 0) {
 		handle->sql = handle->parser_sql;
+	} else if (owned_sql != NULL) {
+		handle->sql = *owned_sql;
+		*owned_sql = NULL;
 	} else {
 		handle->sql = sqlparser_strdup(sql);
 		if (handle->sql == NULL) {
@@ -4583,7 +4860,8 @@ sqlparser_status_t sqlparser_parse_with_options(
 				dialect_ops->destroy_state(dialect_state);
 			}
 			free(handle->parser_sql);
-			free(handle);
+			if (reuse_handle == NULL) free(handle);
+			else memset(handle, 0, sizeof(*handle));
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 	}
@@ -4598,32 +4876,45 @@ sqlparser_status_t sqlparser_parse_with_options(
 	parse_result.parse_tree.data = NULL;
 	parse_result.parse_tree.len = 0U;
 
-	handle->ast = pg_query__parse_result__unpack(
-		NULL,
-		handle->parse_tree.len,
-		(const uint8_t *)handle->parse_tree.data);
-	if (handle->ast == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to unpack parse tree protobuf");
-		pg_query_free_protobuf_parse_result(parse_result);
-		sqlparser_handle_destroy(handle);
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	/* Small trees fit ordinary allocations more tightly; arena alignment and
+	 * spare block capacity otherwise raise their temporary peak memory. */
+	if (validation.observed) {
+		handle->statement_count = validation.statement_count;
+		status = validation.status;
+	} else if (handle->dialect == SQLPARSER_DIALECT_MYSQL &&
+	    dialect_ops->take_control_state == NULL && handle->parse_tree.len >= 4096U) {
+		status = sqlparser_validate_parse_tree_arena(handle, out_error);
+	} else {
+		handle->ast = pg_query__parse_result__unpack(
+			NULL,
+			handle->parse_tree.len,
+			(const uint8_t *)handle->parse_tree.data);
+		if (handle->ast == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"failed to unpack parse tree protobuf");
+			pg_query_free_protobuf_parse_result(parse_result);
+			sqlparser_handle_release_contents(handle);
+			if (reuse_handle == NULL) free(handle);
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		handle->statement_count = handle->ast->n_stmts;
+		status = sqlparser_validate_dialect_statements(
+			handle,
+			out_error);
 	}
-	handle->statement_count = handle->ast->n_stmts;
-	status = sqlparser_validate_dialect_statements(
-		handle,
-		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
-		sqlparser_handle_destroy(handle);
+		sqlparser_handle_release_contents(handle);
+		if (reuse_handle == NULL) free(handle);
 		return status;
 	}
 	status = sqlparser_validate_statement_count_limit(&handle->limits, handle->statement_count, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
-		sqlparser_handle_destroy(handle);
+		sqlparser_handle_release_contents(handle);
+		if (reuse_handle == NULL) free(handle);
 		return status;
 	}
 	if (dialect_ops->take_control_state != NULL) {
@@ -4633,7 +4924,8 @@ sqlparser_status_t sqlparser_parse_with_options(
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_control_state_release(control_state);
 				pg_query_free_protobuf_parse_result(parse_result);
-				sqlparser_handle_destroy(handle);
+				sqlparser_handle_release_contents(handle);
+				if (reuse_handle == NULL) free(handle);
 				return status;
 			}
 			control_state = NULL;
@@ -4643,6 +4935,50 @@ sqlparser_status_t sqlparser_parse_with_options(
 
 	pg_query_free_protobuf_parse_result(parse_result);
 	*out_handle = handle;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_parse_with_options(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_parse_with_options_into(sql, options, out_handle, NULL, NULL, out_error);
+}
+
+/* *owned_sql must be independent of all handle storage and is consumed on
+ * every exit. Source/selector planning is complete before entry: old SQL, AST,
+ * graph, and dialect state die before the new parser workspace is allocated. */
+sqlparser_status_t sqlparser_handle_reparse_destructive(
+	sqlparser_handle_t *handle,
+	char **owned_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *parsed = NULL;
+	unsigned long generation = handle->generation + 1UL;
+	unsigned int batch_active = handle->patch_batch_flags &
+		(SQLPARSER_PATCH_BATCH_ACTIVE | SQLPARSER_PATCH_BATCH_IN_PLACE);
+	sqlparser_status_t status;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = handle->dialect;
+	options.limits = handle->limits;
+	sqlparser_handle_release_contents(handle);
+	status = sqlparser_parse_with_options_into(
+		*owned_sql, &options, &parsed, handle, owned_sql, out_error);
+	free(*owned_sql);
+	*owned_sql = NULL;
+	handle->generation = generation;
+	handle->limits = options.limits;
+	handle->dialect = options.dialect;
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_mark_failed(handle);
+		return status;
+	}
+	handle->patch_batch_flags |= batch_active;
+	handle->surface_source_complete = 1;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -4684,7 +5020,7 @@ size_t sqlparser_statement_count(const sqlparser_handle_t *handle)
 }
 
 
-sqlparser_status_t sqlparser_deparse(
+static sqlparser_status_t sqlparser_deparse_current(
 	const sqlparser_handle_t *handle,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -4863,6 +5199,18 @@ cleanup:
 	pg_query_free_deparse_result(deparse_result);
 	if (clear_ast_after_deparse) {
 		sqlparser_handle_clear_ast(mutable_handle);
+	}
+	return status;
+}
+
+sqlparser_status_t sqlparser_deparse(
+	const sqlparser_handle_t *handle,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status = sqlparser_deparse_current(handle, out_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_mark_failed((sqlparser_handle_t *)handle);
 	}
 	return status;
 }

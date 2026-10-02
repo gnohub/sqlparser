@@ -14,6 +14,13 @@
 #include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
 
+/* Private ablation switch for same-source correctness/performance comparisons. */
+#ifdef SQLPARSER_DISABLE_INSERT_GRAPH_FAST_PATHS
+#define SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED 0
+#else
+#define SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED 1
+#endif
+
 typedef struct {
 	char *name;
 	sqlparser_bind_kind_t kind;
@@ -3731,6 +3738,8 @@ static int sqlparser_view_node_source_location(
 	size_t *out_location)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	const ProtobufCMessage *message;
 	uint8_t *base;
 	unsigned index;
@@ -3743,13 +3752,20 @@ static int sqlparser_view_node_source_location(
 	if (descriptor == NULL) {
 		return 0;
 	}
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 		ProtobufCMessage *child;
 		int32_t *location;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if (field->type != PROTOBUF_C_TYPE_MESSAGE ||
 		    field->label == PROTOBUF_C_LABEL_REPEATED ||
 		    ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
@@ -6131,6 +6147,8 @@ typedef struct {
 typedef struct {
 	sqlparser_handle_t *handle;
 	sqlparser_query_graph_cache_t *cache;
+	const char *literal_parser_sql;
+	size_t literal_parser_sql_length;
 	sqlparser_view_bind_position_cache_t *bind_positions;
 	sqlparser_statement_graph_t *statement;
 	size_t statement_index;
@@ -6148,6 +6166,7 @@ typedef struct {
 	int selector_cache_failed;
 	sqlparser_graph_pointer_index_t *node_indices;
 	size_t node_index_count;
+	int node_index_sorted;
 	size_t node_index_capacity;
 	sqlparser_graph_pointer_index_t *relation_indices;
 	size_t relation_index_count;
@@ -6362,6 +6381,36 @@ static size_t sqlparser_graph_selector_cache_find(
 	return (size_t)-1;
 }
 
+/* Keep the original selector ordinal while indexing node pointers for lookup.
+ * Other selector arrays remain in traversal order because they are also indexed
+ * directly. Equal pointers are ordered by ordinal to preserve first-match rules. */
+static int sqlparser_graph_node_index_compare(const void *left, const void *right)
+{
+	const sqlparser_graph_pointer_index_t *a = left;
+	const sqlparser_graph_pointer_index_t *b = right;
+	uintptr_t ap = (uintptr_t)a->pointer;
+	uintptr_t bp = (uintptr_t)b->pointer;
+
+	if (ap != bp) return ap < bp ? -1 : 1;
+	return a->index < b->index ? -1 : a->index != b->index;
+}
+
+static size_t sqlparser_graph_node_index_find(
+	const sqlparser_graph_pointer_index_t *items, size_t count, const void *pointer)
+{
+	size_t left = 0U, right = count;
+	uintptr_t key = (uintptr_t)pointer;
+
+	if (pointer == NULL) return (size_t)-1;
+	while (left < right) {
+		size_t middle = left + (right - left) / 2U;
+		if ((uintptr_t)items[middle].pointer < key) left = middle + 1U;
+		else right = middle;
+	}
+	return left < count && items[left].pointer == pointer ?
+		items[left].index : (size_t)-1;
+}
+
 static void sqlparser_graph_selector_cache_clear(sqlparser_graph_build_t *build)
 {
 	if (build == NULL) {
@@ -6376,6 +6425,7 @@ static void sqlparser_graph_selector_cache_clear(sqlparser_graph_build_t *build)
 	build->select_target_list_indices = NULL;
 	build->name_indices = NULL;
 	build->node_index_count = 0U;
+	build->node_index_sorted = 0;
 	build->relation_index_count = 0U;
 	build->select_target_list_index_count = 0U;
 	build->name_index_count = 0U;
@@ -6471,6 +6521,8 @@ static int sqlparser_graph_selector_cache_collect(
 	sqlparser_error_t *out_error)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	unsigned index;
 
@@ -6481,6 +6533,9 @@ static int sqlparser_graph_selector_cache_collect(
 	if (descriptor == NULL) {
 		return 0;
 	}
+	/* AConst's scalar payload has no identifiers, relations or nested Node
+	 * selectors. Its enclosing Node was already recorded by the caller. */
+	if (descriptor == &pg_query__a__const__descriptor) return 0;
 	if (descriptor == &pg_query__range_var__descriptor &&
 	    sqlparser_graph_selector_cache_append(
 		    &build->relation_indices,
@@ -6500,11 +6555,18 @@ static int sqlparser_graph_selector_cache_collect(
 		    out_error) != 0) {
 		return -1;
 	}
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
 			const int case_value = *(const int *)(base + field->quantifier_offset);
 
@@ -6647,7 +6709,13 @@ static size_t sqlparser_graph_find_cached_value_index(
 		return (size_t)-1;
 	}
 	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
-		return sqlparser_graph_selector_cache_find(
+		if (!build->node_index_sorted) {
+			if (build->node_index_count > 1U) qsort(build->node_indices,
+				build->node_index_count, sizeof(*build->node_indices),
+				sqlparser_graph_node_index_compare);
+			build->node_index_sorted = 1;
+		}
+		return sqlparser_graph_node_index_find(
 			build->node_indices,
 			build->node_index_count,
 			node);
@@ -6717,6 +6785,7 @@ static int sqlparser_graph_value_from_node(
 	PgQuery__Node *value_node,
 	const sqlparser_graph_like_escape_t *like_escape,
 	sqlparser_graph_value_t *out_value,
+	int include_selector,
 	sqlparser_error_t *out_error);
 static char **sqlparser_graph_column_ref_name_slot(
 	PgQuery__ColumnRef *column_ref);
@@ -11026,6 +11095,7 @@ static int sqlparser_graph_build_expression(
 				argument_node,
 				NULL,
 				&value,
+				1,
 				out_error);
 			if (value_status < 0) {
 				free(argument_starts);
@@ -11338,6 +11408,7 @@ static int sqlparser_graph_add_target_value_from_node(
 		value_node,
 		NULL,
 		&value,
+		1,
 		out_error);
 	if (value_status < 0) {
 		return -1;
@@ -12897,6 +12968,77 @@ static PgQuery__CommonTableExpr *sqlparser_graph_find_cte(
 	return NULL;
 }
 
+/* A simple native VALUES insert only needs the target relation selector and
+ * positional INSERT_CELL selectors. Prove that shape before avoiding the
+ * generic node/name inventory; any later generic lookup still builds it in full.
+ * In particular, do not infer this from the first row or from statement kind. */
+static int sqlparser_graph_is_literal_values_insert(
+	const sqlparser_graph_build_t *build,
+	const PgQuery__RangeVar *relation)
+{
+	const PgQuery__InsertStmt *insert;
+	const PgQuery__SelectStmt *values;
+	size_t row_index;
+	size_t column_index;
+
+	if (build == NULL || build->collect_relation_bindings ||
+	    build->dml_tail_select != NULL || build->statement_node == NULL ||
+	    build->statement_node->node_case != PG_QUERY__NODE__NODE_INSERT_STMT ||
+	    (insert = build->statement_node->insert_stmt) == NULL ||
+	    insert->relation != relation || insert->with_clause != NULL ||
+	    insert->on_conflict_clause != NULL || insert->n_returning_list != 0U ||
+	    insert->select_stmt == NULL ||
+	    insert->select_stmt->node_case != PG_QUERY__NODE__NODE_SELECT_STMT ||
+	    (values = insert->select_stmt->select_stmt) == NULL) {
+		return 0;
+	}
+	if (values->n_values_lists == 0U || values->values_lists == NULL ||
+	    values->n_distinct_clause != 0U || values->into_clause != NULL ||
+	    values->n_target_list != 0U || values->n_from_clause != 0U ||
+	    values->where_clause != NULL || values->start_with_clause != NULL ||
+	    values->connect_by_clause != NULL || values->n_group_clause != 0U ||
+	    values->having_clause != NULL || values->n_window_clause != 0U ||
+	    values->n_sort_clause != 0U || values->limit_offset != NULL ||
+	    values->limit_count != NULL || values->n_locking_clause != 0U ||
+	    values->with_clause != NULL || values->larg != NULL ||
+	    values->rarg != NULL ||
+	    (values->op != PG_QUERY__SET_OPERATION__SETOP_NONE &&
+	     values->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED)) {
+		return 0;
+	}
+	for (column_index = 0U; column_index < insert->n_cols; column_index++) {
+		const PgQuery__Node *column;
+
+		column = insert->cols != NULL ? insert->cols[column_index] : NULL;
+		if (column == NULL ||
+		    column->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+		    column->res_target == NULL || column->res_target->val != NULL ||
+		    column->res_target->n_indirection != 0U) {
+			return 0;
+		}
+	}
+	for (row_index = 0U; row_index < values->n_values_lists; row_index++) {
+		const PgQuery__Node *row;
+
+		row = values->values_lists[row_index];
+		if (row == NULL || row->node_case != PG_QUERY__NODE__NODE_LIST ||
+		    row->list == NULL || row->list->n_items == 0U ||
+		    row->list->items == NULL) {
+			return 0;
+		}
+		for (column_index = 0U; column_index < row->list->n_items; column_index++) {
+			const PgQuery__Node *value;
+
+			value = row->list->items[column_index];
+			if (value == NULL || value->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+			    value->a_const == NULL) {
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 static size_t sqlparser_graph_find_relation_selector_index(
 	sqlparser_graph_build_t *build,
 	PgQuery__RangeVar *range_var)
@@ -12908,6 +13050,11 @@ static size_t sqlparser_graph_find_relation_selector_index(
 
 	if (build == NULL || build->handle == NULL || range_var == NULL) {
 		return (size_t)-1;
+	}
+	if (SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED &&
+	    sqlparser_graph_is_literal_values_insert(build, range_var)) {
+		/* InsertStmt.relation is the first and only relation in this shape. */
+		return 0U;
 	}
 	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
 		index = sqlparser_graph_selector_cache_find(
@@ -13506,9 +13653,10 @@ static int sqlparser_graph_like_escape_from_node(
 	}
 	if (escape_node->node_case == PG_QUERY__NODE__NODE_A_CONST && escape_node->a_const != NULL) {
 		out_escape->kind = SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL;
-		status = sqlparser_fill_literal_view_from_a_const_with_sql(
+		status = sqlparser_fill_literal_view_from_a_const_with_sql_length(
 			escape_node->a_const,
-			build != NULL && build->handle != NULL ? sqlparser_effective_parser_sql(build->handle) : NULL,
+			build != NULL ? build->literal_parser_sql : NULL,
+			build != NULL ? build->literal_parser_sql_length : 0U,
 			&out_escape->literal,
 			out_error);
 		return status == SQLPARSER_STATUS_OK ? 0 : -1;
@@ -13553,6 +13701,7 @@ static int sqlparser_graph_value_from_node(
 	PgQuery__Node *value_node,
 	const sqlparser_graph_like_escape_t *like_escape,
 	sqlparser_graph_value_t *out_value,
+	int include_selector,
 	sqlparser_error_t *out_error)
 {
 	int is_system_variable;
@@ -13575,9 +13724,10 @@ static int sqlparser_graph_value_from_node(
 	out_value->field_match_kind = has_field ? field_match_kind : SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN;
 	if (value_node->node_case == PG_QUERY__NODE__NODE_A_CONST && value_node->a_const != NULL) {
 		out_value->kind = SQLPARSER_GRAPH_VALUE_LITERAL;
-		(void)sqlparser_fill_literal_view_from_a_const_with_sql(
+		(void)sqlparser_fill_literal_view_from_a_const_with_sql_length(
 			value_node->a_const,
-			build != NULL && build->handle != NULL ? sqlparser_effective_parser_sql(build->handle) : NULL,
+			build != NULL ? build->literal_parser_sql : NULL,
+			build != NULL ? build->literal_parser_sql_length : 0U,
 			&out_value->literal,
 			NULL);
 	} else if (value_node->node_case == PG_QUERY__NODE__NODE_PARAM_REF && value_node->param_ref != NULL) {
@@ -13610,7 +13760,8 @@ static int sqlparser_graph_value_from_node(
 	if (like_escape != NULL && like_escape->kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE) {
 		out_value->like_escape = *like_escape;
 	}
-	value_index = sqlparser_graph_find_cached_value_index(build, value_node);
+	value_index = include_selector ?
+		sqlparser_graph_find_cached_value_index(build, value_node) : (size_t)-1;
 	if (value_index != (size_t)-1) {
 		out_value->selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
 		out_value->selector.statement_index = build->statement_index;
@@ -13906,6 +14057,7 @@ static int sqlparser_graph_record_value_node(
 		node,
 		like_escape,
 		&value,
+		1,
 		out_error);
 	if (value_status < 0) {
 		return -1;
@@ -20189,6 +20341,7 @@ static int sqlparser_graph_fill_dml_value_fields(
 		value_node,
 		NULL,
 		&value,
+		out_selector != NULL || out_has_selector != NULL,
 		out_error);
 	if (value_status < 0) {
 		return -1;
@@ -20622,6 +20775,52 @@ static int sqlparser_graph_dml_expression_sql(
 	return 0;
 }
 
+/* Store native literal INSERT cells in their compact cache representation.
+ * The general builder also handles binds, expressions, nested DML and relation
+ * collection, and intentionally remains the fallback for those cases. */
+static int sqlparser_graph_add_insert_literal_cell(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t row_index,
+	size_t column_ordinal,
+	const PgQuery__AConst *literal,
+	size_t *out_cell_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_dml_cell_cache_t *cell;
+	size_t global_index;
+
+	if (sqlparser_query_graph_reserve_array_with_initial(
+		    (void **)&build->cache->dml_cells,
+		    &build->cache->dml_cell_capacity,
+		    build->cache->dml_cell_count + 1U,
+		    sizeof(*build->cache->dml_cells),
+		    4U,
+		    out_error) != 0) {
+		return -1;
+	}
+	global_index = build->cache->dml_cell_count;
+	cell = &build->cache->dml_cells[global_index];
+	cell->dml_index = dml_index;
+	cell->row_index = row_index;
+	cell->column_ordinal = column_ordinal;
+	cell->selector_item_index = 0U;
+	cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
+	cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+	/* Match sqlparser_graph_value_from_node, including unsupported literal
+	 * payloads and source-aware quoted-identifier handling. */
+	(void)sqlparser_fill_literal_view_from_a_const_with_sql_length(
+		literal,
+		build->literal_parser_sql,
+		build->literal_parser_sql_length,
+		&cell->payload.literal,
+		NULL);
+	*out_cell_index = global_index - build->statement->dml_cell_offset;
+	build->cache->dml_cell_count++;
+	return 0;
+}
+
 static int sqlparser_graph_add_dml_cell_from_node(
 	sqlparser_graph_build_t *build,
 	size_t dml_index,
@@ -20662,8 +20861,8 @@ static int sqlparser_graph_add_dml_cell_from_node(
 		    &cell.has_bind_sql,
 		    &cell.bind_position,
 		    &cell.has_bind_position,
-		    &cell.selector,
-		    &cell.has_selector,
+		    selector_override == NULL ? &cell.selector : NULL,
+		    selector_override == NULL ? &cell.has_selector : NULL,
 		    out_error) != 0) {
 		return -1;
 	}
@@ -22047,32 +22246,46 @@ static int sqlparser_graph_build_insert_dml(
 			}
 			for (column_index = 0U; column_index < row_node->list->n_items; column_index++) {
 				sqlparser_selector_t selector;
+				PgQuery__Node *value_node;
 				size_t cell_index;
 				int assign_insert_selector;
+				int cell_status;
 
-				memset(&selector, 0, sizeof(selector));
-				selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
-				selector.statement_index = build->statement_index;
-				selector.row_index = index;
-				selector.column_index = column_index;
 				assign_insert_selector =
 					build->statement_node != NULL &&
 					build->statement_node->node_case ==
 						PG_QUERY__NODE__NODE_INSERT_STMT &&
 					build->statement_node->insert_stmt == stmt;
 
-				if (sqlparser_graph_add_dml_cell_from_node(
-					    build,
-					    dml_index,
-					    block_index,
-					    index,
-					    index,
-					    column_index,
-					    row_node->list->items[column_index],
-					    0U,
-					    assign_insert_selector ? &selector : NULL,
-					    &cell_index,
-					    out_error) != 0 ||
+				value_node = row_node->list->items[column_index];
+				if (SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED &&
+				    assign_insert_selector && !build->collect_relation_bindings &&
+				    value_node != NULL &&
+				    value_node->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+				    value_node->a_const != NULL) {
+					cell_status = sqlparser_graph_add_insert_literal_cell(
+						build, dml_index, index, column_index,
+						value_node->a_const, &cell_index, out_error);
+				} else {
+					memset(&selector, 0, sizeof(selector));
+					selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+					selector.statement_index = build->statement_index;
+					selector.row_index = index;
+					selector.column_index = column_index;
+					cell_status = sqlparser_graph_add_dml_cell_from_node(
+						build,
+						dml_index,
+						block_index,
+						index,
+						index,
+						column_index,
+						value_node,
+						0U,
+						assign_insert_selector ? &selector : NULL,
+						&cell_index,
+						out_error);
+				}
+				if (cell_status != 0 ||
 				    (cell_index != (size_t)-1 &&
 				     sqlparser_graph_span_append_index(
 					     build,
@@ -24210,6 +24423,10 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		}
 		memset(&build, 0, sizeof(build));
 		build.handle = handle;
+		build.literal_parser_sql = sqlparser_effective_parser_sql(handle);
+		build.literal_parser_sql_length = build.literal_parser_sql == handle->parser_sql ?
+			handle->parser_sql_len : (build.literal_parser_sql != NULL ?
+				strlen(build.literal_parser_sql) : 0U);
 		build.cache = cache;
 		build.bind_positions = &bind_positions;
 		build.statement = &cache->statements[statement_index];
@@ -24407,6 +24624,10 @@ sqlparser_status_t sqlparser_collect_relation_bindings(
 		goto fail;
 	}
 	build.handle = handle;
+	build.literal_parser_sql = sqlparser_effective_parser_sql(handle);
+	build.literal_parser_sql_length = build.literal_parser_sql == handle->parser_sql ?
+		handle->parser_sql_len : (build.literal_parser_sql != NULL ?
+			strlen(build.literal_parser_sql) : 0U);
 	build.cache = cache;
 	build.bind_positions = &bind_positions;
 	build.statement = &cache->statements[0];

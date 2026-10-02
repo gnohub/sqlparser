@@ -1,5 +1,8 @@
 # 达梦方言支持
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 `SQLPARSER_DIALECT_DAMENG` 提供达梦 DM_SQL 到 `sqlparser` 当前 AST 模型的转换层。调用方需要通过 `sqlparser_parse_with_options()` 显式指定达梦方言；未指定方言时仍按 PostgreSQL 语法解析。
 
 ## 支持范围
@@ -52,12 +55,12 @@
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
 - DML 返回通道在 `dml.result_channels` 中使用 sink channel；每个返回 target 的 `sink_value` 指向 `query_graph.values[]` 中同序号的宿主 bind。
 - 多表 `UPDATE` 始终具有唯一 `dml.target_relation`；每个 assignment 的 `target_field` 关联该 relation。
-- 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
+- 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时核心 patch API 释放内部状态并标记 handle 失败，随后必须销毁该 handle。
 - Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
 - relation 限定名的定界状态按段输出：`database_quoted_identifier`、`schema_quoted_identifier`、既有的 object `quoted_identifier` 和 `link_quoted_identifier`；DML 目标列使用 `dml_column.quoted_identifier`，覆盖普通 INSERT、MERGE INSERT 及 `INSERT ALL/FIRST` 的每个分支。每个标志仅描述对应段，未定界或不存在的段不输出该键，不能由名称大小写推断；database-link target 同样保留 schema/object/link 的独立状态。
 - relation DDL 输出 `kind = "ddl"` 根 block，并以 `ddl_role = "target"|"reference"` 区分操作目标和 FK 引用；VIEW、CTAS、物化视图 target 通过 `source_block` 指向 SELECT block。DROP target 没有 relation selector，新名称也不作为 RENAME 的第二个 relation。该合同仅由当前达梦入口 fixture 证明，不自动外推到兼容入口。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
-- 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
+- 表达式片段 patch 失败会释放 AST、映射等内部状态并标记 handle 失败；须恰好销毁一次，不得继续 deparse 或复用。此前已返回且尚未释放的独立 SQL 字符串仍有效。
 
 - CTE 显式列名在来源 block 直接可枚举 targets 时按 ordinal 覆盖输出名与双引号状态；重复引用只覆盖一次，SET branch 保留底层输出。
 
@@ -71,4 +74,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 217 条用例，全部为 `status = "final"`，共包含 694 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前达梦方言矩阵包含 217 条用例，全部为 `status = "final"`，共包含 694 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾配对插入后的 9↔9 配对。

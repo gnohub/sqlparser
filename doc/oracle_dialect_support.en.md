@@ -1,5 +1,9 @@
 # Oracle Dialect Support
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 `SQLPARSER_DIALECT_ORACLE` provides a conversion layer from Oracle SQL to the
 current `sqlparser` AST model. Callers select it explicitly through
 `sqlparser_parse_with_options()`; when no dialect is specified, parsing uses the
@@ -86,14 +90,15 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   `target_path` for `CONNECT_BY_ROOT`; no separate hierarchy object is added.
 - View represents `RETURNING ... INTO` with one `kind = "sink"` channel, and
   every target's `sink_value` points to the output bind at the corresponding
-  ordinal. `insert_column` atomically inserts the target/receiver pair in the
+  ordinal. `insert_column` inserts the target/receiver pair in the
   same patch; one-sided insertion is not supported.
 - An omitted MERGE INSERT target-column list still emits
   `target_list_selector`. A column-only patch can materialize that list, a
   value-only patch can append a VALUES cell while keeping the list omitted, and
   an explicit list continues to support paired insertion on both sides. If an
   explicit list exists when the patch batch finishes, the core patch API
-  validates equal column/value widths and rolls back the batch on failure.
+  validates equal column/value widths; failure releases state and marks the
+  handle failed, which must then be destroyed.
 - Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
@@ -115,8 +120,9 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   compatibility entries.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
-- Failed expression-fragment rewrites are not committed to the handle; the
-  previous AST, bind mapping, and deparse output remain usable.
+- Failed expression-fragment patches release the AST, mapping and other
+  internal state, and mark the handle failed. Destroy it exactly once; do not
+  deparse or reuse it. Previously returned owned SQL strings remain valid.
 
 - Explicit CTE column names override directly enumerable source-block target
   names and double-quote state by ordinal. Repeated references share one

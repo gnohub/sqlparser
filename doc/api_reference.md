@@ -2,6 +2,9 @@
 
 本文档说明 `sqlparser` 公共 C API 的主要类型、生命周期规则、结构化读取接口和改写接口。
 
+本手册描述 2.17.0 的 API。patch/deparse 失败后 handle 不可复用，
+与 2.16.x 的回滚规则不同；公开 ABI 不变，详见[发布说明](../RELEASE_NOTES.md)。
+
 ## 概述
 
 `sqlparser` 以 `sqlparser_handle_t` 为中心提供能力。标准流程如下：
@@ -284,7 +287,9 @@ query graph 中既有的 bind 字段规则：
 - `sqlparser_parse()` 返回的 handle 由 `sqlparser_handle_destroy()` 释放。
 - `sqlparser_deparse()`、`sqlparser_export_view_json()` 和渲染类函数返回的字符串由 `sqlparser_string_free()` 释放。
 - C 结构视图中的字符串均为 borrowed pointer，归属 handle，不允许调用方释放。
-- 成功且实际改变 handle 的 patch 或 AST 修改后，旧的 borrowed pointer、selector 读取结果、bind occurrence view 和 query graph view 均失效。
+- parse 创建一个公开 handle；成功的 apply/deparse 可在同一 handle 上重复多轮。deparse 成功不消耗 handle。调用方输入 SQL 从不被修改；每次 deparse 成功返回独立分配的字符串，直到调用 `sqlparser_string_free()` 才失效。
+- 对有效 handle 调用 `sqlparser_apply_patch()` 或 `sqlparser_deparse()` 失败时，释放部分/内部状态并标记 handle 失败，不回滚。此后只能调用 `sqlparser_handle_destroy()`，且必须恰好一次；不得再读取、patch 或 deparse。
+- 每次非空 apply 均使旧 borrowed pointer、selector 读取结果、bind occurrence view 和 query graph view 失效，包括同值替换与先修改后撤销。只有成功的空 patch 列表保留视图。非空 apply 成功后重新获取视图，不得解引用旧借用指针；deparse 失败也使视图失效。
 - 同一个 handle 不支持并发读写，也不保证多线程只读并发安全；推荐一个线程独占一个 handle。
 
 ## 版本与名称辅助函数
@@ -351,7 +356,7 @@ query graph 中既有的 bind 字段规则：
 | `sqlparser_handle_bind_occurrences()` | 取得 handle 级 occurrence view |
 | `sqlparser_bind_occurrence_at()` | 按 0 基索引读取 occurrence |
 
-任何成功且实际改变 handle 的改写都会推进 generation，使旧 view 及其 item 中的 `key`、`sql` 指针失效；失败或 effective no-op 改写不使其失效。`key` 和 `sql` 是 handle 持有的 borrowed NUL 字符串，调用方不得释放；销毁 handle 后也不得继续访问。空列表是 `count = 0` 的成功结果，对其读取任何索引均为越界。NULL handle/view/输出指针、过期 view 或越界索引返回 `SQLPARSER_STATUS_INVALID_ARGUMENT`；构建失败返回对应错误且不提供部分结果。
+每次非空 apply 均使旧 view 及其 item 中的 `key`、`sql` 指针失效，包括同值替换与先修改后撤销。只有成功的空 patch 列表保留视图；apply/deparse 失败也使视图失效并标记 handle 失败。`key` 和 `sql` 是 handle 持有的 borrowed NUL 字符串，调用方不得释放；销毁 handle 后也不得继续访问。空列表是 `count = 0` 的成功结果，对其读取任何索引均为越界。NULL handle/view/输出指针、过期 view 或越界索引返回 `SQLPARSER_STATUS_INVALID_ARGUMENT`；构建失败返回对应错误且不提供部分结果。
 
 该列表独立于 query graph，覆盖成功解析 SQL 中函数、CAST、CASE、运算表达式、分页、子查询、DML、MERGE 和结果通道等位置的真实占位符。字符串、注释和定界标识符中的相似文本不计入。View JSON 不包含这份完整 occurrence 列表，不能从其中的语义 bind 子集反推完整结果。
 
@@ -406,7 +411,7 @@ MySQL、Vastbase-MySQL 与 KingbaseES-MySQL 的多目标 UPDATE 没有单一主�
 | `sqlparser_control_branch_t` | 可选条件 statement 索引和有序 item span |
 | `sqlparser_control_item_t` | `SQLPARSER_CONTROL_ITEM_STATEMENT` 或 `SQLPARSER_CONTROL_ITEM_NODE` 引用 |
 
-roots、`node.branches` 和 `branch.items` 都是索引池 span，必须通过 `sqlparser_control_span_index_at()` 读取，不能把 `offset` 直接当作对象索引。view 借用 handle 内存；handle 修改后 generation 变化，旧 view 失效。
+roots、`node.branches` 和 `branch.items` 都是索引池 span，必须通过 `sqlparser_control_span_index_at()` 读取，不能把 `offset` 直接当作对象索引。view 借用 handle 内存；每次非空 apply（包括同值替换）或 deparse 失败均使旧 view 失效。成功的空 patch 列表保留它。
 
 ```c
 sqlparser_control_flow_view_t flow;
@@ -606,9 +611,9 @@ MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完�
 
 ### 结构化 SQL 片段改写
 
-`sqlparser_apply_patch()` 是推荐的统一改写入口。既有 statement、selector 和结构化便捷改写函数继续保留并执行各自的公开参数校验；转换为 patch 后，共享原子失败回滚、handle generation 更新和派生缓存失效规则。
+`sqlparser_apply_patch()` 是推荐的统一改写入口。既有 statement、selector 和结构化便捷改写函数继续保留并执行各自的公开参数校验；转换为 patch 后，共享破坏性失败生命周期、handle generation 更新和派生缓存失效规则。转换前的参数校验并不意味着所有便捷接口错误都会销毁内部状态；调用方仍应在任何修改错误后停止并销毁 handle。
 
-结构化改写接口使用 selector 定位目标，将 `sqlparser_identifier_path_view_t` 等结构化输入按 handle 方言渲染，并通过同一 patch 事务应用；需要复用已有 assignment 值时，在事务候选上克隆对应节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。
+结构化改写接口使用 selector 定位目标，将 `sqlparser_identifier_path_view_t` 等结构化输入按 handle 方言渲染，并通过同一原地 patch 路径应用；需要复用已有 assignment 值时，从顺序执行的当前状态复制该值，不创建整 handle 回滚副本。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于向根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 插入新赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧；插入位置 selector 和来源 selector 均可使用 `assignment` 或 `merge_assignment`。两个 selector 必须指向同一 statement，否则函数返回 `SQLPARSER_STATUS_UNSUPPORTED`：
 
@@ -655,7 +660,7 @@ sqlparser_selector_replace_select_target_with_columns(
     &err);
 ```
 
-两个接口的输入数组均为 borrowed view，库不会在 handle 中保存调用方指针。失败时返回错误状态，并保持原 handle 不变。
+两个接口的输入数组均为 borrowed view，库不会在 handle 中保存调用方指针。修改失败不保证保留原状态；错误后应停止并销毁 handle。
 
 ## query_graph C 结构化遍历
 
@@ -671,7 +676,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
     sqlparser_error_t *out_error);
 ```
 
-`sqlparser_query_graph_view_t` 包含当前 statement 的计数和根 block 信息。view 不拥有内存，生命周期与 handle 和当前 generation 一致。
+`sqlparser_query_graph_view_t` 包含当前 statement 的计数和根 block 信息。view 不拥有内存；每次非空 apply、deparse 失败或 handle 销毁均使其失效。apply 中只有成功的空 patch 列表保留它；失效后不得解引用旧视图指针。
 
 ### 读取函数
 
@@ -786,7 +791,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `DROP TABLE`、`DROP VIEW`、`DROP MATERIALIZED VIEW` 和 `DROP FOREIGN TABLE` 将每个直接对象标记为 `TARGET`。Drop AST 使用对象名称列表而不是可写 relation 节点，因此这些 relation 没有 selector；quoted flags 仍依据各名称分段的精确来源 token 输出。
 - `CREATE VIEW`、`CREATE TABLE AS`、`CREATE MATERIALIZED VIEW`，以及 PostgreSQL、Vastbase-PostgreSQL、KingbaseES-PostgreSQL、SQL Server、Vastbase-SQL Server 与 KingbaseES-SQLServer 的 `SELECT ... INTO` 使用 query-backed DDL 形态：block `0` 是 DDL 根，目标 relation 为 `TARGET` 并通过 `source_block_index = 1` 指向来源查询入口。来源 SELECT relation 保留普通查询语义，`ddl_role = UNKNOWN`；它们位于来源查询 block 或其后代 block 中。
 - `CREATE SCHEMA`、`CREATE SEQUENCE`、`CREATE SYNONYM`、`DROP INDEX` 等非 relation DDL 不产生 DDL relation；方言 raw-surface DDL 只有在归一为上述受支持节点时才进入该投影。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 的 `SELECT ... INTO` 仍是普通 SELECT，`INTO` 不是新建 relation。
-- 具有 relation selector 的 DDL target/reference 继续使用既有 `SQLPARSER_PATCH_REPLACE`。成功 patch 后 quoted flags、名称分段、DDL role 和 source block 在新 generation 中重新构建；旧 graph view 失效，clone 与原 handle 相互独立。Drop relation 没有 selector，不能通过该 relation 投影直接 patch。
+- 具有 relation selector 的 DDL target/reference 继续使用既有 `SQLPARSER_PATCH_REPLACE`。成功 patch 后 quoted flags、名称分段、DDL role 和 source block 在新 generation 中重新构建；旧 graph view 失效，独立解析的 handle 相互独立。Drop relation 没有 selector，不能通过该 relation 投影直接 patch。
 - DDL graph 中的字符串、span 和结构仍由 handle 持有，调用方不得释放；没有新增独立所有权或生命周期规则。
 
 ### 会话状态
@@ -876,23 +881,25 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_INSERT_ARGUMENT` | 在 `expression_args` selector 的指定位置插入函数参数 |
 | `SQLPARSER_PATCH_DELETE_ARGUMENT` | 从 `expression_args` selector 的指定位置删除函数参数；允许删除至零参数 |
 
-只有候选结果相对当前 handle 发生实际变化时，`sqlparser_apply_patch()` 才提交并将 generation 递增一次，旧 query graph view 随之失效。空 patch 列表或结果无实际变化的调用不递增；任一 patch 失败时整批不提交。
+`sqlparser_apply_patch()` 按列表顺序修改同一 handle；每个 `source_selector` 读取前序 patch 执行后的当前状态。通用路径会在借用存储失效前快照 patch 输入字符串，但 source selector 对应的值仍按顺序解析，不是初始 AST 的快照。第一个已确认的错误立即停止执行；整句 SQL 解析和最终列表等宽校验等检查在合并批次后进行，因此中间片段的问题可能较晚才被确认。失败释放部分状态并标记 handle 失败，不回滚，也不提供可用的部分结果。
+
+每次成功的非空 apply 均推进 generation 并使旧视图失效，同值替换、先修改后撤销和其他 patch 形态统一处理。失败同样使视图失效，handle 只可销毁。成功的空 patch 列表保留 generation 与视图。SQL 是否相同不改变此规则。详见[发布说明](../RELEASE_NOTES.md)。
 
 `stmt[S].expression[E]` 和 `stmt[S].expression_arg[E][A]` 可作为 `SQLPARSER_PATCH_REPLACE` 的目标；`stmt[S].expression_args[E]` 用于参数插入和删除。函数统一按可变参数处理，库校验 selector、索引和结果 SQL 的可解析性，不校验函数签名、参数数量或参数类型。opaque expression 仅支持整体替换。
 
-普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但提交前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并保持原 handle 不变。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
+普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但成功返回前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT`，释放内部状态并标记 handle 失败。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
 
-Oracle、Dameng、Vastbase-Oracle 与 KingbaseES-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 使用下述独立规则。
+Oracle、Dameng、Vastbase-Oracle 与 KingbaseES-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；成功返回前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则批次失败，释放内部状态并标记 handle 失败。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 使用下述独立规则。
 
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]`、`stmt[S].merge_assignment[W][A]` 或 `stmt[S].merge_assignment[D][W][A]`。
 
 MERGE INSERT 以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标，并接受三种载荷：只提供非空 `name` 时在目标列列表的 `index` 处增加列；不提供 `name`、但从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源时，在 VALUES 的 `index` 处增加 cell；同时提供两者时，在两侧的同一 `index` 成对增加。省略目标列列表但具有 VALUES 时仍可使用该 selector：name-only 操作会物化列列表，value-only 操作保持列表省略。
 
-同一个 patch batch 可组合三种插入与单项替换，处理中允许列和值暂时不等长。批末对本批次触及且最终具有显式目标列列表的每个分支校验列数和值数相等；不相等时返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并整批原子回滚。最终仍省略目标列列表的分支允许 value-only 插入，不执行显式列等宽校验。单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标：前者通过 `sql` 提供标识符，后者通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。
+同一个 patch batch 可组合三种插入与单项替换，处理中允许列和值暂时不等长。批末对本批次触及且最终具有显式目标列列表的每个分支校验列数和值数相等；不相等时返回 `SQLPARSER_STATUS_INVALID_ARGUMENT`，释放内部状态并标记 handle 失败。最终仍省略目标列列表的分支允许 value-only 插入，不执行显式列等宽校验。单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标：前者通过 `sql` 提供标识符，后者通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。
 
 `SQLPARSER_PATCH_DELETE_COLUMN` 仍按列值对删除：使用同一 `insert_branch_columns` selector 和 `index`，并要求删除前存在等长的显式目标列与 VALUES 列表；省略列表、索引无效或删除最后一对时操作失败。`MERGE INSERT DEFAULT VALUES` 没有 VALUES 列表，因此三态插入和成对删除均返回 `SQLPARSER_STATUS_UNSUPPORTED`。省略目标列列表的 DEFAULT VALUES 分支为 0 列、0 行，不输出目标列表 selector；显式目标列列表时可能输出既有 selector，但该 selector 不会使上述操作可用。上述合同适用于本项目十三个方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。
 
-对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server、Vastbase SQL Server 和 KingbaseES SQLServer 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 在同一事务中原子插入两侧；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，handle 保持不变。
+对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng、Vastbase-Oracle 和 KingbaseES-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server、Vastbase SQL Server 和 KingbaseES SQLServer 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 将两侧作为一个配对操作插入；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，释放内部状态并标记 handle 失败，调用方必须销毁。
 
 `sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`merge_insert_cell`、`select_target` 或 assignment 的 SQL 片段；克隆 assignment 时同样接受 `assignment` 和 `merge_assignment` 两种 selector。`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
 
@@ -902,6 +909,8 @@ MERGE INSERT 以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT
 | --- | --- |
 | `sqlparser_deparse()` | 反解析当前 AST，生成 SQL 字符串 |
 | `sqlparser_string_free()` | 释放库返回的字符串 |
+
+每次 `sqlparser_deparse()` 成功都会返回独立分配的 SQL，当前 handle 仍可继续进行 apply/deparse。输出用 `sqlparser_string_free()` 释放，与 handle 销毁相互独立。失败时释放部分状态并标记 handle 失败；此后恰好销毁一次，不得继续使用。参数类型中的 `const` 不保证失败后可复用或并发只读安全。
 
 `sqlparser_deparse()` 调用成功且 handle generation 为 `0` 时，返回值与输入 SQL 按字节一致，包括标识符引用形式、大小写、关键字、空白、换行、注释、分号和多语句边界。generation 大于 `0` 时，接口根据当前 handle 状态生成 SQL，整体不适用逐字节一致性保证。必须完整反解析 AST 时，空白、大小写及 `ROW` / `ROWS` 等拼写可能规范化；已建模的分页语法家族仍按所选方言输出。
 

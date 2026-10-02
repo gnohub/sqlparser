@@ -2196,6 +2196,14 @@ static int sqlparser_mysql_is_ident_start(unsigned char c)
 	return isalpha(c) || c == '_';
 }
 
+static int sqlparser_mysql_fold_char(unsigned char c)
+{
+	/* Keep locale-sensitive uppercase ASCII (notably Turkish I) and high
+	 * bytes on libc's path. Digits, punctuation and lowercase ASCII need no
+	 * lookup. This is intentionally not the locale-blind c | 0x20 trick. */
+	return (c >= 'A' && c <= 'Z') || c >= 0x80U ? tolower(c) : c;
+}
+
 static int sqlparser_mysql_is_word_boundary(const char *text, size_t pos, size_t len)
 {
 	unsigned char prev;
@@ -2220,7 +2228,8 @@ static int sqlparser_mysql_ascii_word_equal(const char *text, size_t pos, const 
 		if (text[pos + index] == '\0') {
 			return 0;
 		}
-		if (tolower((unsigned char)text[pos + index]) != tolower((unsigned char)word[index])) {
+		if (sqlparser_mysql_fold_char((unsigned char)text[pos + index]) !=
+		    sqlparser_mysql_fold_char((unsigned char)word[index])) {
 			return 0;
 		}
 	}
@@ -2275,6 +2284,19 @@ static sqlparser_status_t sqlparser_mysql_copy_string_literal(
 	size_t literal_start;
 	sqlparser_status_t status;
 	size_t pos;
+
+	/* An ordinary single-quoted token needs no MySQL-to-PostgreSQL byte
+	 * conversion. Keep literal-origin handling identical to the character
+	 * path: raw append does not add input-origin runs of its own. */
+	if (quote == '\'') {
+		size_t end = *index + 1U + strcspn(input + *index + 1U, "'\\");
+		if (input[end] == '\'' && input[end + 1U] != '\'') {
+			status = sqlparser_mysql_buffer_append_raw_mem(
+				out, input + *index, end - *index + 1U, out_error);
+			if (status == SQLPARSER_STATUS_OK) *index = end + 1U;
+			return status;
+		}
+	}
 
 	literal_start = out->len;
 	has_backslash = 0;
@@ -2481,16 +2503,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 
 		c = input_sql[index];
 		if (sqlparser_mysql_is_dash_comment_start(input_sql, index)) {
-			while (input_sql[index] != '\0') {
-				status = sqlparser_mysql_buffer_append_char(&out, input_sql[index], out_error);
-				if (status != SQLPARSER_STATUS_OK || input_sql[index] == '\n') {
-					break;
-				}
-				index++;
-			}
-			if (status == SQLPARSER_STATUS_OK && input_sql[index] == '\n') {
-				index++;
-			}
+			size_t end = index + strcspn(input_sql + index, "\n");
+			if (input_sql[end] == '\n') end++;
+			status = sqlparser_mysql_buffer_append_raw_mem(
+				&out, input_sql + index, end - index, out_error);
+			if (status == SQLPARSER_STATUS_OK) index = end;
 		} else if (c == '-' && input_sql[index + 1U] == '-') {
 			status = sqlparser_mysql_buffer_append_mem(
 				&out,
@@ -2511,22 +2528,14 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 				index += 2U;
 			}
 		} else if (c == '/' && input_sql[index + 1U] == '*') {
-			status = sqlparser_mysql_buffer_append_char(&out, input_sql[index], out_error);
-			if (status == SQLPARSER_STATUS_OK) {
-				index++;
-			}
-			while (status == SQLPARSER_STATUS_OK && input_sql[index] != '\0') {
-				status = sqlparser_mysql_buffer_append_char(&out, input_sql[index], out_error);
-				if (input_sql[index] == '*' && input_sql[index + 1U] == '/') {
-					index++;
-					if (status == SQLPARSER_STATUS_OK) {
-						status = sqlparser_mysql_buffer_append_char(&out, input_sql[index], out_error);
-					}
-					index++;
-					break;
-				}
-				index++;
-			}
+			/* Preserve the legacy scanner's overlapping close in malformed
+			 * input with an overlapping opener/closer followed by quotes. */
+			const char *close = strstr(input_sql + index + 1U, "*/");
+			size_t end = close != NULL ? (size_t)(close - input_sql) + 2U :
+				index + strlen(input_sql + index);
+			status = sqlparser_mysql_buffer_append_raw_mem(
+				&out, input_sql + index, end - index, out_error);
+			if (status == SQLPARSER_STATUS_OK) index = end;
 		} else if (state != NULL && sqlparser_mysql_is_n_string_literal(input_sql + index)) {
 			size_t input_start;
 			size_t literal_start;
@@ -2564,14 +2573,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 		} else if (c == '#') {
 			status = sqlparser_mysql_buffer_append_cstr(&out, "-- ", out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				index++;
-				while (input_sql[index] != '\0' && input_sql[index] != '\n') {
-					status = sqlparser_mysql_buffer_append_char(&out, input_sql[index], out_error);
-					if (status != SQLPARSER_STATUS_OK) {
-						break;
-					}
-					index++;
-				}
+				size_t start = index + 1U;
+				size_t end = start + strcspn(input_sql + start, "\n");
+				status = sqlparser_mysql_buffer_append_raw_mem(
+					&out, input_sql + start, end - start, out_error);
+				if (status == SQLPARSER_STATUS_OK) index = end;
 			}
 		} else if (c == '?' && state != NULL) {
 			size_t output_start;
@@ -2596,14 +2602,10 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 				index++;
 			}
 		} else {
+			size_t end = index + 1U + strcspn(input_sql + index + 1U, "'\"`#?/\\-nN");
 			status = sqlparser_mysql_buffer_append_mem(
-				&out,
-				input_sql + index,
-				1U,
-				out_error);
-			if (status == SQLPARSER_STATUS_OK) {
-				index++;
-			}
+				&out, input_sql + index, end - index, out_error);
+			if (status == SQLPARSER_STATUS_OK) index = end;
 		}
 
 		if (status != SQLPARSER_STATUS_OK) {
@@ -2623,62 +2625,25 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 
 static size_t sqlparser_mysql_skip_quoted_or_comment_span(const char *sql, size_t index)
 {
+	const char *end;
 	char quote;
-	size_t pos;
 
-	if (sql == NULL) {
-		return index;
-	}
-
+	if (sql == NULL) return index;
 	quote = sql[index];
 	if (quote == '\'' || quote == '"' || quote == '`') {
-		pos = index + 1U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == quote) {
-				if (sql[pos + 1U] == quote) {
-					pos += 2U;
-					continue;
-				}
-				return pos + 1U;
-			}
-			pos++;
-		}
-		return pos;
+		end = strchr(sql + index + 1U, quote);
+		while (end != NULL && end[1] == quote) end = strchr(end + 2U, quote);
+		return end != NULL ? (size_t)(end - sql) + 1U :
+			index + 1U + strlen(sql + index + 1U);
 	}
-
-	if (sqlparser_mysql_is_dash_comment_start(sql, index)) {
-		pos = index + 2U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == '\n') {
-				return pos + 1U;
-			}
-			pos++;
-		}
-		return pos;
+	if (sqlparser_mysql_is_dash_comment_start(sql, index) || quote == '#') {
+		end = strchr(sql + index + (quote == '#' ? 1U : 2U), '\n');
+		return end != NULL ? (size_t)(end - sql) + 1U : index + strlen(sql + index);
 	}
-
-	if (sql[index] == '#') {
-		pos = index + 1U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == '\n') {
-				return pos + 1U;
-			}
-			pos++;
-		}
-		return pos;
+	if (quote == '/' && sql[index + 1U] == '*') {
+		end = strstr(sql + index + 2U, "*/");
+		return end != NULL ? (size_t)(end - sql) + 2U : index + strlen(sql + index);
 	}
-
-	if (sql[index] == '/' && sql[index + 1U] == '*') {
-		pos = index + 2U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == '*' && sql[pos + 1U] == '/') {
-				return pos + 2U;
-			}
-			pos++;
-		}
-		return pos;
-	}
-
 	return index;
 }
 
@@ -2774,77 +2739,37 @@ static sqlparser_status_t sqlparser_mysql_mask_non_code(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	for (index = 0U; index < len; index++) {
-		if (masked[index] == '\'') {
-			index++;
-			while (index < len) {
-				if (masked[index] == '\'' && masked[index + 1U] == '\'') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index += 2U;
-					continue;
-				}
-				if (masked[index] == '\'') {
+	index = 0U;
+	while (index < len) {
+		unsigned char c = (unsigned char)masked[index];
+		if (c == '\'' || c == '"' || c == '`') {
+			size_t begin = index + 1U;
+			size_t end = begin;
+			for (;;) {
+				const char *quote = memchr(masked + end, c, len - end);
+				if (quote == NULL) {
+					end = len;
 					break;
 				}
-				masked[index] = ' ';
-				index++;
+				end = (size_t)(quote - masked);
+				if (end + 1U >= len || masked[end + 1U] != (char)c) break;
+				end += 2U;
 			}
-		} else if (masked[index] == '"') {
-			index++;
-			while (index < len) {
-				if (masked[index] == '"' && masked[index + 1U] == '"') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index += 2U;
-					continue;
-				}
-				if (masked[index] == '"') {
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (masked[index] == '`') {
-			index++;
-			while (index < len) {
-				if (masked[index] == '`' && masked[index + 1U] == '`') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index += 2U;
-					continue;
-				}
-				if (masked[index] == '`') {
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (sqlparser_mysql_is_dash_comment_start(masked, index) ||
-			   masked[index] == '#') {
-			while (index < len && masked[index] != '\n') {
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (masked[index] == '/' && masked[index + 1U] == '*') {
-			masked[index] = ' ';
-			masked[index + 1U] = ' ';
-			index += 2U;
-			while (index < len) {
-				if (masked[index] == '*' && masked[index + 1U] == '/') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index++;
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
+			memset(masked + begin, ' ', end - begin);
+			index = end < len ? end + 1U : len;
+		} else if (sqlparser_mysql_is_dash_comment_start(masked, index) || c == '#') {
+			const char *newline = memchr(masked + index, '\n', len - index);
+			size_t end = newline != NULL ? (size_t)(newline - masked) : len;
+			memset(masked + index, ' ', end - index);
+			index = end < len ? end + 1U : len;
+		} else if (c == '/' && masked[index + 1U] == '*') {
+			const char *close = strstr(masked + index + 2U, "*/");
+			size_t end = close != NULL ? (size_t)(close - masked) + 2U : len;
+			memset(masked + index, ' ', end - index);
+			index = end;
+		} else {
+			masked[index++] = (char)sqlparser_mysql_fold_char(c);
 		}
-	}
-
-	for (index = 0U; index < len; index++) {
-		masked[index] = (char)tolower((unsigned char)masked[index]);
 	}
 
 	*out_masked = masked;
@@ -2941,6 +2866,28 @@ static int sqlparser_mysql_word_at(const char *masked, size_t pos, const char *w
 	return !sqlparser_mysql_is_ident_char((unsigned char)masked[pos + index]);
 }
 
+/* A conservative absence test, not a SQL lexer. Words in quotes/comments
+ * count as present. High bytes keep the full locale-sensitive path. */
+static int sqlparser_mysql_raw_word_may_appear(
+	const char *sql, size_t start, size_t end, const char *word)
+{
+	size_t pos;
+	size_t word_len = strlen(word);
+	for (pos = start; pos < end; pos++) {
+		unsigned char c = (unsigned char)sql[pos];
+		if (c >= 0x80U) return 1;
+		/* The needle is a lowercase ASCII keyword. This is only a cheap
+		 * candidate filter: matching bytes still use the locale-sensitive
+		 * comparison below, and high bytes always keep the full path. */
+		if ((c | 0x20U) != (unsigned char)word[0]) continue;
+		if (sqlparser_mysql_fold_char(c) != (unsigned char)word[0] ||
+		    (pos > start && sqlparser_mysql_is_ident_char((unsigned char)sql[pos - 1U])) ||
+		    word_len > end - pos) continue;
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, word)) return 1;
+	}
+	return 0;
+}
+
 static int sqlparser_mysql_first_top_level_word_is(const char *masked, const char *word)
 {
 	size_t pos;
@@ -3017,7 +2964,8 @@ static size_t sqlparser_mysql_find_top_level_word_between(
 			}
 			continue;
 		}
-		if (depth == 0 && sqlparser_mysql_word_at(masked, pos, word)) {
+		if (depth == 0 && masked[pos] == word[0] &&
+		    sqlparser_mysql_word_at(masked, pos, word)) {
 			return pos;
 		}
 	}
@@ -4442,20 +4390,13 @@ static sqlparser_status_t sqlparser_mysql_preprocess_prepared_statement(
 
 static size_t sqlparser_mysql_statement_end(const char *sql, size_t start)
 {
-	size_t index;
-	size_t skipped;
-
-	index = start;
+	size_t index = start;
 	while (sql[index] != '\0') {
+		size_t skipped;
+		index += strcspn(sql + index, "'\"`#/-;");
+		if (sql[index] == '\0' || sql[index] == ';') break;
 		skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, index);
-		if (skipped > index) {
-			index = skipped;
-			continue;
-		}
-		if (sql[index] == ';') {
-			break;
-		}
-		index++;
+		index = skipped > index ? skipped : index + 1U;
 	}
 	return index;
 }
@@ -4544,6 +4485,9 @@ static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
 			"MySQL executable comment input must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+
+	/* Without the exact introducer there is no executable comment to rewrite. */
+	if (strstr(*io_sql, "/*!") == NULL) return SQLPARSER_STATUS_OK;
 
 	sql = *io_sql;
 	len = strlen(sql);
@@ -5831,6 +5775,13 @@ static sqlparser_status_t sqlparser_mysql_rewrite_session_statements(
 
 	sql = *io_sql;
 	len = strlen(sql);
+	/* Known ordinary statements cannot be USE/SET/PREPARE/EXECUTE. With no
+	 * interior raw semicolon there is no later session statement to visit. */
+	if (sqlparser_mysql_known_statement_keyword_pos(sql, 0U, len) != SIZE_MAX) {
+		const char *semicolon = strchr(sql, ';');
+		if (semicolon == NULL || semicolon + 1U == sqlparser_mysql_trim_right(sql, sql + len))
+			return SQLPARSER_STATUS_OK;
+	}
 	segment_start = 0U;
 	copy_start = 0U;
 	rewritten = 0;
@@ -7831,10 +7782,17 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 		if (sqlparser_mysql_word_at(masked, body_start, "into")) {
 			body_start = sqlparser_mysql_skip_space(masked, body_start + strlen("into"));
 		}
-		set_pos = sqlparser_mysql_find_top_level_word_between(masked, "set", body_start, len);
+		/* Only the first of SET/VALUES/VALUE/SELECT can establish SET form.
+		 * Bound later searches by the earliest marker already found instead
+		 * of rescanning an arbitrarily large VALUES body for absent words. */
 		values_pos = sqlparser_mysql_find_top_level_word_between(masked, "values", body_start, len);
-		value_pos = sqlparser_mysql_find_top_level_word_between(masked, "value", body_start, len);
-		select_pos = sqlparser_mysql_find_top_level_word_between(masked, "select", body_start, len);
+		value_pos = sqlparser_mysql_find_top_level_word_between(masked, "value", body_start,
+			values_pos != (size_t)-1 ? values_pos : len);
+		select_pos = sqlparser_mysql_find_top_level_word_between(masked, "select", body_start,
+			value_pos != (size_t)-1 ? value_pos : (values_pos != (size_t)-1 ? values_pos : len));
+		set_pos = sqlparser_mysql_find_top_level_word_between(masked, "set", body_start,
+			select_pos != (size_t)-1 ? select_pos :
+			(value_pos != (size_t)-1 ? value_pos : (values_pos != (size_t)-1 ? values_pos : len)));
 		if (set_pos != (size_t)-1 &&
 		    (values_pos == (size_t)-1 || set_pos < values_pos) &&
 		    (value_pos == (size_t)-1 || set_pos < value_pos) &&
@@ -9277,6 +9235,44 @@ typedef enum {
 	SQLPARSER_MYSQL_DML_ORIGIN_ORDER_LIMIT
 } sqlparser_mysql_dml_origin_pass_t;
 
+static int sqlparser_mysql_insert_modifier_may_apply(
+	const char *sql, size_t keyword_pos, size_t end)
+{
+	size_t pos = sqlparser_mysql_skip_leading_trivia(sql, keyword_pos + 6U, end);
+	size_t depth = 0U;
+
+	if (pos >= end ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "low_priority") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "high_priority") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "delayed") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "ignore")) return 1;
+
+	/* With no modifier, only SET form can change an INSERT. As in the
+	 * masked scanner, whichever of SET/VALUES/VALUE/SELECT comes first at
+	 * top level decides the form. Stop before the potentially huge body. */
+	while (pos < end) {
+		size_t skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') depth++;
+		else if (sql[pos] == ')') {
+			if (depth > 0U) depth--;
+		} else if (depth == 0U) {
+			int c = sqlparser_mysql_fold_char((unsigned char)sql[pos]);
+			if (c == 's') {
+				if (sqlparser_mysql_ascii_word_equal(sql, pos, "set")) return 1;
+				if (sqlparser_mysql_ascii_word_equal(sql, pos, "select")) return 0;
+			} else if (c == 'v' &&
+			    (sqlparser_mysql_ascii_word_equal(sql, pos, "values") ||
+			     sqlparser_mysql_ascii_word_equal(sql, pos, "value"))) return 0;
+		}
+		pos++;
+	}
+	return 1;
+}
+
 static int sqlparser_mysql_dml_pass_may_apply(
 	const char *sql,
 	size_t start,
@@ -9286,15 +9282,17 @@ static int sqlparser_mysql_dml_pass_may_apply(
 	size_t pos;
 
 	if (pass == SQLPARSER_MYSQL_DML_ORIGIN_ON_DUPLICATE) {
-		/* This rewrite also examined non-INSERT input; retain that behavior. */
-		return 1;
+		/* Keep non-INSERT input and all ambiguous occurrences on the old
+		 * rewrite path. An absent raw word cannot occur in the masked SQL. */
+		return sqlparser_mysql_raw_word_may_appear(sql, start, end, "duplicate");
 	}
 	pos = sqlparser_mysql_known_statement_keyword_pos(sql, start, end);
 	if (pos == SIZE_MAX) return 1;
 	switch (pass) {
 		case SQLPARSER_MYSQL_DML_ORIGIN_MODIFIER:
-			return sqlparser_mysql_ascii_word_equal(sql, pos, "insert") ||
-				sqlparser_mysql_ascii_word_equal(sql, pos, "update") ||
+			if (sqlparser_mysql_ascii_word_equal(sql, pos, "insert"))
+				return sqlparser_mysql_insert_modifier_may_apply(sql, pos, end);
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "update") ||
 				sqlparser_mysql_ascii_word_equal(sql, pos, "delete") ||
 				sqlparser_mysql_ascii_word_equal(sql, pos, "replace");
 		case SQLPARSER_MYSQL_DML_ORIGIN_UPDATE_JOIN:
@@ -9610,6 +9608,23 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 			statement_index++;
 		}
 		statement_length = statement_end - segment_start;
+		{
+			sqlparser_mysql_dml_origin_pass_t pass;
+			int may_apply = 0;
+			for (pass = SQLPARSER_MYSQL_DML_ORIGIN_MODIFIER;
+			     pass <= SQLPARSER_MYSQL_DML_ORIGIN_ORDER_LIMIT;
+			     pass = (sqlparser_mysql_dml_origin_pass_t)(pass + 1)) {
+				if (sqlparser_mysql_dml_pass_may_apply(sql, segment_start, statement_end, pass)) {
+					may_apply = 1;
+					break;
+				}
+			}
+			if (!may_apply) {
+				if (statement_end >= len) break;
+				segment_start = statement_end + 1U;
+				continue;
+			}
+		}
 		statement_sql = sqlparser_strndup(sql + segment_start, statement_length);
 		if (statement_sql == NULL) {
 			sqlparser_mysql_buffer_release(&out);
@@ -14532,6 +14547,7 @@ typedef struct {
 	unsigned int index_hint : 1;
 	unsigned int table_partition : 1;
 	unsigned int locking_read : 1;
+	unsigned int limit : 1;
 } sqlparser_mysql_extension_features_t;
 
 static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions(const char *sql)
@@ -14561,7 +14577,9 @@ static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions(
 		while (sqlparser_mysql_is_ident_char((unsigned char)sql[word_end])) {
 			word_end++;
 		}
-		if (sqlparser_mysql_ascii_word_equal(sql, index, "straight_join")) {
+		if (sqlparser_mysql_ascii_word_equal(sql, index, "limit")) {
+			features.limit = 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "straight_join")) {
 			features.straight_join = 1U;
 		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "partition")) {
 			features.table_partition = 1U;
@@ -14762,15 +14780,19 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 		return status;
 	}
 
-	status = sqlparser_mysql_rewrite_limit_offset_count(
-		&quoted_sql,
-		mysql_state,
-		origins,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		free(quoted_sql);
-		sqlparser_mysql_state_destroy(mysql_state);
-		return status;
+	/* Other rewrites keep the conservative scan in case they expose tokens. */
+	if (features.limit || features.straight_join || features.index_hint ||
+	    features.table_partition || features.locking_read) {
+		status = sqlparser_mysql_rewrite_limit_offset_count(
+			&quoted_sql,
+			mysql_state,
+			origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(quoted_sql);
+			sqlparser_mysql_state_destroy(mysql_state);
+			return status;
+		}
 	}
 
 	*out_parser_sql = quoted_sql;
@@ -14933,7 +14955,9 @@ sqlparser_status_t sqlparser_mysql_preprocess_fragment_identifier_origins(
 			origins,
 			out_error);
 	}
-	if (status == SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK &&
+	    (features.limit || features.straight_join || features.index_hint ||
+	     features.table_partition || features.locking_read)) {
 		status = sqlparser_mysql_rewrite_limit_offset_count(
 			out_parser_sql,
 			mysql_state,

@@ -1,5 +1,8 @@
 # MySQL 官方语法覆盖统计
 
+本文的 patch 生命周期规则：每次非空 apply 均使借用视图失效，
+apply/deparse 失败后必须销毁失败 handle。详见[发布说明](../RELEASE_NOTES.md)。
+
 本文件记录 MySQL 方言相对于 MySQL 8.4 Reference Manual 的覆盖统计。完整逐条清单见 [mysql_official_syntax_coverage.csv](mysql_official_syntax_coverage.csv)。
 
 ## 统计来源

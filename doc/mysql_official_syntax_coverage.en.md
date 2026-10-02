@@ -1,5 +1,9 @@
 # MySQL Official Syntax Coverage
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 This file records MySQL dialect coverage against the MySQL 8.4 Reference
 Manual. The complete checklist is
 [mysql_official_syntax_coverage.csv](mysql_official_syntax_coverage.csv).

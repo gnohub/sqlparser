@@ -11,6 +11,7 @@
 extern "C"
 {
 #include "pg_query_outfuncs.h"
+#include "pg_query_observer.h"
 
 #include "postgres.h"
 #include <ctype.h>
@@ -249,6 +250,17 @@ pg_query_nodes_to_protobuf(const void *obj)
 	return protobuf;
 }
 
+/* C++ protobuf has no compatible protobuf-c tree to lend to the observer.
+ * Leaving it uncalled explicitly selects the caller's unpack fallback. */
+extern "C" PgQueryProtobuf
+pg_query_nodes_to_protobuf_observed(
+	const void *obj, PgQueryProtobufObserver observer, void *context)
+{
+	(void)observer;
+	(void)context;
+	return pg_query_nodes_to_protobuf(obj);
+}
+
 extern "C" char *
 pg_query_nodes_to_json(const void *obj)
 {
@@ -268,4 +280,16 @@ pg_query_nodes_to_json(const void *obj)
 	google::protobuf::util::MessageToJsonString(parse_result, &output);
 
 	return pstrdup(output.c_str());
+}
+
+/* No raw-node certificate is available for this backend. Preserve its
+ * established unpack-and-validate fallback without changing public types. */
+extern "C" PgQueryProtobuf
+pg_query_nodes_to_protobuf_certified(
+    const void *obj, PgQueryProtobufObserver observer, void *context,
+    size_t *statement_count, int *certified)
+{
+    *statement_count = 0;
+    *certified = 0;
+    return pg_query_nodes_to_protobuf_observed(obj, observer, context);
 }

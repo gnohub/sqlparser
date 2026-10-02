@@ -49,6 +49,7 @@
 #include <string.h>	/* for strcmp, strlen, memcpy, memmove, memset */
 
 #include "protobuf-c.h"
+#include "protobuf/pg_query.pb-c.h"
 
 #define TRUE				1
 #define FALSE				0
@@ -130,6 +131,29 @@ const char protobuf_c_empty_string[] = "";
 	assert((desc)->magic == PROTOBUF_C__SERVICE_DESCRIPTOR_MAGIC)
 
 /**@}*/
+
+/* sqlparser's bundled runtime: pg_query.Node consists exclusively of one
+ * message-valued oneof. Visiting all 268 alternatives for each AST node makes
+ * packing, unpacking and release needlessly expensive. Keep the generic path
+ * for every other descriptor and all existing member/unknown-field handling.
+ * tests/unit/test_protobuf_node.c guards the generated descriptor invariant. */
+
+static inline void
+pg_query_node_field_bounds(const ProtobufCMessageDescriptor *desc,
+                          const ProtobufCMessage *message,
+                          unsigned *first, unsigned *end)
+{
+	*first = 0;
+	*end = desc->n_fields;
+	if (desc == &pg_query__node__descriptor) {
+		const ProtobufCFieldDescriptor *field =
+			protobuf_c_message_descriptor_get_field(desc,
+				STRUCT_MEMBER(uint32_t, message,
+					desc->fields[0].quantifier_offset));
+		*first = field != NULL ? (unsigned)(field - desc->fields) : 0;
+		*end = *first + (field != NULL);
+	}
+}
 
 /* --- version --- */
 
@@ -704,16 +728,107 @@ unknown_field_get_packed_size(const ProtobufCMessageUnknownField *field)
 
 /**@}*/
 
+/* These shortcuts are deliberately tied to the generated descriptor identity,
+ * never to a name, field count, or an assumed layout of an arbitrary message.
+ * Unknown fields and other descriptors retain the complete generic path.
+ * No storage is shared with the caller or coalesced with child allocations.
+ * tests/unit/test_protobuf_fastpath.c checks the generated field contracts. */
+static inline size_t
+pg_query_string_size(const char *value)
+{
+	size_t len;
+	if (value == NULL || *value == '\0')
+		return 0;
+	len = strlen(value);
+	return 1 + uint32_size(len) + len;
+}
+
+static inline size_t
+pg_query_int32_size(int32_t value)
+{
+	return value == 0 ? 0 : 1 + int32_size(value);
+}
+
+static inline size_t
+pg_query_message_field_size(uint32_t tag, const ProtobufCMessage *value)
+{
+	size_t len;
+	if (value == NULL)
+		return 0;
+	len = protobuf_c_message_get_packed_size(value);
+	return get_tag_size(tag) + uint32_size(len) + len;
+}
+
+static protobuf_c_boolean
+pg_query_fast_packed_size(const ProtobufCMessage *message, size_t *size)
+{
+	const ProtobufCMessageDescriptor *desc = message->descriptor;
+	size_t rv;
+	if (message->n_unknown_fields != 0)
+		return FALSE;
+	if (desc == &pg_query__node__descriptor) {
+		const PgQuery__Node *m = (const PgQuery__Node *) message;
+		const ProtobufCFieldDescriptor *field =
+			protobuf_c_message_descriptor_get_field(desc, m->node_case);
+		const ProtobufCMessage *child = NULL;
+		if (field != NULL)
+			memcpy(&child, (const char *) m + field->offset, sizeof(child));
+		rv = field == NULL ? 0 : pg_query_message_field_size(field->id, child);
+	} else if (desc == &pg_query__string__descriptor) {
+		const PgQuery__String *m = (const PgQuery__String *) message;
+		rv = pg_query_string_size(m->sval) + pg_query_int32_size(m->location);
+	} else if (desc == &pg_query__a__const__descriptor) {
+		const PgQuery__AConst *m = (const PgQuery__AConst *) message;
+		const ProtobufCMessage *child = NULL;
+		rv = (m->isnull != 0 ? 2 : 0) + pg_query_int32_size(m->location);
+		if (m->val_case >= PG_QUERY__A__CONST__VAL_IVAL &&
+		    m->val_case <= PG_QUERY__A__CONST__VAL_BSVAL) {
+			memcpy(&child, &m->ival, sizeof(child));
+			rv += pg_query_message_field_size(m->val_case, child);
+		}
+	} else if (desc == &pg_query__column_ref__descriptor) {
+		const PgQuery__ColumnRef *m = (const PgQuery__ColumnRef *) message;
+		rv = repeated_field_get_packed_size(desc->fields, m->n_fields, &m->fields)
+			+ pg_query_int32_size(m->location);
+	} else if (desc == &pg_query__res_target__descriptor) {
+		const PgQuery__ResTarget *m = (const PgQuery__ResTarget *) message;
+		rv = pg_query_string_size(m->name)
+			+ repeated_field_get_packed_size(desc->fields + 1, m->n_indirection, &m->indirection)
+			+ pg_query_message_field_size(3, (const ProtobufCMessage *) m->val)
+			+ pg_query_int32_size(m->location);
+	} else if (desc == &pg_query__integer__descriptor) {
+		rv = pg_query_int32_size(((const PgQuery__Integer *) message)->ival);
+	} else if (desc == &pg_query__param_ref__descriptor) {
+		const PgQuery__ParamRef *m = (const PgQuery__ParamRef *) message;
+		rv = pg_query_int32_size(m->number) + pg_query_int32_size(m->location);
+	} else if (desc == &pg_query__float__descriptor) {
+		rv = pg_query_string_size(((const PgQuery__Float *) message)->fval);
+	} else if (desc == &pg_query__boolean__descriptor) {
+		rv = ((const PgQuery__Boolean *) message)->boolval != 0 ? 2 : 0;
+	} else if (desc == &pg_query__bit_string__descriptor) {
+		rv = pg_query_string_size(((const PgQuery__BitString *) message)->bsval);
+	} else {
+		return FALSE;
+	}
+	*size = rv;
+	return TRUE;
+}
+
 /*
  * Calculate the serialized size of the message.
  */
 size_t protobuf_c_message_get_packed_size(const ProtobufCMessage *message)
 {
-	unsigned i;
+	unsigned i, first, end;
 	size_t rv = 0;
 
 	ASSERT_IS_MESSAGE(message);
-	for (i = 0; i < message->descriptor->n_fields; i++) {
+#ifndef PG_QUERY_DISABLE_PROTOBUF_PACK_FASTPATH
+	if (pg_query_fast_packed_size(message, &rv))
+		return rv;
+#endif
+	pg_query_node_field_bounds(message->descriptor, message, &first, &end);
+	for (i = first; i < end; i++) {
 		const ProtobufCFieldDescriptor *field =
 			message->descriptor->fields + i;
 		const void *member =
@@ -1469,14 +1584,114 @@ unknown_field_pack(const ProtobufCMessageUnknownField *field, uint8_t *out)
 
 /**@}*/
 
+static inline size_t
+pg_query_string_pack(uint8_t tag, const char *value, uint8_t *out)
+{
+	if (value == NULL || *value == '\0')
+		return 0;
+	out[0] = (tag << 3) | PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
+	return 1 + string_pack(value, out + 1);
+}
+
+static inline size_t
+pg_query_int32_pack(uint8_t tag, int32_t value, uint8_t *out)
+{
+	if (value == 0)
+		return 0;
+	out[0] = tag << 3;
+	return 1 + int32_pack(value, out + 1);
+}
+
+static inline size_t
+pg_query_message_field_pack(uint32_t tag, const ProtobufCMessage *value, uint8_t *out)
+{
+	size_t len;
+	if (value == NULL)
+		return 0;
+	len = tag_pack(tag, out);
+	out[0] |= PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
+	return len + prefixed_message_pack(value, out + len);
+}
+
+static protobuf_c_boolean
+pg_query_fast_pack(const ProtobufCMessage *message, uint8_t *out, size_t *size)
+{
+	const ProtobufCMessageDescriptor *desc = message->descriptor;
+	size_t rv;
+	if (message->n_unknown_fields != 0)
+		return FALSE;
+	if (desc == &pg_query__node__descriptor) {
+		const PgQuery__Node *m = (const PgQuery__Node *) message;
+		const ProtobufCFieldDescriptor *field =
+			protobuf_c_message_descriptor_get_field(desc, m->node_case);
+		const ProtobufCMessage *child = NULL;
+		if (field != NULL)
+			memcpy(&child, (const char *) m + field->offset, sizeof(child));
+		rv = field == NULL ? 0 : pg_query_message_field_pack(field->id, child, out);
+	} else if (desc == &pg_query__string__descriptor) {
+		const PgQuery__String *m = (const PgQuery__String *) message;
+		rv = pg_query_string_pack(1, m->sval, out);
+		rv += pg_query_int32_pack(2, m->location, out + rv);
+	} else if (desc == &pg_query__a__const__descriptor) {
+		const PgQuery__AConst *m = (const PgQuery__AConst *) message;
+		const ProtobufCMessage *child = NULL;
+		rv = 0;
+		if (m->val_case >= PG_QUERY__A__CONST__VAL_IVAL &&
+		    m->val_case <= PG_QUERY__A__CONST__VAL_BSVAL) {
+			memcpy(&child, &m->ival, sizeof(child));
+			rv = pg_query_message_field_pack(m->val_case, child, out);
+		}
+		if (m->isnull != 0) {
+			out[rv++] = 10 << 3;
+			out[rv++] = 1;
+		}
+		rv += pg_query_int32_pack(11, m->location, out + rv);
+	} else if (desc == &pg_query__column_ref__descriptor) {
+		const PgQuery__ColumnRef *m = (const PgQuery__ColumnRef *) message;
+		rv = repeated_field_pack(desc->fields, m->n_fields, &m->fields, out);
+		rv += pg_query_int32_pack(2, m->location, out + rv);
+	} else if (desc == &pg_query__res_target__descriptor) {
+		const PgQuery__ResTarget *m = (const PgQuery__ResTarget *) message;
+		rv = pg_query_string_pack(1, m->name, out);
+		rv += repeated_field_pack(desc->fields + 1, m->n_indirection, &m->indirection, out + rv);
+		rv += pg_query_message_field_pack(3, (const ProtobufCMessage *) m->val, out + rv);
+		rv += pg_query_int32_pack(4, m->location, out + rv);
+	} else if (desc == &pg_query__integer__descriptor) {
+		rv = pg_query_int32_pack(1, ((const PgQuery__Integer *) message)->ival, out);
+	} else if (desc == &pg_query__param_ref__descriptor) {
+		const PgQuery__ParamRef *m = (const PgQuery__ParamRef *) message;
+		rv = pg_query_int32_pack(1, m->number, out);
+		rv += pg_query_int32_pack(2, m->location, out + rv);
+	} else if (desc == &pg_query__float__descriptor) {
+		rv = pg_query_string_pack(1, ((const PgQuery__Float *) message)->fval, out);
+	} else if (desc == &pg_query__boolean__descriptor) {
+		rv = 0;
+		if (((const PgQuery__Boolean *) message)->boolval != 0) {
+			out[rv++] = 1 << 3;
+			out[rv++] = 1;
+		}
+	} else if (desc == &pg_query__bit_string__descriptor) {
+		rv = pg_query_string_pack(1, ((const PgQuery__BitString *) message)->bsval, out);
+	} else {
+		return FALSE;
+	}
+	*size = rv;
+	return TRUE;
+}
+
 size_t
 protobuf_c_message_pack(const ProtobufCMessage *message, uint8_t *out)
 {
-	unsigned i;
+	unsigned i, first, end;
 	size_t rv = 0;
 
 	ASSERT_IS_MESSAGE(message);
-	for (i = 0; i < message->descriptor->n_fields; i++) {
+#ifndef PG_QUERY_DISABLE_PROTOBUF_PACK_FASTPATH
+	if (pg_query_fast_pack(message, out, &rv))
+		return rv;
+#endif
+	pg_query_node_field_bounds(message->descriptor, message, &first, &end);
+	for (i = first; i < end; i++) {
 		const ProtobufCFieldDescriptor *field =
 			message->descriptor->fields + i;
 		const void *member = ((const char *) message) + field->offset;
@@ -1959,11 +2174,12 @@ size_t
 protobuf_c_message_pack_to_buffer(const ProtobufCMessage *message,
 				  ProtobufCBuffer *buffer)
 {
-	unsigned i;
+	unsigned i, first, end;
 	size_t rv = 0;
 
 	ASSERT_IS_MESSAGE(message);
-	for (i = 0; i < message->descriptor->n_fields; i++) {
+	pg_query_node_field_bounds(message->descriptor, message, &first, &end);
+	for (i = first; i < end; i++) {
 		const ProtobufCFieldDescriptor *field =
 			message->descriptor->fields + i;
 		const void *member =
@@ -2083,10 +2299,10 @@ parse_tag_and_wiretype(size_t len,
 	}
 	for (rv = 1; rv < max_rv; rv++) {
 		if (data[rv] & 0x80) {
-			tag |= (data[rv] & 0x7f) << shift;
+			tag |= (uint32_t) (data[rv] & 0x7f) << shift;
 			shift += 7;
 		} else {
-			tag |= data[rv] << shift;
+			tag |= (uint32_t) data[rv] << shift;
 			*tag_out = tag;
 			return rv + 1;
 		}
@@ -3022,8 +3238,8 @@ message_init_generic(const ProtobufCMessageDescriptor *desc,
 #define REQUIRED_FIELD_BITMAP_IS_SET(index)	\
 	(required_fields_bitmap[(index)/8] & (1UL<<((index)%8)))
 
-ProtobufCMessage *
-protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
+static ProtobufCMessage *
+protobuf_c_message_unpack_generic(const ProtobufCMessageDescriptor *desc,
 			  ProtobufCAllocator *allocator,
 			  size_t len, const uint8_t *data)
 {
@@ -3063,7 +3279,8 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 		return (NULL);
 	scanned_member_slabs[0] = first_member_slab;
 
-	required_fields_bitmap_len = (desc->n_fields + 7) / 8;
+	required_fields_bitmap_len = desc == &pg_query__node__descriptor ?
+		0 : (desc->n_fields + 7) / 8;
 	if (required_fields_bitmap_len > sizeof(required_fields_bitmap_stack)) {
 		required_fields_bitmap = do_alloc(allocator, required_fields_bitmap_len);
 		if (!required_fields_bitmap) {
@@ -3227,7 +3444,10 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 	}
 
 	/* allocate space for repeated fields, also check that all required fields have been set */
-	for (f = 0; f < desc->n_fields; f++) {
+	/* Node has no repeated allocations or required fields; wire validation
+	 * and parse_member below remain unchanged. */
+	for (f = desc == &pg_query__node__descriptor ? desc->n_fields : 0;
+	     f < desc->n_fields; f++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + f;
 		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
 			size_t siz =
@@ -3315,12 +3535,127 @@ error_cleanup_during_scan:
 	return NULL;
 }
 
+/* Accept only small, ordered, unique known fields of these exact generated
+ * messages. Finish checking the wire shape before the first allocation. A
+ * duplicate/unknown field, alternate oneof, repeated field, noncanonical tag,
+ * or unexpected wire type goes through the original scanner and its merging,
+ * validation, unknown-field and failure semantics. */
+static protobuf_c_boolean
+pg_query_try_unpack(const ProtobufCMessageDescriptor *desc,
+		    ProtobufCAllocator *allocator, size_t len, const uint8_t *data,
+		    ProtobufCMessage **result)
+{
+	ScannedMember members[3];
+	unsigned n = 0, i;
+	uint32_t previous_tag = 0;
+	protobuf_c_boolean have_oneof = FALSE;
+	size_t rem = len;
+	const uint8_t *at = data;
+	ProtobufCMessage *message;
+
+	if (desc != &pg_query__node__descriptor &&
+	    desc != &pg_query__string__descriptor &&
+	    desc != &pg_query__a__const__descriptor &&
+	    desc != &pg_query__integer__descriptor &&
+	    desc != &pg_query__param_ref__descriptor &&
+	    desc != &pg_query__float__descriptor &&
+	    desc != &pg_query__boolean__descriptor &&
+	    desc != &pg_query__bit_string__descriptor)
+		return FALSE;
+
+	while (rem > 0) {
+		uint32_t tag;
+		uint8_t wire_type;
+		size_t used;
+		const ProtobufCFieldDescriptor *field;
+		ScannedMember *member;
+		if (n == sizeof(members) / sizeof(members[0]))
+			return FALSE;
+		used = parse_tag_and_wiretype(rem, at, &tag, &wire_type);
+		if (used == 0 || tag <= previous_tag || used != get_tag_size(tag))
+			return FALSE;
+		field = protobuf_c_message_descriptor_get_field(desc, tag);
+		if (field == NULL || field->label != PROTOBUF_C_LABEL_NONE)
+			return FALSE;
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0) {
+			if (have_oneof)
+				return FALSE;
+			have_oneof = TRUE;
+		}
+		at += used;
+		rem -= used;
+		member = &members[n++];
+		member->tag = tag;
+		member->field = field;
+		member->wire_type = wire_type;
+		member->data = at;
+		member->length_prefix_len = 0;
+		if ((field->type == PROTOBUF_C_TYPE_INT32 ||
+		     field->type == PROTOBUF_C_TYPE_BOOL) &&
+		    wire_type == PROTOBUF_C_WIRE_TYPE_VARINT) {
+			unsigned max_len = rem < 10 ? (unsigned) rem : 10;
+			for (i = 0; i < max_len; i++)
+				if ((at[i] & 0x80) == 0)
+					break;
+			if (i == max_len)
+				return FALSE;
+			member->len = i + 1;
+		} else if ((field->type == PROTOBUF_C_TYPE_STRING ||
+			    field->type == PROTOBUF_C_TYPE_MESSAGE) &&
+			   wire_type == PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED) {
+			size_t prefix_len;
+			member->len = scan_length_prefixed_data(rem, at, &prefix_len);
+			if (member->len == 0 ||
+			    prefix_len != uint32_size(member->len - prefix_len))
+				return FALSE;
+			member->length_prefix_len = (uint8_t) prefix_len;
+		} else {
+			return FALSE;
+		}
+		at += member->len;
+		rem -= member->len;
+		previous_tag = tag;
+	}
+
+	message = do_alloc(allocator, desc->sizeof_message);
+	*result = message;
+	if (message == NULL)
+		return TRUE; /* An allocation failure must not retry the generic path. */
+	protobuf_c_message_init(desc, message);
+	for (i = 0; i < n; i++) {
+		if (!parse_member(&members[i], message, allocator)) {
+			protobuf_c_message_free_unpacked(message, allocator);
+			*result = NULL;
+			break;
+		}
+	}
+	return TRUE;
+}
+
+ProtobufCMessage *
+protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
+			  ProtobufCAllocator *allocator,
+			  size_t len, const uint8_t *data)
+{
+	ASSERT_IS_MESSAGE_DESCRIPTOR(desc);
+	if (allocator == NULL)
+		allocator = &protobuf_c__allocator;
+#ifndef PG_QUERY_DISABLE_PROTOBUF_UNPACK_FASTPATH
+	{
+		ProtobufCMessage *result;
+		if (pg_query_try_unpack(desc, allocator, len, data, &result))
+			return result;
+	}
+#endif
+	return protobuf_c_message_unpack_generic(desc, allocator, len, data);
+}
+
 void
 protobuf_c_message_free_unpacked(ProtobufCMessage *message,
 				 ProtobufCAllocator *allocator)
 {
 	const ProtobufCMessageDescriptor *desc;
-	unsigned f;
+	unsigned f, first, end;
 
 	if (message == NULL)
 		return;
@@ -3331,8 +3666,9 @@ protobuf_c_message_free_unpacked(ProtobufCMessage *message,
 
 	if (allocator == NULL)
 		allocator = &protobuf_c__allocator;
+	pg_query_node_field_bounds(desc, message, &first, &end);
 	message->descriptor = NULL;
-	for (f = 0; f < desc->n_fields; f++) {
+	for (f = first; f < end; f++) {
 		if (0 != (desc->fields[f].flags & PROTOBUF_C_FIELD_FLAG_ONEOF) &&
 		    desc->fields[f].id !=
 		    STRUCT_MEMBER(uint32_t, message, desc->fields[f].quantifier_offset))

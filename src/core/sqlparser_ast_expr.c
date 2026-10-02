@@ -77,6 +77,12 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
+	if (parse_result.parse_tree.data == NULL) {
+		pg_query_free_protobuf_parse_result(parse_result);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
 	ast = pg_query__parse_result__unpack(
 		NULL,
 		parse_result.parse_tree.len,
@@ -445,15 +451,17 @@ sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 		status = sqlparser_get_wrapper_insert_cell_slot(ast, &slot, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_mark_proto_generated_with_fragment_source(
-				(ProtobufCMessage *)*out_node,
-				wrapped_sql,
-				strlen(prefix),
-				source,
-				out_error);
-		}
+		/* The wrapper is a freshly unpacked, exclusively owned tree. Transfer
+		 * its cell instead of serializing, unpacking, and freeing a clone.
+		 * Detaching first also keeps error cleanup single-owner. */
+		*out_node = *slot;
+		*slot = NULL;
+		status = sqlparser_mark_proto_generated_with_fragment_source(
+			(ProtobufCMessage *)*out_node,
+			wrapped_sql,
+			strlen(prefix),
+			source,
+			out_error);
 	}
 
 	if (ast != NULL) {

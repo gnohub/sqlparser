@@ -1,5 +1,9 @@
 # Vastbase Dialect Support
 
+The patch lifecycle in this version is as follows: every
+nonempty apply invalidates borrowed views, and apply/deparse failure requires
+destroying the failed handle. See [Release notes](../RELEASE_NOTES.en.md).
+
 `sqlparser` provides four explicit Vastbase compatibility modes:
 
 | CLI name | C enum | Compatibility entry |
@@ -56,8 +60,7 @@ VALUES still exposes `target_list_selector`, so it can be materialized or a
 cell can be inserted while the list remains omitted; existing target columns
 and cells remain independently replaceable. The two sides may be temporarily
 unequal within one patch batch. If an explicit target list exists after the
-batch, its width must match the VALUES width or the entire batch rolls back
-atomically. Paired deletion is unchanged, and `MERGE INSERT DEFAULT VALUES` is
+batch, its width must match the VALUES width or the batch fails, releases state and marks the handle failed. Paired deletion is unchanged, and `MERGE INSERT DEFAULT VALUES` is
 outside this mutation boundary. This contract and its executable evidence do
 not claim the same official Vastbase server syntax support.
 
@@ -82,11 +85,11 @@ delimited identifier.
 As a `vastbase-sqlserver` project compatibility-entry contract, paired
 `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
 explicit non-empty sink-column list when the OUTPUT-target and sink-column
-counts are strictly equal before the rewrite; it atomically inserts both sides
+counts are strictly equal before the rewrite; it inserts both sides
 at the same ordinal. Legally unequal OUTPUT lists still parse and deparse, but
 do not support paired insertion. Client `OUTPUT` and `OUTPUT ... INTO` without
 an explicit sink-column list are also outside this mutation boundary. Three
-cases cover 8↔8 pairs for INSERT, UPDATE, and DELETE, plus atomic head, middle,
+cases cover 8↔8 pairs for INSERT, UPDATE, and DELETE, plus paired head, middle,
 and tail insertions that produce 9↔9 pairs. This contract and its executable
 evidence do not claim the same official Vastbase server syntax support.
 

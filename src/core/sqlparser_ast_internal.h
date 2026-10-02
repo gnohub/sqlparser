@@ -267,6 +267,13 @@ sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql(
 	sqlparser_literal_view_t *out_literal,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql_length(
+	const PgQuery__AConst *a_const,
+	const char *parser_sql,
+	size_t parser_sql_length,
+	sqlparser_literal_view_t *out_literal,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_walk_message_tree(
 	ProtobufCMessage *message,
 	sqlparser_message_search_t *search,
