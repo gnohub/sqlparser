@@ -281,6 +281,39 @@ sqlparser_status_t sqlparser_identifier_origin_map_new_identity(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_identifier_origin_map_clone(
+	const sqlparser_identifier_origin_map_t *source,
+	sqlparser_identifier_origin_map_t **out_map,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_identifier_origin_map_t *clone;
+
+	*out_map = NULL;
+	if (source == NULL) return SQLPARSER_STATUS_OK;
+	clone = (sqlparser_identifier_origin_map_t *)calloc(1U, sizeof(*clone));
+	if (clone == NULL) goto no_memory;
+	if (source->run_count > 0U) {
+		if (source->run_count > SIZE_MAX / sizeof(*clone->runs)) {
+			free(clone);
+			goto no_memory;
+		}
+		clone->runs = (sqlparser_identifier_origin_run_t *)malloc(
+			source->run_count * sizeof(*clone->runs));
+		if (clone->runs == NULL) {
+			free(clone);
+			goto no_memory;
+		}
+		memcpy(clone->runs, source->runs, source->run_count * sizeof(*clone->runs));
+	}
+	clone->run_count = source->run_count;
+	clone->output_length = source->output_length;
+	*out_map = clone;
+	return SQLPARSER_STATUS_OK;
+no_memory:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return SQLPARSER_STATUS_NO_MEMORY;
+}
+
 void sqlparser_identifier_origin_map_destroy(
 	sqlparser_identifier_origin_map_t *map)
 {

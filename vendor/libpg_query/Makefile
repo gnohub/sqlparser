@@ -164,6 +164,7 @@ extract_source: $(PGDIR)
 	mkdir ./src/postgres
 	mkdir ./src/postgres/include
 	LIBCLANG=/Library/Developer/CommandLineTools/usr/lib/libclang.dylib ruby ./scripts/extract_source.rb $(PGDIR)/ ./src/postgres/
+	python3 ./scripts/copy_parser_semantic_value.py ./src/postgres/src_backend_parser_gram.c
 	# Override OS-specific pg_config_os.h to only load Win32 logic (the primary port logic that matters for libpg_query), if needed
 	echo "#if defined(_WIN32) || defined(_WIN64)" > ./src/postgres/include/pg_config_os.h
 	echo "#include \"port/win32.h\"" >> ./src/postgres/include/pg_config_os.h

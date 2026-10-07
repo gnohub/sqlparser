@@ -31,22 +31,23 @@ __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         sql, options, disable_observer ? NULL : observer, context);
 }
 PgQueryProtobufParseResult
-__real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
-    const char *, int, PgQueryProtobufObserver, void *, size_t *, int *);
+__real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+    const char *, int, PgQueryProtobufObserver, void *, size_t *, int *, PgQueryNativeScalarInsertProof *);
 PgQueryProtobufParseResult
-__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
+__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
     const char *sql, int options, PgQueryProtobufObserver observer, void *context,
-    size_t *statement_count, int *certified)
+    size_t *statement_count, int *certified, PgQueryNativeScalarInsertProof *native_proof)
 {
     observed_parse_calls++;
     if (disable_observer) {
         *statement_count = 0U;
         *certified = 0;
+        if (native_proof != NULL) memset(native_proof, 0, sizeof(*native_proof));
         return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
             sql, options, NULL, context);
     }
-    return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
-        sql, options, observer, context, statement_count, certified);
+    return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+        sql, options, observer, context, statement_count, certified, native_proof);
 }
 PgQuery__ParseResult *__real_pg_query__parse_result__unpack(
     ProtobufCAllocator *, size_t, const uint8_t *);

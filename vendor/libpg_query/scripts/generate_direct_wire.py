@@ -15,7 +15,9 @@ for m in re.finditer(r'static void\s+_out(\w+)\(OUT_TYPE\((\w+),\s*(\w+)\) out, 
  funcs[m[1]]=(m[2],m[4],m[5])
 manual=['Integer','Float','Boolean','String','BitString','List','IntList','OidList','AConst']
 assert len(funcs)>240,len(funcs)
-certified_allowed={'ParseResult','RawStmt','InsertStmt','UpdateStmt','DeleteStmt','SelectStmt','RangeVar','ResTarget','List','Node','ColumnRef','String','Integer','Float','Boolean','BitString','AConst'}
+# SQLValueFunction has only scalar fields and no dialect validation rules.
+# Its existing encoder can therefore participate in the validation certificate.
+certified_allowed={'SQLValueFunction','ParseResult','RawStmt','InsertStmt','UpdateStmt','DeleteStmt','SelectStmt','RangeVar','ResTarget','List','Node','ColumnRef','String','Integer','Float','Boolean','BitString','AConst'}
 output=[]; unsupported=[]
 for fn in [*funcs,*manual,'Node','ParseResult']:
  output.append(f'static void dw_{fn}(DirectWire *c, const void *object);')
@@ -47,7 +49,7 @@ def field_code(kind,args,msg):
  if kind=='NODE':return tag,f'dw_message(c,{tag},dw_Node,&{value});'
  if kind=='SPECIFIC_NODE_PTR':return tag,f'if({value}) dw_message(c,{tag},dw_{args[0]},{value});'
  if kind=='SPECIFIC_NODE':return tag,f'dw_message(c,{tag},dw_{args[0]},&{value});'
- if kind=='BITMAPSET':return tag,f'if(!bms_is_empty({value})) c->status=0; /* Explicit prototype fallback. */'
+ if kind=='BITMAPSET':return tag,f'if(!bms_is_empty({value})) c->status=0; /* Unsupported bitmap fallback. */'
  raise ValueError(kind)
 
 for fn,(msg,ctype,body) in funcs.items():
@@ -76,10 +78,10 @@ output += ['''static void dw_AConst(DirectWire *c,const void *object) {
  const A_Const *node=object;
  if(!node->isnull) {
   switch(nodeTag(&node->val.node)) {
-   case T_Integer: dw_message(c,1,dw_Integer,&node->val.ival); break;
-   case T_Float: dw_message(c,2,dw_Float,&node->val.fval); break;
+   case T_Integer: dw_primitive_int32_message(c,1,(int32_t)node->val.ival.ival); break;
+   case T_Float: dw_primitive_string_message(c,2,node->val.fval.fval,0); break;
    case T_Boolean: dw_message(c,3,dw_Boolean,&node->val.boolval); break;
-   case T_String: dw_message(c,4,dw_String,&node->val.sval); break;
+   case T_String: dw_primitive_string_message(c,4,node->val.sval.sval,(int32_t)node->val.sval.location); break;
    case T_BitString: dw_message(c,5,dw_BitString,&node->val.bsval); break;
    default: c->status=0; return;
   }
@@ -98,6 +100,6 @@ output += [' default:c->status=0;break;',' }','}',f'''static void dw_ParseResult
  if(list && !IsA(list,List)) {{ c->status=0;return; }}
  foreach(cell,list) {{ dw_message(c,2,dw_RawStmt,lfirst(cell)); if(c->status!=1)return; }}
 }}''']
-(E/'direct_wire_visitors.inc').write_text('/* Generated measurement prototype; do not edit manually. */\n'+'\n'.join(output)+'\n')
+(E/'direct_wire_visitors.inc').write_text('/* Generated direct protobuf visitors; do not edit manually. */\n'+'\n'.join(output)+'\n')
 (E/'generator-summary.json').write_text(json.dumps({'functions':len(funcs),'unsupported_functions':unsupported,'certified_allowed':sorted(certified_allowed),'certification_denied_visitors':len(set(funcs)-certified_allowed)},indent=2))
 print('generated',len(funcs),'functions; explicit fallback',unsupported)

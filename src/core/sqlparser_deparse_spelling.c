@@ -9,6 +9,7 @@
 #include "sqlparser_internal.h"
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 typedef struct {
 	const sqlparser_identifier_mutation_t *mutation;
@@ -3054,6 +3055,63 @@ sqlparser_status_t sqlparser_identifier_origins_for_handle(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
+		mutable_handle->identifier_origins = origins;
+		*out_origins = origins;
+		return SQLPARSER_STATUS_OK;
+	}
+
+	/* A fresh Oracle multi-insert already owns the exact preprocessing
+	 * result. Replay its existing origin writers rather than constructing
+	 * and discarding every branch/cell again. Generation zero also covers
+	 * deep clones; mutated/reparsed handles and dialect wrappers retain the
+	 * full replay below. No parse-time allocation or eager SELECT work is
+	 * introduced. */
+	if (handle->generation == 0UL &&
+	    (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
+	     handle->dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE) &&
+	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		origins = NULL;
+		status = sqlparser_identifier_origin_map_new_identity(
+			handle->sql_len,
+			&origins,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_replay_identifier_origins(
+				handle->sql,
+				handle->parser_sql,
+				handle->dialect_state,
+				origins,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK &&
+		    sqlparser_identifier_origin_map_output_length(origins) !=
+			    handle->parser_sql_len) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"identifier origin replay differs from parser input");
+			status = SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_identifier_origin_map_destroy(origins);
+			return status;
+		}
+		mutable_handle->identifier_origins = origins;
+		*out_origins = origins;
+		return SQLPARSER_STATUS_OK;
+	}
+
+	/* The wrapper owns admission and composes its outer rewrites before
+	 * using the retained Oracle state. A replay error must not fall back. */
+	origins = NULL;
+	status = sqlparser_vastbase_oracle_try_replay_identifier_origins(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (origins != NULL) {
 		mutable_handle->identifier_origins = origins;
 		*out_origins = origins;
 		return SQLPARSER_STATUS_OK;

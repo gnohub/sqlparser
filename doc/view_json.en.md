@@ -293,7 +293,7 @@ SELECT; `INTO` does not create a target relation.
 A DDL target/reference that has a `selector` continues to support relation
 `REPLACE` patches. A View exported after a successful patch recomputes name
 segments, quoted flags, `ddl_role`, and `source_block` for the new generation.
-Old C graph views follow the candidate's nonempty-apply lifetime rule;
+Old C graph views follow the library's nonempty-apply lifetime rule;
 independently parsed handles remain independent. This feature adds no selector, patch
 kind, or ownership rule.
 

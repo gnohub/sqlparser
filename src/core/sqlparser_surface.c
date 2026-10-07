@@ -141,12 +141,13 @@ static int sqlparser_surface_source_edits_overlap(
 		right_start < left->source_end;
 }
 
-sqlparser_status_t sqlparser_surface_source_edits_insert(
+static sqlparser_status_t sqlparser_surface_source_edits_insert_internal(
 	sqlparser_surface_source_edits_t *edits,
 	size_t source_start,
 	size_t source_end,
 	const char *replacement,
 	size_t replacement_length,
+	char **owned_replacement,
 	int *out_supported,
 	sqlparser_error_t *out_error)
 {
@@ -189,7 +190,8 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 		     source_end))) {
 		return SQLPARSER_STATUS_OK;
 	}
-	copy = sqlparser_strndup(replacement, replacement_length);
+	copy = owned_replacement != NULL ? *owned_replacement :
+		sqlparser_strndup(replacement, replacement_length);
 	if (copy == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -201,7 +203,7 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 		capacity = edits->capacity == 0U ? 4U : edits->capacity * 2U;
 		if (capacity < edits->capacity ||
 		    capacity > SIZE_MAX / sizeof(*edits->items)) {
-			free(copy);
+			if (owned_replacement == NULL) free(copy);
 			sqlparser_error_set_message(
 				out_error,
 				SQLPARSER_STATUS_NO_MEMORY,
@@ -212,7 +214,7 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 			edits->items,
 			capacity * sizeof(*next));
 		if (next == NULL) {
-			free(copy);
+			if (owned_replacement == NULL) free(copy);
 			sqlparser_error_set_message(
 				out_error,
 				SQLPARSER_STATUS_NO_MEMORY,
@@ -233,8 +235,40 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 	edits->items[index].replacement = copy;
 	edits->items[index].replacement_length = replacement_length;
 	edits->count++;
+	if (owned_replacement != NULL) *owned_replacement = NULL;
 	*out_supported = 1;
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_surface_source_edits_insert(
+	sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	const char *replacement,
+	size_t replacement_length,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_surface_source_edits_insert_internal(
+		edits, source_start, source_end, replacement, replacement_length,
+		NULL, out_supported, out_error);
+}
+
+/* Only consume internally owned rendering storage on a successful insertion.
+ * Unsupported overlap and every failure leave ownership with the caller. */
+sqlparser_status_t sqlparser_surface_source_edits_insert_owned(
+	sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	char **replacement,
+	size_t replacement_length,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_surface_source_edits_insert_internal(
+		edits, source_start, source_end,
+		replacement != NULL ? *replacement : NULL, replacement_length,
+		replacement, out_supported, out_error);
 }
 
 static int sqlparser_surface_ranges_equal(

@@ -60,6 +60,18 @@ typedef struct {
 	size_t branch_count;
 	char *source_public_sql;
 	char *source_parser_sql;
+	/* Oracle-only, issued after parse or a certified branch-string commit.
+	 * Kept here so ordinary handles and SELECT state pay no storage cost. */
+	struct {
+		const char *sql;
+		const char *parser_sql;
+		const char *wire;
+		const void *state;
+		size_t sql_length;
+		size_t parser_sql_length;
+		size_t wire_length;
+		unsigned long generation;
+	} oracle_source_provenance;
 } sqlparser_dialect_multi_insert_t;
 
 #endif

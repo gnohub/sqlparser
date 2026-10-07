@@ -11478,7 +11478,10 @@ static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {
 	sqlparser_dameng_reconcile_ast_state,
 	sqlparser_dameng_clone_ast_state,
 	sqlparser_dameng_prepare_ast_state,
-	sqlparser_dameng_relation_link_sql
+	sqlparser_dameng_relation_link_sql,
+	0,
+	0,
+	NULL
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void)

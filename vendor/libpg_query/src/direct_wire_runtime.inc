@@ -1,4 +1,4 @@
-/* Isolated prototype. Include after existing enum conversion functions.
+/* Direct protobuf encoder. Include after existing enum conversion functions.
  * Return 1: independently malloc-owned output; 0: unsupported (normal fallback);
  * -1: allocation/size failure or internal size mismatch (no output published).
  * No public ABI, ownership contract, or observer behavior is changed here. */
@@ -10,7 +10,14 @@ typedef struct {
 } DirectWire;
 typedef void (*DirectWireVisitor)(DirectWire *,const void *);
 static void dw_Node(DirectWire *,const void *);
-static size_t dw_varint_length(uint64_t v) { size_t n=1; while(v>=128){v>>=7;n++;} return n; }
+static size_t dw_varint_length(uint64_t v) {
+ size_t n;
+ if(v<128U)return 1U;
+ if(v<16384U)return 2U;
+ n=3U;v>>=14U;
+ while(v>=128U){v>>=7U;n++;}
+ return n;
+}
 static void dw_bytes(DirectWire *c,const void *bytes,size_t n) {
  if(c->status!=1)return;
  if(n>SIZE_MAX-c->position){c->status=-1;return;}
@@ -20,19 +27,45 @@ static void dw_bytes(DirectWire *c,const void *bytes,size_t n) {
  }
  c->position+=n;
 }
-static void dw_measure_bytes(DirectWire *c,size_t n) {
- if(c->status!=1)return;
- if(n>SIZE_MAX-c->position){c->status=-1;return;}
- c->position+=n;
-}
 static void dw_varint(DirectWire *c,uint64_t v) {
- unsigned char bytes[10];size_t n=0;
- if(!c->writing){dw_measure_bytes(c,dw_varint_length(v));return;}
- do {bytes[n++]=(unsigned char)((v&127U)|(v>=128U?128U:0U));v>>=7U;}while(v);
- dw_bytes(c,bytes,n);
+ size_t n,position;unsigned char *out;
+ if(c->status!=1)return;
+ n=dw_varint_length(v);position=c->position;
+ if(n>SIZE_MAX-position){c->status=-1;return;}
+ if(!c->writing){c->position=position+n;return;}
+ if(position>c->output_size || n>c->output_size-position){c->status=-2;return;}
+ /* Reserve the entire varint before writing: failures cannot leave a partial
+  * varint behind, and the common tag/short-value paths need no temporary copy. */
+ out=c->output+position;
+ if(n==1U)out[0]=(unsigned char)v;
+ else if(n==2U){out[0]=(unsigned char)(v|128U);out[1]=(unsigned char)(v>>7U);}
+ else {
+  while(v>=128U){*out++=(unsigned char)(v|128U);v>>=7U;}
+  *out=(unsigned char)v;
+ }
+ c->position=position+n;
+}
+/* The sizing traversal never changes writing. Account for both envelope
+ * varints together without entering the encoder or reloading its mode twice.
+ * Keep the original sequential updates at overflow edges: the tag may fit
+ * even when the following length does not. No output is written here. */
+static void dw_measure_envelope(DirectWire *c,unsigned field,size_t length) {
+ uint64_t tag=((uint64_t)field<<3U)|2U;
+ size_t n;
+ if(c->status!=1)return;
+ n=dw_varint_length(tag)+dw_varint_length(length);
+ if(n>SIZE_MAX-c->position){dw_varint(c,tag);dw_varint(c,length);return;}
+ c->position+=n;
 }
 static void dw_scalar(DirectWire *c,unsigned field,uint64_t value) {
  if(value==0 || c->status!=1)return;
+ /* Sizing has no output side effects. Account for the tag and value together,
+  * but retain the sequential encoder at overflow edges so a fitting tag is
+  * still reflected in position when the value cannot fit. */
+ if(!c->writing) {
+  size_t n=dw_varint_length((uint64_t)field<<3U)+dw_varint_length(value);
+  if(n<=SIZE_MAX-c->position){c->position+=n;return;}
+ }
  dw_varint(c,(uint64_t)field<<3U);dw_varint(c,value);
 }
 static void dw_data_field(DirectWire *c,unsigned field,const void *data,size_t n) {
@@ -81,9 +114,56 @@ static void dw_message(DirectWire *c,unsigned field,DirectWireVisitor visitor,co
   length=c->position-start;
   if(length>UINT32_MAX){c->status=-1;goto done;}
   c->sizes[slot]=(uint32_t)length;
-  dw_varint(c,((uint64_t)field<<3U)|2U);dw_varint(c,length);
+  dw_measure_envelope(c,field,length);
  }
  done:c->depth--;
+}
+/* AConst's primitive children have no descendants. Retain the same depth
+ * boundary, but derive their tiny message sizes locally rather than reserving
+ * cache frames. The source tree remains immutable between the two passes. */
+static int dw_primitive_message_allowed(DirectWire *c) {
+ if(c->status!=1)return 0;
+ if(c->depth>=256U){
+#ifdef DIRECT_WIRE_REPORT
+ fprintf(stderr,"DIRECT_WIRE_FALLBACK_REASON depth_limit\n");
+#endif
+ c->status=0;return 0;}
+ return 1;
+}
+static void dw_primitive_int32_message(DirectWire *c,unsigned field,int32_t value) {
+ uint64_t encoded;size_t start,length;
+ if(!dw_primitive_message_allowed(c))return;
+ encoded=(uint64_t)(int64_t)value;
+ if(c->writing) {
+  length=value?1U+dw_varint_length(encoded):0U;
+  dw_varint(c,((uint64_t)field<<3U)|2U);dw_varint(c,length);
+ }
+ start=c->position;dw_scalar(c,1,encoded);
+ /* Measure the body before its envelope, exactly as dw_message does, so
+  * partial sizing state at SIZE_MAX is unchanged. This body is at most 11. */
+ if(!c->writing && c->status==1)dw_measure_envelope(c,field,c->position-start);
+}
+static void dw_primitive_string_message(DirectWire *c,unsigned field,const char *text,int32_t location) {
+ uint64_t encoded;size_t n,start,length,overhead;
+ if(!dw_primitive_message_allowed(c))return;
+ n=text && *text?strlen(text):0U;encoded=(uint64_t)(int64_t)location;
+ if(c->writing) {
+  overhead=n?1U+dw_varint_length(n):0U;
+  if(location)overhead+=1U+dw_varint_length(encoded);
+  /* Check before adding: the body must fit the same uint32 cache length
+   * limit on both 32-bit and 64-bit hosts, even without a cache entry. */
+  if(n>UINT32_MAX-overhead){c->status=-1;return;}
+  length=n+overhead;
+  dw_varint(c,((uint64_t)field<<3U)|2U);dw_varint(c,length);
+ }
+ start=c->position;
+ if(n)dw_data_field(c,1,text,n);
+ dw_scalar(c,2,encoded);
+ if(!c->writing && c->status==1) {
+  length=c->position-start;
+  if(length>UINT32_MAX){c->status=-1;return;}
+  dw_measure_envelope(c,field,length);
+ }
 }
 static void dw_list(DirectWire *c,unsigned field,const List *list) {
  const ListCell *cell;

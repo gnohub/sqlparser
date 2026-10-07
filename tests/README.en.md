@@ -9,7 +9,7 @@ outside the timer and reports cleanup separately. See
 [`bench/README.en.md`](../bench/README.en.md) for the exact
 5,000-row workload and reproducible comparison commands.
 
-Additional regression programs cover:
+Key regression programs cover:
 
 - `test_protobuf_node` and `test_protobuf_fastpath`: exact descriptor invariants,
   generic/fast byte parity, unknown and duplicate wire fields, malformed input,
@@ -26,6 +26,12 @@ Additional regression programs cover:
 - `test_insert_string_batch` and `test_ascii_string_validation`: raw/typed string
   equivalence, exact source preservation, fragment limits and terminal-failure cleanup
 - `test_validation_arena`: allocation-failure cleanup for the serialized fallback
+- `test_mysql_identity_preprocess`, `test_sqlserver_identity_preprocess`, and `test_sqlserver_raw_prefilter`: preprocessing, dialect-state and fallback parity
+- `test_sqlserver_insert_batch` and `test_sqlserver_validation_proof`: SQL Server-family batch string replacement, validation-evidence reuse, error ordering, ownership and allocation-failure handling
+- `test_simple_insert_native`, `test_scalar_insert_native`, and `test_native_wire_provenance`: native INSERT construction, wire parity and source validation
+- `test_wire_insert_primary`, `test_wire_insert_graph`, `test_scalar_wire_codec`, `test_scalar_wire_pipeline`, `test_family_scalar_pipeline`, and `test_sqlserver_wire_pipeline`: batch INSERT graphs, string replacement, source locations, ownership and fallback
+- `test_oracle_origin_replay`, `test_oracle_graph_classification`, and `test_oracle_owned_commit`: Oracle multi-insert origins, value classification, state commits and literal lifetimes
+- `test_insert_source_proof`, `test_batch_selector_fastpath`, and `test_ascii_string_recognizer`: source-span reuse, selector recognition and string boundaries
 - `test_distinct_handle_concurrency`: independent handles across all 13 dialects;
   `./bin/test_distinct_handle_concurrency 20` exercises 1,040 small and 80 bulk
   MySQL lifecycles. It does not establish shared-handle mutation safety
@@ -89,17 +95,22 @@ Common quality-gate entry points:
 
 ## Memory Checks
 
-The following checks ran on Linux AArch64 with Valgrind 3.27.1:
+Memory checks related to parsing and batch rewriting include:
 
 - Lifecycle and borrowed inputs: `test_patch_lifecycle`, `test_direct_wire_lifecycle`, `test_patch_graph_borrowed`.
 - Dialect state and structural changes: `test_mutation_dialect_state`, `test_patch_structural_rows`, `test_patch_batch`.
 - Encoding, conversion and allocation failure: `test_protobuf_output_oom`, `test_protobuf_scalar_lifetime`, `test_parser_conversion_lifetime`, `test_validation_arena`, `test_mysql_validation_observer`, `test_protobuf_fastpath`.
+- Source validation and batch INSERTs: `test_mysql_identity_preprocess`, `test_sqlserver_identity_preprocess`, `test_scalar_wire_pipeline`, `test_family_scalar_pipeline`, `test_sqlserver_wire_pipeline`.
+- Oracle multi-table inserts: `test_oracle_origin_replay`, `test_oracle_graph_classification`, and `test_oracle_owned_commit`; `test_oracle_owned_commit --alloc` also covers commit allocation failures.
 - Threads and independent handles: `test_pg_query_thread_lifecycle`, `test_distinct_handle_concurrency` (the default two waves).
 - Full batch pipelines: `sqlparser_pipeline_bench 5000 1 0 literal mysql` and `sqlparser_pipeline_bench 5000 1 0 replace mysql`.
 
-All 16 checks reported zero errors and zero bytes in zero blocks at exit, with no suppressions. GNU linker wrappers enabled failure injection for lifecycle, direct encoding, output allocation and validation fallback. Optional extended mutation/structural allocation sweeps were not enabled separately. This is not a full-suite Valgrind result or a process peak-memory measurement.
+GNU linker wrappers provide fault injection for lifetimes, encoding, output allocation and fallback paths. Keep leak checks separate from normal performance timing. Run individual programs through `scripts/run_valgrind.sh`; `make verify-valgrind` is the full-suite entry point.
 
-The options were `--leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --track-origins=yes --error-exitcode=99`; logs are separate from normal timing. `make verify-valgrind` remains the full-suite entry point.
+```bash
+make bin/test_oracle_owned_commit
+./scripts/run_valgrind.sh --log-dir build/valgrind -- ./bin/test_oracle_owned_commit
+```
 
 ## In-place Patch Lifecycle
 

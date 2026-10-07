@@ -51,10 +51,10 @@ static void disarm(void){armed=0;CHECK(converter_depth==0);}
 static char *copy_text(const char *s) {
     char *p=malloc(strlen(s)+1U);CHECK(p!=NULL);strcpy(p,s);return p;
 }
-static char *make_sql(void) {
+static char *make_sql(const char *table) {
     size_t cap=ROWS*100U+128U,used=0U;
     char *s=malloc(cap);CHECK(s!=NULL);
-    used+=(size_t)snprintf(s+used,cap-used,"INSERT INTO t(id,v) VALUES ");
+    used+=(size_t)snprintf(s+used,cap-used,"INSERT INTO %s(id,v) VALUES ",table);
     for(size_t i=0;i<ROWS;i++)used+=(size_t)snprintf(s+used,cap-used,
         "%s(%zu,'old-%04zu-abcdefghijklmnopqrstuvwxyz')",i?",":"",i,i);
     CHECK(used<cap && used>=4096U);return s;
@@ -211,9 +211,16 @@ static void syntax_precedence(const char *sql) {
 }
 #endif
 int main(void) {
-    char *sql=make_sql();certificate_and_fallback();repeated_owned_inputs(sql);
+    char *sql=make_sql("t");certificate_and_fallback();repeated_owned_inputs(sql);
 #ifdef SQLPARSER_DIRECT_WIRE_FAILURE_WRAPPERS
-    parse_failures(sql);patch_failures(sql);syntax_precedence(sql);
+    /* These injections target the native parser's converter/cache/output,
+     * so force final full reparse with a MySQL-quoted relation. A plain
+     * schema-qualified relation now qualifies for a no-reparse commit. Ordinary
+     * unqualified INSERT lifetime remains covered above and by the certified
+     * commit unit/allocation sweeps; that path intentionally skips these hooks. */
+    char *reparse_sql=make_sql("`s`.`t`");
+    parse_failures(sql);patch_failures(reparse_sql);syntax_precedence(sql);
+    free(reparse_sql);
 #else
     puts("SKIP: direct-wire allocation failure sweeps need GNU linker wrappers");
 #endif

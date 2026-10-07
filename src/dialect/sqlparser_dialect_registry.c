@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "sqlparser_dialect_internal.h"
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect)
@@ -37,6 +39,48 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dia
 int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect)
 {
 	return sqlparser_dialect_get_ops(dialect) != NULL;
+}
+
+sqlparser_validation_preprocess_fn sqlparser_dialect_validation_preprocessor(
+	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops)
+{
+	/* Do not admit copied ops, another owner's state, or another dialect
+	 * that happens to have compatible-looking callbacks. Kingbase shares
+	 * the exact base SQLServer owner; Vastbase keeps that owner's state. */
+	if (ops == NULL || ops != sqlparser_dialect_get_ops(dialect)) return NULL;
+	if ((dialect == SQLPARSER_DIALECT_SQLSERVER ||
+	     dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER) &&
+	    ops == sqlparser_dialect_sqlserver_ops()) {
+		return sqlparser_sqlserver_preprocess_validation_proof;
+	}
+	if (dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+	    ops == sqlparser_dialect_vastbase_sqlserver_ops()) {
+		return sqlparser_vastbase_sqlserver_preprocess_validation_proof;
+	}
+	return NULL;
+}
+
+int sqlparser_dialect_supports_plain_scalar_insert(const sqlparser_handle_t *handle)
+{
+	return handle != NULL && handle->dialect_ops != NULL &&
+		handle->dialect_ops == sqlparser_dialect_get_ops(handle->dialect) &&
+		/* A strict source/wire certificate is independent of the initial
+		 * native-validation route, notably for control-capable SQLServer. */
+		handle->dialect_ops->state_is_plain_insert_strings != NULL;
+}
+
+int sqlparser_dialect_state_is_plain_insert_strings(
+	const sqlparser_handle_t *handle, size_t string_count)
+{
+	/* In particular, Vastbase owns the base dialect's state directly. Its
+	 * stateless text rewrites must not be mistaken for identity provenance. */
+	return sqlparser_dialect_supports_plain_scalar_insert(handle) &&
+		handle->sql != NULL && handle->parser_sql != NULL &&
+		handle->sql_len == handle->parser_sql_len &&
+		(handle->sql == handle->parser_sql ||
+		 memcmp(handle->sql, handle->parser_sql, handle->sql_len) == 0) &&
+		handle->dialect_ops->state_is_plain_insert_strings(
+			handle->dialect_state, string_count);
 }
 
 int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect)

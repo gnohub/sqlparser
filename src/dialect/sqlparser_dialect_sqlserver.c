@@ -10,6 +10,7 @@
 #include "sqlparser_dialect_sqlserver_control.h"
 #include "sqlparser_dialect_sqlserver_output.h"
 #include "sqlparser_dialect_sqlserver_scan.h"
+#include "src/pg_query_observer.h"
 
 #define SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX "@sqlparser_sqlserver_system_variable_"
 #define SQLPARSER_SQLSERVER_PARTITION_PREFIX "$PARTITION"
@@ -187,6 +188,46 @@ struct sqlparser_sqlserver_state {
 	sqlparser_sqlserver_fragment_checkpoint_t fragment;
 	int owners_bound;
 };
+
+/* Keep exhaustive with both state and fragment checkpoint structs. Ordinary
+ * string replacements preserve only these two lexical ordinals. No rewrite,
+ * retained AST owner or inactive-but-populated fragment checkpoint may survive
+ * the strict wire commit. Initial parsing and control extraction are unchanged. */
+static int sqlparser_sqlserver_state_is_plain_insert_strings(
+	const void *state, size_t string_count)
+{
+	const sqlparser_sqlserver_state_t *s = state;
+	if (s == NULL) return 0;
+	return s->params == NULL && s->param_count == 0U && s->param_capacity == 0U &&
+		s->unicode_restores == NULL && s->unicode_count == 0U && s->unicode_capacity == 0U &&
+		s->literal_count == string_count &&
+		s->top_restores == NULL && s->top_count == 0U && s->top_capacity == 0U &&
+		s->select_count == 0U && s->bit_word_count == 0U &&
+		s->bare_bit_restores == NULL && s->bare_bit_count == 0U && s->bare_bit_capacity == 0U &&
+		s->table_hints == NULL && s->table_hint_count == 0U && s->table_hint_capacity == 0U &&
+		s->table_source_count == 1U &&
+		s->query_hints == NULL && s->query_hint_count == 0U && s->query_hint_capacity == 0U &&
+		s->json_suffixes == NULL && s->json_suffix_ordinals == NULL &&
+		s->json_suffix_count == 0U && s->json_suffix_capacity == 0U &&
+		s->json_suffix_ordinal_count == 0U && s->json_suffix_ordinal_capacity == 0U &&
+		s->cast_restores == NULL && s->cast_restore_count == 0U && s->cast_restore_capacity == 0U &&
+		s->cast_count == 0U &&
+		s->odbc_fn_restores == NULL && s->odbc_fn_count == 0U && s->odbc_fn_capacity == 0U &&
+		s->save_restores == NULL && s->save_restore_count == 0U && s->save_restore_capacity == 0U &&
+		s->rename_object_count == 0U && s->drop_role_like_count == 0U &&
+		s->drop_user_ordinals == NULL && s->drop_user_count == 0U && s->drop_user_capacity == 0U &&
+		s->output_state == NULL && s->control == NULL && s->owners_bound == 0 &&
+		s->fragment.param_count == 0U && s->fragment.unicode_count == 0U &&
+		s->fragment.literal_count == 0U && s->fragment.top_count == 0U &&
+		s->fragment.select_count == 0U && s->fragment.bare_bit_count == 0U &&
+		s->fragment.bit_word_count == 0U && s->fragment.table_hint_count == 0U &&
+		s->fragment.table_source_count == 0U && s->fragment.query_hint_count == 0U &&
+		s->fragment.json_suffix_count == 0U && s->fragment.save_restore_count == 0U &&
+		s->fragment.rename_object_count == 0U && s->fragment.drop_role_like_count == 0U &&
+		s->fragment.cast_restore_count == 0U && s->fragment.cast_count == 0U &&
+		s->fragment.odbc_fn_count == 0U && s->fragment.output_dml_count == 0U &&
+		s->fragment.active == 0;
+}
 
 typedef struct {
 	sqlparser_sqlserver_state_t state;
@@ -3750,7 +3791,120 @@ static int sqlparser_sqlserver_contains_phrase(const char *masked, const char *p
 	return 0;
 }
 
-static int sqlparser_sqlserver_raw_contains_word_span(const char *sql, const char *word, size_t word_len)
+/* One allocation-free raw-word inventory replaces repeated full-source
+ * prefilter scans. Quotes/comments deliberately remain visible: the unchanged
+ * masking stage is responsible for distinguishing actual SQL code. */
+typedef struct {
+    const char *sql;
+    uint64_t present;
+    int has_at;
+} sqlparser_sqlserver_raw_word_inventory_t;
+
+static const char *const sqlparser_sqlserver_prefilter_words[] = {
+    "alter",
+    "apply",
+    "begin",
+    "by",
+    "create",
+    "cross",
+    "declare",
+    "delete",
+    "exec",
+    "execute",
+    "fetch",
+    "for",
+    "from",
+    "function",
+    "insert",
+    "into",
+    "join",
+    "merge",
+    "offset",
+    "opendatasource",
+    "openjson",
+    "openquery",
+    "openrowset",
+    "openxml",
+    "outer",
+    "output",
+    "pivot",
+    "procedure",
+    "select",
+    "source",
+    "table",
+    "top",
+    "trigger",
+    "try",
+    "unpivot",
+    "update",
+    "use",
+    "variable",
+    "xml",
+};
+_Static_assert(sizeof(sqlparser_sqlserver_prefilter_words) /
+    sizeof(sqlparser_sqlserver_prefilter_words[0]) <= 64U,
+    "SQL Server raw prefilter inventory exceeds its bitset");
+
+static int sqlparser_sqlserver_prefilter_word_index(const char *word, size_t length)
+{
+    size_t low = 0U;
+    size_t high = sizeof(sqlparser_sqlserver_prefilter_words) /
+        sizeof(sqlparser_sqlserver_prefilter_words[0]);
+    while (low < high) {
+        size_t mid = low + (high - low) / 2U;
+        const char *candidate = sqlparser_sqlserver_prefilter_words[mid];
+        size_t index = 0U;
+        int order = 0;
+        while (index < length && candidate[index] != '\0') {
+            order = tolower((unsigned char)word[index]) - (unsigned char)candidate[index];
+            if (order != 0) break;
+            index++;
+        }
+        if (order == 0) {
+            if (index < length) order = 1;
+            else if (candidate[index] != '\0') order = -1;
+        }
+        if (order == 0) return (int)mid;
+        if (order < 0) high = mid;
+        else low = mid + 1U;
+    }
+    return -1;
+}
+
+static void sqlparser_sqlserver_raw_word_inventory(
+    const char *sql, sqlparser_sqlserver_raw_word_inventory_t *out)
+{
+    size_t pos = 0U, word_index, max_word_length = 0U;
+    out->sql = sql;
+    out->present = 0U;
+    out->has_at = 0;
+    if (sql == NULL) return;
+    for (word_index = 0U; word_index < sizeof(sqlparser_sqlserver_prefilter_words) /
+        sizeof(sqlparser_sqlserver_prefilter_words[0]); word_index++) {
+        size_t length = strlen(sqlparser_sqlserver_prefilter_words[word_index]);
+        if (length > max_word_length) max_word_length = length;
+    }
+    while (sql[pos] != '\0') {
+        size_t start;
+        int index;
+        if (!sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos])) {
+            pos++;
+            continue;
+        }
+        start = pos;
+        do {
+            if (sql[pos] == '@') out->has_at = 1;
+            pos++;
+        } while (sql[pos] != '\0' &&
+            sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos]));
+        /* Longer identifier tokens cannot equal any inventory keyword. */
+        if (pos - start > max_word_length) continue;
+        index = sqlparser_sqlserver_prefilter_word_index(sql + start, pos - start);
+        if (index >= 0) out->present |= UINT64_C(1) << (unsigned int)index;
+    }
+}
+
+static int sqlparser_sqlserver_raw_contains_word_span_scan(const char *sql, const char *word, size_t word_len)
 {
 	size_t pos;
 
@@ -3783,9 +3937,24 @@ static int sqlparser_sqlserver_raw_contains_word_span(const char *sql, const cha
 	return 0;
 }
 
-static int sqlparser_sqlserver_raw_contains_word(const char *sql, const char *word)
+
+static int sqlparser_sqlserver_raw_contains_word_span(
+    const sqlparser_sqlserver_raw_word_inventory_t *inventory,
+    const char *word, size_t word_len)
 {
-	return sqlparser_sqlserver_raw_contains_word_span(sql, word, word != NULL ? strlen(word) : 0U);
+    int index;
+    if (inventory == NULL || word == NULL || word_len == 0U) return 0;
+    index = sqlparser_sqlserver_prefilter_word_index(word, word_len);
+    if (index >= 0) return (inventory->present & (UINT64_C(1) << (unsigned int)index)) != 0U;
+    /* A later unsupported-word addition remains correct even before the
+     * inventory is updated: unknown keys retain the original scan. */
+    return sqlparser_sqlserver_raw_contains_word_span_scan(inventory->sql, word, word_len);
+}
+
+static int sqlparser_sqlserver_raw_contains_word(
+    const sqlparser_sqlserver_raw_word_inventory_t *inventory, const char *word)
+{
+    return sqlparser_sqlserver_raw_contains_word_span(inventory, word, word != NULL ? strlen(word) : 0U);
 }
 
 static int sqlparser_sqlserver_contains_code_word(
@@ -3819,12 +3988,12 @@ static int sqlparser_sqlserver_contains_code_word(
 	return 0;
 }
 
-static int sqlparser_sqlserver_raw_may_contain_phrase(const char *sql, const char *phrase)
+static int sqlparser_sqlserver_raw_may_contain_phrase(const sqlparser_sqlserver_raw_word_inventory_t *inventory, const char *phrase)
 {
 	size_t pos;
 	int saw_token;
 
-	if (sql == NULL || phrase == NULL) {
+	if (inventory == NULL || inventory->sql == NULL || phrase == NULL) {
 		return 0;
 	}
 
@@ -3849,7 +4018,7 @@ static int sqlparser_sqlserver_raw_may_contain_phrase(const char *sql, const cha
 		}
 
 		saw_token = 1;
-		if (!sqlparser_sqlserver_raw_contains_word_span(sql, phrase + start, len)) {
+		if (!sqlparser_sqlserver_raw_contains_word_span(inventory, phrase + start, len)) {
 			return 0;
 		}
 	}
@@ -3981,34 +4150,36 @@ static sqlparser_status_t sqlparser_sqlserver_reject_unsupported(
 	sqlparser_status_t status;
 	size_t index;
 	int needs_mask;
+	sqlparser_sqlserver_raw_word_inventory_t inventory;
+	sqlparser_sqlserver_raw_word_inventory(sql, &inventory);
 
 	needs_mask =
-		sqlparser_sqlserver_raw_contains_word(sql, "exec") ||
-		sqlparser_sqlserver_raw_contains_word(sql, "execute") ||
-		sqlparser_sqlserver_raw_contains_word(sql, "use") ||
-		(strchr(sql, '@') != NULL &&
-		 (sqlparser_sqlserver_raw_contains_word(sql, "from") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "join") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "update") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "into"))) ||
-		(sqlparser_sqlserver_raw_contains_word(sql, "top") &&
-		 (sqlparser_sqlserver_raw_contains_word(sql, "insert") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "update") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "delete") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "merge") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "select"))) ||
-		(sqlparser_sqlserver_raw_contains_word(sql, "output") &&
-		 (sqlparser_sqlserver_raw_contains_word(sql, "insert") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "update") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "delete") ||
-		  sqlparser_sqlserver_raw_contains_word(sql, "merge"))) ||
-		(sqlparser_sqlserver_raw_contains_word(sql, "select") &&
-		 sqlparser_sqlserver_raw_contains_word(sql, "top") &&
-		 sqlparser_sqlserver_raw_contains_word(sql, "offset") &&
-		 sqlparser_sqlserver_raw_contains_word(sql, "fetch"));
+		sqlparser_sqlserver_raw_contains_word(&inventory, "exec") ||
+		sqlparser_sqlserver_raw_contains_word(&inventory, "execute") ||
+		sqlparser_sqlserver_raw_contains_word(&inventory, "use") ||
+		(inventory.has_at &&
+		 (sqlparser_sqlserver_raw_contains_word(&inventory, "from") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "join") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "update") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "into"))) ||
+		(sqlparser_sqlserver_raw_contains_word(&inventory, "top") &&
+		 (sqlparser_sqlserver_raw_contains_word(&inventory, "insert") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "update") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "delete") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "merge") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "select"))) ||
+		(sqlparser_sqlserver_raw_contains_word(&inventory, "output") &&
+		 (sqlparser_sqlserver_raw_contains_word(&inventory, "insert") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "update") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "delete") ||
+		  sqlparser_sqlserver_raw_contains_word(&inventory, "merge"))) ||
+		(sqlparser_sqlserver_raw_contains_word(&inventory, "select") &&
+		 sqlparser_sqlserver_raw_contains_word(&inventory, "top") &&
+		 sqlparser_sqlserver_raw_contains_word(&inventory, "offset") &&
+		 sqlparser_sqlserver_raw_contains_word(&inventory, "fetch"));
 	for (index = 0U; !needs_mask &&
 	     index < sizeof(unsupported_phrases) / sizeof(unsupported_phrases[0]); index++) {
-		if (sqlparser_sqlserver_raw_may_contain_phrase(sql, unsupported_phrases[index])) {
+		if (sqlparser_sqlserver_raw_may_contain_phrase(&inventory, unsupported_phrases[index])) {
 			needs_mask = 1;
 		}
 	}
@@ -10871,11 +11042,104 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_preprocess(
+/* The shared scalar proof rejects PostgreSQL keywords, but that is not a
+ * SQL Server identity guarantee. Keep this sorted, conservative union of the
+ * word literals in this module, sqlserver_scan, sqlserver_control and
+ * sqlserver_output: raw-prefilter/unsupported words, candidate/control/OUTPUT
+ * words, table-source anchors/boundaries and all rewrite words. Extra misses
+ * are intentional. Re-audit this union when those passes gain a trigger.
+ * Names in every relation component and explicit column are checked; words in
+ * strings still go through the unchanged raw inventory and masking below. */
+static int sqlparser_sqlserver_identity_name(const char *name, size_t length)
+{
+	static const char *const excluded[] = {
+		"add", "all", "allow_encrypted_value_modifications", "alter", "ansi_defaults",
+		"ansi_null_dflt_off", "ansi_null_dflt_on", "ansi_nulls", "ansi_padding", "ansi_warnings",
+		"application", "apply", "approx_count_distinct", "arithabort", "arithignore", "as",
+		"asymmetric", "authorization", "auto", "auto_drop", "avg", "begin", "bit", "break", "by",
+		"case", "cast", "certificate", "check", "checkpoint", "checksum_agg", "collection",
+		"columns", "commit", "committed", "compatibility_level", "compute",
+		"concat_null_yields_null", "constraint", "context_info", "continue", "conversation",
+		"convert", "cookie", "count", "count_big", "create", "cross", "cursor_close_on_commit",
+		"database", "datefirst", "dateformat", "dbcc", "deadlock_priority", "deallocate",
+		"declare", "default", "default_language", "default_schema", "delete", "deleted", "deny",
+		"dialog", "distinct", "distributed", "dmy", "double", "drop", "dym", "else", "end",
+		"entry", "except", "exec", "execute", "exists", "external", "fetch", "fips_flagger",
+		"fmtonly", "fn", "for", "forceplan", "foreign", "from", "full", "fullscan", "function",
+		"generated", "go", "grant", "group", "grouping", "grouping_id", "having", "high",
+		"identity", "identity_insert", "if", "implicit_transactions", "increment", "incremental",
+		"index", "inner", "insert", "inserted", "intermediate", "intersect", "into", "isolation",
+		"isolation_level", "join", "json", "key", "kill", "language", "left", "level", "limit",
+		"lock_timeout", "login", "low", "max", "maxdop", "mdy", "member", "merge", "min", "myd",
+		"name", "no", "nocount", "noexec", "norecompute", "noreset", "normal", "not", "null",
+		"numeric_roundabort", "object", "object_id", "off", "offset", "offsets", "on", "open",
+		"opendatasource", "openjson", "openquery", "openrowset", "openxml", "option", "order",
+		"outer", "output", "pagecount", "param", "parse", "parseonly", "partition", "password",
+		"path", "percent", "persist_sample_percent", "pg_catalog", "pivot", "precision",
+		"primary", "print", "procedure", "provider", "query_governor_cost_limit",
+		"quoted_identifier", "raiserror", "read", "read_only", "reconfigure", "references",
+		"remote_proc_transactions", "rename", "repeatable", "resample", "reset",
+		"result_set_caching", "return", "returning", "revert", "revoke", "right", "role",
+		"rollback", "rowcount", "sample", "save", "savepoint", "schema", "scheme", "select",
+		"serializable", "set", "setuser", "showplan_all", "showplan_text", "showplan_xml",
+		"shutdown", "sid", "snapshot", "source", "sp_execute", "sp_executesql", "sp_prepare",
+		"sp_prepexec", "sp_set_session_context", "sp_unprepare", "sqlserver", "start", "state",
+		"statement", "statistics", "stats_stream", "stdev", "stdevp", "string_agg", "sum",
+		"synonym", "sys", "table", "target", "textsize", "throw", "ties", "time", "timer", "to",
+		"top", "tran", "transaction", "transfer", "trigger", "truncate", "try", "try_cast",
+		"try_convert", "try_parse", "type", "uncommitted", "union", "unique", "unpivot", "update",
+		"use", "user", "using", "value", "values", "var", "variable", "varp", "waitfor", "where",
+		"while", "with", "without", "xact_abort", "xml", "ydm", "ymd", "zone",
+	};
+	size_t low = 0U;
+	size_t high = sizeof(excluded) / sizeof(excluded[0]);
+	size_t index;
+
+	/* The legacy text loop also recognizes binary literals at every byte,
+	 * including inside an otherwise ordinary name (for example a0xAB).
+	 * Decline every such prefix, including malformed ones, without guessing
+	 * whether the old copy_binary_literal path will rewrite or diagnose it. */
+	for (index = 0U; index + 1U < length; index++) {
+		if (name[index] == '0' && (name[index + 1U] == 'x' || name[index + 1U] == 'X')) {
+			return 0;
+		}
+	}
+	while (low < high) {
+		size_t mid = low + (high - low) / 2U;
+		const char *word = excluded[mid];
+		size_t index = 0U;
+		int order = 0;
+		while (index < length && word[index] != '\0') {
+			unsigned char c = (unsigned char)name[index];
+			if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+			order = (int)c - (unsigned char)word[index];
+			if (order != 0) break;
+			index++;
+		}
+		if (order == 0) {
+			if (index < length) order = 1;
+			else if (word[index] != '\0') order = -1;
+		}
+		if (order == 0) return 0;
+		if (order < 0) high = mid;
+		else low = mid + 1U;
+	}
+	return 1;
+}
+
+static int sqlparser_sqlserver_prove_identity_scalar_insert(
+	const char *input, PgQueryIdentityScalarInsertProof *proof)
+{
+	return pg_query_prove_identity_scalar_insert(
+		input, sqlparser_sqlserver_identity_name, proof);
+}
+
+sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_state_t *state;
@@ -10884,6 +11148,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	unsigned int candidates;
 	sqlparser_status_t status;
 
+	if (out_proof != NULL) memset(out_proof, 0, sizeof(*out_proof));
 	if (out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -10905,6 +11170,37 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	status = sqlparser_sqlserver_state_new(&state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
+	}
+	/* This is a preprocessing-only proof. Ordinary grammar and a separate
+	 * canonical writer certificate remain authoritative for initial validation;
+	 * graph admission still requires its independent strict wire certificate.
+	 * Origin-aware and fragment preprocessing deliberately use the old path. */
+	{
+		PgQueryIdentityScalarInsertProof proof;
+		if (sqlparser_sqlserver_prove_identity_scalar_insert(input_sql, &proof)) {
+			preprocess_sql = sqlparser_strndup(input_sql, proof.source_length);
+			if (preprocess_sql == NULL) {
+				sqlparser_sqlserver_state_destroy(state);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			/* Retain the raw-word inventory, conditional masking and diagnostics,
+			 * even when its triggering words occur only inside clean strings. */
+			status = sqlparser_sqlserver_reject_unsupported(input_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				free(preprocess_sql);
+				sqlparser_sqlserver_state_destroy(state);
+				return status;
+			}
+			state->literal_count = proof.string_count;
+			state->table_source_count = 1U;
+			*out_parser_sql = preprocess_sql;
+			*out_state = state;
+			/* Publish only after all original allocations, rejection checks
+			 * and state writes succeed. The proof describes this owned copy. */
+			if (out_proof != NULL) *out_proof = proof;
+			return SQLPARSER_STATUS_OK;
+		}
 	}
 	preprocess_sql = sqlparser_strdup(input_sql);
 	if (preprocess_sql == NULL) {
@@ -10956,6 +11252,17 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_sqlserver_preprocess_validation_proof(
+		input_sql, limits, out_parser_sql, out_state, NULL, out_error);
 }
 
 sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
@@ -16290,7 +16597,10 @@ static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 	sqlparser_sqlserver_reconcile_ast_state,
 	sqlparser_sqlserver_clone_ast_state,
 	sqlparser_sqlserver_prepare_ast_state,
-	NULL
+	NULL,
+	0, /* Retain native validation and take_control_state for initial parses. */
+	1, /* Plain ASCII strings already use the portable, state-free fragment parser. */
+	sqlparser_sqlserver_state_is_plain_insert_strings
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void)

@@ -1,12 +1,14 @@
-# v2.17.0 Release Notes
+# v2.17.1 Release Notes
 
-Version 2.17.0 improves parsing and rewriting performance and memory use. Public function signatures, structure layouts and exports are unchanged, but failure handling and borrowed-view lifetimes are incompatible with 2.16.x.
+Version 2.17.1 improves batch INSERT parsing, query graph construction and string rewriting, and fixes related literal-text lifetimes. Public function signatures, structure layouts, exports and the 2.17.0 calling rules remain unchanged.
 
-## Memory and Implementation
+## Improvements and Fixes
 
-- Encode protobuf directly from the parser's raw tree to reduce temporary intermediate objects. Unsupported structures retain the original conversion and validation path.
-- Reduce copies of dialect state, structural rows and internal SQL, and shorten the lifetime of old ASTs, query graphs and serialized buffers.
-- Remove whole-handle rollback copies. Required syntax, shape and resource-limit checks remain; memory and timing improvements depend on the workload and environment.
+- Optimize preprocessing, parsing, query graph construction and string rewriting for eligible single-statement batch INSERTs, reducing repeated parsing and intermediate AST materialization.
+- Optimize INSERT validation and batch string replacement in SQL Server and compatible dialects, reusing validation evidence and combining source edits for eligible statements while retaining final validation.
+- Optimize string commits, SQL value function classification and identifier-origin handling for Oracle-family multi-table inserts.
+- Reduce repeated traversal, allocation and copying in serialization, selector resolution and source edits. Ineligible inputs retain generic processing and validation.
+- Fix the lifetime of some literal text in Oracle-family multi-table insert graphs.
 
 ## Calling Rules
 
@@ -16,9 +18,4 @@ Version 2.17.0 improves parsing and rewriting performance and memory use. Public
 - Caller SQL remains unchanged; source selectors read the current state in execution order. Previously returned independent SQL/JSON strings remain valid across later handle edits or destruction.
 - Convenience mutation APIs follow the same failure-handling requirement. Concurrent mutation of one handle is unsupported.
 
-## Validation
-
-- Linux AArch64 build, full `make test` and ABI checks passed, retaining 162 public exports.
-- Fourteen related unit programs and both 5,000-row full pipelines passed Valgrind: zero errors and zero bytes in zero blocks at exit, with no suppressions.
-
-See the [Test guide](tests/README.en.md) and [Benchmark guide](bench/README.en.md) for the check list and reproduction.
+See the [Test guide](tests/README.en.md) and [Benchmark guide](bench/README.en.md) for check commands and reproduction.

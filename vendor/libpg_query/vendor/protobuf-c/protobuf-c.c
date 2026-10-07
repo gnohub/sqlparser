@@ -3535,6 +3535,129 @@ error_cleanup_during_scan:
 	return NULL;
 }
 
+/* Recognize only shortest nonnegative int32 varints. Negative, overlong and
+ * overflow encodings retain the existing decoder and its wire semantics. */
+static inline size_t
+pg_query_chain_uint31(size_t len, const uint8_t *data, uint32_t *value)
+{
+	uint32_t result = 0;
+	unsigned i;
+	for (i = 0; i < 5 && i < len; i++) {
+		uint8_t byte = data[i];
+		if (i == 4 && byte > 7)
+			return 0;
+		result |= ((uint32_t) (byte & 0x7f)) << (7 * i);
+		if ((byte & 0x80) == 0) {
+			if (i != 0 && byte == 0)
+				return 0;
+			*value = result;
+			return i + 1;
+		}
+	}
+	return 0;
+}
+
+static inline protobuf_c_boolean
+pg_query_chain_length(size_t len, const uint8_t *data,
+		      size_t *prefix, size_t *payload)
+{
+	uint32_t length;
+	size_t used = pg_query_chain_uint31(len, data, &length);
+	if (used == 0 || length > len - used)
+		return FALSE;
+	*prefix = used;
+	*payload = length;
+	return TRUE;
+}
+
+/* Called only after the existing strict scanner has recognized and initialized
+ * an exact generated Node with its sole a_const field. The default allocator
+ * is required by the caller. Prove an entire native Integer/String descendant
+ * shape before allocating; every other wire shape takes the existing decoder.
+ * Keep separate allocations, generated defaults, bottom-up publication, and
+ * the original failure unwind while both parent oneofs remain unpublished. */
+static protobuf_c_boolean
+pg_query_try_unpack_literal_chain(size_t len, const uint8_t *data,
+				 ProtobufCAllocator *allocator,
+				 ProtobufCMessage **result)
+{
+	const uint8_t *leaf_data, *text = NULL;
+	size_t prefix, leaf_len, used, remaining, text_len = 0;
+	uint32_t integer = 0, location = 0;
+	uint8_t choice;
+	PgQuery__AConst *literal;
+	ProtobufCMessage *leaf = NULL;
+
+	if (len < 2 || (data[0] != 10 && data[0] != 34))
+		return FALSE;
+	choice = data[0];
+	if (!pg_query_chain_length(len - 1, data + 1, &prefix, &leaf_len))
+		return FALSE;
+	leaf_data = data + 1 + prefix;
+	used = 1 + prefix + leaf_len;
+	remaining = len - used;
+	if (remaining != 0) {
+		if (data[used] != 88 ||
+		    pg_query_chain_uint31(remaining - 1, data + used + 1,
+					  &location) != remaining - 1 ||
+		    location == 0)
+			return FALSE;
+	}
+	if (choice == 10) {
+		if (leaf_len != 0 &&
+		    (leaf_data[0] != 8 ||
+		     pg_query_chain_uint31(leaf_len - 1, leaf_data + 1,
+					   &integer) != leaf_len - 1 ||
+		     integer == 0))
+			return FALSE;
+	} else if (leaf_len != 0) {
+		if (leaf_data[0] != 10 ||
+		    !pg_query_chain_length(leaf_len - 1, leaf_data + 1,
+					   &prefix, &text_len) ||
+		    1 + prefix + text_len != leaf_len)
+			return FALSE;
+		text = leaf_data + 1 + prefix;
+	}
+
+	*result = NULL;
+	literal = do_alloc(allocator, sizeof(*literal));
+	if (literal == NULL)
+		return TRUE;
+	pg_query__a__const__init(literal);
+	if (choice == 10) {
+		PgQuery__Integer *value = do_alloc(allocator, sizeof(*value));
+		if (value == NULL)
+			goto fail;
+		pg_query__integer__init(value);
+		value->ival = (int32_t) integer;
+		literal->ival = value;
+		literal->val_case = PG_QUERY__A__CONST__VAL_IVAL;
+	} else {
+		PgQuery__String *value = do_alloc(allocator, sizeof(*value));
+		if (value == NULL)
+			goto fail;
+		pg_query__string__init(value);
+		leaf = &value->base;
+		if (text != NULL) {
+			value->sval = do_alloc(allocator, text_len + 1);
+			if (value->sval == NULL)
+				goto fail;
+			memcpy(value->sval, text, text_len);
+			value->sval[text_len] = 0;
+		}
+		literal->sval = value;
+		literal->val_case = PG_QUERY__A__CONST__VAL_SVAL;
+	}
+	literal->location = (int32_t) location;
+	*result = &literal->base;
+	return TRUE;
+
+fail:
+	protobuf_c_message_free_unpacked(leaf, allocator);
+	protobuf_c_message_free_unpacked(&literal->base, allocator);
+	return TRUE;
+}
+
 /* Accept only small, ordered, unique known fields of these exact generated
  * messages. Finish checking the wire shape before the first allocation. A
  * duplicate/unknown field, alternate oneof, repeated field, noncanonical tag,
@@ -3622,12 +3745,43 @@ pg_query_try_unpack(const ProtobufCMessageDescriptor *desc,
 	if (message == NULL)
 		return TRUE; /* An allocation failure must not retry the generic path. */
 	protobuf_c_message_init(desc, message);
+	if (desc == &pg_query__node__descriptor &&
+	    allocator == &protobuf_c__allocator && n == 1 &&
+	    members[0].tag == PG_QUERY__NODE__NODE_A_CONST) {
+		ProtobufCMessage *literal;
+		if (pg_query_try_unpack_literal_chain(
+			members[0].len - members[0].length_prefix_len,
+			members[0].data + members[0].length_prefix_len,
+			allocator, &literal)) {
+			((PgQuery__Node *) message)->a_const = (PgQuery__AConst *) literal;
+			if (literal != NULL)
+				((PgQuery__Node *) message)->node_case = PG_QUERY__NODE__NODE_A_CONST;
+			else {
+				protobuf_c_message_free_unpacked(message, allocator);
+				*result = NULL;
+			}
+			return TRUE;
+		}
+	}
 	for (i = 0; i < n; i++) {
-		if (!parse_member(&members[i], message, allocator)) {
+		const ProtobufCFieldDescriptor *field = members[i].field;
+		void *member = STRUCT_MEMBER_P(message, field->offset);
+		/* The complete scan proved these are unique, known, unlabeled
+		 * fields with at most one oneof member. The generated initializer
+		 * supplied only NULL/default owned values, so there is no previous
+		 * value to clear or merge. Keep the ordinary value parser and its
+		 * failure cleanup, publishing presence only after it succeeds. */
+		if (!parse_required_member(&members[i], member, allocator, FALSE)) {
 			protobuf_c_message_free_unpacked(message, allocator);
 			*result = NULL;
 			break;
 		}
+		if (field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF)
+			STRUCT_MEMBER(uint32_t, message, field->quantifier_offset) =
+				members[i].tag;
+		else if (field->quantifier_offset != 0)
+			STRUCT_MEMBER(protobuf_c_boolean, message,
+				      field->quantifier_offset) = TRUE;
 	}
 	return TRUE;
 }
@@ -3650,6 +3804,99 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 	return protobuf_c_message_unpack_generic(desc, allocator, len, data);
 }
 
+#ifndef PG_QUERY_DISABLE_PROTOBUF_FREE_FASTPATH
+/* Native literal nodes have a common three-message ownership chain. Keep its
+ * ordinary separate allocations, but release a proven generated chain without
+ * entering the generic destructor twice more. Custom allocators and every
+ * unproven shape retain the original recursive dispatch. The parent descriptor
+ * is already cleared; invalidate both descendants before the first free, as
+ * the recursive path does, and preserve payload/leaf/literal/parent order. */
+static inline protobuf_c_boolean
+pg_query_free_literal_chain(PgQuery__Node *node, ProtobufCAllocator *allocator)
+{
+	PgQuery__AConst *literal;
+	ProtobufCMessage *leaf;
+	char *text = NULL;
+
+	if (allocator != &protobuf_c__allocator ||
+	    node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    (literal = node->a_const) == NULL ||
+	    literal->base.descriptor != &pg_query__a__const__descriptor ||
+	    literal->base.n_unknown_fields != 0 ||
+	    literal->base.unknown_fields != NULL)
+		return FALSE;
+	if (literal->val_case == PG_QUERY__A__CONST__VAL_IVAL) {
+		leaf = (ProtobufCMessage *) literal->ival;
+		if (leaf == NULL || leaf->descriptor != &pg_query__integer__descriptor)
+			return FALSE;
+	} else if (literal->val_case == PG_QUERY__A__CONST__VAL_SVAL) {
+		leaf = (ProtobufCMessage *) literal->sval;
+		if (leaf == NULL || leaf->descriptor != &pg_query__string__descriptor)
+			return FALSE;
+		text = literal->sval->sval;
+		if (text == pg_query__string__descriptor.fields[0].default_value)
+			text = NULL;
+	} else {
+		return FALSE;
+	}
+	if (leaf->n_unknown_fields != 0 || leaf->unknown_fields != NULL)
+		return FALSE;
+	literal->base.descriptor = NULL;
+	leaf->descriptor = NULL;
+	if (text != NULL)
+		do_free(allocator, text);
+	do_free(allocator, leaf);
+	do_free(allocator, literal);
+	return TRUE;
+}
+
+/* These exact generated descriptors have only one owning member (or none).
+ * Skip the generic field walk, retaining its selected-oneof/default rules and
+ * recursive dispatch through each child's actual descriptor. The caller has
+ * already cleared message->descriptor before any allocator callback can run.
+ * Leave unknown fields, including an allocated array with zero parsed fields
+ * after an unpack failure, to the unchanged generic path. */
+static inline protobuf_c_boolean
+pg_query_free_members(const ProtobufCMessageDescriptor *desc,
+		      ProtobufCMessage *message, ProtobufCAllocator *allocator)
+{
+	const ProtobufCFieldDescriptor *field;
+	ProtobufCMessage *child;
+
+	if (message->n_unknown_fields != 0 || message->unknown_fields != NULL)
+		return FALSE;
+	if (desc == &pg_query__node__descriptor) {
+		if (pg_query_free_literal_chain((PgQuery__Node *) message, allocator))
+			return TRUE;
+		field = protobuf_c_message_descriptor_get_field(desc,
+			(uint32_t) ((PgQuery__Node *) message)->node_case);
+	} else if (desc == &pg_query__a__const__descriptor) {
+		uint32_t val_case = (uint32_t) ((PgQuery__AConst *) message)->val_case;
+		/* Only the five message-valued alternatives own storage. Never
+		 * inspect an inactive union, including invalid discriminators. */
+		field = val_case >= PG_QUERY__A__CONST__VAL_IVAL &&
+			val_case <= PG_QUERY__A__CONST__VAL_BSVAL
+			? &desc->fields[val_case - 1] : NULL;
+	} else if (desc == &pg_query__string__descriptor) {
+		char *str = ((PgQuery__String *) message)->sval;
+		if (str != NULL && str != desc->fields[0].default_value)
+			do_free(allocator, str);
+		return TRUE;
+	} else {
+		return desc == &pg_query__integer__descriptor;
+	}
+
+	if (field != NULL) {
+		/* The generated union contains differently typed message pointers.
+		 * Copy the selected member without accessing an inactive alias. */
+		memcpy(&child, STRUCT_MEMBER_P(message, field->offset), sizeof(child));
+		if (child != NULL && child != field->default_value)
+			protobuf_c_message_free_unpacked(child, allocator);
+	}
+	return TRUE;
+}
+#endif
+
 void
 protobuf_c_message_free_unpacked(ProtobufCMessage *message,
 				 ProtobufCAllocator *allocator)
@@ -3666,8 +3913,12 @@ protobuf_c_message_free_unpacked(ProtobufCMessage *message,
 
 	if (allocator == NULL)
 		allocator = &protobuf_c__allocator;
-	pg_query_node_field_bounds(desc, message, &first, &end);
 	message->descriptor = NULL;
+#ifndef PG_QUERY_DISABLE_PROTOBUF_FREE_FASTPATH
+	if (pg_query_free_members(desc, message, allocator))
+		goto free_unknown_fields;
+#endif
+	pg_query_node_field_bounds(desc, message, &first, &end);
 	for (f = first; f < end; f++) {
 		if (0 != (desc->fields[f].flags & PROTOBUF_C_FIELD_FLAG_ONEOF) &&
 		    desc->fields[f].id !=
@@ -3732,6 +3983,9 @@ protobuf_c_message_free_unpacked(ProtobufCMessage *message,
 		}
 	}
 
+#ifndef PG_QUERY_DISABLE_PROTOBUF_FREE_FASTPATH
+free_unknown_fields:
+#endif
 	for (f = 0; f < message->n_unknown_fields; f++)
 		do_free(allocator, message->unknown_fields[f].data);
 	if (message->unknown_fields != NULL)

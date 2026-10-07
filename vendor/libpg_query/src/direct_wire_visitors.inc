@@ -1,4 +1,4 @@
-/* Generated measurement prototype; do not edit manually. */
+/* Generated direct protobuf visitors; do not edit manually. */
 static void dw_Alias(DirectWire *c, const void *object);
 static void dw_RangeVar(DirectWire *c, const void *object);
 static void dw_TableFunc(DirectWire *c, const void *object);
@@ -302,7 +302,7 @@ static void dw_TableFunc(DirectWire *c, const void *object) {
  dw_list(c,11,node->coldefexprs);
  dw_list(c,12,node->colvalexprs);
  dw_list(c,13,node->passingvalexprs);
- if(!bms_is_empty(node->notnulls)) c->status=0; /* Explicit prototype fallback. */
+ if(!bms_is_empty(node->notnulls)) c->status=0; /* Unsupported bitmap fallback. */
  if(node->plan) dw_message(c,15,dw_Node,node->plan);
  dw_scalar(c,16,(uint64_t)(int64_t)(int32_t)(node->ordinalitycol));
  dw_scalar(c,17,(uint64_t)(int64_t)(int32_t)(node->location));
@@ -327,7 +327,7 @@ static void dw_Var(DirectWire *c, const void *object) {
  dw_scalar(c,4,(uint64_t)(uint32_t)(node->vartype));
  dw_scalar(c,5,(uint64_t)(int64_t)(int32_t)(node->vartypmod));
  dw_scalar(c,6,(uint64_t)(uint32_t)(node->varcollid));
- if(!bms_is_empty(node->varnullingrels)) c->status=0; /* Explicit prototype fallback. */
+ if(!bms_is_empty(node->varnullingrels)) c->status=0; /* Unsupported bitmap fallback. */
  dw_scalar(c,8,(uint64_t)(uint32_t)(node->varlevelsup));
  dw_scalar(c,9,(uint64_t)(int64_t)(int32_t)(node->location));
 }
@@ -654,7 +654,6 @@ static void dw_MinMaxExpr(DirectWire *c, const void *object) {
 }
 static void dw_SQLValueFunction(DirectWire *c, const void *object) {
  const SQLValueFunction *node=object;
- if(c->certifying){c->status=0;return;}
  dw_scalar(c,2,(uint64_t)(int64_t)(int32_t)(_enumToIntSQLValueFunctionOp(node->op)));
  dw_scalar(c,3,(uint64_t)(uint32_t)(node->type));
  dw_scalar(c,4,(uint64_t)(int64_t)(int32_t)(node->typmod));
@@ -1258,9 +1257,9 @@ static void dw_RTEPermissionInfo(DirectWire *c, const void *object) {
  dw_scalar(c,2,(uint64_t)!!(node->inh));
  dw_scalar(c,3,(uint64_t)(node->requiredPerms));
  dw_scalar(c,4,(uint64_t)(uint32_t)(node->checkAsUser));
- if(!bms_is_empty(node->selectedCols)) c->status=0; /* Explicit prototype fallback. */
- if(!bms_is_empty(node->insertedCols)) c->status=0; /* Explicit prototype fallback. */
- if(!bms_is_empty(node->updatedCols)) c->status=0; /* Explicit prototype fallback. */
+ if(!bms_is_empty(node->selectedCols)) c->status=0; /* Unsupported bitmap fallback. */
+ if(!bms_is_empty(node->insertedCols)) c->status=0; /* Unsupported bitmap fallback. */
+ if(!bms_is_empty(node->updatedCols)) c->status=0; /* Unsupported bitmap fallback. */
 }
 static void dw_RangeTblFunction(DirectWire *c, const void *object) {
  const RangeTblFunction *node=object;
@@ -1271,7 +1270,7 @@ static void dw_RangeTblFunction(DirectWire *c, const void *object) {
  dw_list(c,4,node->funccoltypes);
  dw_list(c,5,node->funccoltypmods);
  dw_list(c,6,node->funccolcollations);
- if(!bms_is_empty(node->funcparams)) c->status=0; /* Explicit prototype fallback. */
+ if(!bms_is_empty(node->funcparams)) c->status=0; /* Unsupported bitmap fallback. */
 }
 static void dw_TableSampleClause(DirectWire *c, const void *object) {
  const TableSampleClause *node=object;
@@ -2643,10 +2642,10 @@ static void dw_AConst(DirectWire *c,const void *object) {
  const A_Const *node=object;
  if(!node->isnull) {
   switch(nodeTag(&node->val.node)) {
-   case T_Integer: dw_message(c,1,dw_Integer,&node->val.ival); break;
-   case T_Float: dw_message(c,2,dw_Float,&node->val.fval); break;
+   case T_Integer: dw_primitive_int32_message(c,1,(int32_t)node->val.ival.ival); break;
+   case T_Float: dw_primitive_string_message(c,2,node->val.fval.fval,0); break;
    case T_Boolean: dw_message(c,3,dw_Boolean,&node->val.boolval); break;
-   case T_String: dw_message(c,4,dw_String,&node->val.sval); break;
+   case T_String: dw_primitive_string_message(c,4,node->val.sval.sval,(int32_t)node->val.sval.location); break;
    case T_BitString: dw_message(c,5,dw_BitString,&node->val.bsval); break;
    default: c->status=0; return;
   }

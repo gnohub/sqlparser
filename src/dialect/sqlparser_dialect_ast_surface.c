@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <string.h>
 
 #include "sqlparser_dialect_ast_surface_internal.h"
 
@@ -329,6 +330,38 @@ static void sqlparser_dialect_ast_surface_visit_generic(
 		return;
 	}
 	base = (const uint8_t *)message;
+#ifndef SQLPARSER_DISABLE_SURFACE_NODE_DISPATCH
+	if (descriptor == &pg_query__node__descriptor) {
+		PgQuery__Node *node = (PgQuery__Node *)message;
+		unsigned int next_field = 0U;
+		uint32_t node_case = (uint32_t)node->node_case;
+
+		/* This exact generated descriptor contains only message-valued oneof
+		 * alternatives sharing the discriminator and union slot (guarded by
+		 * test_protobuf_node and test_surface_node_dispatch). Other descriptors
+		 * retain the generic traversal below. */
+		for (;;) {
+			const ProtobufCFieldDescriptor *field;
+			ProtobufCMessage *child;
+			unsigned int selected_field;
+			uint32_t next_case;
+
+			field = protobuf_c_message_descriptor_get_field(descriptor, node_case);
+			if (field == NULL) return;
+			selected_field = (unsigned int)(field - descriptor->fields);
+			if (selected_field < next_field) return;
+			next_field = selected_field + 1U;
+			memcpy(&child, base + field->offset, sizeof(child));
+			sqlparser_dialect_ast_surface_visit_message(child, statement_index, visitor);
+			/* Callbacks can change an ancestor's active arm. The old forward
+			 * descriptor scan would visit a newly active later alternative, but
+			 * never repeat this arm or revisit an earlier one. Keep that order. */
+			next_case = (uint32_t)node->node_case;
+			if (next_case == node_case) return;
+			node_case = next_case;
+		}
+	}
+#endif
 	for (field_index = 0U;
 	     field_index < descriptor->n_fields;
 	     field_index++) {

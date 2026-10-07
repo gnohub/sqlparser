@@ -74,6 +74,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
 	$(OBJ_DIR)\sqlparser_bind_occurrence.obj \
 	$(OBJ_DIR)\sqlparser_bind_role.obj \
+	$(OBJ_DIR)\sqlparser_certified_insert_pack.obj \
 	$(OBJ_DIR)\sqlparser_control.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
 	$(OBJ_DIR)\sqlparser_deparse_spelling.obj \
@@ -82,6 +83,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_surface.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
+	$(OBJ_DIR)\sqlparser_wire_insert.obj \
 	$(OBJ_DIR)\sqlparser_dialect_ast_surface.obj \
 	$(OBJ_DIR)\sqlparser_dialect_bind.obj \
 	$(OBJ_DIR)\sqlparser_dialect_dameng.obj \
@@ -101,15 +103,33 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_dialect_registry.obj
 
 UNIT_TEST_BINS = \
+	$(BIN_DIR)\test_dml_cell_clear.exe \
+	$(BIN_DIR)\test_insert_graph_bulk_rows.exe \
+	$(BIN_DIR)\test_ascii_string_recognizer.exe \
+	$(BIN_DIR)\test_error_clear.exe \
+	$(BIN_DIR)\test_direct_wire_measure.exe \
+	$(BIN_DIR)\test_simple_insert_native.exe \
+	$(BIN_DIR)\test_simple_insert_size_bounds.exe \
+	$(BIN_DIR)\test_simple_insert_pipeline.exe \
+	$(BIN_DIR)\test_protobuf_fresh_unpack.exe \
 	$(BIN_DIR)\test_surface_scanner_differential.exe \
 	$(BIN_DIR)\test_insert_graph_fast_paths.exe \
+	$(BIN_DIR)\test_text_limits.exe \
 	$(BIN_DIR)\test_mysql_validation_observer.exe \
 	$(BIN_DIR)\test_mysql_scanner_differential.exe \
 	$(BIN_DIR)\test_protobuf_fastpath.exe \
 	$(BIN_DIR)\test_distinct_handle_concurrency.exe \
 	$(BIN_DIR)\test_ascii_string_validation.exe \
 	$(BIN_DIR)\test_protobuf_node.exe \
+	$(BIN_DIR)\test_protobuf_free.exe \
 	$(BIN_DIR)\test_insert_string_batch.exe \
+	$(BIN_DIR)\test_insert_string_certificate.exe \
+	$(BIN_DIR)\test_certified_insert_pack.exe \
+	$(BIN_DIR)\test_wire_insert_codec.exe \
+	$(BIN_DIR)\test_wire_varint_dispatch.exe \
+	$(BIN_DIR)\test_wire_insert_graph.exe \
+	$(BIN_DIR)\test_surface_node_dispatch.exe \
+	$(BIN_DIR)\test_wire_insert_primary.exe \
 	$(BIN_DIR)\test_validation_arena.exe \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
@@ -181,15 +201,33 @@ cli: $(CLI_BIN)
 examples: $(EXAMPLE_BINS)
 
 test: all $(UNIT_TEST_BINS) examples
+	$(BIN_DIR)\test_dml_cell_clear.exe
+	$(BIN_DIR)\test_insert_graph_bulk_rows.exe
+	$(BIN_DIR)\test_ascii_string_recognizer.exe
+	$(BIN_DIR)\test_error_clear.exe
+	$(BIN_DIR)\test_direct_wire_measure.exe
+	$(BIN_DIR)\test_simple_insert_native.exe
+	$(BIN_DIR)\test_simple_insert_size_bounds.exe
+	$(BIN_DIR)\test_simple_insert_pipeline.exe
+	$(BIN_DIR)\test_protobuf_fresh_unpack.exe
 	$(BIN_DIR)\test_surface_scanner_differential.exe
 	$(BIN_DIR)\test_insert_graph_fast_paths.exe
+	$(BIN_DIR)\test_text_limits.exe
 	$(BIN_DIR)\test_mysql_validation_observer.exe
 	$(BIN_DIR)\test_mysql_scanner_differential.exe
 	$(BIN_DIR)\test_protobuf_fastpath.exe
 	$(BIN_DIR)\test_distinct_handle_concurrency.exe
 	$(BIN_DIR)\test_ascii_string_validation.exe
 	$(BIN_DIR)\test_protobuf_node.exe
+	$(BIN_DIR)\test_protobuf_free.exe
 	$(BIN_DIR)\test_insert_string_batch.exe
+	$(BIN_DIR)\test_insert_string_certificate.exe
+	$(BIN_DIR)\test_certified_insert_pack.exe
+	$(BIN_DIR)\test_wire_insert_codec.exe
+	$(BIN_DIR)\test_wire_varint_dispatch.exe
+	$(BIN_DIR)\test_wire_insert_graph.exe
+	$(BIN_DIR)\test_surface_node_dispatch.exe
+	$(BIN_DIR)\test_wire_insert_primary.exe
 	$(BIN_DIR)\test_validation_arena.exe
 	$(BIN_DIR)\test_api_smoke.exe
 	$(BIN_DIR)\test_api_case_matrix.exe
@@ -326,6 +364,12 @@ $(OBJ_DIR)\sqlparser_bind_occurrence.obj: src\core\sqlparser_bind_occurrence.c
 
 $(OBJ_DIR)\sqlparser_bind_role.obj: src\core\sqlparser_bind_role.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_bind_role.c
+
+$(OBJ_DIR)\sqlparser_certified_insert_pack.obj: src\core\sqlparser_certified_insert_pack.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_certified_insert_pack.c
+
+$(OBJ_DIR)\sqlparser_wire_insert.obj: src\core\sqlparser_wire_insert.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_wire_insert.c
 
 $(OBJ_DIR)\sqlparser_control.obj: src\core\sqlparser_control.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_control.c
@@ -569,11 +613,20 @@ $(BIN_DIR)\test_distinct_handle_concurrency.exe: tests\unit\test_distinct_handle
 $(BIN_DIR)\test_ascii_string_validation.exe: tests\unit\test_ascii_string_validation.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_ascii_string_validation.c /link $(LDFLAGS) $(LDLIBS)
 
+$(BIN_DIR)\test_protobuf_free.exe: tests\unit\test_protobuf_free.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_protobuf_free.c /link $(LDFLAGS) $(LDLIBS)
+
 $(BIN_DIR)\test_protobuf_node.exe: tests\unit\test_protobuf_node.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_protobuf_node.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_insert_string_batch.exe: tests\unit\test_insert_string_batch.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_string_batch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_insert_string_certificate.exe: tests\unit\test_insert_string_certificate.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_string_certificate.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_certified_insert_pack.exe: tests\unit\test_certified_insert_pack.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_certified_insert_pack.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_validation_arena.exe: tests\unit\test_validation_arena.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_validation_arena.c /link $(LDFLAGS) $(LDLIBS)
@@ -590,5 +643,53 @@ $(BIN_DIR)\test_protobuf_fastpath.exe: tests\unit\test_protobuf_fastpath.c $(STA
 $(BIN_DIR)\test_insert_graph_fast_paths.exe: tests\unit\test_insert_graph_fast_paths.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_graph_fast_paths.c /link $(LDFLAGS) $(LDLIBS)
 
+$(BIN_DIR)\test_text_limits.exe: tests\unit\test_text_limits.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_text_limits.c /link $(LDFLAGS) $(LDLIBS)
+
 $(BIN_DIR)\test_surface_scanner_differential.exe: tests\unit\test_surface_scanner_differential.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_surface_scanner_differential.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_error_clear.exe: tests\unit\test_error_clear.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_error_clear.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_dml_cell_clear.exe: tests\unit\test_dml_cell_clear.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dml_cell_clear.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_direct_wire_measure.exe: tests\unit\test_direct_wire_measure.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /I$(PG_QUERY_DIR)\src\include /I$(PG_QUERY_DIR)\src\postgres\include /I$(PG_QUERY_DIR)\src\postgres\include\port\win32 /I$(PG_QUERY_DIR)\src\postgres\include\port\win32_msvc /Fe$@ tests\unit\test_direct_wire_measure.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_simple_insert_native.exe: tests\unit\test_simple_insert_native.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /I$(PG_QUERY_DIR)\src\postgres\include /I$(PG_QUERY_DIR)\src\postgres\include\port\win32 /I$(PG_QUERY_DIR)\src\postgres\include\port\win32_msvc /Fe$@ tests\unit\test_simple_insert_native.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_simple_insert_size_bounds.exe: tests\unit\test_simple_insert_size_bounds.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /I$(PG_QUERY_DIR)\src\postgres\include /I$(PG_QUERY_DIR)\src\postgres\include\port\win32 /I$(PG_QUERY_DIR)\src\postgres\include\port\win32_msvc /Fe$@ tests\unit\test_simple_insert_size_bounds.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_simple_insert_pipeline.exe: tests\unit\test_simple_insert_pipeline.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_simple_insert_pipeline.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_protobuf_fresh_unpack.exe: tests\unit\test_protobuf_fresh_unpack.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_protobuf_fresh_unpack.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_ascii_string_recognizer.exe: tests\unit\test_ascii_string_recognizer.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_ascii_string_recognizer.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_insert_graph_bulk_rows.exe: tests\unit\test_insert_graph_bulk_rows.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_insert_graph_bulk_rows.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_wire_insert_primary.exe: tests\unit\test_wire_insert_primary.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_wire_insert_primary.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_wire_insert_graph.exe: tests\unit\test_wire_insert_graph.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_wire_insert_graph.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_wire_insert_codec.exe: tests\unit\test_wire_insert_codec.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_wire_insert_codec.c /link $(LDFLAGS) $(LDLIBS)
+
+$(OBJ_DIR)\surface_node_reference.obj: src\dialect\sqlparser_dialect_ast_surface.c
+	$(CC) $(CFLAGS) /DSQLPARSER_DISABLE_SURFACE_NODE_DISPATCH /Dsqlparser_dialect_ast_surface_visit=sqlparser_dialect_ast_surface_visit_reference /Dsqlparser_dialect_ast_surface_visit_roots=sqlparser_dialect_ast_surface_visit_roots_reference /Dsqlparser_dialect_ast_surface_clone=sqlparser_dialect_ast_surface_clone_reference /c src\dialect\sqlparser_dialect_ast_surface.c /Fo$@
+
+$(BIN_DIR)\test_surface_node_dispatch.exe: tests\unit\test_surface_node_dispatch.c $(OBJ_DIR)\surface_node_reference.obj $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_surface_node_dispatch.c $(OBJ_DIR)\surface_node_reference.obj /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_wire_varint_dispatch.exe: tests\unit\test_wire_varint_dispatch.c src\core\sqlparser_wire_insert.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_wire_varint_dispatch.c /link $(LDFLAGS) $(LDLIBS)

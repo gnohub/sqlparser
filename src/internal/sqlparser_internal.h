@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "pg_query.h"
+#include "src/pg_query_observer.h"
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser/sqlparser.h"
 #include "sqlparser_identifier_origin_internal.h"
@@ -174,6 +175,14 @@ enum {
 	SQLPARSER_PATCH_BATCH_IN_PLACE = 8U
 };
 
+/* Optional initial-parse attestation. Both pointers bind to owned immutable
+ * handle storage, never to a temporary native parser context. */
+typedef struct {
+	PgQueryNativeScalarInsertProof proof;
+	const char *sql, *wire;
+	size_t wire_length;
+} sqlparser_native_scalar_provenance_t;
+
 struct sqlparser_handle {
 	char *sql;
 	char *parser_sql;
@@ -183,6 +192,7 @@ struct sqlparser_handle {
 	size_t parser_sql_len;
 	size_t statement_count;
 	PgQueryProtobuf parse_tree;
+	sqlparser_native_scalar_provenance_t *native_scalar_provenance;
 	PgQuery__ParseResult *ast;
 	sqlparser_limits_t limits;
 	unsigned long generation;
@@ -337,10 +347,28 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 	size_t replacement_length,
 	int *out_supported,
 	sqlparser_error_t *out_error);
+/* Consume *replacement only when the edit is supported and inserted. */
+sqlparser_status_t sqlparser_surface_source_edits_insert_owned(
+	sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	char **replacement,
+	size_t replacement_length,
+	int *out_supported,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_restore_source_envelope(
 	const sqlparser_handle_t *handle,
 	char **in_out_sql,
 	sqlparser_error_t *out_error);
+/* Private, non-mutating wire writer. OK/unhandled means generic fallback,
+ * including scratch OOM and unsupported/oversize input; output stays empty.
+ * OK/handled returns malloc-owned bytes. A handled NO_MEMORY or INTERNAL_ERROR
+ * leaves output empty and is terminal, just like generic output allocation or
+ * a pack-size mismatch. Input must remain unchanged for the duration. */
+sqlparser_status_t sqlparser_pack_certified_insert(
+	const PgQuery__ParseResult *ast, PgQueryProtobuf *out, int *out_handled);
+sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
+	sqlparser_handle_t *handle, char **owned_sql, sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_commit_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);

@@ -8,7 +8,7 @@
 5,000 行固定样例及复现命令见
 [`bench/README.md`](../bench/README.md)。
 
-新增或扩展的回归程序：
+主要回归程序：
 
 - `test_protobuf_node`、`test_protobuf_fastpath`：精确描述符约束、通用与快速路径
   字节一致性、未知与重复 wire 字段、畸形输入、缓冲区编码、分配失败及确定性模糊测试
@@ -23,6 +23,12 @@
 - `test_insert_string_batch`、`test_ascii_string_validation`：SQL 与类型化字符串
   替换、原文保留、片段限制及整批失败后失效清理
 - `test_validation_arena`：序列化回退路径的分配失败清理
+- `test_mysql_identity_preprocess`、`test_sqlserver_identity_preprocess`、`test_sqlserver_raw_prefilter`：预处理、方言状态与回退路径的一致性
+- `test_sqlserver_insert_batch`、`test_sqlserver_validation_proof`：SQL Server 兼容入口的批次字符串替换、校验证据复用、错误顺序、所有权和分配失败处理
+- `test_simple_insert_native`、`test_scalar_insert_native`、`test_native_wire_provenance`：原生 INSERT 构建、序列化结果与来源校验
+- `test_wire_insert_primary`、`test_wire_insert_graph`、`test_scalar_wire_codec`、`test_scalar_wire_pipeline`、`test_family_scalar_pipeline`、`test_sqlserver_wire_pipeline`：批量 INSERT 的查询图、字符串替换、来源位置、所有权和回退
+- `test_oracle_origin_replay`、`test_oracle_graph_classification`、`test_oracle_owned_commit`：Oracle 多表插入的来源映射、值分类、状态提交及字面量生命周期
+- `test_insert_source_proof`、`test_batch_selector_fastpath`、`test_ascii_string_recognizer`：原文位置复用、selector 识别及字符串边界
 - `test_distinct_handle_concurrency`：13 个方言入口上的独立 handle 并发；
   `./bin/test_distinct_handle_concurrency 20` 覆盖 1,040 次小样例及 80 次大批量
   MySQL 生命周期，不表示同一个 handle 可并发修改
@@ -85,17 +91,22 @@ make test
 
 ## 内存检查
 
-Linux AArch64、Valgrind 3.27.1 下执行了以下检查：
+与解析及批量改写相关的内存检查程序包括：
 
 - 生命周期和借用输入：`test_patch_lifecycle`、`test_direct_wire_lifecycle`、`test_patch_graph_borrowed`。
 - 方言状态和结构修改：`test_mutation_dialect_state`、`test_patch_structural_rows`、`test_patch_batch`。
 - 编码、转换和分配失败：`test_protobuf_output_oom`、`test_protobuf_scalar_lifetime`、`test_parser_conversion_lifetime`、`test_validation_arena`、`test_mysql_validation_observer`、`test_protobuf_fastpath`。
+- 原文校验和批量 INSERT：`test_mysql_identity_preprocess`、`test_sqlserver_identity_preprocess`、`test_scalar_wire_pipeline`、`test_family_scalar_pipeline`、`test_sqlserver_wire_pipeline`。
+- Oracle 多表插入：`test_oracle_origin_replay`、`test_oracle_graph_classification`、`test_oracle_owned_commit`；`test_oracle_owned_commit --alloc` 额外覆盖提交中的分配失败。
 - 线程与独立 handle：`test_pg_query_thread_lifecycle`、`test_distinct_handle_concurrency`（默认 2 轮）。
 - 完整批量流程：`sqlparser_pipeline_bench 5000 1 0 literal mysql` 与 `sqlparser_pipeline_bench 5000 1 0 replace mysql`。
 
-以上 16 项均为 0 错误，退出时 0 bytes in 0 blocks，未使用抑制规则。GNU 链接包装启用了生命周期、直接编码、输出分配和校验回退的故障注入；可选的额外 mutation/structural 分配扫描未单独启用。这不是完整测试套件逐项运行 Valgrind 的结果，也不代表进程峰值内存。
+GNU 链接包装提供生命周期、编码、输出分配和回退路径的故障注入。泄漏检查与正常性能计时分开；相关程序可通过 `scripts/run_valgrind.sh` 单独执行，完整套件入口为 `make verify-valgrind`。
 
-检查使用 `--leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --track-origins=yes --error-exitcode=99`，日志与正常计时分开。完整 Valgrind 套件入口仍为 `make verify-valgrind`。
+```bash
+make bin/test_oracle_owned_commit
+./scripts/run_valgrind.sh --log-dir build/valgrind -- ./bin/test_oracle_owned_commit
+```
 
 ## 原位 patch 生命周期
 

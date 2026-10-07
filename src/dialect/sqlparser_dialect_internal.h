@@ -150,10 +150,55 @@ struct sqlparser_dialect_ops {
 	const char *(*relation_link_sql)(
 		const void *state,
 		const char *parser_object_name);
+	/* Static grammar/validation capabilities are independent of retained
+	 * state. A successful state predicate is still required before reusing
+	 * source/wire provenance or committing literal-only changes. A non-NULL
+	 * predicate enables strict wire admission without opting into native
+	 * validation or changing control-aware initial parsing. */
+	int plain_scalar_native_validation;
+	int plain_ascii_string_fragments;
+	int (*state_is_plain_insert_strings)(const void *state, size_t string_count);
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect);
+
+/* Private scalar pipeline admission. The dynamic predicate dispatches only
+ * through the exact registered owner and requires unchanged parser SQL. */
+int sqlparser_dialect_supports_plain_scalar_insert(const sqlparser_handle_t *handle);
+int sqlparser_dialect_state_is_plain_insert_strings(
+	const sqlparser_handle_t *handle, size_t string_count);
+
+/* Separate, initial-parse-only capability. The callback returns scalar source
+ * metadata from its actual identity-preprocessing pass, with the parser text
+ * and state it just created. A zero record declines certification. No caller
+ * pointer, proof, or additional allocation is retained in the state/handle.
+ * The proof is NOT native-tree or wire provenance: the core still requires
+ * exact source/parser bytes, the registered owner's state predicate, ordinary
+ * grammar parsing and successful canonical writer certification. */
+typedef sqlparser_status_t (*sqlparser_validation_preprocess_fn)(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_error_t *out_error);
+sqlparser_validation_preprocess_fn sqlparser_dialect_validation_preprocessor(
+	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops);
+sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_error_t *out_error);
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void);
 sqlparser_status_t sqlparser_postgresql_preprocess_identifier_origins(
@@ -188,6 +233,8 @@ sqlparser_status_t sqlparser_mysql_dml_tail_select(
 int sqlparser_mysql_statement_has_dml_join(
 	const void *state,
 	size_t statement_index);
+int sqlparser_mysql_state_is_plain_insert_strings(
+	const void *state, size_t string_count);
 int sqlparser_mysql_statement_update_join_reversed(
 	const void *state,
 	size_t statement_index);
@@ -313,6 +360,18 @@ sqlparser_status_t sqlparser_dameng_preprocess_multi_update_assignment_fragment(
 	char **out_parser_sql,
 	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void);
+/* Exact wrapper admission and its actual Oracle-mode outer rewrite contract. */
+sqlparser_status_t sqlparser_vastbase_oracle_multi_insert_identity_input(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	int *out_identity,
+	sqlparser_error_t *out_error);
+/* Returns an owned origin map only for a fresh, exactly owned Oracle
+ * multi-insert. Ineligible handles return OK with a NULL map. */
+sqlparser_status_t sqlparser_vastbase_oracle_try_replay_identifier_origins(
+	const sqlparser_handle_t *handle,
+	sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_vastbase_oracle_preprocess_identifier_origins(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,

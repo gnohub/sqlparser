@@ -36,6 +36,61 @@ static void arm(size_t failure)
 static void disarm(void) { allocation_armed = 0; }
 #endif
 
+/* The internal edit planner can transfer rendering allocations, but must not
+ * consume them on overlap, invalid input, or failed descriptor allocation. */
+static void surface_edit_owned_inputs(void)
+{
+    sqlparser_surface_source_edits_t edits = {0};
+    char *owned = sqlparser_strdup("'owned'");
+    char *original_owned = owned;
+    char copied[] = "'copy'";
+    int supported = 0;
+    CHECK(owned != NULL);
+    CHECK(sqlparser_surface_source_edits_insert_owned(&edits, 10U, 20U,
+        &owned, 7U, &supported, &error) == SQLPARSER_STATUS_OK);
+    CHECK(supported && owned == NULL && edits.count == 1U);
+    CHECK(edits.items[0].replacement == original_owned);
+    CHECK(strcmp(edits.items[0].replacement, "'owned'") == 0);
+
+    owned = sqlparser_strdup("'overlap'"); original_owned = owned;
+    CHECK(owned != NULL);
+    CHECK(sqlparser_surface_source_edits_insert_owned(&edits, 15U, 25U,
+        &owned, 9U, &supported, &error) == SQLPARSER_STATUS_OK);
+    CHECK(!supported && owned == original_owned && edits.count == 1U);
+    CHECK(sqlparser_surface_source_edits_insert_owned(&edits, 10U, 20U,
+        &owned, 9U, &supported, &error) == SQLPARSER_STATUS_OK);
+    CHECK(!supported && owned == original_owned && edits.count == 1U);
+    CHECK(sqlparser_surface_source_edits_insert_owned(&edits, 30U, 20U,
+        &owned, 9U, &supported, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+    CHECK(!supported && owned == original_owned && edits.count == 1U);
+    free(owned); owned = NULL;
+
+    CHECK(sqlparser_surface_source_edits_insert(&edits, 0U, 5U,
+        copied, strlen(copied), &supported, &error) == SQLPARSER_STATUS_OK);
+    CHECK(supported && edits.count == 2U);
+    CHECK(edits.items[0].replacement != copied);
+    copied[1] = 'X';
+    CHECK(strcmp(edits.items[0].replacement, "'copy'") == 0);
+    CHECK(strcmp(edits.items[1].replacement, "'owned'") == 0);
+    sqlparser_surface_source_edits_release(&edits);
+    CHECK(edits.items == NULL && edits.count == 0U && edits.capacity == 0U);
+#ifdef SQLPARSER_LIFECYCLE_ALLOC_WRAPPERS
+    owned = sqlparser_strdup("'retained'"); original_owned = owned;
+    CHECK(owned != NULL);
+    arm(1U);
+    {
+        sqlparser_status_t status = sqlparser_surface_source_edits_insert_owned(
+            &edits, 0U, 1U, &owned, 10U, &supported, &error);
+        disarm();
+        CHECK(status == SQLPARSER_STATUS_NO_MEMORY);
+    }
+    CHECK(allocation_failures == 1U && allocation_calls == 1U);
+    CHECK(!supported && owned == original_owned && edits.items == NULL && edits.count == 0U);
+    CHECK(strcmp(owned, "'retained'") == 0);
+    free(owned);
+#endif
+}
+
 static const char original[] = "/*head*/ INSERT INTO t(a,b) VALUES ('old-a','old-b'); /*tail*/";
 static sqlparser_handle_t *parse_input(char *input)
 {
@@ -239,6 +294,12 @@ static void exercise_allocation_failures(void)
                 sqlparser_string_free(output); output = NULL;
                 patch[0].sql = "'changed'"; patch[1].sql = "'changed-b'";
             }
+            /* Keep the native tree resident just as graph-backed bulk callers
+             * do, so these sweeps cover source restore and certified packing. */
+            if (operation >= 2) {
+                sqlparser_query_graph_view_t graph;
+                CHECK(sqlparser_statement_query_graph(handle, 0U, &graph, &error) == SQLPARSER_STATUS_OK);
+            }
             arm(failure);
             status = operation == 1 ? sqlparser_deparse(handle, &output, &error) : sqlparser_apply_patch(handle, &list, &error);
             disarm();
@@ -366,6 +427,7 @@ static void early_failure_stops_large_batch(void)
 #endif
 int main(void)
 {
+    surface_edit_owned_inputs();
     for (dialect = SQLPARSER_DIALECT_POSTGRESQL; dialect <= SQLPARSER_DIALECT_KINGBASE_SQLSERVER; dialect++) {
         many_rounds(); borrowed_patch_inputs(); failure_boundaries();
     }

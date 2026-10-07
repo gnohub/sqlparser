@@ -18,10 +18,31 @@ static const ProtobufCMessageDescriptor *const descriptors[] = {
 };
 static ProtobufCMessageDescriptor generic[COUNT(descriptors)];
 static ProtobufCFieldDescriptor *generic_fields[COUNT(descriptors)];
-typedef struct { size_t calls, live, fail; } allocation_state;
+typedef struct { size_t calls, live, fail; uint64_t allocation_hash; } allocation_state;
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+static allocation_state *default_state;
+void *__real_malloc(size_t size);
+void __real_free(void *pointer);
+void *__wrap_malloc(size_t size) {
+    void *p;
+    if (default_state == NULL) return __real_malloc(size);
+    default_state->allocation_hash = (default_state->allocation_hash ^ size) * UINT64_C(1099511628211);
+    if (++default_state->calls == default_state->fail) return NULL;
+    p = __real_malloc(size);
+    if (p != NULL) default_state->live++;
+    return p;
+}
+void __wrap_free(void *pointer) {
+    if (default_state != NULL && pointer != NULL) {
+        CHECK(default_state->live > 0); default_state->live--;
+    }
+    __real_free(pointer);
+}
+#endif
 static void *count_alloc(void *data, size_t size) {
     allocation_state *s = data;
     void *p;
+    s->allocation_hash = (s->allocation_hash ^ size) * UINT64_C(1099511628211);
     if (++s->calls == s->fail) return NULL;
     p = malloc(size ? size : 1);
     if (p) s->live++;
@@ -78,6 +99,9 @@ static void probe(const ProtobufCMessageDescriptor *d, const uint8_t *wire, size
     ProtobufCMessage *a = protobuf_c_message_unpack(d, &aa, n, wire);
     ProtobufCMessage *b = protobuf_c_message_unpack(generic_descriptor(d), &ab, n, wire);
     size_t ca, cb, f;
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    allocation_state ordinary = {0};
+#endif
     CHECK((a != NULL) == (b != NULL));
     if (a) {
         CHECK(a->descriptor == d && b->descriptor == generic_descriptor(d));
@@ -87,7 +111,37 @@ static void probe(const ProtobufCMessageDescriptor *d, const uint8_t *wire, size
     protobuf_c_message_free_unpacked(b, &ab);
     CHECK(sa.live == 0 && sb.live == 0);
     ca = sa.calls; cb = sb.calls;
+    /* Default-only optimizations must pass the same semantic wire oracle. */
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    default_state = &ordinary;
+#endif
+    a = protobuf_c_message_unpack(d, NULL, n, wire);
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    default_state = NULL;
+    CHECK(ordinary.calls == ca && ordinary.allocation_hash == sa.allocation_hash);
+#endif
+    b = protobuf_c_message_unpack(generic_descriptor(d), NULL, n, wire);
+    CHECK((a == NULL) == (b == NULL));
+    if (a != NULL) same_encoding(a, b);
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    default_state = &ordinary;
+#endif
+    protobuf_c_message_free_unpacked(a, NULL);
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    default_state = NULL;
+    CHECK(ordinary.live == 0);
+#endif
+    protobuf_c_message_free_unpacked(b, NULL);
     if (!fail_allocations) return;
+#ifdef SQLPARSER_FASTPATH_DEFAULT_WRAPPERS
+    for (f = 1; f <= ca; f++) {
+        memset(&ordinary, 0, sizeof(ordinary)); ordinary.fail = f;
+        default_state = &ordinary;
+        a = protobuf_c_message_unpack(d, NULL, n, wire);
+        default_state = NULL;
+        CHECK(a == NULL && ordinary.live == 0);
+    }
+#endif
     for (f = 1; f <= ca; f++) {
         memset(&sa, 0, sizeof(sa)); sa.fail = f;
         a = protobuf_c_message_unpack(d, &aa, n, wire);
@@ -166,6 +220,43 @@ static void test_descriptor_contracts(void) {
     FIELD(res_target, 2, 3, MESSAGE, PgQuery__ResTarget, val);
     FIELD(res_target, 3, 4, INT32, PgQuery__ResTarget, location);
 }
+static void test_fresh_descriptor_contracts(void) {
+    size_t d;
+    for (d = 0; d < COUNT(descriptors); d++) {
+        const ProtobufCMessageDescriptor *desc = descriptors[d];
+        ProtobufCMessage *message;
+        unsigned i;
+        if (desc == &pg_query__column_ref__descriptor || desc == &pg_query__res_target__descriptor)
+            continue; /* These descriptors do not enter the strict leaf scanner. */
+        CHECK(desc->message_init != NULL);
+        message = malloc(desc->sizeof_message); CHECK(message);
+        memset(message, 0xa5, desc->sizeof_message);
+        protobuf_c_message_init(desc, message);
+        CHECK(message->descriptor == desc && message->n_unknown_fields == 0 && message->unknown_fields == NULL);
+        for (i = 0; i < desc->n_fields; i++) {
+            const ProtobufCFieldDescriptor *field = desc->fields + i;
+            CHECK(field->label == PROTOBUF_C_LABEL_NONE);
+            CHECK(field->type == PROTOBUF_C_TYPE_INT32 || field->type == PROTOBUF_C_TYPE_BOOL ||
+                  field->type == PROTOBUF_C_TYPE_STRING || field->type == PROTOBUF_C_TYPE_MESSAGE);
+            if (field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) {
+                uint32_t choice;
+                CHECK(field->type == PROTOBUF_C_TYPE_MESSAGE && field->default_value == NULL);
+                memcpy(&choice, (char *)message + field->quantifier_offset, sizeof(choice));
+                CHECK(choice == 0);
+            } else CHECK(field->quantifier_offset == 0);
+            if (field->type == PROTOBUF_C_TYPE_STRING) {
+                char *value;
+                memcpy(&value, (char *)message + field->offset, sizeof(value));
+                CHECK(value == NULL || value == field->default_value);
+            } else if (field->type == PROTOBUF_C_TYPE_MESSAGE) {
+                ProtobufCMessage *value;
+                memcpy(&value, (char *)message + field->offset, sizeof(value));
+                CHECK(value == NULL && field->default_value == NULL);
+            }
+        }
+        free(message);
+    }
+}
 static void test_values(void) {
     static const int32_t values[] = {0, 1, -1, 127, 128, 16383, 16384, 2097151, 2097152, 268435455, 268435456, INT32_MAX, INT32_MIN};
     static const size_t lengths[] = {0, 1, 126, 127, 128, 255, 16383, 16384};
@@ -231,6 +322,51 @@ static void test_wrappers(void) {
         }
     }
 }
+static void test_literal_node_chains(void) {
+    static const int32_t values[] = {0, 1, 127, 128, 16383, 16384, 2097151, 2097152,
+        268435455, 268435456, INT32_MAX, -1, INT32_MIN};
+    static const size_t lengths[] = {0, 1, 49, 127, 128, 255, 16383, 16384};
+    static const uint8_t embedded[] = {0xe2, 0x10, 9, 34, 5, 10, 3, 'a', 0, 'b', 88, 9};
+    PgQuery__Node node = PG_QUERY__NODE__INIT;
+    PgQuery__AConst literal = PG_QUERY__A__CONST__INIT;
+    PgQuery__Integer integer = PG_QUERY__INTEGER__INIT;
+    PgQuery__String string = PG_QUERY__STRING__INIT;
+    char text[16385];
+    size_t i, j;
+    node.node_case = PG_QUERY__NODE__NODE_A_CONST; node.a_const = &literal;
+    literal.val_case = PG_QUERY__A__CONST__VAL_IVAL; literal.ival = &integer;
+    for (i = 0; i < COUNT(values); i++) {
+        integer.ival = values[i];
+        for (j = 0; j < COUNT(values); j++) {
+            literal.location = values[j];
+            check_message(&node.base);
+        }
+    }
+    literal.val_case = PG_QUERY__A__CONST__VAL_SVAL; literal.sval = &string;
+    for (i = 0; i < COUNT(lengths); i++) {
+        memset(text, 'x', sizeof(text)); text[lengths[i]] = 0; string.sval = text;
+        for (j = 0; j < COUNT(values); j++) {
+            literal.location = values[j];
+            check_message(&node.base);
+        }
+    }
+    literal.location = 9; string.sval = "a";
+    for (i = 0; i < 2; i++) {
+        literal.isnull = (int)i;
+        for (j = 0; j < 2; j++) { string.location = (int)j; check_message(&node.base); }
+    }
+    probe(&pg_query__node__descriptor, embedded, sizeof(embedded), 1);
+    /* Exercise every truncation and one-byte mutation of the canonical chain,
+     * covering parent/child lengths, tags, unknowns and incomplete scalars. */
+    for (i = 0; i < sizeof(embedded); i++) {
+        uint8_t wire[sizeof(embedded)];
+        probe(&pg_query__node__descriptor, embedded, i, 1);
+        for (j = 0; j < 256; j++) {
+            memcpy(wire, embedded, sizeof(wire)); wire[i] = (uint8_t)j;
+            probe(&pg_query__node__descriptor, wire, sizeof(wire), 1);
+        }
+    }
+}
 static uint32_t random_state = UINT32_C(0x9e3779b9);
 static uint32_t random32(void) {
     random_state ^= random_state << 13;
@@ -247,9 +383,16 @@ static void test_wire_edges_and_fuzz(void) {
         {0xff, 0xff, 0xff, 0xff, 0xff}, {0xfa, 0xff, 0xff, 0xff, 0x7f, 0},
         {10, 0xff, 0xff, 0xff, 0xff, 0x7f},
         {8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f},
-        {8, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80}
+        {8, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80},
+        {34, 5, 10, 1, 'x', 16, 7, 80, 1, 88, 9}, /* AConst string, isnull, location */
+        {34, 3, 10, 1, 'x', 34, 3, 10, 1, 'y'}, /* Duplicate owning field */
+        {10, 2, 8, 1, 34, 3, 10, 1, 'x'}, /* Alternate oneof */
+        {34, 3, 10, 1, 'x', 48, 1}, /* Known child then unknown gap tag */
+        {34, 3, 10, 1, 'x', 88, 0x80}, /* Complete child then malformed scalar */
+        {34, 1, 0x80, 88, 1} /* Valid outer shape, malformed child */
     };
-    static const size_t lengths[] = {1, 1, 2, 3, 4, 4, 2, 5, 3, 3, 4, 5, 5, 5, 9, 5, 6, 6, 11, 11};
+    static const size_t lengths[] = {1, 1, 2, 3, 4, 4, 2, 5, 3, 3, 4, 5, 5, 5, 9, 5, 6, 6, 11, 11,
+                                    11, 10, 9, 7, 7, 5};
     uint8_t wire[40];
     size_t d, i, j, n;
     for (d = 0; d < COUNT(descriptors); d++) {
@@ -279,7 +422,8 @@ static void test_wire_edges_and_fuzz(void) {
 }
 int main(void) {
     size_t i;
-    init_generic(); test_descriptor_contracts(); test_values(); test_wrappers(); test_wire_edges_and_fuzz();
+    init_generic(); test_descriptor_contracts(); test_fresh_descriptor_contracts();
+    test_values(); test_wrappers(); test_literal_node_chains(); test_wire_edges_and_fuzz();
     for (i = 0; i < COUNT(descriptors); i++) free(generic_fields[i]);
     puts("protobuf leaf/wrapper fast/generic differential and wire fuzz tests passed");
     return 0;

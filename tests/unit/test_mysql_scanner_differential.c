@@ -316,6 +316,126 @@ static size_t sqlparser_mysql_find_top_level_word_between_reference(
 	return (size_t)-1;
 }
 
+
+/* Reference classifier: only the optimized opening-byte dispatch differs. */
+static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions_reference(const char *sql)
+{
+	sqlparser_mysql_extension_features_t features;
+	size_t index;
+
+	memset(&features, 0, sizeof(features));
+	if (sql == NULL) {
+		return features;
+	}
+	index = 0U;
+	while (sql[index] != '\0') {
+		size_t skipped;
+		size_t word_end;
+
+		skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, index);
+		if (skipped > index) {
+			index = skipped;
+			continue;
+		}
+		if (!sqlparser_mysql_is_ident_start((unsigned char)sql[index])) {
+			index++;
+			continue;
+		}
+		word_end = index + 1U;
+		while (sqlparser_mysql_is_ident_char((unsigned char)sql[word_end])) {
+			word_end++;
+		}
+		if (sqlparser_mysql_ascii_word_equal(sql, index, "limit")) {
+			features.limit = 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "straight_join")) {
+			features.straight_join = 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "partition")) {
+			features.table_partition = 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "lock")) {
+			features.locking_read = 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "use") ||
+			   sqlparser_mysql_ascii_word_equal(sql, index, "force") ||
+			   sqlparser_mysql_ascii_word_equal(sql, index, "ignore")) {
+			size_t next_word;
+
+			next_word = sqlparser_mysql_skip_space(sql, word_end);
+			if (sqlparser_mysql_ascii_word_equal(sql, next_word, "index") ||
+			    sqlparser_mysql_ascii_word_equal(sql, next_word, "key")) {
+				features.index_hint = 1U;
+			}
+		}
+		if (features.straight_join && features.index_hint &&
+		    features.table_partition && features.locking_read) {
+			break;
+		}
+		index = word_end;
+	}
+	return features;
+}
+
+static unsigned classifier_bits(sqlparser_mysql_extension_features_t features)
+{
+    return (features.straight_join ? 1U : 0U) |
+        (features.index_hint ? 2U : 0U) |
+        (features.table_partition ? 4U : 0U) |
+        (features.locking_read ? 8U : 0U) |
+        (features.limit ? 16U : 0U);
+}
+
+static void compare_classifier(const char *sql)
+{
+    unsigned actual = classifier_bits(sqlparser_mysql_classify_extensions(sql));
+    unsigned expected = classifier_bits(sqlparser_mysql_classify_extensions_reference(sql));
+    if (actual != expected) {
+        fprintf(stderr, "classifier difference: actual=%u expected=%u SQL=[%s]\n",
+            actual, expected, sql != NULL ? sql : "NULL");
+        CHECK(0);
+    }
+}
+
+static void check_classifier_bytes(void)
+{
+    static const char suffix[] = " limit straight_join partition lock use index";
+    static const char *const cases[] = {
+        "", "0", "12345(1,2);", "LIMIT", "STRAIGHT_JOIN", "PARTITION", "LOCK", "USE INDEX",
+        "FORCE KEY", "IGNORE INDEX", "limitx xlimit 1limit limit1 _limit limit_",
+        "LIMIT STRAIGHT_JOIN PARTITION LOCK USE INDEX", "LI", "USE", "USE INDE", "USE KEYx",
+        "'limit' lock", "'limit''lock' partition", "'' LIMIT", "''' LIMIT", "'''' LIMIT",
+        "\"limit\" lock", "\"limit\"\"lock\" partition", "`limit` lock", "`limit``lock` partition",
+        "'unterminated LIMIT", "\"unterminated LOCK", "`unterminated PARTITION",
+        "'\\' LIMIT", "'\\'' LIMIT", "-- LIMIT\nLOCK", "--\rLIMIT\nLOCK", "--\tLIMIT\nLOCK",
+        "--x LIMIT", "- LIMIT", "# LIMIT\nLOCK", "# LIMIT", "/ LIMIT", "/* LIMIT */ LOCK",
+        "/*/ LIMIT", "/**/ LIMIT", "/*/*/ LIMIT", "/* nested /* LIMIT */ LOCK */",
+        "/* unterminated LIMIT", "/*! LIMIT */ LOCK", "/*+ LIMIT */ LOCK",
+        "USE/*x*/INDEX", "USE\nINDEX", "FORCE `INDEX`", "IGNORE \"KEY\"",
+        "\xff LIMIT", "LIMIT\xff", "\xff" "LIMIT", "LI\xff" "MIT", "USE \xff INDEX",
+        "--\xff LIMIT", "INSERT INTO t(id,text_col) VALUES(12345,'small-secret-5000')"
+    };
+    char pair[3];
+    char adjacent[sizeof(suffix) + 2U];
+    size_t a, b, i;
+
+    compare_classifier(NULL);
+    for (i = 0U; i < sizeof(cases) / sizeof(cases[0]); i++) compare_classifier(cases[i]);
+    for (a = 0U; a < 256U; a++) {
+        pair[0] = (char)a;
+        pair[1] = '\0';
+        compare_classifier(pair);
+        for (b = 0U; b < 256U; b++) {
+            pair[0] = (char)a;
+            pair[1] = (char)b;
+            pair[2] = '\0';
+            compare_classifier(pair);
+            /* Every pair at a scan position, followed by every feature. Embedded
+             * NUL bytes intentionally retain ordinary C-string termination. */
+            adjacent[0] = (char)a;
+            adjacent[1] = (char)b;
+            memcpy(adjacent + 2U, suffix, sizeof(suffix));
+            compare_classifier(adjacent);
+        }
+    }
+}
+
 static void compare_scanners(const char *sql, int compare_quotes)
 {
     char *masked = NULL, *reference = NULL, *quoted = NULL, *quoted_ref = NULL;
@@ -326,6 +446,7 @@ static void compare_scanners(const char *sql, int compare_quotes)
     size_t len = strlen(sql), i, statement_start = 0U;
     static const char *const words[] = { "set", "values", "value", "select", "duplicate" };
 
+    compare_classifier(sql);
     CHECK(sqlparser_mysql_mask_non_code(sql, &masked, NULL) == SQLPARSER_STATUS_OK);
     CHECK(sqlparser_mysql_mask_non_code_reference(sql, &reference, NULL) == SQLPARSER_STATUS_OK);
     if (strcmp(masked, reference) != 0) {
@@ -346,7 +467,8 @@ static void compare_scanners(const char *sql, int compare_quotes)
                 sqlparser_mysql_find_top_level_word_between_reference(reference, words[i], 0U, bound));
         }
     }
-    if (!sqlparser_mysql_raw_word_may_appear(sql, 0U, len, "duplicate")) {
+    if (!sqlparser_mysql_raw_word_may_appear(sql, 0U, len, "duplicate") ||
+        !sqlparser_mysql_unquoted_word_may_appear(sql, 0U, len, "duplicate")) {
         size_t ignored;
         CHECK(!sqlparser_mysql_find_on_duplicate_key_update(reference, 0U, len, &ignored));
     }
@@ -398,10 +520,101 @@ static void check_insert_gate(const char *sql)
     sqlparser_mysql_state_destroy(state);
 }
 
+/* Borrowed input must never become owned output or dialect-state storage.
+ * Exercise both optional pre-quote rewrites, individually and together. */
+static void check_preprocess_ownership(const char *sql, int valid)
+{
+    char *input = sqlparser_strdup(sql);
+    char *owned = NULL, *reference = NULL;
+    char *restored = NULL, *reference_restored = NULL;
+    void *state = NULL, *reference_state = NULL;
+    sqlparser_error_t error, reference_error;
+    sqlparser_status_t status, reference_status;
+    size_t length = strlen(sql);
+    CHECK(input != NULL);
+    memset(&error, 0, sizeof(error));
+    memset(&reference_error, 0, sizeof(reference_error));
+    reference_status = sqlparser_mysql_preprocess_internal(sql, NULL,
+        &reference, &reference_state, NULL, &reference_error);
+    status = sqlparser_mysql_preprocess_internal(input, NULL,
+        &owned, &state, NULL, &error);
+    CHECK(status == reference_status);
+    CHECK((status == SQLPARSER_STATUS_OK) == valid);
+    CHECK(memcmp(&error, &reference_error, sizeof(error)) == 0);
+    CHECK(strcmp(input, sql) == 0);
+    CHECK(owned == NULL || owned != input);
+    memset(input, 0xa5, length);
+    free(input);
+    if (status == SQLPARSER_STATUS_OK) {
+        CHECK(owned != NULL && reference != NULL);
+        CHECK(strcmp(owned, reference) == 0);
+        CHECK(sqlparser_mysql_postprocess_deparse(owned, state, &restored,
+            &error) == SQLPARSER_STATUS_OK);
+        CHECK(sqlparser_mysql_postprocess_deparse(reference, reference_state,
+            &reference_restored, &reference_error) == SQLPARSER_STATUS_OK);
+        CHECK(strcmp(restored, reference_restored) == 0);
+    } else {
+        CHECK(owned == NULL && reference == NULL);
+        CHECK(state == NULL && reference_state == NULL);
+    }
+    free(owned);
+    free(reference);
+    free(restored);
+    free(reference_restored);
+    sqlparser_mysql_state_destroy(state);
+    sqlparser_mysql_state_destroy(reference_state);
+}
+
 static unsigned next_random(unsigned *state)
 {
     *state = *state * 1664525U + 1013904223U;
     return *state;
+}
+
+static void check_quoted_keyword_gate(void)
+{
+    static const struct { const char *sql; int expected; } inputs[] = {
+        {"INSERT INTO t(a,b) VALUES('张三李四',100.50)", 0},
+        {"INSERT INTO t(a,b) VALUES('张''三','DUPLICATE')", 0},
+        {"INSERT INTO t(a,b) VALUES(\"张\"\"三\",'x')", 0},
+        {"INSERT INTO `张``三`(a) VALUES('x')", 0},
+        {"INSERT INTO t(a) VALUES('张三') ON duplicate KEY UPDATE a='李四'", 1},
+        {"INSERT INTO t(a) VALUES('张''三') ON DuPliCaTe KEY UPDATE a=1", 1},
+        {"INSERT INTO t(a) VALUES('张\\'三') ON duplicate KEY UPDATE a=1", 1},
+        {"INSERT INTO t(a) VALUES('slash\\n')", 1},
+        {"INSERT INTO t(a) VALUES('unterminated", 1},
+        {"INSERT INTO t(a) VALUES('张三", 1},
+        {"INSERT INTO 张三(a) VALUES('x')", 1},
+        {"/*!40101 INSERT INTO t(a) VALUES('张') ON duplicate KEY UPDATE a=1 */", 1},
+        {"INSERT INTO t(a) VALUES('x') /*! ON duplicate KEY UPDATE a=1 */", 1},
+        {"INSERT INTO t(a) VALUES('x') /* no extension */", 0},
+        {"INSERT INTO t(a) VALUES('x') -- duplicate\n", 1},
+        {"INSERT INTO t(a) VALUES('x') # duplicate\n", 1},
+        {"INSERT INTO t(a) VALUES('x') /* ' */ ON duplicate KEY UPDATE a=1", 1}
+    };
+    size_t i;
+    for (i = 0U; i < sizeof(inputs) / sizeof(inputs[0]); i++) {
+        const char *sql = inputs[i].sql;
+        int actual = sqlparser_mysql_unquoted_word_may_appear(sql, 0U, strlen(sql), "duplicate");
+        if (actual != inputs[i].expected) fprintf(stderr, "quoted gate case=%zu actual=%d expected=%d SQL=%s locale=%s\n", i, actual, inputs[i].expected, sql, setlocale(LC_CTYPE, NULL));
+        CHECK(actual == inputs[i].expected);
+        compare_scanners(sql, 1);
+        check_insert_gate(sql);
+    }
+    {
+        const char *sql = "'张''三' duplicate";
+        const char *close = strchr(sql + 5U, ' ');
+        size_t end;
+        CHECK(close != NULL);
+        for (end = 1U; end < (size_t)(close - sql); end++) {
+            /* A bounded span ending on an interior doubled quote may itself
+             * be a complete quote. Every incomplete quote stays conservative. */
+            if (sql[end - 1U] != '\'')
+                CHECK(sqlparser_mysql_unquoted_word_may_appear(sql, 0U, end, "duplicate"));
+        }
+        CHECK(!sqlparser_mysql_unquoted_word_may_appear(sql, 0U, (size_t)(close - sql), "duplicate"));
+        CHECK(sqlparser_mysql_unquoted_word_may_appear(sql, 0U, strlen(sql), "duplicate"));
+    }
 }
 
 int main(void)
@@ -427,6 +640,14 @@ int main(void)
         " t ", " INTO ", "'set'", "\"values\"", "`select`", " set ", " select ", " values ", " value ",
         " /* set */ ", " -- values\n", " # select\n", "(", ")", " IGNORE ", " LOW_PRIORITY ", "x", ";"
     };
+    static const char *const ownership_cases[] = {
+        "SELECT 1", "INSERT INTO `t` (`id`, `v`) VALUES (1, 'one')",
+        "SELECT N'national', \"double\", 'slash\\n', ? AS `Alias`",
+        "/*!40101 SELECT \"surface\" AS `Alias` */",
+        "CREATE TABLE `t` (`id` INT UNSIGNED) ENGINE=InnoDB",
+        "/*!40101 CREATE TABLE `t` (`id` INT UNSIGNED) ENGINE=InnoDB */",
+        "SELECT 1; CREATE TABLE `t` (`id` INT UNSIGNED) ENGINE=InnoDB; SELECT 2"
+    };
     unsigned random = 0x3159U;
     size_t locale_index, i, j;
     char buffer[513];
@@ -434,6 +655,8 @@ int main(void)
     for (locale_index = 0U; locale_index < sizeof(locales) / sizeof(locales[0]); locale_index++) {
         if (setlocale(LC_CTYPE, locales[locale_index]) == NULL) continue;
         locale_count++;
+        check_classifier_bytes();
+        check_quoted_keyword_gate();
         for (i = 0U; i < 256U; i++) CHECK(sqlparser_mysql_fold_char((unsigned char)i) == tolower((unsigned char)i));
         {
             static const char *const tokens[] = {
@@ -447,7 +670,7 @@ int main(void)
                 const char *token = tokens[token_index];
                 size_t pos, len = strlen(token);
                 int expected = 0;
-                /* Original raw gate, independent of the candidate filter. */
+                /* Original raw gate, independent of the optimized filter. */
                 for (pos = 0U; pos < len; pos++) {
                     if ((unsigned char)token[pos] >= 0x80U) { expected = 1; break; }
                     if (tolower((unsigned char)token[pos]) == 'd' &&
@@ -476,6 +699,11 @@ int main(void)
             check_insert_gate(buffer);
         }
     }
+    for (i = 0U; i < sizeof(ownership_cases) / sizeof(ownership_cases[0]); i++)
+        check_preprocess_ownership(ownership_cases[i], 1);
+    check_preprocess_ownership("SELECT 'unterminated", 0);
+    check_preprocess_ownership("/*!40101 SELECT 'unterminated */", 0);
+    check_preprocess_ownership("CREATE TABLE `t` (`id` INT) ENGINE=", 0);
     CHECK(setlocale(LC_CTYPE, "C") != NULL);
     printf("MySQL scanner differential and no-op gate checks passed (%zu locales)\n", locale_count);
     return 0;

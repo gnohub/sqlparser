@@ -119,19 +119,22 @@ SQL directly. Identifier delimiters, case, whitespace, comments, semicolons,
 and multi-statement boundaries are therefore preserved byte for byte without
 invoking the AST deparser.
 
-When the generation is greater than `0`, a non-control-flow handle uses the
-`libpg_query` protobuf deparser and then restores the public dialect form. A
-control-flow handle generates SQL from its current control-flow and statement
-state.
+When the generation is greater than `0`, a complete source-edit path can return
+the current SQL directly. Other non-control-flow paths use the `libpg_query`
+protobuf deparser and restore the public dialect form. A control-flow handle
+generates SQL from its current control-flow and statement state.
 
 ### 3.6 Patch Lifecycle
 
 The initial parse creates one public handle, reused for repeated successful
 patch/deparse rounds. Apply does not retain a whole-handle rollback clone.
-SQL-rewrite paths first build an owned plan, release the old AST, graph, and
-dialect state, and then parse the new SQL for mandatory validation. This reduces
-coexistence of old and new state; it does not eliminate temporary SQL buffers,
-parser allocations, or validation work. Existing resource limits are unchanged.
+Generic SQL-rewrite paths first build an owned plan, release the old AST, graph,
+and dialect state, and then parse the new SQL for validation. Eligible batch
+INSERTs can use validated serialized structure directly for graph construction
+and string commits. Supported Oracle multi-table insert string edits retain the
+unchanged source query and parse tree while committing dialect-owned state and
+updating identifier origins. Ineligible inputs fall back to the generic path.
+Required syntax, shape and resource-limit checks remain in every path.
 
 Patches read sequential current state. Generic mutation snapshots borrowed
 patch input strings before invalidation, but resolves `source_selector` values
@@ -139,8 +142,8 @@ at their turn. A confirmed error stops processing; checks deferred to a combined
 final validation can report errors later. Failed apply/deparse releases partial
 state, marks the same handle failed, and requires one final destroy. Successful
 deparse retains the handle and returns an independent allocation. See
-[Release notes](../RELEASE_NOTES.en.md) for the semantic breaking
-change and borrowed-view rules.
+[Release notes](../RELEASE_NOTES.en.md) for the calling and borrowed-view rules
+retained from 2.17.0.
 
 ## 4. Data Model and Caching
 

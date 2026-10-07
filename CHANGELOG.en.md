@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.17.1
+
+- Optimize preprocessing, parsing, query graph construction and string rewriting for eligible single-statement batch INSERTs, reducing repeated parsing and intermediate AST materialization.
+- Optimize INSERT validation and batch string replacement in SQL Server and compatible dialects, reusing validation evidence and combining source edits for eligible statements while retaining final validation.
+- Optimize string commits, SQL value function classification and identifier-origin handling for Oracle-family multi-table inserts.
+- Reduce repeated traversal, allocation and copying in serialization, selector resolution and source edits. Ineligible inputs retain generic processing and validation.
+- Fix the lifetime of some literal text in Oracle-family multi-table insert graphs.
+- Public function signatures, structure layouts, exports and the 2.17.0 calling rules remain unchanged.
+
 ## 2.17.0
 
 ### Performance and Memory

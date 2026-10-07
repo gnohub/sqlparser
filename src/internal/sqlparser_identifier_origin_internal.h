@@ -36,6 +36,11 @@ sqlparser_status_t sqlparser_identifier_origin_map_new_identity(
 void sqlparser_identifier_origin_map_destroy(
 	sqlparser_identifier_origin_map_t *map);
 
+sqlparser_status_t sqlparser_identifier_origin_map_clone(
+	const sqlparser_identifier_origin_map_t *source,
+	sqlparser_identifier_origin_map_t **out_map,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_dialect_preprocess_identifier_origins(
 	sqlparser_dialect_t dialect,
 	const char *input_sql,

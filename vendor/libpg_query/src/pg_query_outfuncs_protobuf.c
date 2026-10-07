@@ -317,7 +317,7 @@ pg_query_nodes_to_protobuf_observed(
 	int i = 0;
 	PgQuery__ParseResult parse_result = PG_QUERY__PARSE_RESULT__INIT;
 
-	/* Isolated raw-to-wire prototype. Preserve the full-tree observer path. */
+	/* Direct raw-to-wire encoder. Preserve the full-tree observer path. */
 	if (observer == NULL) {
 		PgQueryProtobuf direct = {0};
 		int direct_status = pg_query_try_direct_wire(obj, &direct);

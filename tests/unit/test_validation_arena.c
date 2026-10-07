@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string.h>
 #include "sqlparser/sqlparser.h"
 #include "protobuf/pg_query.pb-c.h"
 #include "src/pg_query_observer.h"
@@ -27,13 +28,14 @@ __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         sql, options, NULL, context);
 }
 PgQueryProtobufParseResult
-__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
+__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
     const char *sql, int options, PgQueryProtobufObserver observer, void *context,
-    size_t *statement_count, int *certified)
+    size_t *statement_count, int *certified, PgQueryNativeScalarInsertProof *native_proof)
 {
     (void)observer;
     *statement_count = 0U;
     *certified = 0;
+    if (native_proof != NULL) memset(native_proof, 0, sizeof(*native_proof));
     return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         sql, options, NULL, context);
 }

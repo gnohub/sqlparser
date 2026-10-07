@@ -73,7 +73,10 @@ static sqlparser_status_t operation(sqlparser_handle_t *handle) {
 static void followup_paths(void) {
     const char *queries[] = {
         "SELECT id FROM t WHERE id = 1",
-        "INSERT INTO t(id, v) VALUES (1,'old-a'),(2,'old-b')",
+        /* MySQL identifier quoting forces final full reparse: this fixture must
+         * exercise the native parser-output allocator, which certified plain
+         * INSERT commits bypass. Their OOM coverage lives in test_patch_lifecycle. */
+        "INSERT INTO `s`.`t`(id, v) VALUES (1,'old-a'),(2,'old-b')",
         "SELECT id FROM t WHERE id = 1",
         "SELECT({fn ABS(-1)}) AS [odbc]"
     };

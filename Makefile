@@ -539,8 +539,70 @@ $(BIN_PATH)/%: tests/unit/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
 
+# Compile the generic reference walker in a separate translation unit.
+# An immutable pre-optimization source can also be supplied for external audits.
+SURFACE_NODE_REFERENCE_SOURCE ?= src/dialect/sqlparser_dialect_ast_surface.c
+SURFACE_NODE_REFERENCE_OBJECT := $(BUILD_PATH)/tests/surface_node_reference.o
+-include $(SURFACE_NODE_REFERENCE_OBJECT:.o=.d)
+
+$(SURFACE_NODE_REFERENCE_OBJECT): $(SURFACE_NODE_REFERENCE_SOURCE) $(BUILD_SIGNATURE_FILE) | prep
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) $(CFLAGS) \
+		-DSQLPARSER_DISABLE_SURFACE_NODE_DISPATCH \
+		-Dsqlparser_dialect_ast_surface_visit=sqlparser_dialect_ast_surface_visit_reference \
+		-Dsqlparser_dialect_ast_surface_visit_roots=sqlparser_dialect_ast_surface_visit_roots_reference \
+		-Dsqlparser_dialect_ast_surface_clone=sqlparser_dialect_ast_surface_clone_reference \
+		-MMD -MP -c $< -o $@
+
+$(BIN_PATH)/test_surface_node_dispatch: tests/unit/test_surface_node_dispatch.c $(SURFACE_NODE_REFERENCE_OBJECT) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_SURFACE_ALLOC_WRAPPERS $< \
+		$(SURFACE_NODE_REFERENCE_OBJECT) $(STATIC_LIB_PATH) $(SQLPARSER_BENCH_WRAP_LDFLAGS) \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_wire_varint_dispatch: src/core/sqlparser_wire_insert.c
+
+$(BIN_PATH)/test_wire_insert_primary: tests/unit/test_wire_insert_primary.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_WIRE_GRAPH_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_wire_insert_codec: tests/unit/test_wire_insert_codec.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_WIRE_CODEC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_wire_insert_graph: tests/unit/test_wire_insert_graph.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_WIRE_GRAPH_WRAPPERS -DSQLPARSER_WIRE_GRAPH_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_insert_string_certificate: tests/unit/test_insert_string_certificate.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_CERTIFICATE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_handle_commit_certified_insert_strings $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_mixed_insert_strings: tests/unit/test_mixed_insert_strings.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_MIXED_STRING_WRAPPERS -DSQLPARSER_MIXED_STRING_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options -Wl,--wrap=sqlparser_handle_commit_certified_insert_strings \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_insert_source_proof: tests/unit/test_insert_source_proof.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_SOURCE_PROOF_WRAPPERS -DSQLPARSER_SOURCE_PROOF_OPTIMIZED $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_handle_commit_certified_insert_strings -Wl,--wrap=sqlparser_view_insert_cell_source_span \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_certified_insert_pack: tests/unit/test_certified_insert_pack.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_CERTIFIED_PACK_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_pack_certified_insert -Wl,--wrap=malloc -Wl,--wrap=free \
+		-Wl,--wrap=protobuf_c_message_pack \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_patch_lifecycle: tests/unit/test_patch_lifecycle.c tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_LIFECYCLE_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_insert_graph_bulk_rows: tests/unit/test_insert_graph_bulk_rows.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_GRAPH_BULK_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_pg_query_thread_lifecycle: tests/unit/test_pg_query_thread_lifecycle.c $(STATIC_LIB_PATH) | prep
@@ -552,6 +614,18 @@ $(BIN_PATH)/test_protobuf_output_oom: tests/unit/test_protobuf_output_oom.c $(ST
 		-Wl,--wrap=malloc -Wl,--wrap=pg_query_protobuf_alloc_output \
 		$(LDFLAGS) $(LDLIBS) -o $@
 
+$(BIN_PATH)/test_protobuf_fresh_unpack: tests/unit/test_protobuf_fresh_unpack.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_FRESH_DEFAULT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=free $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_protobuf_fastpath: tests/unit/test_protobuf_fastpath.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_FASTPATH_DEFAULT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=free $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_protobuf_free: tests/unit/test_protobuf_free.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_PROTOBUF_FREE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=free $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_parser_conversion_lifetime: tests/unit/test_parser_conversion_lifetime.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_CONVERSION_OUTPUT_OOM_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=pg_query_protobuf_alloc_output $(LDFLAGS) $(LDLIBS) -o $@
@@ -562,17 +636,48 @@ $(BIN_PATH)/test_direct_wire_lifecycle: tests/unit/test_direct_wire_lifecycle.c 
 		-Wl,--wrap=pg_query_nodes_to_protobuf_observed -Wl,--wrap=pg_query_nodes_to_protobuf_certified \
 		$(LDFLAGS) $(LDLIBS) -o $@
 
+$(BIN_PATH)/test_direct_wire_measure: tests/unit/test_direct_wire_measure.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/include \
+		-I./vendor/libpg_query/src/postgres/include -fno-strict-aliasing -fwrapv \
+		-Wno-unused-function -Wno-unused-variable -Wno-unused-value \
+		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_simple_insert_native: tests/unit/test_simple_insert_native.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_SIMPLE_INSERT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options -Wl,--wrap=palloc -Wl,--wrap=palloc0 \
+		-Wl,--wrap=MemoryContextAlloc -Wl,--wrap=repalloc \
+		-Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=strdup -Wl,--wrap=strndup $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_scalar_insert_native: tests/unit/test_scalar_insert_native.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_SIMPLE_INSERT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options -Wl,--wrap=palloc -Wl,--wrap=palloc0 \
+		-Wl,--wrap=MemoryContextAlloc -Wl,--wrap=repalloc \
+		-Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=strdup -Wl,--wrap=strndup $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_simple_insert_size_bounds: tests/unit/test_simple_insert_size_bounds.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_simple_insert_pipeline: tests/unit/test_simple_insert_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_SIMPLE_INSERT_PIPELINE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_validation_arena: tests/unit/test_validation_arena.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ARENA_ALLOC_COUNTS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=malloc -Wl,--wrap=free \
 		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
 		-Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_mysql_validation_observer: tests/unit/test_mysql_validation_observer.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_OBSERVER_TEST_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
 		-Wl,--wrap=calloc -Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_patch_batch_counts: tests/unit/test_patch_batch.c $(STATIC_LIB_PATH) | prep
@@ -600,3 +705,122 @@ $(LIBPG_QUERY_BASELINE_BIN): tools/libpg_query_baseline.c $(VENDOR_PG_QUERY_LIB)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(VENDOR_PG_QUERY_LIB) $(SQLPARSER_BENCH_WRAP_LDFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
 
 -include $(DEP_FILES)
+
+$(BIN_PATH)/test_scalar_wire_pipeline: tests/unit/test_scalar_wire_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_SCALAR_WIRE_WRAPPERS -DSQLPARSER_SCALAR_WIRE_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=malloc -Wl,--wrap=calloc \
+		-Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=pg_query_enter_memory_context \
+		-Wl,--wrap=pg_query_exit_memory_context $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_scalar_wire_codec: tests/unit/test_scalar_wire_codec.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_SCALAR_CODEC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_native_wire_provenance: tests/unit/test_native_wire_provenance.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_NATIVE_PROVENANCE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_wire_scalar_insert_certify -Wl,--wrap=sqlparser_wire_scalar_insert_from_native \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=malloc -Wl,--wrap=calloc \
+		-Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=pg_query_enter_memory_context \
+		-Wl,--wrap=pg_query_exit_memory_context $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_mysql_identity_preprocess: tests/unit/test_mysql_identity_preprocess.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_IDENTITY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_identity_preprocess: tests/unit/test_sqlserver_identity_preprocess.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_IDENTITY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_origin_replay: tests/unit/test_oracle_origin_replay.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ORIGIN_REPLAY_WRAPPERS -DSQLPARSER_ORIGIN_REPLAY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_dialect_preprocess_identifier_origins \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_raw_prefilter: tests/unit/test_sqlserver_raw_prefilter.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_PREFILTER_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_family_scalar_pipeline: tests/unit/test_family_scalar_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_FAMILY_SCALAR_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=pg_query__parse_result__unpack \
+		-Wl,--wrap=sqlparser_handle_reparse_destructive \
+		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_wire_pipeline: tests/unit/test_sqlserver_wire_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_SQLSERVER_WIRE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_dialect_get_ops \
+		-Wl,--wrap=sqlparser_dialect_supports_plain_scalar_insert \
+		-Wl,--wrap=pg_query__parse_result__unpack \
+		-Wl,--wrap=sqlparser_handle_reparse_destructive \
+		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+# Independent Oracle graph transcript can be linked to an immutable library:
+# make bin/test_oracle_graph_classification_baseline ORACLE_GRAPH_BASELINE_LIB=/path/libsqlparser.a
+ORACLE_GRAPH_TEST_FLAGS := -DSQLPARSER_ORACLE_GRAPH_WRAPPERS
+ORACLE_GRAPH_TEST_WRAPS := -Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
+	-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+	-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context
+$(BIN_PATH)/test_oracle_graph_classification: tests/unit/test_oracle_graph_classification.c tests/unit/sqlparser_oracle_graph_records.h $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_GRAPH_TEST_FLAGS) $< $(STATIC_LIB_PATH) \
+		$(ORACLE_GRAPH_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_graph_classification_baseline: tests/unit/test_oracle_graph_classification.c tests/unit/sqlparser_oracle_graph_records.h | prep
+	@test -n "$(ORACLE_GRAPH_BASELINE_LIB)" || { echo "Set ORACLE_GRAPH_BASELINE_LIB to an immutable baseline archive"; exit 1; }
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_GRAPH_TEST_FLAGS) -DSQLPARSER_ORACLE_GRAPH_BASELINE \
+		$< $(ORACLE_GRAPH_BASELINE_LIB) $(ORACLE_GRAPH_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
+# Same commit contract caller, independently linked to the pre-commit archive.
+# Optional --fixture SQL --golden-dir DIR; normal make test needs no private files.
+ORACLE_COMMIT_TEST_FLAGS := -DSQLPARSER_ORACLE_COMMIT_WRAPPERS
+ORACLE_COMMIT_TEST_WRAPS := -Wl,--wrap=sqlparser_handle_reparse_destructive \
+	-Wl,--wrap=sqlparser_oracle_try_commit_multi_insert_strings \
+	-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+	-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context
+$(BIN_PATH)/test_oracle_owned_commit: tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) $< $(STATIC_LIB_PATH) \
+		$(ORACLE_COMMIT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_owned_commit_baseline: tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h | prep
+	@test -n "$(ORACLE_COMMIT_BASELINE_LIB)" || { echo "Set ORACLE_COMMIT_BASELINE_LIB to an immutable baseline archive"; exit 1; }
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) -DSQLPARSER_ORACLE_COMMIT_BASELINE \
+		$< $(ORACLE_COMMIT_BASELINE_LIB) $(ORACLE_COMMIT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_insert_batch: tests/unit/test_sqlserver_insert_batch.c tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_SQLSERVER_BATCH_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_handle_reparse_destructive \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+# Includes the unchanged native parser for private-constructor route counters.
+# Instrumentation and linker wrappers are test-only; never use this for timing.
+$(BIN_PATH)/test_sqlserver_validation_proof: tests/unit/test_sqlserver_validation_proof.c tests/unit/test_sqlserver_identity_preprocess.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@mkdir -p $(BUILD_PATH)/tests
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/include \
+		-I./vendor/libpg_query/src/postgres/include -fno-strict-aliasing -fwrapv \
+		-finstrument-functions -DSQLPARSER_VALIDATION_PROOF_WRAPPERS \
+		-c $< -o $(BUILD_PATH)/tests/test_sqlserver_validation_proof.o
+	@$(CC) $(BUILD_PATH)/tests/test_sqlserver_validation_proof.o $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query__parse_result__free_unpacked \
+		-Wl,--wrap=pg_query_nodes_to_protobuf_observed -Wl,--wrap=pg_query_nodes_to_protobuf_certified \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=sqlparser_dialect_get_ops -Wl,--wrap=sqlparser_dialect_validation_preprocessor \
+		-Wl,--wrap=sqlparser_wire_scalar_insert_certify -Wl,--wrap=sqlparser_wire_scalar_insert_from_native \
+		-Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=pg_query_protobuf_alloc_output \
+		$(LDFLAGS) $(LDLIBS) -o $@

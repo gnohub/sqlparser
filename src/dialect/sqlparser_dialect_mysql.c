@@ -8,6 +8,7 @@
 #include "sqlparser_dialect_ast_surface_internal.h"
 #include "sqlparser_dialect_internal.h"
 #include "sqlparser_dialect_national_literal_internal.h"
+#include "src/pg_query_observer.h"
 
 typedef enum {
 	SQLPARSER_MYSQL_ORIGIN_INPUT = 1,
@@ -192,6 +193,36 @@ typedef struct {
 	size_t lock_in_share_count;
 	size_t lock_in_share_capacity;
 } sqlparser_mysql_state_t;
+
+/* A retained state is safe only when changing ordinary string payloads cannot
+ * affect any rewrite, owner, parameter or fragment bookkeeping. Keep this
+ * exhaustive when adding fields to sqlparser_mysql_state_t. */
+int sqlparser_mysql_state_is_plain_insert_strings(const void *state,
+    size_t string_count)
+{
+    const sqlparser_mysql_state_t *s = (const sqlparser_mysql_state_t *)state;
+    if (s == NULL) return 0;
+    return s->positional_param_count == 0U &&
+        s->prepared_positional_param_count == 0U && !s->positional_params_prepared &&
+        s->national_literals.items == NULL && s->national_literals.count == 0U &&
+        s->national_literals.capacity == 0U &&
+        s->national_literals.literal_count == string_count &&
+        s->national_literals.fragment_start == 0U &&
+        s->national_literals.fragment_literal_base == 0U &&
+        s->dml_modifiers == NULL && s->dml_modifier_count == 0U && s->dml_modifier_capacity == 0U &&
+        s->create_column_restores == NULL && s->create_column_restore_count == 0U && s->create_column_restore_capacity == 0U &&
+        s->create_table_restores == NULL && s->create_table_restore_count == 0U && s->create_table_restore_capacity == 0U &&
+        s->on_duplicate_restores == NULL && s->on_duplicate_restore_count == 0U && s->on_duplicate_restore_capacity == 0U &&
+        s->index_hints == NULL && s->index_hint_count == 0U && s->index_hint_capacity == 0U && s->fragment_index_hint_start == 0U &&
+        s->partition_restores == NULL && s->partition_restore_count == 0U && s->partition_restore_capacity == 0U && s->fragment_partition_start == 0U &&
+        s->join_restores == NULL && s->join_restore_count == 0U && s->join_restore_capacity == 0U && s->fragment_join_start == 0U &&
+        s->limit_restores == NULL && s->limit_restore_count == 0U && s->limit_restore_capacity == 0U && s->fragment_limit_restore_start == 0U &&
+        s->limit_count == 0U && s->fragment_limit_base == 0U &&
+        s->dml_tails == NULL && s->dml_tail_count == 0U && s->dml_tail_capacity == 0U &&
+        s->dml_shapes == NULL && s->dml_shape_count == 0U && s->dml_shape_capacity == 0U &&
+        s->executable_comments == NULL && s->executable_comment_count == 0U && s->executable_comment_capacity == 0U &&
+        s->lock_in_share_statements == NULL && s->lock_in_share_count == 0U && s->lock_in_share_capacity == 0U;
+}
 
 typedef enum {
 	SQLPARSER_MYSQL_JOIN_INNER = 0,
@@ -2877,7 +2908,7 @@ static int sqlparser_mysql_raw_word_may_appear(
 		unsigned char c = (unsigned char)sql[pos];
 		if (c >= 0x80U) return 1;
 		/* The needle is a lowercase ASCII keyword. This is only a cheap
-		 * candidate filter: matching bytes still use the locale-sensitive
+		 * potential-match filter: matching bytes still use the locale-sensitive
 		 * comparison below, and high bytes always keep the full path. */
 		if ((c | 0x20U) != (unsigned char)word[0]) continue;
 		if (sqlparser_mysql_fold_char(c) != (unsigned char)word[0] ||
@@ -2886,6 +2917,51 @@ static int sqlparser_mysql_raw_word_may_appear(
 		if (sqlparser_mysql_ascii_word_equal(sql, pos, word)) return 1;
 	}
 	return 0;
+}
+
+/* ON DUPLICATE rewrites inspect masked code, so a fully closed ordinary
+ * quoted span cannot supply their keyword. In particular, UTF-8 literal bytes
+ * should not make the raw high-byte guard trigger a complete rewrite/mask pass.
+ * Keep comments on the original conservative predicate and decline to prove
+ * anything about escapes or incomplete bounded spans. This is only a filter;
+ * the existing quote preprocessor and native grammar still validate input. */
+static int sqlparser_mysql_unquoted_word_may_appear(
+    const char *sql, size_t start, size_t end, const char *word)
+{
+    size_t pos;
+    size_t word_len = strlen(word);
+    for (pos = start; pos < end; pos++) {
+        unsigned char c = (unsigned char)sql[pos];
+        if (c == '\'' || c == '"' || c == '`') {
+            size_t scan = pos + 1U;
+            for (;;) {
+                const char *close = memchr(sql + scan, c, end - scan);
+                size_t close_pos;
+                if (close == NULL) return 1;
+                close_pos = (size_t)(close - sql);
+                if (memchr(sql + scan, '\\', close_pos - scan) != NULL) return 1;
+                if (close_pos + 1U < end && sql[close_pos + 1U] == (char)c) {
+                    scan = close_pos + 2U;
+                    continue;
+                }
+                pos = close_pos;
+                break;
+            }
+            continue;
+        }
+        if (c == '#' || (pos + 1U < end &&
+            ((c == '/' && sql[pos + 1U] == '*') ||
+             (c == '-' && sql[pos + 1U] == '-')))) {
+            return sqlparser_mysql_raw_word_may_appear(sql, start, end, word);
+        }
+        if (c >= 0x80U || c == '\\') return 1;
+        if ((c | 0x20U) != (unsigned char)word[0]) continue;
+        if (sqlparser_mysql_fold_char(c) != (unsigned char)word[0] ||
+            (pos > start && sqlparser_mysql_is_ident_char((unsigned char)sql[pos - 1U])) ||
+            word_len > end - pos) continue;
+        if (sqlparser_mysql_ascii_word_equal(sql, pos, word)) return 1;
+    }
+    return 0;
 }
 
 static int sqlparser_mysql_first_top_level_word_is(const char *masked, const char *word)
@@ -4463,14 +4539,14 @@ static int sqlparser_mysql_executable_comment_body(
 }
 
 static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
-	char **io_sql,
+	const char *sql,
+	char **out_sql,
 	sqlparser_mysql_state_t *state,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
 	sqlparser_mysql_origin_trace_t origin;
-	const char *sql;
 	size_t len;
 	size_t segment_start;
 	size_t copy_start;
@@ -4478,18 +4554,18 @@ static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
 	int rewritten;
 	sqlparser_status_t status;
 
-	if (io_sql == NULL || *io_sql == NULL || state == NULL) {
+	if (sql == NULL || out_sql == NULL || state == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"MySQL executable comment input must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	*out_sql = NULL;
 
 	/* Without the exact introducer there is no executable comment to rewrite. */
-	if (strstr(*io_sql, "/*!") == NULL) return SQLPARSER_STATUS_OK;
+	if (strstr(sql, "/*!") == NULL) return SQLPARSER_STATUS_OK;
 
-	sql = *io_sql;
 	len = strlen(sql);
 	segment_start = 0U;
 	copy_start = 0U;
@@ -4604,9 +4680,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_executable_comments(
 		sqlparser_mysql_buffer_release(&out);
 		return status;
 	}
-	free(*io_sql);
-	*io_sql = sqlparser_mysql_buffer_take(&out);
-	if (*io_sql == NULL) {
+	*out_sql = sqlparser_mysql_buffer_take(&out);
+	if (*out_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_NO_MEMORY,
@@ -5581,14 +5656,14 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 }
 
 static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
-	char **io_sql,
+	const char *sql,
+	char **out_sql,
 	sqlparser_mysql_state_t *state,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
 	sqlparser_mysql_origin_trace_t origin;
-	const char *sql;
 	sqlparser_status_t status;
 	size_t len;
 	size_t segment_start;
@@ -5596,12 +5671,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 	size_t statement_index;
 	int rewritten;
 
-	if (io_sql == NULL || *io_sql == NULL) {
+	if (sql == NULL || out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL buffer must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	*out_sql = NULL;
 
-	sql = *io_sql;
 	len = strlen(sql);
 	{
 		size_t keyword_pos = sqlparser_mysql_known_statement_keyword_pos(sql, 0U, len);
@@ -5741,9 +5816,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 		sqlparser_mysql_buffer_release(&out);
 		return status;
 	}
-	free(*io_sql);
-	*io_sql = sqlparser_mysql_buffer_take(&out);
-	if (*io_sql == NULL) {
+	*out_sql = sqlparser_mysql_buffer_take(&out);
+	if (*out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
@@ -9282,9 +9356,9 @@ static int sqlparser_mysql_dml_pass_may_apply(
 	size_t pos;
 
 	if (pass == SQLPARSER_MYSQL_DML_ORIGIN_ON_DUPLICATE) {
-		/* Keep non-INSERT input and all ambiguous occurrences on the old
-		 * rewrite path. An absent raw word cannot occur in the masked SQL. */
-		return sqlparser_mysql_raw_word_may_appear(sql, start, end, "duplicate");
+		/* Only proven ordinary quoted spans are skipped; all ambiguous
+		 * occurrences keep the authoritative rewrite/masking path. */
+		return sqlparser_mysql_unquoted_word_may_appear(sql, start, end, "duplicate");
 	}
 	pos = sqlparser_mysql_known_statement_keyword_pos(sql, start, end);
 	if (pos == SIZE_MAX) return 1;
@@ -14563,11 +14637,17 @@ static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions(
 	while (sql[index] != '\0') {
 		size_t skipped;
 		size_t word_end;
+		char c = sql[index];
 
-		skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, index);
-		if (skipped > index) {
-			index = skipped;
-			continue;
+		/* The span helper is an identity for every other opening byte. Keep
+		 * its existing quote/comment behavior, including malformed endings. */
+		if (c == '\'' || c == '"' || c == '`' ||
+		    c == '#' || c == '/' || c == '-') {
+			skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, index);
+			if (skipped > index) {
+				index = skipped;
+				continue;
+			}
 		}
 		if (!sqlparser_mysql_is_ident_start((unsigned char)sql[index])) {
 			index++;
@@ -14613,6 +14693,9 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
+	const char *mysql_sql;
+	char *mysql_sql_owned;
+	char *rewritten_sql;
 	char *quoted_sql;
 	sqlparser_mysql_state_t *mysql_state;
 	sqlparser_mysql_extension_features_t features;
@@ -14636,41 +14719,73 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 		return status;
 	}
 
-	quoted_sql = sqlparser_strdup(input_sql);
-	if (quoted_sql == NULL) {
+	/* The pre-quote rewrites only produce a new buffer when text changes.
+	 * Borrow caller input for this phase; quote preprocessing always produces
+	 * the owned parser buffer, and dialect state stores its own copies. */
+	mysql_sql_owned = NULL;
+	quoted_sql = NULL;
+	if (input_sql == NULL) {
 		sqlparser_mysql_state_destroy(mysql_state);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
+	/* Only ordinary, origin-free preprocessing may reuse the complete native
+	 * source proof. Clean literals preserve their exact source bytes and add
+	 * only literal_count to the otherwise empty dialect state. Origin-aware
+	 * preprocessing deliberately keeps its UNKNOWN literal spans and all
+	 * existing rewrite/error behavior. This does not attest a graph or wire. */
+	if (origins == NULL) {
+		PgQueryIdentityScalarInsertProof proof;
+		if (pg_query_prove_mysql_identity_scalar_insert(input_sql, &proof)) {
+			quoted_sql = sqlparser_strndup(input_sql, proof.source_length);
+			if (quoted_sql == NULL) {
+				sqlparser_mysql_state_destroy(mysql_state);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			mysql_state->national_literals.literal_count = proof.string_count;
+			*out_parser_sql = quoted_sql;
+			*out_state = mysql_state;
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+
 	status = sqlparser_mysql_rewrite_executable_comments(
-		&quoted_sql,
+		input_sql,
+		&mysql_sql_owned,
 		mysql_state,
 		origins,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(quoted_sql);
+		free(mysql_sql_owned);
 		sqlparser_mysql_state_destroy(mysql_state);
 		return status;
 	}
+	mysql_sql = mysql_sql_owned != NULL ? mysql_sql_owned : input_sql;
 
+	rewritten_sql = NULL;
 	status = sqlparser_mysql_rewrite_create_table_extensions(
-		&quoted_sql,
+		mysql_sql,
+		&rewritten_sql,
 		mysql_state,
 		origins,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(quoted_sql);
+		free(rewritten_sql);
+		free(mysql_sql_owned);
 		sqlparser_mysql_state_destroy(mysql_state);
 		return status;
+	}
+	if (rewritten_sql != NULL) {
+		free(mysql_sql_owned);
+		mysql_sql_owned = rewritten_sql;
+		mysql_sql = mysql_sql_owned;
 	}
 
 	{
-		char *mysql_sql;
 		sqlparser_mysql_origin_trace_t quote_origin;
 
-		mysql_sql = quoted_sql;
-		quoted_sql = NULL;
 		memset(&quote_origin, 0, sizeof(quote_origin));
 		status = sqlparser_mysql_preprocess_quotes(
 			mysql_sql,
@@ -14688,7 +14803,7 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 				out_error);
 		}
 		sqlparser_mysql_origin_trace_release(&quote_origin);
-		free(mysql_sql);
+		free(mysql_sql_owned);
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		free(quoted_sql);
@@ -18158,7 +18273,10 @@ static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	sqlparser_mysql_reconcile_ast_state,
 	sqlparser_mysql_clone_ast_state,
 	sqlparser_mysql_prepare_ast_state,
-	NULL
+	NULL,
+	1,
+	1,
+	sqlparser_mysql_state_is_plain_insert_strings
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void)

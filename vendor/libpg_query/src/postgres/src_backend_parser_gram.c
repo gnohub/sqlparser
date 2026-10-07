@@ -53106,7 +53106,18 @@ yyreduce:
   yylen = 0;
   YY_STACK_PRINT (yyss, yyssp);
 
-  *++yyvsp = yyval;
+  /* Preserve every semantic-value byte while copying in core-sized pieces.
+   * Most actions update only the core member; matching that load width avoids
+   * a partial-store/full-vector-load dependency. The hierarchy tail, padding,
+   * union layout and all grammar productions remain unchanged. */
+  ++yyvsp;
+  for (size_t yycopy_offset = 0; yycopy_offset < sizeof(yyval);) {
+    size_t yycopy_size = sizeof(yyval) - yycopy_offset;
+    if (yycopy_size > sizeof(core_YYSTYPE)) yycopy_size = sizeof(core_YYSTYPE);
+    memcpy((char *)yyvsp + yycopy_offset,
+           (const char *)&yyval + yycopy_offset, yycopy_size);
+    yycopy_offset += yycopy_size;
+  }
   *++yylsp = yyloc;
 
   /* Now `shift' the result of the reduction.  Determine what state

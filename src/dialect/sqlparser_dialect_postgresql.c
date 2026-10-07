@@ -18,6 +18,20 @@ typedef struct {
 	sqlparser_dialect_national_literals_t national_literals;
 } sqlparser_postgresql_state_t;
 
+/* Keep exhaustive with sqlparser_postgresql_state_t: an ordinary string
+ * replacement must not leave any retained spelling or fragment owner stale. */
+static int sqlparser_postgresql_state_is_plain_insert_strings(
+	const void *state, size_t string_count)
+{
+	const sqlparser_postgresql_state_t *s = state;
+	return s != NULL && s->national_literals.items == NULL &&
+		s->national_literals.count == 0U && s->national_literals.capacity == 0U &&
+		s->national_literals.literal_count == string_count &&
+		s->national_literals.fragment_start == 0U &&
+		s->national_literals.fragment_literal_base == 0U;
+}
+
+
 static void sqlparser_postgresql_buffer_release(sqlparser_postgresql_buffer_t *buffer)
 {
 	if (buffer == NULL) {
@@ -1188,7 +1202,10 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	sqlparser_postgresql_reconcile_ast_state,
 	sqlparser_postgresql_clone_ast_state,
 	NULL,
-	NULL
+	NULL,
+	1,
+	1,
+	sqlparser_postgresql_state_is_plain_insert_strings
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void)

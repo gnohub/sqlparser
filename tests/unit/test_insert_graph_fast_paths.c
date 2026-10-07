@@ -159,6 +159,66 @@ fail:
 	return 1;
 }
 
+static int cell_is_zero(const sqlparser_graph_dml_cell_t *cell)
+{
+	const unsigned char *bytes = (const unsigned char *)cell;
+	size_t index;
+
+	for (index = 0U; index < sizeof(*cell); index++) {
+		if (bytes[index] != 0U) return 0;
+	}
+	return 1;
+}
+
+static int check_cell_error_outputs(void)
+{
+	sqlparser_handle_t *handle = NULL;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t list;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(NULL, 0U, &cell, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	CHECK(cell_is_zero(&cell));
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, 0U, &cell, NULL) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	CHECK(cell_is_zero(&cell));
+	CHECK(sqlparser_parse("INSERT INTO t(a,b) VALUES (1,'text')", &handle, &error) == SQLPARSER_STATUS_OK);
+	CHECK(sqlparser_statement_query_graph(handle, 0U, &graph, &error) == SQLPARSER_STATUS_OK);
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, 0U, NULL, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, SIZE_MAX, &cell, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	CHECK(cell_is_zero(&cell));
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, 2U, &cell, NULL) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	CHECK(cell_is_zero(&cell));
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].insert_cell[0][0]";
+	patch.sql = "3";
+	list.items = &patch;
+	list.count = 1U;
+	CHECK(sqlparser_apply_patch(handle, &list, &error) == SQLPARSER_STATUS_OK);
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, 0U, &cell, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT);
+	CHECK(cell_is_zero(&cell));
+	CHECK(sqlparser_statement_query_graph(handle, 0U, &graph, &error) == SQLPARSER_STATUS_OK);
+	memset(&cell, 0xA5, sizeof(cell));
+	CHECK(sqlparser_query_graph_dml_cell_at(&graph, 0U, &cell, &error) == SQLPARSER_STATUS_OK);
+	CHECK(cell.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER && cell.literal.integer_value == 3LL);
+	CHECK(cell.has_selector && cell.selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL);
+	CHECK(!cell.has_bind && cell.bind[0] == '\0' && !cell.has_bind_sql && cell.bind_sql[0] == '\0');
+	sqlparser_handle_destroy(handle);
+	return 0;
+fail:
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
 static int check_selector_values(void)
 {
 	sqlparser_error_t error;
@@ -240,6 +300,7 @@ int main(int argc, char **argv)
 
 	if (argc == 2 && strcmp(argv[1], "--dump") == 0) dump_views = 1;
 	else if (argc != 1) return 2;
+	failures += check_cell_error_outputs();
 	offset = (size_t)snprintf(large_sql, sizeof(large_sql), "INSERT INTO t(a,b) VALUES ");
 	for (i = 0U; i < 129U; i++) {
 		offset += (size_t)snprintf(large_sql + offset, sizeof(large_sql) - offset,

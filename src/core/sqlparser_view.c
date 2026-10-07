@@ -13,6 +13,7 @@
 #include "sqlparser_ast_internal.h"
 #include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
+#include "sqlparser_wire_insert_internal.h"
 
 /* Private ablation switch for same-source correctness/performance comparisons. */
 #ifdef SQLPARSER_DISABLE_INSERT_GRAPH_FAST_PATHS
@@ -6050,6 +6051,8 @@ typedef struct {
 } sqlparser_graph_merge_branch_detail_t;
 
 struct sqlparser_query_graph_cache {
+	sqlparser_wire_insert_t *wire_insert;
+	sqlparser_wire_scalar_insert_t *wire_scalar_insert;
 	unsigned long generation;
 	size_t statement_count;
 	sqlparser_statement_graph_t *statements;
@@ -6114,7 +6117,7 @@ struct sqlparser_query_graph_cache {
 };
 
 _Static_assert(
-	sizeof(struct sqlparser_query_graph_cache) <= 536U,
+	sizeof(struct sqlparser_query_graph_cache) <= 544U,
 	"query graph cache must remain compact");
 
 typedef struct sqlparser_graph_scope {
@@ -6149,6 +6152,8 @@ typedef struct {
 	sqlparser_query_graph_cache_t *cache;
 	const char *literal_parser_sql;
 	size_t literal_parser_sql_length;
+	size_t insert_values_cell_count;
+	int insert_values_all_literals;
 	sqlparser_view_bind_position_cache_t *bind_positions;
 	sqlparser_statement_graph_t *statement;
 	size_t statement_index;
@@ -7382,6 +7387,26 @@ static int sqlparser_graph_dml_cell_cache_init(
 	return -1;
 }
 
+static void sqlparser_graph_dml_cell_clear(sqlparser_graph_dml_cell_t *cell)
+{
+	/* Preserve every public byte, including padding. Small fixed-size clears
+	 * avoid rep-stos setup for the current layout without target intrinsics. */
+	if (sizeof(*cell) == 456U) {
+		unsigned char *bytes = (unsigned char *)cell;
+
+		memset(bytes, 0, 64U);
+		memset(bytes + 64U, 0, 64U);
+		memset(bytes + 128U, 0, 64U);
+		memset(bytes + 192U, 0, 64U);
+		memset(bytes + 256U, 0, 64U);
+		memset(bytes + 320U, 0, 64U);
+		memset(bytes + 384U, 0, 64U);
+		memset(bytes + 448U, 0, 8U);
+	} else {
+		memset(cell, 0, sizeof(*cell));
+	}
+}
+
 static int sqlparser_graph_dml_cell_cache_copy_public(
 	const sqlparser_query_graph_cache_t *cache,
 	const sqlparser_graph_dml_cell_cache_t *source,
@@ -7396,7 +7421,7 @@ static int sqlparser_graph_dml_cell_cache_copy_public(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph DML cell cache");
 		return -1;
 	}
-	memset(cell, 0, sizeof(*cell));
+	sqlparser_graph_dml_cell_clear(cell);
 	cell->index = cell_index;
 	cell->statement_index = statement_index;
 	cell->dml_index = source->dml_index;
@@ -8959,6 +8984,8 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	if (cache == NULL) {
 		return;
 	}
+	sqlparser_wire_insert_destroy(cache->wire_insert);
+	sqlparser_wire_scalar_insert_destroy(cache->wire_scalar_insert);
 	free(cache->statements);
 	free(cache->blocks);
 	free(cache->relations);
@@ -12968,18 +12995,27 @@ static PgQuery__CommonTableExpr *sqlparser_graph_find_cte(
 	return NULL;
 }
 
-/* A simple native VALUES insert only needs the target relation selector and
- * positional INSERT_CELL selectors. Prove that shape before avoiding the
- * generic node/name inventory; any later generic lookup still builds it in full.
- * In particular, do not infer this from the first row or from statement kind. */
-static int sqlparser_graph_is_literal_values_insert(
-	const sqlparser_graph_build_t *build,
+/* A simple VALUES insert uses positional INSERT_CELL selectors, including
+ * expressions, binds and defaults. Its target is the first relation visited by
+ * the descriptor-order inventory (InsertStmt.relation is field 1). Prove the
+ * row shape before avoiding that inventory; any later generic lookup still
+ * builds it in full. Top-level field cells retain the generic path because
+ * they can add graph fields and other index spans while building the rows. */
+static int sqlparser_graph_is_simple_values_insert(
+	sqlparser_graph_build_t *build,
 	const PgQuery__RangeVar *relation)
 {
 	const PgQuery__InsertStmt *insert;
 	const PgQuery__SelectStmt *values;
 	size_t row_index;
 	size_t column_index;
+	size_t cell_count = 0U;
+	int all_literals = 1;
+
+	if (build != NULL) {
+		build->insert_values_cell_count = 0U;
+		build->insert_values_all_literals = 0;
+	}
 
 	if (build == NULL || build->collect_relation_bindings ||
 	    build->dml_tail_select != NULL || build->statement_node == NULL ||
@@ -13026,16 +13062,31 @@ static int sqlparser_graph_is_literal_values_insert(
 		    row->list->items == NULL) {
 			return 0;
 		}
+		if (row->list->n_items > SIZE_MAX - cell_count) {
+			return 0;
+		}
+		cell_count += row->list->n_items;
 		for (column_index = 0U; column_index < row->list->n_items; column_index++) {
 			const PgQuery__Node *value;
 
 			value = row->list->items[column_index];
-			if (value == NULL || value->node_case != PG_QUERY__NODE__NODE_A_CONST ||
-			    value->a_const == NULL) {
+			if (value == NULL) {
+				return 0;
+			}
+			if (value->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+			    value->a_const != NULL) {
+				continue;
+			}
+			all_literals = 0;
+			value = sqlparser_unwrap_grouping_node((PgQuery__Node *)value);
+			if (value == NULL ||
+			    value->node_case == PG_QUERY__NODE__NODE_COLUMN_REF) {
 				return 0;
 			}
 		}
 	}
+	build->insert_values_cell_count = cell_count;
+	build->insert_values_all_literals = all_literals;
 	return 1;
 }
 
@@ -13052,8 +13103,8 @@ static size_t sqlparser_graph_find_relation_selector_index(
 		return (size_t)-1;
 	}
 	if (SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED &&
-	    sqlparser_graph_is_literal_values_insert(build, range_var)) {
-		/* InsertStmt.relation is the first and only relation in this shape. */
+	    sqlparser_graph_is_simple_values_insert(build, range_var)) {
+		/* InsertStmt.relation precedes all cell expression subtrees. */
 		return 0U;
 	}
 	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
@@ -16624,6 +16675,58 @@ static int sqlparser_graph_build_select(
 	sqlparser_graph_block_kind_t kind,
 	size_t *out_block_index,
 	sqlparser_error_t *out_error);
+
+/* The relation-selector shortcut proves a simple VALUES INSERT and counts
+ * every cell, including expressions. Reserve that storage once instead of
+ * repeatedly growing and then shrinking both arrays. */
+static int sqlparser_graph_reserve_insert_values(
+	sqlparser_graph_build_t *build,
+	size_t cell_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache;
+	size_t required;
+	void *items;
+
+	cache = build->cache;
+	if (cell_count > SIZE_MAX - cache->dml_cell_count ||
+	    cell_count >= SIZE_MAX - cache->index_pool_count) {
+		goto too_large;
+	}
+	required = cache->dml_cell_count + cell_count;
+	if (required > SIZE_MAX / sizeof(*cache->dml_cells)) {
+		goto too_large;
+	}
+	if (required > cache->dml_cell_capacity) {
+		items = realloc(cache->dml_cells, required * sizeof(*cache->dml_cells));
+		if (items == NULL) {
+			goto no_memory;
+		}
+		cache->dml_cells = items;
+		cache->dml_cell_capacity = required;
+	}
+	/* Finalization appends this proven shape's single target relation index. */
+	required = cache->index_pool_count + cell_count + 1U;
+	if (required > SIZE_MAX / sizeof(*cache->index_pool)) {
+		goto too_large;
+	}
+	if (required > cache->index_pool_capacity) {
+		items = realloc(cache->index_pool, required * sizeof(*cache->index_pool));
+		if (items == NULL) {
+			goto no_memory;
+		}
+		cache->index_pool = items;
+		cache->index_pool_capacity = required;
+	}
+	return 0;
+
+too_large:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph is too large");
+	return -1;
+no_memory:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return -1;
+}
 
 static int sqlparser_graph_build_insert_dml(
 	sqlparser_graph_build_t *build,
@@ -20821,6 +20924,56 @@ static int sqlparser_graph_add_insert_literal_cell(
 	return 0;
 }
 
+/* The relation-selector proof checked every row and literal, and the caller
+ * has reserved the exact cell/index capacity. No fallible operation or other
+ * index span is inserted while filling these rows. Publish the same contiguous
+ * row-major indices as repeated span appends, without rechecking those facts
+ * or the already sufficient capacity for every cell. */
+static void sqlparser_graph_add_insert_literal_rows(
+	sqlparser_graph_build_t *build,
+	const PgQuery__SelectStmt *values,
+	size_t dml_index)
+{
+	sqlparser_query_graph_cache_t *cache = build->cache;
+	sqlparser_graph_dml_cell_cache_t *cell =
+		cache->dml_cells + cache->dml_cell_count;
+	sqlparser_graph_dml_t *dml =
+		&cache->dml[build->statement->dml_offset + dml_index];
+	size_t *indices = cache->index_pool + cache->index_pool_count;
+	size_t cell_index = cache->dml_cell_count -
+		build->statement->dml_cell_offset;
+	size_t row_index;
+
+	dml->rows.offset = cache->index_pool_count;
+	for (row_index = 0U; row_index < values->n_values_lists; row_index++) {
+		const PgQuery__List *row = values->values_lists[row_index]->list;
+		size_t column_index;
+
+		for (column_index = 0U; column_index < row->n_items; column_index++) {
+			cell->dml_index = dml_index;
+			cell->row_index = row_index;
+			cell->column_ordinal = column_index;
+			cell->selector_item_index = 0U;
+			cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
+			cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+			cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+			/* Preserve unsupported literal payloads and source-aware quoted
+			 * identifier handling, including the ignored status. */
+			(void)sqlparser_fill_literal_view_from_a_const_with_sql_length(
+				row->items[column_index]->a_const,
+				build->literal_parser_sql,
+				build->literal_parser_sql_length,
+				&cell->payload.literal,
+				NULL);
+			*indices++ = cell_index++;
+			cell++;
+		}
+	}
+	dml->rows.count = build->insert_values_cell_count;
+	cache->dml_cell_count += build->insert_values_cell_count;
+	cache->index_pool_count += build->insert_values_cell_count;
+}
+
 static int sqlparser_graph_add_dml_cell_from_node(
 	sqlparser_graph_build_t *build,
 	size_t dml_index,
@@ -20917,6 +21070,157 @@ static int sqlparser_graph_add_dml_cell_from_node(
 	if (out_cell_index != NULL) {
 		*out_cell_index = cell_index;
 	}
+	return 0;
+}
+
+/* Store source-backed scalar expressions directly in the compact cache. The
+ * generic builder first duplicates this same certified source span, converts
+ * a public cell back to a compact cell, then frees the duplicate. Preserve the
+ * exact span and ownership without those per-expression temporary objects.
+ * Return zero when normal value classification or SQL rendering is required. */
+static int sqlparser_graph_add_insert_source_expression_cell(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t row_index,
+	size_t column_index,
+	PgQuery__Node *value,
+	size_t *out_cell_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache = build->cache;
+	sqlparser_graph_dml_cell_cache_t *cell;
+	PgQuery__Node *unwrapped;
+	const sqlparser_surface_source_edits_t *surface_edits;
+	size_t source_start;
+	size_t source_end;
+	size_t length;
+	size_t required;
+	int source_status;
+
+	unwrapped = sqlparser_unwrap_grouping_node(value);
+	if (unwrapped == NULL ||
+	    unwrapped->node_case == PG_QUERY__NODE__NODE_A_CONST ||
+	    unwrapped->node_case == PG_QUERY__NODE__NODE_PARAM_REF ||
+	    unwrapped->node_case == PG_QUERY__NODE__NODE_SET_TO_DEFAULT ||
+	    unwrapped->node_case == PG_QUERY__NODE__NODE_COLUMN_REF ||
+	    (build->handle->generation != 0UL &&
+	     !build->handle->surface_source_complete)) {
+		return 0;
+	}
+	surface_edits = build->handle->generation != 0UL ?
+		&build->handle->surface_source_edits : NULL;
+	source_status = sqlparser_view_expression_source_span(
+		build->handle, &build->origins, &build->expression_source_cache,
+		value, surface_edits, &source_start, &source_end, out_error);
+	if (source_status <= 0) {
+		return source_status;
+	}
+	length = source_end - source_start;
+	if (length == SIZE_MAX || cache->value_text_length > SIZE_MAX - length - 1U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph value text is too large");
+		return -1;
+	}
+	required = cache->value_text_length + length + 1U;
+	if (sqlparser_query_graph_reserve_array_with_initial(
+		    (void **)&cache->value_text, &cache->value_text_capacity,
+		    required, sizeof(*cache->value_text), 128U, out_error) != 0) {
+		return -1;
+	}
+	cell = &cache->dml_cells[cache->dml_cell_count];
+	cell->dml_index = dml_index;
+	cell->row_index = row_index;
+	cell->column_ordinal = column_index;
+	cell->selector_item_index = 0U;
+	cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_EXPRESSION;
+	cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR |
+		SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL;
+	cell->payload.expression_sql_offset = cache->value_text_length;
+	memcpy(cache->value_text + cache->value_text_length,
+		build->handle->sql + source_start, length);
+	cache->value_text[required - 1U] = '\0';
+	cache->value_text_length = required;
+	*out_cell_index = cache->dml_cell_count - build->statement->dml_cell_offset;
+	cache->dml_cell_count++;
+	return 1;
+}
+
+/* Source-backed expressions use the same span proof as the generic builder;
+ * every other nonliteral keeps the original generic value/rendering path.
+ * The shape proof excludes relation collection and top-level field cells, so
+ * these calls cannot interleave other index spans. Publish the complete
+ * row-major span once rather than checking/growing it for each cell. */
+static int sqlparser_graph_add_insert_mixed_rows(
+	sqlparser_graph_build_t *build,
+	const PgQuery__SelectStmt *values,
+	size_t dml_index,
+	size_t block_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache = build->cache;
+	size_t row_offset = cache->index_pool_count;
+	size_t row_cell_count = 0U;
+	size_t row_index;
+
+	for (row_index = 0U; row_index < values->n_values_lists; row_index++) {
+		const PgQuery__List *row = values->values_lists[row_index]->list;
+		size_t column_index;
+
+		for (column_index = 0U; column_index < row->n_items; column_index++) {
+			PgQuery__Node *value = row->items[column_index];
+			size_t cell_index;
+
+			if (value->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+			    value->a_const != NULL) {
+				sqlparser_graph_dml_cell_cache_t *cell =
+					&cache->dml_cells[cache->dml_cell_count];
+
+				cell->dml_index = dml_index;
+				cell->row_index = row_index;
+				cell->column_ordinal = column_index;
+				cell->selector_item_index = 0U;
+				cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
+				cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+				cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+				(void)sqlparser_fill_literal_view_from_a_const_with_sql_length(
+					value->a_const,
+					build->literal_parser_sql,
+					build->literal_parser_sql_length,
+					&cell->payload.literal,
+					NULL);
+				cell_index = cache->dml_cell_count -
+					build->statement->dml_cell_offset;
+				cache->dml_cell_count++;
+			} else {
+				int source_status = sqlparser_graph_add_insert_source_expression_cell(
+					build, dml_index, row_index, column_index, value,
+					&cell_index, out_error);
+
+				if (source_status < 0) {
+					return -1;
+				}
+				if (source_status == 0) {
+					sqlparser_selector_t selector;
+
+					memset(&selector, 0, sizeof(selector));
+					selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+					selector.statement_index = build->statement_index;
+					selector.row_index = row_index;
+					selector.column_index = column_index;
+					if (sqlparser_graph_add_dml_cell_from_node(
+						    build, dml_index, block_index, row_index, row_index,
+						    column_index, value, 0U, &selector, &cell_index,
+						    out_error) != 0) {
+						return -1;
+					}
+				}
+			}
+			cache->index_pool[row_offset + row_cell_count++] = cell_index;
+		}
+	}
+	cache->dml[build->statement->dml_offset + dml_index].rows.offset = row_offset;
+	cache->dml[build->statement->dml_offset + dml_index].rows.count = row_cell_count;
+	cache->index_pool_count += row_cell_count;
 	return 0;
 }
 
@@ -21451,6 +21755,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	size_t source_block_index,
 	int has_source_block,
 	const sqlparser_dialect_multi_insert_value_t *source,
+	const char **cached_sqlvalue_function_sql,
 	sqlparser_graph_dml_branch_t *branch,
 	sqlparser_error_t *out_error)
 {
@@ -21465,6 +21770,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	}
 	memset(&cell, 0, sizeof(cell));
 	expression_sql = NULL;
+	node = NULL;
 	cell.dml_index = dml_index;
 	cell.row_index = branch_ordinal;
 	cell.column_ordinal = column_ordinal;
@@ -21482,51 +21788,86 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 		cell.literal = source->literal;
 	} else if (source->parser_sql != NULL &&
 		   !sqlparser_view_parser_sql_has_bind(source->parser_sql)) {
-		node = NULL;
-		if (sqlparser_parse_insert_cell_node_sql(
-			    source->parser_sql,
-			    NULL,
-			    &node,
-			    out_error) != SQLPARSER_STATUS_OK) {
-			return -1;
-		}
-		semantic_node = sqlparser_unwrap_grouping_node(node);
-		if (semantic_node != NULL &&
-		    semantic_node->node_case == PG_QUERY__NODE__NODE_A_CONST &&
-		    semantic_node->a_const != NULL) {
-			cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
-			if (sqlparser_fill_literal_view_from_a_const(semantic_node->a_const, &cell.literal, out_error) != SQLPARSER_STATUS_OK) {
-				sqlparser_free_proto_node(node);
+		if (*cached_sqlvalue_function_sql != NULL &&
+		    strcmp(*cached_sqlvalue_function_sql, source->parser_sql) == 0) {
+			cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
+		} else {
+			if (sqlparser_parse_insert_cell_node_sql(
+				    source->parser_sql,
+				    NULL,
+				    &node,
+				    out_error) != SQLPARSER_STATUS_OK) {
 				return -1;
 			}
-		} else if (semantic_node != NULL &&
-		           semantic_node->node_case == PG_QUERY__NODE__NODE_SET_TO_DEFAULT) {
-			cell.kind = SQLPARSER_GRAPH_VALUE_DEFAULT;
-		} else if (has_source_block &&
-		           semantic_node != NULL &&
-		           semantic_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-		           semantic_node->column_ref != NULL &&
-		           sqlparser_graph_multi_insert_cell_resolve_source_target(
-			           build,
-			           source_block_index,
-			           semantic_node->column_ref,
-			           source->public_sql,
-			           &cell.source_target_index)) {
-			sqlparser_graph_target_cache_t *target;
+			semantic_node = sqlparser_unwrap_grouping_node(node);
+			if (semantic_node != NULL &&
+			    semantic_node->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+			    semantic_node->a_const != NULL) {
+				cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
+				if (sqlparser_fill_literal_view_from_a_const(semantic_node->a_const, &cell.literal, out_error) != SQLPARSER_STATUS_OK) {
+					sqlparser_free_proto_node(node);
+					return -1;
+				}
+				if (cell.literal.kind == SQLPARSER_LITERAL_KIND_STRING ||
+				    cell.literal.kind == SQLPARSER_LITERAL_KIND_FLOAT) {
+					const char *literal_text;
+					char *owned_text;
 
-			cell.kind = SQLPARSER_GRAPH_VALUE_FIELD;
-			cell.has_source_target = 1;
-			target = sqlparser_graph_target_by_local(build, cell.source_target_index);
-			if (target != NULL &&
-			    (target->flags &
-			     SQLPARSER_GRAPH_TARGET_HAS_FIELD) != 0U) {
-				cell.source_field_index = target->field_index;
-				cell.has_source_field = 1;
+					literal_text = cell.literal.kind == SQLPARSER_LITERAL_KIND_STRING ?
+						cell.literal.string_value : cell.literal.float_value;
+					if (literal_text != NULL) {
+						/* The graph cell stores borrowed pointers, so keep
+						 * temporary parsed literal text in graph-owned storage. */
+						owned_text = sqlparser_strdup(literal_text);
+						if (owned_text == NULL) {
+							sqlparser_free_proto_node(node);
+							sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+							return -1;
+						}
+						if (sqlparser_graph_dml_result_own_text(build, owned_text, out_error) != 0) {
+							sqlparser_free_proto_node(node);
+							return -1;
+						}
+						if (cell.literal.kind == SQLPARSER_LITERAL_KIND_STRING) {
+							cell.literal.string_value = owned_text;
+						} else {
+							cell.literal.float_value = owned_text;
+						}
+					}
+				}
+			} else if (semantic_node != NULL &&
+			           semantic_node->node_case == PG_QUERY__NODE__NODE_SET_TO_DEFAULT) {
+				cell.kind = SQLPARSER_GRAPH_VALUE_DEFAULT;
+			} else if (has_source_block &&
+			           semantic_node != NULL &&
+			           semantic_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+			           semantic_node->column_ref != NULL &&
+			           sqlparser_graph_multi_insert_cell_resolve_source_target(
+				           build,
+				           source_block_index,
+				           semantic_node->column_ref,
+				           source->public_sql,
+				           &cell.source_target_index)) {
+				sqlparser_graph_target_cache_t *target;
+
+				cell.kind = SQLPARSER_GRAPH_VALUE_FIELD;
+				cell.has_source_target = 1;
+				target = sqlparser_graph_target_by_local(build, cell.source_target_index);
+				if (target != NULL &&
+				    (target->flags &
+				     SQLPARSER_GRAPH_TARGET_HAS_FIELD) != 0U) {
+					cell.source_field_index = target->field_index;
+					cell.has_source_field = 1;
+				}
+			} else {
+				cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
 			}
-		} else {
-			cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
+			if (semantic_node != NULL &&
+			    semantic_node->node_case == PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION &&
+			    semantic_node->sqlvalue_function != NULL) {
+				*cached_sqlvalue_function_sql = source->parser_sql;
+			}
 		}
-		sqlparser_free_proto_node(node);
 	} else {
 		cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
 	}
@@ -21541,6 +21882,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 				out_error,
 				SQLPARSER_STATUS_INTERNAL_ERROR,
 				"multi-insert expression cell SQL is missing");
+			sqlparser_free_proto_node(node);
 			return -1;
 		}
 		expression_sql = source->public_sql;
@@ -21551,8 +21893,10 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 		    expression_sql,
 		    &cell_index,
 		    out_error) != 0) {
+		sqlparser_free_proto_node(node);
 		return -1;
 	}
+	sqlparser_free_proto_node(node);
 	if (branch != NULL &&
 	    sqlparser_graph_span_append_index(build, &branch->rows, cell_index, out_error) != 0) {
 		return -1;
@@ -22048,6 +22392,7 @@ static int sqlparser_graph_build_multi_insert_dml(
 {
 	sqlparser_graph_dml_t dml;
 	sqlparser_graph_dml_t *dml_item;
+	const char *cached_sqlvalue_function_sql;
 	size_t root_block_index;
 	size_t dml_index;
 	size_t branch_index;
@@ -22056,6 +22401,9 @@ static int sqlparser_graph_build_multi_insert_dml(
 	if (build == NULL || stmt == NULL || multi == NULL) {
 		return 0;
 	}
+	/* Keep one positive classification key borrowed from this build's
+	 * handle-owned dialect state. Never retain a temporary parsed node. */
+	cached_sqlvalue_function_sql = NULL;
 	local_branch_indices = NULL;
 	memset(&dml, 0, sizeof(dml));
 	dml.kind = SQLPARSER_GRAPH_DML_INSERT;
@@ -22159,6 +22507,7 @@ static int sqlparser_graph_build_multi_insert_dml(
 				    dml_item->source_block_index,
 				    dml_item->has_source_block,
 				    &source_branch->cells[index],
+				    &cached_sqlvalue_function_sql,
 				    branch_item,
 				    out_error) != 0) {
 				free(local_branch_indices);
@@ -22234,7 +22583,30 @@ static int sqlparser_graph_build_insert_dml(
 	    (values_stmt = stmt->select_stmt->select_stmt) != NULL &&
 	    values_stmt != NULL &&
 	    values_stmt->values_lists != NULL) {
-		for (index = 0U; index < values_stmt->n_values_lists; index++) {
+		int fill_bulk_rows = 0;
+
+		if (SQLPARSER_INSERT_GRAPH_FAST_PATHS_ENABLED &&
+		    values_stmt->n_values_lists >= 32U &&
+		    build->handle->statement_count == 1U &&
+		    build->insert_values_cell_count != 0U) {
+			if (sqlparser_graph_reserve_insert_values(
+				    build, build->insert_values_cell_count, out_error) != 0) {
+				sqlparser_graph_pop_scope(build);
+				return -1;
+			}
+			fill_bulk_rows = dml_item->rows.count == 0U;
+		}
+		if (fill_bulk_rows) {
+			if (build->insert_values_all_literals) {
+				sqlparser_graph_add_insert_literal_rows(build, values_stmt, dml_index);
+			} else if (sqlparser_graph_add_insert_mixed_rows(
+					   build, values_stmt, dml_index, block_index,
+					   out_error) != 0) {
+				sqlparser_graph_pop_scope(build);
+				return -1;
+			}
+		}
+		for (index = 0U; !fill_bulk_rows && index < values_stmt->n_values_lists; index++) {
 			PgQuery__Node *row_node;
 			size_t column_index;
 
@@ -24359,6 +24731,323 @@ static int sqlparser_graph_build_statement(
 		}
 	}
 
+/* A full source/wire certificate owns no public pointers. Its graph text is
+ * copied once into a fixed slab, and remains valid even if a later reader
+ * materializes the generic AST. Only normal graph invalidation releases it. */
+const sqlparser_wire_insert_t *sqlparser_query_graph_wire_insert(const sqlparser_handle_t *handle)
+{
+    const sqlparser_query_graph_cache_t *cache;
+    if (handle == NULL || handle->failed || (cache = handle->query_graph) == NULL ||
+        cache->generation != handle->generation ||
+        handle->query_graph_generation != handle->generation) return NULL;
+    return cache->wire_insert;
+}
+
+const char *sqlparser_query_graph_wire_string(const sqlparser_handle_t *handle, size_t row)
+{
+    const sqlparser_wire_insert_t *insert = sqlparser_query_graph_wire_insert(handle);
+    if (insert == NULL || row >= insert->row_count) return NULL;
+    return handle->query_graph->dml_cells[row * 2U + 1U].payload.literal.string_value;
+}
+
+static sqlparser_status_t sqlparser_query_graph_try_wire_insert(
+    sqlparser_handle_t *handle, sqlparser_query_graph_cache_t **out_cache,
+    sqlparser_error_t *out_error)
+{
+    sqlparser_wire_insert_t *insert;
+    sqlparser_query_graph_cache_t *cache;
+    sqlparser_statement_graph_t *statement;
+    size_t row, column, count;
+    char *text;
+    *out_cache = NULL;
+#ifdef SQLPARSER_DISABLE_WIRE_INSERT_GRAPH
+    (void)handle; (void)out_error;
+    return SQLPARSER_STATUS_OK;
+#endif
+    insert = sqlparser_wire_insert_certify(handle);
+    if (insert == NULL) return SQLPARSER_STATUS_OK;
+    if (insert->row_count > (SIZE_MAX - 3U) / 2U) {
+        sqlparser_wire_insert_destroy(insert);
+        return SQLPARSER_STATUS_OK;
+    }
+    count = insert->row_count * 2U;
+    if (count > SIZE_MAX / sizeof(*cache->dml_cells) ||
+        count + 3U > SIZE_MAX / sizeof(*cache->index_pool)) {
+        sqlparser_wire_insert_destroy(insert);
+        return SQLPARSER_STATUS_OK;
+    }
+    cache = calloc(1U, sizeof(*cache));
+    if (cache == NULL) {
+        sqlparser_wire_insert_destroy(insert);
+        goto no_memory;
+    }
+    cache->wire_insert = insert;
+    cache->generation = handle->generation;
+    cache->statement_count = 1U;
+    cache->statements = calloc(1U, sizeof(*cache->statements));
+    cache->blocks = calloc(1U, sizeof(*cache->blocks));
+    cache->relations = calloc(1U, sizeof(*cache->relations));
+    cache->dml = calloc(1U, sizeof(*cache->dml));
+    cache->dml_columns = calloc(2U, sizeof(*cache->dml_columns));
+    cache->dml_cells = calloc(count, sizeof(*cache->dml_cells));
+    cache->index_pool = malloc((count + 3U) * sizeof(*cache->index_pool));
+    cache->value_text = malloc(insert->text_bytes);
+    if (cache->statements == NULL || cache->blocks == NULL || cache->relations == NULL ||
+        cache->dml == NULL || cache->dml_columns == NULL || cache->dml_cells == NULL ||
+        cache->index_pool == NULL || cache->value_text == NULL) {
+        sqlparser_query_graph_cache_release(cache);
+        goto no_memory;
+    }
+    cache->block_count = cache->block_capacity = 1U;
+    cache->relation_count = cache->relation_capacity = 1U;
+    cache->dml_count = cache->dml_capacity = 1U;
+    cache->dml_column_count = cache->dml_column_capacity = 2U;
+    cache->dml_cell_count = cache->dml_cell_capacity = count;
+    cache->index_pool_count = cache->index_pool_capacity = count + 3U;
+    cache->value_text_length = cache->value_text_capacity = insert->text_bytes;
+    statement = cache->statements;
+    statement->has_root_block = 1;
+    statement->block_count = statement->relation_count = statement->dml_count = 1U;
+    statement->dml_column_count = 2U;
+    statement->dml_cell_count = count;
+    cache->blocks[0].kind = SQLPARSER_GRAPH_BLOCK_SELECT;
+    cache->blocks[0].relations.offset = count + 2U;
+    cache->blocks[0].relations.count = 1U;
+    cache->relations[0].kind = SQLPARSER_GRAPH_REL_BASE;
+    cache->relations[0].selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
+    cache->relations[0].has_selector = 1;
+    cache->dml[0].kind = SQLPARSER_GRAPH_DML_INSERT;
+    cache->dml[0].insert_mode = SQLPARSER_GRAPH_INSERT_MODE_VALUES;
+    cache->dml[0].has_target_relation = 1;
+    cache->dml[0].target_columns.count = 2U;
+    cache->dml[0].rows.offset = 2U;
+    cache->dml[0].rows.count = count;
+    text = cache->value_text;
+    for (column = 0U; column < 3U; column++) {
+        if (column == 0U) cache->relations[0].object_name = text;
+        else {
+            cache->dml_columns[column - 1U].column_name = text;
+            cache->dml_columns[column - 1U].index = column - 1U;
+            cache->dml_columns[column - 1U].ordinal = column - 1U;
+        }
+        memcpy(text, insert->names[column], insert->name_lengths[column]);
+        text += insert->name_lengths[column];
+        *text++ = '\0';
+    }
+    cache->index_pool[0] = 0U;
+    cache->index_pool[1] = 1U;
+    for (row = 0U; row < insert->row_count; row++) {
+        sqlparser_wire_insert_cell_t cells[2];
+        if (!sqlparser_wire_insert_certified_row(insert, row, cells)) {
+            sqlparser_query_graph_cache_release(cache);
+            sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+                "certified INSERT wire changed during graph construction");
+            return SQLPARSER_STATUS_INTERNAL_ERROR;
+        }
+        for (column = 0U; column < 2U; column++) {
+            size_t index = row * 2U + column;
+            sqlparser_graph_dml_cell_cache_t *cell = &cache->dml_cells[index];
+            cell->row_index = row;
+            cell->column_ordinal = column;
+            cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
+            cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+            cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+            if (column == 0U) {
+                cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+                cell->payload.literal.integer_value = cells[0].integer;
+            } else {
+                cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+                cell->payload.literal.string_value = text;
+                memcpy(text, cells[1].text, cells[1].length);
+                text += cells[1].length;
+                *text++ = '\0';
+            }
+            cache->index_pool[index + 2U] = index;
+        }
+    }
+    cache->index_pool[count + 2U] = 0U;
+    if ((size_t)(text - cache->value_text) != insert->text_bytes) {
+        sqlparser_query_graph_cache_release(cache);
+        sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+            "certified INSERT graph text size mismatch");
+        return SQLPARSER_STATUS_INTERNAL_ERROR;
+    }
+    *out_cache = cache;
+    return SQLPARSER_STATUS_OK;
+no_memory:
+    sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+    return SQLPARSER_STATUS_NO_MEMORY;
+}
+
+
+const sqlparser_wire_scalar_insert_t *sqlparser_query_graph_wire_scalar_insert(const sqlparser_handle_t *handle)
+{
+    const sqlparser_query_graph_cache_t *cache;
+    if (handle == NULL || handle->failed || (cache = handle->query_graph) == NULL ||
+        cache->generation != handle->generation || handle->query_graph_generation != handle->generation) return NULL;
+    return cache->wire_scalar_insert;
+}
+
+const char *sqlparser_query_graph_wire_scalar_string(const sqlparser_handle_t *handle, size_t row, size_t column)
+{
+    const sqlparser_wire_scalar_insert_t *insert = sqlparser_query_graph_wire_scalar_insert(handle);
+    const sqlparser_graph_dml_cell_cache_t *cell;
+    if (insert == NULL || row >= insert->row_count || column >= insert->column_count) return NULL;
+    cell = &handle->query_graph->dml_cells[row * insert->column_count + column];
+    return cell->kind == SQLPARSER_GRAPH_VALUE_LITERAL && cell->payload.literal.kind == SQLPARSER_LITERAL_KIND_STRING ?
+        cell->payload.literal.string_value : NULL;
+}
+
+static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_insert(
+    sqlparser_handle_t *handle, sqlparser_query_graph_cache_t **out_cache,
+    sqlparser_error_t *out_error)
+{
+    sqlparser_wire_scalar_insert_t *insert;
+    sqlparser_query_graph_cache_t *cache;
+    sqlparser_statement_graph_t *statement;
+    sqlparser_wire_scalar_cell_t *cells = NULL;
+    size_t row, column, count, columns;
+    char *text;
+    *out_cache = NULL;
+#ifdef SQLPARSER_DISABLE_WIRE_SCALAR_INSERT_GRAPH
+    (void)handle; (void)out_error;
+    return SQLPARSER_STATUS_OK;
+#endif
+    insert = sqlparser_wire_scalar_insert_from_native(handle);
+    if (insert == NULL) {
+        /* Do not retain unused attestation beside a strict certificate whose
+         * original storage budget does not include it. */
+        free(handle->native_scalar_provenance);
+        handle->native_scalar_provenance = NULL;
+        insert = sqlparser_wire_scalar_insert_certify(handle);
+    }
+    if (insert == NULL) return SQLPARSER_STATUS_OK;
+    columns = insert->column_count;
+    count = insert->row_count * columns; /* certificate proved multiplication */
+    if (columns > SIZE_MAX / sizeof(*cells) || count > SIZE_MAX / sizeof(*cache->dml_cells) ||
+        columns == SIZE_MAX || count > SIZE_MAX - columns - 1U ||
+        count + columns + 1U > SIZE_MAX / sizeof(*cache->index_pool)) {
+        sqlparser_wire_scalar_insert_destroy(insert);
+        return SQLPARSER_STATUS_OK;
+    }
+    cache = calloc(1U, sizeof(*cache));
+    if (cache == NULL) {
+        sqlparser_wire_scalar_insert_destroy(insert);
+        goto no_memory;
+    }
+    cache->wire_scalar_insert = insert;
+    cache->generation = handle->generation;
+    cache->statement_count = 1U;
+    cache->statements = calloc(1U, sizeof(*cache->statements));
+    cache->blocks = calloc(1U, sizeof(*cache->blocks));
+    cache->relations = calloc(1U, sizeof(*cache->relations));
+    cache->dml = calloc(1U, sizeof(*cache->dml));
+    cache->dml_columns = calloc(columns, sizeof(*cache->dml_columns));
+    cache->dml_cells = calloc(count, sizeof(*cache->dml_cells));
+    cache->index_pool = malloc((count + columns + 1U) * sizeof(*cache->index_pool));
+    cache->value_text = malloc(insert->text_bytes);
+    cells = malloc(columns * sizeof(*cells));
+    if (cache->statements == NULL || cache->blocks == NULL || cache->relations == NULL ||
+        cache->dml == NULL || cache->dml_columns == NULL || cache->dml_cells == NULL ||
+        cache->index_pool == NULL || cache->value_text == NULL || cells == NULL) {
+        sqlparser_query_graph_cache_release(cache);
+        free(cells);
+        goto no_memory;
+    }
+    cache->block_count = cache->block_capacity = 1U;
+    cache->relation_count = cache->relation_capacity = 1U;
+    cache->dml_count = cache->dml_capacity = 1U;
+    cache->dml_column_count = cache->dml_column_capacity = columns;
+    cache->dml_cell_count = cache->dml_cell_capacity = count;
+    cache->index_pool_count = cache->index_pool_capacity = count + columns + 1U;
+    cache->value_text_length = cache->value_text_capacity = insert->text_bytes;
+    statement = cache->statements;
+    statement->has_root_block = 1;
+    statement->block_count = statement->relation_count = statement->dml_count = 1U;
+    statement->dml_column_count = columns;
+    statement->dml_cell_count = count;
+    cache->blocks[0].kind = SQLPARSER_GRAPH_BLOCK_SELECT;
+    cache->blocks[0].relations.offset = count + columns;
+    cache->blocks[0].relations.count = 1U;
+    cache->relations[0].kind = SQLPARSER_GRAPH_REL_BASE;
+    cache->relations[0].selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
+    cache->relations[0].has_selector = 1;
+    cache->dml[0].kind = SQLPARSER_GRAPH_DML_INSERT;
+    cache->dml[0].insert_mode = SQLPARSER_GRAPH_INSERT_MODE_VALUES;
+    cache->dml[0].has_target_relation = 1;
+    cache->dml[0].target_columns.count = columns;
+    cache->dml[0].rows.offset = columns;
+    cache->dml[0].rows.count = count;
+    text = cache->value_text;
+    for (column = 0U; column < columns + 3U; column++) {
+        const sqlparser_wire_scalar_name_t *name = &insert->names[column];
+        if (name->text == NULL) continue;
+        if (column == 0U) cache->relations[0].database_name = text;
+        else if (column == 1U) cache->relations[0].schema_name = text;
+        else if (column == 2U) cache->relations[0].object_name = text;
+        else {
+            cache->dml_columns[column - 3U].column_name = text;
+            cache->dml_columns[column - 3U].index = column - 3U;
+            cache->dml_columns[column - 3U].ordinal = column - 3U;
+        }
+        memcpy(text, name->text, name->length);
+        text += name->length;
+        *text++ = '\0';
+    }
+    for (column = 0U; column < columns; column++) cache->index_pool[column] = column;
+    for (row = 0U; row < insert->row_count; row++) {
+        if (!sqlparser_wire_scalar_insert_certified_row(insert, row, cells)) {
+            sqlparser_query_graph_cache_release(cache);
+            free(cells);
+            sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+                "certified scalar INSERT wire changed during graph construction");
+            return SQLPARSER_STATUS_INTERNAL_ERROR;
+        }
+        for (column = 0U; column < columns; column++) {
+            size_t index = row * columns + column;
+            sqlparser_graph_dml_cell_cache_t *cell = &cache->dml_cells[index];
+            cell->row_index = row;
+            cell->column_ordinal = column;
+            cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
+            cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+            cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+            if (cells[column].kind == SQLPARSER_WIRE_SCALAR_INTEGER) {
+                cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+                cell->payload.literal.integer_value = cells[column].integer;
+            } else {
+                if (cells[column].kind == SQLPARSER_WIRE_SCALAR_STRING) {
+                    cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+                    cell->payload.literal.string_value = text;
+                } else if (cells[column].kind == SQLPARSER_WIRE_SCALAR_FLOAT) {
+                    cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_FLOAT;
+                    cell->payload.literal.float_value = text;
+                } else {
+                    cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_EXPRESSION;
+                    cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL;
+                    cell->payload.expression_sql_offset = (size_t)(text - cache->value_text);
+                }
+                memcpy(text, cells[column].text, cells[column].length);
+                text += cells[column].length;
+                *text++ = '\0';
+            }
+            cache->index_pool[index + columns] = index;
+        }
+    }
+    free(cells);
+    cache->index_pool[count + columns] = 0U;
+    if ((size_t)(text - cache->value_text) != insert->text_bytes) {
+        sqlparser_query_graph_cache_release(cache);
+        sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+            "certified scalar INSERT graph text size mismatch");
+        return SQLPARSER_STATUS_INTERNAL_ERROR;
+    }
+    *out_cache = cache;
+    return SQLPARSER_STATUS_OK;
+no_memory:
+    sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+    return SQLPARSER_STATUS_NO_MEMORY;
+}
+
 static sqlparser_status_t sqlparser_query_graph_cache_build(
 	sqlparser_handle_t *handle,
 	sqlparser_query_graph_cache_t **out_cache,
@@ -24380,6 +25069,10 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	memset(&bind_positions, 0, sizeof(bind_positions));
+	status = sqlparser_query_graph_try_wire_insert(handle, out_cache, out_error);
+	if (status != SQLPARSER_STATUS_OK || *out_cache != NULL) return status;
+	status = sqlparser_query_graph_try_wire_scalar_insert(handle, out_cache, out_error);
+	if (status != SQLPARSER_STATUS_OK || *out_cache != NULL) return status;
 	status = sqlparser_handle_ensure_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -25811,7 +26504,6 @@ sqlparser_status_t sqlparser_query_graph_dml_cell_at(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_query_graph_cache_t *cache;
-	sqlparser_graph_dml_cell_t cell;
 	sqlparser_statement_graph_t *statement;
 	size_t global_index;
 
@@ -25820,13 +26512,14 @@ sqlparser_status_t sqlparser_query_graph_dml_cell_at(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_cell must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	memset(out_cell, 0, sizeof(*out_cell));
 	statement = sqlparser_query_graph_statement(graph, &cache);
 	if (statement == NULL || cell_index >= statement->dml_cell_count) {
+		memset(out_cell, 0, sizeof(*out_cell));
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dml cell index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	if (statement->dml_cell_offset > SIZE_MAX - cell_index) {
+		memset(out_cell, 0, sizeof(*out_cell));
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "dml cell offset is invalid");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
@@ -25837,14 +26530,15 @@ sqlparser_status_t sqlparser_query_graph_dml_cell_at(
 		    &cache->dml_cells[global_index],
 		    graph->statement_index,
 		    cell_index,
-		    &cell,
+		    out_cell,
 		    out_error) != 0) {
+		/* Preserve the public zero-on-failure contract after partial filling. */
+		memset(out_cell, 0, sizeof(*out_cell));
 		if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "dml cell cache is invalid");
 		}
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
-	*out_cell = cell;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -27929,7 +28623,7 @@ sqlparser_status_t sqlparser_export_view_json(
 	}
 
 	mutable_handle = (sqlparser_handle_t *)handle;
-	ast_was_loaded = mutable_handle->ast != NULL;
+	ast_was_loaded = mutable_handle->ast != NULL || mutable_handle->query_graph != NULL;
 	status = sqlparser_handle_ensure_ast(mutable_handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
