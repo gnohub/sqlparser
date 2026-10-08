@@ -10,6 +10,7 @@
 #include "../dialect/sqlparser_dialect_dml_result_internal.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 #include "sqlparser_ast_internal.h"
 #include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
@@ -2669,7 +2670,14 @@ int sqlparser_view_insert_cell_source_span(
 				return 0;
 			}
 		}
-		source_status = sqlparser_view_multi_insert_cell_source_span(
+		/* The first generic scan validates every branch/cell, including its
+		 * bracket/brace tokenization. Only then may current constructor spans
+		 * replace repeated scans; identity alone does not prove that validation.
+		 * Keep the common delimiter and comment checks below for every cell. */
+		source_status = cache != NULL && cache->valid == 2 &&
+			sqlparser_oracle_multi_insert_certified_cell_span(
+				handle, row_index, column_index, out_start, out_end);
+		if (!source_status) source_status = sqlparser_view_multi_insert_cell_source_span(
 			handle,
 			multi_insert,
 			cache,
@@ -6052,7 +6060,12 @@ typedef struct {
 
 struct sqlparser_query_graph_cache {
 	sqlparser_wire_insert_t *wire_insert;
-	sqlparser_wire_scalar_insert_t *wire_scalar_insert;
+	/* Mutually exclusive, selected by statement_count. Preserve the existing
+	 * cache footprint for unrelated singleton and generic graph workloads. */
+	union {
+		sqlparser_wire_scalar_insert_t *wire_scalar_insert;
+		sqlparser_wire_scalar_batch_t *wire_scalar_batch;
+	};
 	unsigned long generation;
 	size_t statement_count;
 	sqlparser_statement_graph_t *statements;
@@ -8985,7 +8998,10 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 		return;
 	}
 	sqlparser_wire_insert_destroy(cache->wire_insert);
-	sqlparser_wire_scalar_insert_destroy(cache->wire_scalar_insert);
+	if (cache->statement_count > 1U)
+		sqlparser_wire_scalar_batch_destroy(cache->wire_scalar_batch);
+	else
+		sqlparser_wire_scalar_insert_destroy(cache->wire_scalar_insert);
 	free(cache->statements);
 	free(cache->blocks);
 	free(cache->relations);
@@ -22384,6 +22400,23 @@ static int sqlparser_graph_build_dml_results(
 	return 0;
 }
 
+/* A storage hint only: missing memory or an unrepresentable size leaves the
+ * normal incremental builder responsible for validation and errors. Never
+ * change counts, initialize entries, or publish an error from speculation. */
+static void sqlparser_graph_try_reserve_multi_insert_array(
+	void **items, size_t *capacity, size_t count, size_t extra, size_t item_size)
+{
+	void *next;
+	size_t required;
+	if (extra > SIZE_MAX - count || item_size == 0U) return;
+	required = count + extra;
+	if (required <= *capacity || required > SIZE_MAX / item_size) return;
+	next = realloc(*items, required * item_size);
+	if (next == NULL) return;
+	*items = next;
+	*capacity = required;
+}
+
 static int sqlparser_graph_build_multi_insert_dml(
 	sqlparser_graph_build_t *build,
 	PgQuery__InsertStmt *stmt,
@@ -22435,6 +22468,16 @@ static int sqlparser_graph_build_multi_insert_dml(
 			return -1;
 		}
 	}
+	/* The source SELECT has finished and no branch/detail element pointers
+	 * exist yet. Exact retained branch counts avoid repeated large copies. */
+	sqlparser_graph_try_reserve_multi_insert_array(
+		(void **)&build->cache->dml_branches,
+		&build->cache->dml_branch_capacity, build->cache->dml_branch_count,
+		multi->branch_count, sizeof(*build->cache->dml_branches));
+	sqlparser_graph_try_reserve_multi_insert_array(
+		(void **)&build->cache->merge_branch_details,
+		&build->cache->merge_branch_detail_capacity, build->cache->dml_branch_count,
+		multi->branch_count, sizeof(*build->cache->merge_branch_details));
 	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
 		const sqlparser_dialect_multi_insert_branch_t *source_branch;
 		sqlparser_graph_dml_branch_t branch;
@@ -22478,6 +22521,31 @@ static int sqlparser_graph_build_multi_insert_dml(
 			return -1;
 		}
 		local_branch_indices[branch_index] = local_branch_index;
+	}
+	{
+		size_t columns = 0U, cells = 0U;
+		int bounded = 1;
+		for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
+			const sqlparser_dialect_multi_insert_branch_t *branch = &multi->branches[branch_index];
+			if (branch->column_count > SIZE_MAX - columns || branch->cell_count > SIZE_MAX - cells) {
+				bounded = 0;
+				break;
+			}
+			columns += branch->column_count;
+			cells += branch->cell_count;
+		}
+		/* dml_item/branch_item are in different arrays. The normal add calls
+		 * still classify and validate each cell before incrementing counts. */
+		if (bounded) {
+			sqlparser_graph_try_reserve_multi_insert_array(
+				(void **)&build->cache->dml_columns,
+				&build->cache->dml_column_capacity, build->cache->dml_column_count,
+				columns, sizeof(*build->cache->dml_columns));
+			sqlparser_graph_try_reserve_multi_insert_array(
+				(void **)&build->cache->dml_cells,
+				&build->cache->dml_cell_capacity, build->cache->dml_cell_count,
+				cells, sizeof(*build->cache->dml_cells));
+		}
 	}
 	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
 		const sqlparser_dialect_multi_insert_branch_t *source_branch;
@@ -24884,7 +24952,8 @@ const sqlparser_wire_scalar_insert_t *sqlparser_query_graph_wire_scalar_insert(c
 {
     const sqlparser_query_graph_cache_t *cache;
     if (handle == NULL || handle->failed || (cache = handle->query_graph) == NULL ||
-        cache->generation != handle->generation || handle->query_graph_generation != handle->generation) return NULL;
+        cache->statement_count != 1U || cache->generation != handle->generation ||
+        handle->query_graph_generation != handle->generation) return NULL;
     return cache->wire_scalar_insert;
 }
 
@@ -25048,6 +25117,8 @@ no_memory:
     return SQLPARSER_STATUS_NO_MEMORY;
 }
 
+#include "sqlparser_view_wire_batch.inc"
+
 static sqlparser_status_t sqlparser_query_graph_cache_build(
 	sqlparser_handle_t *handle,
 	sqlparser_query_graph_cache_t **out_cache,
@@ -25072,6 +25143,8 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 	status = sqlparser_query_graph_try_wire_insert(handle, out_cache, out_error);
 	if (status != SQLPARSER_STATUS_OK || *out_cache != NULL) return status;
 	status = sqlparser_query_graph_try_wire_scalar_insert(handle, out_cache, out_error);
+	if (status != SQLPARSER_STATUS_OK || *out_cache != NULL) return status;
+	status = sqlparser_query_graph_try_wire_scalar_batch(handle, out_cache, out_error);
 	if (status != SQLPARSER_STATUS_OK || *out_cache != NULL) return status;
 	status = sqlparser_handle_ensure_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {

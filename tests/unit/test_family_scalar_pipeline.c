@@ -83,6 +83,24 @@ PgQueryProtobufParseResult __wrap_pg_query_parse_protobuf_opts_preserving_identi
     return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
         sql, options, observer, context, statements, certified, proof);
 }
+PgQueryProtobufParseResult
+__real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(const char *, size_t, int, PgQueryProtobufObserver,
+    void *, size_t *, int *, PgQueryNativeScalarInsertProof *, PgQueryMysqlOwnedScalarInsertPlan *);
+PgQueryProtobufParseResult
+__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+    const char *sql, size_t length, int options, PgQueryProtobufObserver observer, void *context,
+    size_t *count, int *certified, PgQueryNativeScalarInsertProof *proof,
+    PgQueryMysqlOwnedScalarInsertPlan *plan)
+{
+    if (force_legacy) {
+        if (plan) memset(plan, 0, sizeof(*plan));
+        return __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+            sql, options, observer, context, count, certified, proof);
+    }
+    return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+        sql, length, options, observer, context, count, certified, proof, plan);
+}
+
 #define NO_UNPACKS(n) CHECK(unpacks == (n))
 #define NO_REPARSE(n) CHECK(destructive_reparses == (n))
 #define NO_FRAGMENT(n) CHECK(raw_fragment_parses == (n))
@@ -1000,17 +1018,21 @@ static void state_predicate_guards(void)
 static void capability_scope(void)
 {
     int d;
-    stage = "six native capabilities and nine strict wire capabilities";
+    stage = "six native capabilities and ten strict wire capabilities";
     for (d = SQLPARSER_DIALECT_POSTGRESQL; d <= SQLPARSER_DIALECT_KINGBASE_SQLSERVER; ++d) {
         sqlparser_handle_t fake = {0};
         size_t i; int admitted = 0, strict_admitted;
         for (i = 0U; i < COUNT(families); ++i) if ((int)families[i].dialect == d) admitted = 1;
         fake.dialect = (sqlparser_dialect_t)d; fake.dialect_ops = sqlparser_dialect_get_ops(fake.dialect);
         CHECK(fake.dialect_ops != NULL);
-        strict_admitted = admitted || sqlparser_dialect_is_sqlserver_compatible(fake.dialect);
+        strict_admitted = admitted || sqlparser_dialect_is_sqlserver_compatible(fake.dialect) ||
+            fake.dialect == SQLPARSER_DIALECT_DAMENG;
         CHECK(sqlparser_dialect_supports_plain_scalar_insert(&fake) == strict_admitted);
         CHECK(!!fake.dialect_ops->plain_scalar_native_validation == admitted);
-        CHECK(!!fake.dialect_ops->plain_ascii_string_fragments == strict_admitted);
+        CHECK(!!fake.dialect_ops->plain_ascii_string_fragments ==
+            (strict_admitted || fake.dialect == SQLPARSER_DIALECT_ORACLE ||
+             fake.dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE ||
+             fake.dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE));
         CHECK(!!fake.dialect_ops->state_is_plain_insert_strings == strict_admitted); ++cases;
     }
 }

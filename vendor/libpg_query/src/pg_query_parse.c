@@ -94,13 +94,64 @@ pg_query_prove_mysql_identity_scalar_insert(
         input, pg_query_mysql_identity_name, proof);
 }
 
+/* A complete descriptor is meaningful only beside the final immutable owner.
+ * memcpy keeps opaque byte storage independent of alignment/effective type. */
+typedef struct PgQueryMysqlOwnedScalarInsertPlanData
+{
+    PgQueryScalarInsertSource source;
+    const char *owner;
+    size_t length;
+    unsigned int valid;
+} PgQueryMysqlOwnedScalarInsertPlanData;
+#define PG_QUERY_MYSQL_OWNED_PLAN_VALID 0x4d595350U
+_Static_assert(sizeof(PgQueryMysqlOwnedScalarInsertPlanData) <=
+    sizeof(PgQueryMysqlOwnedScalarInsertPlan), "owned scalar plan storage too small");
+
+int
+pg_query_prove_mysql_owned_scalar_insert(const char *owned_input, size_t input_length,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, size_t *string_count)
+{
+    PgQueryMysqlOwnedScalarInsertPlanData data = {0};
+    PgQuerySimpleInsertSlice name;
+    size_t i, pos;
+    if (string_count != NULL) *string_count = 0U;
+    if (plan == NULL) return 0;
+    memset(plan, 0, sizeof(*plan));
+    if (owned_input == NULL || string_count == NULL ||
+        !pg_query_scalar_insert_certify(owned_input, &data.source) ||
+        data.source.length != input_length) return 0;
+    for (i = 0; i < data.source.relation_parts; ++i)
+        if (!pg_query_mysql_identity_name(owned_input + data.source.relation[i].start,
+                                          data.source.relation[i].length)) return 0;
+    pos = data.source.columns_start;
+    for (i = 0; i < data.source.columns; ++i)
+        if (!pg_query_simple_insert_name(owned_input, data.source.length, &pos, &name) ||
+            !pg_query_mysql_identity_name(owned_input + name.start, name.length) ||
+            !pg_query_simple_insert_punctuation(owned_input, data.source.length, &pos,
+                i + 1U == data.source.columns ? ')' : ',')) return 0;
+    data.owner = owned_input;
+    data.length = data.source.length;
+    data.valid = PG_QUERY_MYSQL_OWNED_PLAN_VALID;
+    memcpy(plan->opaque, &data, sizeof(data));
+    *string_count = data.source.strings;
+    return 1;
+}
+
+typedef enum PgQueryInsertConstructorMode
+{
+    PG_QUERY_INSERT_CONSTRUCTOR_NONE,
+    PG_QUERY_INSERT_CONSTRUCTOR_SINGLE,
+    PG_QUERY_INSERT_CONSTRUCTOR_BATCH
+} PgQueryInsertConstructorMode;
+
 static PgQueryInternalParsetreeAndError
 pg_query_raw_parse_with_options(
 	const char* input,
 	int parser_options,
 	bool preserve_identifier_spelling,
-	bool allow_simple_insert,
-	PgQueryNativeScalarInsertProof *native_proof)
+	PgQueryInsertConstructorMode constructor_mode,
+	PgQueryNativeScalarInsertProof *native_proof,
+    const PgQueryScalarInsertSource *owned_source)
 {
 	PgQueryInternalParsetreeAndError result = {0};
 	MemoryContext parse_context = CurrentMemoryContext;
@@ -161,15 +212,27 @@ pg_query_raw_parse_with_options(
 		standard_conforming_strings = !((parser_options & PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS) == PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS);
 		escape_string_warning = !((parser_options & PG_QUERY_DISABLE_ESCAPE_STRING_WARNING) == PG_QUERY_DISABLE_ESCAPE_STRING_WARNING);
 
-		/* Only the private certified MySQL caller opts in. The recognizer
-		 * allocates nothing until the complete immutable input is proved;
-		 * all misses still enter the original lexer and grammar here. */
-		if (allow_simple_insert && parser_options == PG_QUERY_PARSE_DEFAULT &&
-			preserve_identifier_spelling)
+		/* Only private certified callers opt in. Each mode proves the entire
+		 * immutable source before allocation; misses use the original grammar.
+		 * Batch admission cannot expand any existing singleton caller. */
+		if (constructor_mode != PG_QUERY_INSERT_CONSTRUCTOR_NONE &&
+			parser_options == PG_QUERY_PARSE_DEFAULT && preserve_identifier_spelling)
 		{
-			result.tree = pg_query_try_simple_insert(input);
-			if (result.tree == NIL)
-				result.tree = pg_query_try_scalar_insert(input, native_proof);
+			if (constructor_mode == PG_QUERY_INSERT_CONSTRUCTOR_BATCH)
+				result.tree = pg_query_try_scalar_insert_batch(input);
+			else
+			{
+                /* Preserve historical simple-first provenance for its only
+                 * possible descriptor shape. The complete owned proof already
+                 * excludes that grammar for every other shape. */
+                if (owned_source == NULL ||
+                    (owned_source->relation_parts == 1U && owned_source->columns == 2U))
+                    result.tree = pg_query_try_simple_insert(input);
+                if (result.tree == NIL)
+                    result.tree = owned_source != NULL ?
+                        pg_query_scalar_insert_from_source(input, owned_source, native_proof) :
+                        pg_query_try_scalar_insert(input, native_proof);
+			}
 		}
 		if (result.tree == NIL)
 			result.tree = raw_parser_with_options(
@@ -222,7 +285,7 @@ pg_query_raw_parse_with_options(
 
 PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parser_options)
 {
-	return pg_query_raw_parse_with_options(input, parser_options, false, false, NULL);
+	return pg_query_raw_parse_with_options(input, parser_options, false, PG_QUERY_INSERT_CONSTRUCTOR_NONE, NULL, NULL);
 }
 
 PgQueryParseResult pg_query_parse(const char* input)
@@ -305,8 +368,8 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
 		input,
 		parser_options,
 		true,
-		false,
-		NULL);
+		PG_QUERY_INSERT_CONSTRUCTOR_NONE,
+		NULL, NULL);
 
 	// These are all malloc-ed and will survive exiting the memory context, the caller is responsible to free them now
 	result.stderr_buffer = parsetree_and_error.stderr_buffer;
@@ -333,12 +396,13 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified(
         input, parser_options, observer, context, statement_count, certified, NULL);
 }
 
-PgQueryProtobufParseResult
-pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+static PgQueryProtobufParseResult
+pg_query_parse_certified_native_internal(
     const char *input, int parser_options,
     PgQueryProtobufObserver observer, void *context,
     size_t *statement_count, int *certified,
-    PgQueryNativeScalarInsertProof *native_proof)
+    PgQueryNativeScalarInsertProof *native_proof,
+    const PgQueryScalarInsertSource *owned_source)
 {
     MemoryContext ctx;
     PgQueryInternalParsetreeAndError parsed;
@@ -348,7 +412,7 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
     if (native_proof != NULL)
         memset(native_proof, 0, sizeof(*native_proof));
     ctx = pg_query_enter_memory_context();
-    parsed = pg_query_raw_parse_with_options(input, parser_options, true, true, native_proof);
+    parsed = pg_query_raw_parse_with_options(input, parser_options, true, PG_QUERY_INSERT_CONSTRUCTOR_SINGLE, native_proof, owned_source);
     result.stderr_buffer = parsed.stderr_buffer;
     result.error = parsed.error;
     result.parse_tree = pg_query_nodes_to_protobuf_certified(parsed.tree,
@@ -364,6 +428,44 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
 }
 
 PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+    const char *input, int parser_options,
+    PgQueryProtobufObserver observer, void *context,
+    size_t *statement_count, int *certified,
+    PgQueryNativeScalarInsertProof *native_proof)
+{
+    return pg_query_parse_certified_native_internal(input, parser_options,
+        observer, context, statement_count, certified, native_proof, NULL);
+}
+
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+    const char *input, size_t input_length, int parser_options,
+    PgQueryProtobufObserver observer, void *context,
+    size_t *statement_count, int *certified,
+    PgQueryNativeScalarInsertProof *native_proof,
+    PgQueryMysqlOwnedScalarInsertPlan *plan)
+{
+    PgQueryMysqlOwnedScalarInsertPlanData data = {0};
+    const PgQueryScalarInsertSource *source = NULL;
+    if (plan != NULL)
+    {
+        memcpy(&data, plan->opaque, sizeof(data));
+        /* Consume even on mismatch, before parser allocation or any fallback. */
+        memset(plan, 0, sizeof(*plan));
+    }
+    if (input != NULL && parser_options == PG_QUERY_PARSE_DEFAULT &&
+        data.valid == PG_QUERY_MYSQL_OWNED_PLAN_VALID && data.owner == input &&
+        data.length == input_length && data.source.length == input_length &&
+        data.source.rows >= 32U && data.source.columns > 0U &&
+        data.source.relation_parts > 0U && data.source.relation_parts <= 3U &&
+        data.source.statement_start == 0U)
+        source = &data.source;
+    return pg_query_parse_certified_native_internal(input, parser_options,
+        observer, context, statement_count, certified, native_proof, source);
+}
+
+PgQueryProtobufParseResult
 pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary(
     const char *input, int parser_options,
     size_t *statement_count, int *certified)
@@ -376,7 +478,7 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary(
     *certified = 0;
     ctx = pg_query_enter_memory_context();
     /* Keep constructor selection independent from validation certification. */
-    parsed = pg_query_raw_parse_with_options(input, parser_options, true, false, NULL);
+    parsed = pg_query_raw_parse_with_options(input, parser_options, true, PG_QUERY_INSERT_CONSTRUCTOR_NONE, NULL, NULL);
     result.stderr_buffer = parsed.stderr_buffer;
     result.error = parsed.error;
     if (result.error == NULL) {
@@ -387,6 +489,36 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary(
         result.parse_tree = pg_query_nodes_to_protobuf_observed(parsed.tree, NULL, NULL);
     }
     if (result.parse_tree.data == NULL) {
+        *statement_count = 0U;
+        *certified = 0;
+    }
+    pg_query_exit_memory_context(ctx);
+    return result;
+}
+
+/* Separate batch entry: no singleton proof can escape this call. */
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
+    const char *input, int parser_options,
+    size_t *statement_count, int *certified)
+{
+    MemoryContext ctx;
+    PgQueryInternalParsetreeAndError parsed;
+    PgQueryProtobufParseResult result = {0};
+    *statement_count = 0U;
+    *certified = 0;
+    ctx = pg_query_enter_memory_context();
+    parsed = pg_query_raw_parse_with_options(input, parser_options, true,
+        PG_QUERY_INSERT_CONSTRUCTOR_BATCH, NULL, NULL);
+    result.stderr_buffer = parsed.stderr_buffer;
+    result.error = parsed.error;
+    if (result.error == NULL)
+        result.parse_tree = pg_query_nodes_to_protobuf_certified(
+            parsed.tree, NULL, NULL, statement_count, certified);
+    else
+        result.parse_tree = pg_query_nodes_to_protobuf_observed(parsed.tree, NULL, NULL);
+    if (result.parse_tree.data == NULL)
+    {
         *statement_count = 0U;
         *certified = 0;
     }

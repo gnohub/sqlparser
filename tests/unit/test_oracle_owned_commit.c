@@ -5,7 +5,9 @@
  * Default fixtures are portable and general in branch/column count. Optional:
  * --fixture SQL --golden-dir DIR verifies the existing 5000-row raw/typed
  * pipeline goldens (oracle_raw.sql, oracle_typed.sql, and family equivalents).
- * --alloc runs the implementation-owned allocation-failure ledger on apply.
+ * --alloc runs the existing implementation-owned allocation-failure ledger on apply.
+ * --alloc-construct also sweeps constructor and dialect-state clone allocations.
+ * --alloc-proof targets optional spans/growth/clone/pending-ID allocations only.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,18 +16,40 @@
 #include "sqlparser_internal.h"
 #include "sqlparser_identifier_origin_internal.h"
 #include "sqlparser_test_failure.h"
-#include "../../src/core/sqlparser_ast_internal.h"
-#include "../../src/dialect/sqlparser_dialect_internal.h"
-#include "../../src/dialect/sqlparser_dialect_oracle_internal.h"
+#ifndef SQLPARSER_ORACLE_COMMIT_AST_HEADER
+#define SQLPARSER_ORACLE_COMMIT_AST_HEADER "../../src/core/sqlparser_ast_internal.h"
+#define SQLPARSER_ORACLE_COMMIT_DIALECT_HEADER "../../src/dialect/sqlparser_dialect_internal.h"
+#define SQLPARSER_ORACLE_COMMIT_ORACLE_HEADER "../../src/dialect/sqlparser_dialect_oracle_internal.h"
+#endif
+#include SQLPARSER_ORACLE_COMMIT_AST_HEADER
+#include SQLPARSER_ORACLE_COMMIT_DIALECT_HEADER
+#include SQLPARSER_ORACLE_COMMIT_ORACLE_HEADER
 
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 static sqlparser_error_t error;
 static const char *stage = "init";
-static size_t case_number, reparse_calls, commit_entries, commit_handled;
+static size_t case_number, reparse_calls, commit_entries, commit_handled, identity_checks;
 static int count_active, recording;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %s:%d case=%zu stage=%s: %s: %s\n", __FILE__, __LINE__, case_number, stage, #x, error.message); abort(); } } while (0)
 
 #ifdef SQLPARSER_ORACLE_COMMIT_WRAPPERS
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+enum { PROOF_FAULT_INITIAL = 1, PROOF_FAULT_GROWTH, PROOF_FAULT_CLONE, PROOF_FAULT_PENDING };
+static int proof_fault;
+static unsigned proof_note_depth;
+static size_t proof_fault_size, proof_failures, proof_pending_disabled_seen;
+static void *proof_first_buffer;
+static sqlparser_handle_t *proof_handle;
+static const char *proof_input;
+static size_t proof_input_length;
+void __real_sqlparser_oracle_note_multi_insert_edit(sqlparser_handle_t *, size_t, size_t, size_t, size_t, size_t);
+void __wrap_sqlparser_oracle_note_multi_insert_edit(sqlparser_handle_t *h, size_t statement, size_t branch, size_t column, size_t start, size_t end)
+{
+    ++proof_note_depth;
+    __real_sqlparser_oracle_note_multi_insert_edit(h, statement, branch, column, start, end);
+    CHECK(proof_note_depth); --proof_note_depth;
+}
+#endif
 sqlparser_status_t __real_sqlparser_handle_reparse_destructive(sqlparser_handle_t *, char **, sqlparser_error_t *);
 sqlparser_status_t __wrap_sqlparser_handle_reparse_destructive(sqlparser_handle_t *h, char **sql, sqlparser_error_t *e)
 {
@@ -39,9 +63,24 @@ sqlparser_status_t __wrap_sqlparser_oracle_try_commit_multi_insert_strings(sqlpa
 {
     sqlparser_status_t status;
     if (count_active) ++commit_entries;
+#ifndef SQLPARSER_ORACLE_COMMIT_REFERENCE
+    if (proof_fault == PROOF_FAULT_PENDING && proof_failures) {
+        const sqlparser_dialect_multi_insert_t *m = sqlparser_oracle_state_multi_insert(h->dialect_state);
+        CHECK(h == proof_handle && m && m->oracle_spans_complete);
+        CHECK(m->oracle_pending_disabled && m->oracle_pending_ids == NULL);
+        CHECK(m->oracle_pending_count == 0U && m->oracle_pending_capacity == 0U);
+        ++proof_pending_disabled_seen;
+    }
+#endif
     status = __real_sqlparser_oracle_try_commit_multi_insert_strings(h, edits, sql, handled, e);
     if (count_active && status == SQLPARSER_STATUS_OK && *handled) ++commit_handled;
     return status;
+}
+sqlparser_status_t __real_sqlparser_vastbase_oracle_multi_insert_identity_input(const sqlparser_handle_t *, const char *, int *, sqlparser_error_t *);
+sqlparser_status_t __wrap_sqlparser_vastbase_oracle_multi_insert_identity_input(const sqlparser_handle_t *h, const char *sql, int *identity, sqlparser_error_t *e)
+{
+    if (count_active) ++identity_checks;
+    return __real_sqlparser_vastbase_oracle_multi_insert_identity_input(h, sql, identity, e);
 }
 #endif
 /* Context-local PostgreSQL OOM can longjmp/abort in the unchanged parser.
@@ -65,14 +104,55 @@ static size_t slot(void *p)
 { size_t i; if (p && allocation_live) for(i=0U;i<ledger_end;i++) if(ledger[i]==p) return i; return COUNT(ledger); }
 static void track(void *p)
 { size_t i; if(!p)return; for(i=0U;i<ledger_end;i++) if(!ledger[i])break; CHECK(i<COUNT(ledger));ledger[i]=p;++allocation_live;if(i==ledger_end)++ledger_end; }
-static int reject_allocation(void)
-{ return allocation_active && !native_depth && ++allocation_calls == allocation_fail; }
+static int reject_allocation(int kind, void *pointer, size_t size)
+{
+    if (!allocation_active || native_depth) return 0;
+    ++allocation_calls;
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+    if (proof_fault) {
+        if (proof_failures || size != proof_fault_size) return 0;
+        if (proof_fault == PROOF_FAULT_CLONE) { if (kind != 1) return 0; }
+        else if (kind != 2) return 0;
+        if (proof_fault == PROOF_FAULT_GROWTH) {
+            const sqlparser_oracle_cell_span_t *spans = pointer; size_t i, end = 0U;
+            if (!proof_first_buffer || pointer != proof_first_buffer) return 0;
+            /* Prove this is the prior 64-cell constructor buffer, rather
+             * than an unrelated allocation of the same byte size. */
+            for (i = 0U; i < 64U; i++) {
+                CHECK(spans[i].source_start >= end && spans[i].source_start <= proof_input_length);
+                CHECK(spans[i].source_length == 6U && spans[i].source_length <= proof_input_length - spans[i].source_start);
+                CHECK(spans[i].lexical_flags == (SQLPARSER_ORACLE_CELL_ORDINARY_STRING | SQLPARSER_ORACLE_CELL_IDENTITY));
+                CHECK(!memcmp(proof_input + spans[i].source_start, "'same'", 6U));
+                end = (size_t)spans[i].source_start + spans[i].source_length;
+            }
+        } else if (proof_fault != PROOF_FAULT_CLONE && pointer != NULL) return 0;
+        if (proof_fault == PROOF_FAULT_PENDING) {
+            const sqlparser_dialect_multi_insert_t *m;
+            if (!proof_handle || proof_note_depth != 1U) return 0;
+            m = sqlparser_oracle_state_multi_insert(proof_handle->dialect_state);
+            CHECK(m && m->oracle_spans_complete && m->oracle_pending_ids == NULL && m->oracle_pending_count == 0U);
+        }
+        ++proof_failures; return 1;
+    }
+#else
+    (void)kind; (void)pointer; (void)size;
+#endif
+    return allocation_calls == allocation_fail;
+}
 void *__wrap_malloc(size_t n)
-{void *p;if(reject_allocation())return NULL;p=__real_malloc(n);if(allocation_active&&!native_depth)track(p);return p;}
+{void *p;if(reject_allocation(1,NULL,n))return NULL;p=__real_malloc(n);if(allocation_active&&!native_depth)track(p);return p;}
 void *__wrap_calloc(size_t n,size_t s)
-{void *p;if(reject_allocation())return NULL;p=__real_calloc(n,s);if(allocation_active&&!native_depth)track(p);return p;}
+{void *p;if(reject_allocation(3,NULL,n*s))return NULL;p=__real_calloc(n,s);if(allocation_active&&!native_depth)track(p);return p;}
 void *__wrap_realloc(void *p,size_t n)
-{size_t i=slot(p);void *q;if(reject_allocation())return NULL;q=__real_realloc(p,n);if(q||!n){if(i<COUNT(ledger)){ledger[i]=q;if(!q)--allocation_live;}else if(allocation_active&&!native_depth)track(q);}return q;}
+{
+    size_t i=slot(p);void *q;if(reject_allocation(2,p,n))return NULL;
+    q=__real_realloc(p,n);
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+    if (allocation_active && !native_depth && proof_fault == PROOF_FAULT_GROWTH &&
+        !proof_first_buffer && n == 64U * sizeof(sqlparser_oracle_cell_span_t)) proof_first_buffer = q;
+#endif
+    if(q||!n){if(i<COUNT(ledger)){ledger[i]=q;if(!q)--allocation_live;}else if(allocation_active&&!native_depth)track(q);}return q;
+}
 void __wrap_free(void *p)
 {size_t i=slot(p);if(i<COUNT(ledger)){ledger[i]=NULL;--allocation_live;}__real_free(p);}
 
@@ -213,6 +293,42 @@ static const sqlparser_dialect_multi_insert_t *multi(sqlparser_handle_t *h)
     const sqlparser_dialect_multi_insert_t *m = sqlparser_oracle_state_multi_insert(h->dialect_state);
     CHECK(m); return m;
 }
+/* Check constructor facts against owned source and cells, never set or repair
+ * them. The reference-library transcript executable uses its own layout and omits only
+ * these assertions about fields that did not exist in that archive. */
+static void verify_constructor_spans(sqlparser_handle_t *h)
+{
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+    const sqlparser_dialect_multi_insert_t *m = multi(h); size_t b, c, flat = 0U, previous_end = 0U;
+    CHECK(sqlparser_oracle_multi_insert_source_is_current(h));
+    CHECK(m->oracle_spans_complete && m->oracle_spans_identity && m->oracle_outer_identity);
+    CHECK(m->oracle_spans && m->oracle_span_count <= m->oracle_span_capacity);
+    CHECK(m->oracle_pending_count == 0U);
+    for (b = 0U; b < m->branch_count; b++) {
+        const sqlparser_dialect_multi_insert_branch_t *branch = &m->branches[b];
+        CHECK(branch->oracle_span_base == flat);
+        for (c = 0U; c < branch->cell_count; c++, flat++) {
+            const sqlparser_oracle_cell_span_t *span;
+            const sqlparser_dialect_multi_insert_value_t *cell = &branch->cells[c];
+            CHECK(flat < m->oracle_span_count); span = &m->oracle_spans[flat];
+            CHECK(span->source_start >= previous_end && span->source_start <= h->sql_len);
+            CHECK(span->source_length <= h->sql_len - span->source_start);
+            CHECK(span->source_length == strlen(cell->public_sql));
+            CHECK(!memcmp(h->sql + span->source_start, cell->public_sql, span->source_length));
+            CHECK(span->lexical_flags & SQLPARSER_ORACLE_CELL_IDENTITY);
+            if (cell->has_literal && cell->literal.kind == SQLPARSER_LITERAL_KIND_STRING)
+                CHECK(span->lexical_flags & SQLPARSER_ORACLE_CELL_ORDINARY_STRING);
+            previous_end = (size_t)span->source_start + span->source_length;
+        }
+    }
+    CHECK(flat == m->oracle_span_count && m->oracle_source_start >= previous_end);
+    CHECK(m->oracle_source_start <= h->sql_len && m->oracle_source_length <= h->sql_len - m->oracle_source_start);
+    CHECK(m->oracle_source_length == strlen(m->source_public_sql));
+    CHECK(!memcmp(h->sql + m->oracle_source_start, m->source_public_sql, m->oracle_source_length));
+#else
+    (void)h;
+#endif
+}
 static void record_state(sqlparser_handle_t *h)
 {
     const sqlparser_dialect_multi_insert_t *m = multi(h); size_t i, j, count;
@@ -321,6 +437,7 @@ typedef struct {
 static retained_source retain(sqlparser_handle_t *h)
 {
     const sqlparser_dialect_multi_insert_t *m = multi(h); retained_source r;
+    verify_constructor_spans(h);
     memset(&r, 0, sizeof(r));
     r.parser_sql = copy_text(h->parser_sql); r.source_public = copy_text(m->source_public_sql);
     r.source_parser = copy_text(m->source_parser_sql); r.wire_length = h->parse_tree.len;
@@ -332,6 +449,7 @@ static retained_source retain(sqlparser_handle_t *h)
 static void verify_retained(sqlparser_handle_t *h, retained_source *r)
 {
     const sqlparser_dialect_multi_insert_t *m = multi(h);
+    verify_constructor_spans(h);
     same_text(h->parser_sql, r->parser_sql); same_text(m->source_public_sql, r->source_public);
     same_text(m->source_parser_sql, r->source_parser);
     CHECK(h->parse_tree.len == r->wire_length);
@@ -347,7 +465,7 @@ static void release_retained(retained_source *r)
 static sqlparser_status_t counted_apply(sqlparser_handle_t *h, const sqlparser_patch_t *items, size_t count, sqlparser_error_t *e)
 {
     sqlparser_patch_list_t list = {items, count}; sqlparser_status_t s;
-    reparse_calls = commit_entries = commit_handled = 0U; count_active = 1; s = sqlparser_apply_patch(h, &list, e); count_active = 0; return s;
+    reparse_calls = commit_entries = commit_handled = identity_checks = 0U; count_active = 1; s = sqlparser_apply_patch(h, &list, e); count_active = 0; return s;
 }
 /* admitted=1 is an explicit producer contract, never inferred from timing. */
 static void verify_route(int admitted)
@@ -359,6 +477,9 @@ static void verify_route(int admitted)
     if (admitted && reparse_calls) fprintf(stderr, "route reparse=%zu commit_entries=%zu commit_handled=%zu\n", reparse_calls, commit_entries, commit_handled);
     if (admitted) { CHECK(reparse_calls == 0U); CHECK(commit_entries > 0U && commit_entries == commit_handled); }
     else CHECK(reparse_calls > 0U);
+#ifndef SQLPARSER_ORACLE_COMMIT_REFERENCE
+    if (admitted) CHECK(identity_checks == 0U);
+#endif
 #endif
 #else
     (void)admitted;
@@ -516,6 +637,127 @@ static void borrowed_inputs(sqlparser_dialect_t dialect)
     CHECK(counted_apply(h, p, COUNT(p), &error) == SQLPARSER_STATUS_OK); verify_route(1); stale_graph(&g);
     verify_retained(h, &retained); release_retained(&retained);
     out = verify(h, expected, 1); sqlparser_handle_destroy(h); same_text(out, expected); free(out);
+}
+/* Ragged branches and repeated text prevent locating a cell by its contents.
+ * Every round shifts untouched later cells; caller order differs from source
+ * order, and duplicate typed/raw edits must still have last-writer semantics. */
+static const size_t sparse_widths[] = {4U, 1U, 6U, 2U};
+static char *render_sparse(char *const *values)
+{
+    text_buffer out = {0}; size_t b, c, flat = 0U;
+    append(&out, "/* INTO Phantom VALUES ('same') */ INSERT ALL");
+    for (b = 0U; b < COUNT(sparse_widths); b++) {
+        append_format(&out, " /* branch %zu */ INTO T%zu (", b, b);
+        for (c = 0U; c < sparse_widths[b]; c++) append_format(&out, "%sC%zu", c ? ", " : "", c);
+        append(&out, ", Calc) VALUES ( ");
+        for (c = 0U; c < sparse_widths[b]; c++) {
+            char *q = quoted(values[flat++]);
+            if (c) append(&out, " , ");
+            append(&out, q); free(q);
+        }
+        append(&out, " , coalesce(1, 2) )");
+    }
+    append(&out, " SELECT 'same' AS SourceText, S.C FROM SourceTable S;");
+    return out.data;
+}
+static size_t sparse_flat(size_t branch, size_t column)
+{
+    size_t b, flat = column;
+    CHECK(branch < COUNT(sparse_widths) && column < sparse_widths[branch]);
+    for (b = 0U; b < branch; b++) flat += sparse_widths[b];
+    return flat;
+}
+static void sparse_span_lifetimes(sqlparser_dialect_t dialect)
+{
+    static const struct { size_t branch, column; const char *value; } edits[][5] = {
+        {{3U,1U,"tail grows before earlier edits"}, {0U,0U,""}, {2U,5U,"INTO X VALUES ('bait'), SELECT /* ) */ Ω"}, {0U,0U,"SELECT 'same', ( ), INTO VALUES"}, {1U,0U,"x"}},
+        {{2U,0U,"longer-'middle'-张三-abcdefghijklmnopqrstuvwxyz"}, {0U,3U,""}, {3U,0U,"'"}, {2U,0U,""}, {0U,1U,"same"}},
+        {{3U,1U,""}, {1U,0U,"same"}, {0U,0U,"same"}, {2U,4U,"end, end, end"}, {2U,4U,"end, end, end"}},
+        {{0U,2U,"first remaining source span"}, {3U,0U,"last remaining source span"}, {2U,3U,""}, {2U,5U,"same"}, {0U,2U,"same"}}
+    };
+    char *values[13], *input, *expected, *out, *initial;
+    sqlparser_handle_t *h, *sibling = NULL; size_t i, round;
+    ++case_number; stage = "constructor clone before sparse shifts";
+    for (i = 0U; i < COUNT(values); i++) values[i] = copy_text("same");
+    input = render_sparse(values); initial = copy_text(input); h = parse(dialect, input);
+    CHECK(sqlparser_handle_clone(h, &sibling, &error) == SQLPARSER_STATUS_OK);
+    CHECK(h->dialect_state != sibling->dialect_state && multi(h)->branches != multi(sibling)->branches);
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+    CHECK(multi(h)->oracle_spans != multi(sibling)->oracle_spans);
+    verify_constructor_spans(sibling);
+#endif
+    for (round = 0U; round < COUNT(edits); round++) {
+        sqlparser_patch_t p[5] = {{0}}; sqlparser_literal_value_t lit[5] = {{0}};
+        char *caller_values[5] = {0}; sqlparser_query_graph_view_t g;
+        retained_source retained; unsigned long generation = h->generation;
+        stage = "sparse mixed duplicate length shifts";
+        CHECK(sqlparser_statement_query_graph(h, 0U, &g, &error) == SQLPARSER_STATUS_OK);
+        retained = retain(h);
+        for (i = 0U; i < COUNT(p); i++) {
+            size_t flat = sparse_flat(edits[round][i].branch, edits[round][i].column);
+            p[i].op = SQLPARSER_PATCH_REPLACE;
+            p[i].selector = cell_selector(&g, edits[round][i].branch, edits[round][i].column);
+            caller_values[i] = i % 2U ? quoted(edits[round][i].value) : copy_text(edits[round][i].value);
+            if (i % 2U) p[i].sql = caller_values[i];
+            else { lit[i].kind = SQLPARSER_LITERAL_KIND_STRING; lit[i].string_value = caller_values[i]; p[i].literal = &lit[i]; }
+            free(values[flat]); values[flat] = copy_text(edits[round][i].value);
+        }
+        CHECK(counted_apply(h, p, COUNT(p), &error) == SQLPARSER_STATUS_OK);
+        verify_route(1); CHECK(h->generation == generation + 1UL); stale_graph(&g);
+        verify_retained(h, &retained); release_retained(&retained);
+        for (i = 0U; i < COUNT(p); i++) {
+            free((char *)p[i].selector); memset(caller_values[i], 'x', strlen(caller_values[i])); free(caller_values[i]);
+        }
+        expected = render_sparse(values); out = verify(h, expected, 1); free(out); free(expected);
+        /* A live sibling must retain its independent proof and source bytes. */
+        if (sibling) { out = verify(sibling, initial, 1); free(out); }
+        if (round == 1U) {
+            sqlparser_handle_t *clone = NULL;
+            stage = "shifted proof clone survives original";
+            CHECK(sqlparser_handle_clone(h, &clone, &error) == SQLPARSER_STATUS_OK);
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+            CHECK(multi(h)->oracle_spans != multi(clone)->oracle_spans);
+#endif
+            sqlparser_handle_destroy(h); h = clone;
+            sqlparser_handle_destroy(sibling); sibling = NULL;
+        }
+    }
+    expected = render_sparse(values); out = verify(h, expected, 1); sqlparser_handle_destroy(h);
+    same_text(out, expected); free(out); free(expected); free(initial); free(input);
+    for (i = 0U; i < COUNT(values); i++) free(values[i]);
+}
+
+/* Owner gates must reject before reading Oracle-private state. Even a copied
+ * ops table is not the registered owner; the caller still owns edited SQL. */
+static void exact_owner_rejection(sqlparser_dialect_t dialect)
+{
+    ++case_number; stage = "exact registered owner gate";
+#ifndef SQLPARSER_ORACLE_COMMIT_BASELINE
+    const char *input = "INSERT ALL INTO T (A) VALUES ('old') SELECT 1 FROM Dual";
+    sqlparser_handle_t *h = parse(dialect, input), probe;
+    sqlparser_dialect_ops_t copied_ops = *h->dialect_ops;
+    sqlparser_surface_source_edit_t item = {0}; sqlparser_surface_source_edits_t edits = {0};
+    size_t variant; char *owned = copy_text("edited SQL remains caller-owned"), *address = owned;
+    item.source_start = (size_t)(strstr(input, "'old'") - input); item.source_end = item.source_start + 5U;
+    item.replacement = "'new'"; item.replacement_length = 5U;
+    edits.items = &item; edits.count = edits.capacity = 1U;
+    for (variant = 0U; variant < 4U; variant++) {
+        int handled = 1;
+        probe = *h;
+        if (variant == 0U) probe.dialect_ops = &copied_ops;
+        else if (variant == 1U) probe.dialect_ops = NULL;
+        else if (variant == 2U) probe.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+        else probe.dialect_ops = sqlparser_dialect_postgresql_ops();
+        probe.dialect_state = &variant; /* Deliberately not an Oracle state. */
+        CHECK(!sqlparser_oracle_multi_insert_source_is_current(&probe));
+        CHECK(sqlparser_oracle_try_commit_multi_insert_strings(&probe, &edits, &owned, &handled, &error) == SQLPARSER_STATUS_OK);
+        CHECK(!handled && owned == address);
+        same_text(owned, "edited SQL remains caller-owned");
+    }
+    free(owned); sqlparser_handle_destroy(h);
+#else
+    (void)dialect;
+#endif
 }
 static void apply_expected(sqlparser_handle_t *h, const sqlparser_patch_t *p, size_t n, const char *expected, int route)
 {
@@ -766,6 +1008,170 @@ static void allocation_sweep(sqlparser_dialect_t dialect)
     (void)dialect;
 #endif
 }
+static void shifted_error_boundaries(sqlparser_dialect_t dialect)
+{
+    static const char *bad_selectors[] = {"stmt[0].insert_cell[99][0]", "stmt[0].insert_cell[0][99]"};
+    const char *input = "INSERT ALL INTO T (A, B) VALUES ('old', 'other') INTO U (A) VALUES ('tail') SELECT 1 FROM Dual";
+    size_t kind, position; int null_error;
+    for (kind = 0U; kind < COUNT(bad_selectors) + 1U; kind++) for (position = 0U; position < 3U; position++) for (null_error = 0; null_error < 2; null_error++) {
+        sqlparser_handle_t *h = parse(dialect, input), *clone = NULL;
+        sqlparser_patch_t p[3] = {{0}}; sqlparser_literal_value_t lit = {0};
+        sqlparser_query_graph_view_t g; sqlparser_status_t status; size_t i;
+        sqlparser_status_t wanted = kind < COUNT(bad_selectors) ? SQLPARSER_STATUS_INVALID_ARGUMENT : SQLPARSER_STATUS_PARSE_ERROR;
+        ++case_number; stage = "shifted constructor proof first error";
+        p[0] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[0][0]", .sql="'long-''Ω''-before-clone'"};
+        CHECK(counted_apply(h, p, 1U, &error) == SQLPARSER_STATUS_OK); verify_route(1);
+        CHECK(sqlparser_handle_clone(h, &clone, &error) == SQLPARSER_STATUS_OK);
+        sqlparser_handle_destroy(h); h = clone;
+        CHECK(sqlparser_statement_query_graph(h, 0U, &g, &error) == SQLPARSER_STATUS_OK);
+        lit.kind = SQLPARSER_LITERAL_KIND_STRING; lit.string_value = "a valid typed value";
+        for (i = 0U; i < COUNT(p); i++)
+            p[i] = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[1][0]", .literal=&lit};
+        if (kind < COUNT(bad_selectors)) p[position].selector = bad_selectors[kind];
+        else { p[position].literal = NULL; p[position].sql = "'unterminated"; }
+        status = counted_apply(h, p, COUNT(p), null_error ? NULL : &error);
+        CHECK(status == wanted);
+        if (!null_error) {
+            CHECK(error.code == wanted);
+            if (recording) printf("case=%zu;shifted-error=%zu;position=%zu;status=%d;message=%s;\n", case_number, kind, position, status, error.message);
+        }
+        stale_graph(&g); CHECK(sqlparser_test_failed_handle(h)); sqlparser_handle_destroy(h);
+    }
+}
+
+/* Failure of optional constructor/clone proof storage may intentionally leave
+ * a usable generic handle. Mandatory allocation failures must leave no handle
+ * and no tracked ownership. No allocator path is used as a correctness oracle. */
+static void constructor_allocation_sweep(sqlparser_dialect_t dialect)
+{
+#ifdef SQLPARSER_ORACLE_COMMIT_WRAPPERS
+    const char *input = "INSERT ALL INTO T (A, B, C, D, E) VALUES ('same', 'same', 'same', 'same', 1) INTO U (A, B, C, D, E) VALUES ('same', 'same', 'same', 'same', 2) SELECT C FROM SourceTable";
+    const char *expected = "INSERT ALL INTO T (A, B, C, D, E) VALUES ('same', 'same', 'same', 'same', 1) INTO U (A, B, C, D, E) VALUES ('same', 'same', 'same', 'replacement', 2) SELECT C FROM SourceTable";
+    sqlparser_handle_t *source = parse(dialect, input); sqlparser_parse_options_t options;
+    size_t fail; int cloning, null_error;
+    sqlparser_parse_options_default(&options); options.dialect = dialect;
+    for (cloning = 0; cloning < 2; cloning++) for (null_error = 0; null_error < 2; null_error++) {
+        int complete = 0;
+        for (fail = 1U; fail < 32768U; fail++) {
+            sqlparser_handle_t *h = NULL; sqlparser_status_t status; size_t calls; char *out;
+            stage = cloning ? "allocation failure clone ledger" : "allocation failure constructor ledger";
+            CHECK(!allocation_live && !native_depth); allocation_fail = fail; allocation_calls = 0U; allocation_active = 1;
+            status = cloning ? sqlparser_handle_clone(source, &h, null_error ? NULL : &error) :
+                sqlparser_parse_with_options(input, &options, &h, null_error ? NULL : &error);
+            allocation_active = 0; calls = allocation_calls;
+            if (status == SQLPARSER_STATUS_OK) {
+                sqlparser_patch_t p = {.op=SQLPARSER_PATCH_REPLACE, .selector="stmt[0].insert_cell[1][3]", .sql="'replacement'"};
+                CHECK(h); out = verify(h, input, 0); free(out);
+                CHECK(counted_apply(h, &p, 1U, &error) == SQLPARSER_STATUS_OK);
+                out = verify(h, expected, 0); free(out);
+            } else {
+                CHECK(status == SQLPARSER_STATUS_NO_MEMORY && h == NULL);
+            }
+            sqlparser_handle_destroy(h);
+            if (allocation_live || native_depth)
+                fprintf(stderr, "constructor ledger dialect=%s clone=%d null=%d fail=%zu calls=%zu status=%d live=%zu native_depth=%u\n", sqlparser_dialect_name(dialect), cloning, null_error, fail, calls, status, allocation_live, native_depth);
+            CHECK(allocation_live == 0U && native_depth == 0U);
+            if (calls < fail) {
+                CHECK(status == SQLPARSER_STATUS_OK); complete = 1;
+                fprintf(stderr, "constructor sweep dialect=%s clone=%d null=%d checked=%zu calls=%zu clean\n", sqlparser_dialect_name(dialect), cloning, null_error, fail, calls);
+                break;
+            }
+        }
+        CHECK(complete);
+        { char *out = verify(source, input, 0); free(out); }
+    }
+    sqlparser_handle_destroy(source);
+#else
+    (void)dialect;
+#endif
+}
+
+#if defined(SQLPARSER_ORACLE_COMMIT_WRAPPERS) && !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+static char *proof_failure_fixture(size_t cells, const char *last)
+{
+    text_buffer out = {0}; size_t i;
+    append(&out, "INSERT ALL INTO T VALUES (");
+    for (i = 0U; i < cells; i++) {
+        char *q = quoted(i + 1U == cells ? last : "same");
+        if (i) append(&out, ", ");
+        append(&out, q); free(q);
+    }
+    append(&out, ") SELECT S.C FROM SourceTable S"); return out.data;
+}
+static void check_optional_spans_absent(sqlparser_handle_t *h, size_t cells)
+{
+    const sqlparser_dialect_multi_insert_t *m = multi(h);
+    CHECK(m->branch_count == 1U && m->branches[0].cell_count == cells);
+    CHECK(!m->oracle_spans_complete && m->oracle_spans == NULL);
+    CHECK(m->oracle_span_count == 0U && m->oracle_span_capacity == 0U);
+}
+#endif
+
+/* This isolates the new optional allocations without hiding the unchanged
+ * broad constructor failure sweep above. Filters are allocation kind/size,
+ * prior-buffer identity for growth, and note-helper call scope for pending IDs.
+ * Resulting disabled facts (including pending state observed at commit entry)
+ * prove the intended site was hit. No production proof is changed by tests. */
+static void optional_proof_allocation_failures(sqlparser_dialect_t dialect)
+{
+#if defined(SQLPARSER_ORACLE_COMMIT_WRAPPERS) && !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+    int fault, null_error;
+    for (fault = PROOF_FAULT_INITIAL; fault <= PROOF_FAULT_PENDING; fault++) for (null_error = 0; null_error < 2; null_error++) {
+        size_t cells = fault == PROOF_FAULT_GROWTH || fault == PROOF_FAULT_CLONE ? 67U : 7U;
+        char *input = proof_failure_fixture(cells, "same"), *expected = proof_failure_fixture(cells, "longer-'Ω'-replacement"), *out;
+        sqlparser_handle_t *source = parse(dialect, input), *h = NULL;
+        sqlparser_parse_options_t options; sqlparser_status_t status; sqlparser_patch_t p = {0};
+        char selector[80]; size_t calls, failures, pending_observations;
+        ++case_number; stage = "targeted optional proof allocation failure";
+        verify_constructor_spans(source); CHECK(multi(source)->oracle_span_count == cells);
+        CHECK(snprintf(selector, sizeof(selector), "stmt[0].insert_cell[0][%zu]", cells - 1U) > 0);
+        p = (sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE, .selector=selector, .sql="'longer-''Ω''-replacement'"};
+        sqlparser_parse_options_default(&options); options.dialect = dialect;
+        if (fault == PROOF_FAULT_PENDING) {
+            sqlparser_query_graph_view_t g;
+            h = source; source = NULL;
+            CHECK(sqlparser_statement_query_graph(h, 0U, &g, &error) == SQLPARSER_STATUS_OK);
+            CHECK(multi(h)->oracle_pending_ids == NULL && h->surface_source_edits.count == 0U);
+        }
+        CHECK(!allocation_live && !native_depth);
+        proof_fault = fault; proof_failures = proof_pending_disabled_seen = 0U;
+        proof_first_buffer = NULL; proof_handle = h; proof_input = input; proof_input_length = strlen(input);
+        proof_fault_size = fault == PROOF_FAULT_INITIAL ? 64U * sizeof(sqlparser_oracle_cell_span_t) :
+            fault == PROOF_FAULT_GROWTH ? 128U * sizeof(sqlparser_oracle_cell_span_t) :
+            fault == PROOF_FAULT_CLONE ? cells * sizeof(sqlparser_oracle_cell_span_t) : 16U * sizeof(uint32_t);
+        allocation_fail = allocation_calls = 0U; allocation_active = 1;
+        if (fault == PROOF_FAULT_CLONE) status = sqlparser_handle_clone(source, &h, null_error ? NULL : &error);
+        else if (fault == PROOF_FAULT_PENDING) status = counted_apply(h, &p, 1U, null_error ? NULL : &error);
+        else status = sqlparser_parse_with_options(input, &options, &h, null_error ? NULL : &error);
+        allocation_active = 0; calls = allocation_calls; failures = proof_failures; pending_observations = proof_pending_disabled_seen;
+        proof_fault = 0; proof_handle = NULL; proof_first_buffer = NULL; proof_input = NULL; proof_input_length = 0U;
+        if (failures != 1U || status != SQLPARSER_STATUS_OK || !h)
+            fprintf(stderr, "optional proof fault dialect=%s site=%d null=%d failures=%zu status=%d calls=%zu\n",
+                sqlparser_dialect_name(dialect), fault, null_error, failures, status, calls);
+        CHECK(failures == 1U && status == SQLPARSER_STATUS_OK && h);
+        check_optional_spans_absent(h, cells);
+        CHECK((fault == PROOF_FAULT_PENDING && pending_observations == 1U) ||
+            (fault != PROOF_FAULT_PENDING && pending_observations == 0U));
+        out = verify(h, fault == PROOF_FAULT_PENDING ? expected : input, 1); free(out);
+        if (fault == PROOF_FAULT_PENDING) p.sql = "'same'";
+        CHECK(counted_apply(h, &p, 1U, &error) == SQLPARSER_STATUS_OK);
+        out = verify(h, fault == PROOF_FAULT_PENDING ? input : expected, 1); free(out);
+        check_optional_spans_absent(h, cells);
+        if (source) {
+            verify_constructor_spans(source); out = verify(source, input, 1); free(out);
+        }
+        sqlparser_handle_destroy(h); sqlparser_handle_destroy(source);
+        CHECK(allocation_live == 0U && native_depth == 0U && proof_note_depth == 0U);
+        fprintf(stderr, "optional proof allocation dialect=%s site=%d null=%d size=%zu failures=%zu calls=%zu clean\n",
+            sqlparser_dialect_name(dialect), fault, null_error, proof_fault_size, failures, calls);
+        free(input); free(expected);
+    }
+#else
+    (void)dialect;
+    fprintf(stderr, "optional proof allocation faults require the optimized GNU-wrapper executable\n");
+    CHECK(0);
+#endif
+}
 static void replacement(char *value, size_t i)
 {
     CHECK(snprintf(value, 80U, "masked-%08zu-abcdefghijklmnopqrstuvwxyz1234567", i + 1U) == 49);
@@ -819,22 +1225,28 @@ int main(int argc, char **argv)
 {
     static const sqlparser_dialect_t dialects[] = {SQLPARSER_DIALECT_ORACLE, SQLPARSER_DIALECT_KINGBASE_ORACLE, SQLPARSER_DIALECT_VASTBASE_ORACLE};
     static const size_t shapes[][2] = {{1U, 1U}, {2U, 3U}, {7U, 5U}, {19U, 11U}};
-    const char *fixture_path = NULL, *golden_dir = NULL; char *source = NULL; int alloc = 0; size_t i, d;
+    const char *fixture_path = NULL, *golden_dir = NULL; char *source = NULL; int alloc = 0, alloc_construct = 0, alloc_proof = 0; size_t i, d;
     for (i = 1U; i < (size_t)argc; i++) {
         if (!strcmp(argv[i], "--record")) recording = 1;
         else if (!strcmp(argv[i], "--alloc")) alloc = 1;
+        else if (!strcmp(argv[i], "--alloc-construct")) alloc_construct = 1;
+        else if (!strcmp(argv[i], "--alloc-proof")) alloc_proof = 1;
         else if (!strcmp(argv[i], "--fixture")) { CHECK(++i < (size_t)argc); fixture_path = argv[i]; }
         else if (!strcmp(argv[i], "--golden-dir")) { CHECK(++i < (size_t)argc); golden_dir = argv[i]; }
         else CHECK(0);
     }
-    CHECK(!golden_dir || fixture_path); CHECK(!(recording && alloc));
+    CHECK(!golden_dir || fixture_path); CHECK(!(recording && (alloc || alloc_construct || alloc_proof)));
     if (fixture_path) source = read_file(fixture_path);
     for (d = 0U; d < COUNT(dialects); d++) {
         for (i = 0U; i < COUNT(shapes); i++) generated_rounds(dialects[d], shapes[i][0], shapes[i][1]);
         borrowed_inputs(dialects[d]); following_generic_edits(dialects[d]); trailing_comment_fallback(dialects[d]);
+        sparse_span_lifetimes(dialects[d]); exact_owner_rejection(dialects[d]);
         unusual_raw_status(dialects[d]); generic_boundaries(dialects[d]);
         national_boundary(dialects[d]); error_boundaries(dialects[d]);
+        shifted_error_boundaries(dialects[d]);
         if (alloc) allocation_sweep(dialects[d]);
+        if (alloc_construct) constructor_allocation_sweep(dialects[d]);
+        if (alloc_proof) optional_proof_allocation_failures(dialects[d]);
         if (source) actual_fixture(dialects[d], source, golden_dir);
     }
     free(source);

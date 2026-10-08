@@ -40,6 +40,7 @@ typedef struct PgQueryScalarInsertSource
     size_t graph_text_bytes;
     bool graph_compatible;
     int statement_length;
+    size_t statement_start;
 } PgQueryScalarInsertSource;
 
 static bool
@@ -218,17 +219,20 @@ pg_query_scalar_insert_cell(const char *sql, size_t length, size_t *pos,
 }
 
 static bool
-pg_query_scalar_insert_certify(const char *sql, PgQueryScalarInsertSource *source)
+pg_query_scalar_insert_certify_statement(const char *sql, size_t length,
+    size_t start, bool require_statement_size, PgQueryScalarInsertSource *source,
+    size_t *next)
 {
     PgQuerySimpleInsertSlice name;
     PgQueryScalarInsertCell cell;
-    size_t pos = 0;
+    size_t pos = start;
     size_t i;
 
     source->graph_text_bytes = 0U;
     source->graph_compatible = true;
-    source->length = strlen(sql);
-    if (!pg_query_simple_insert_source_size(source->length) ||
+    source->length = length;
+    source->statement_start = start;
+    if (start > length || !pg_query_simple_insert_source_size(source->length) ||
         !pg_query_simple_insert_word(sql, source->length, &pos, "insert", 6U) ||
         !pg_query_simple_insert_word(sql, source->length, &pos, "into", 4U))
         return false;
@@ -320,10 +324,57 @@ pg_query_scalar_insert_certify(const char *sql, PgQueryScalarInsertSource *sourc
         return false;
     if (pos < source->length && sql[pos] == ';')
     {
-        source->statement_length = (int) pos++;
-        pg_query_simple_insert_gap(sql, source->length, &pos);
+        source->statement_length = (int) (pos - start);
+        ++pos;
     }
-    return pos == source->length;
+    else if (pos != source->length)
+        return false;
+    /* Batch slices use the same conservative minimum as identity admission.
+     * Singleton admission keeps its historical whole-source size behavior,
+     * including padding after its optional final semicolon. */
+    if (require_statement_size && !pg_query_simple_insert_source_size(pos - start))
+        return false;
+    *next = pos;
+    return true;
+}
+
+static bool
+pg_query_scalar_insert_certify(const char *sql, PgQueryScalarInsertSource *source)
+{
+    size_t length = strlen(sql), next;
+    if (!pg_query_scalar_insert_certify_statement(sql, length, 0U, false, source, &next))
+        return false;
+    pg_query_simple_insert_gap(sql, length, &next);
+    return next == length;
+}
+
+/* The entire immutable source must pass before even a native list is
+ * allocated. An empty/mixed/ambiguous final slice invalidates the whole batch;
+ * the caller then parses the original source with the ordinary grammar. */
+static bool
+pg_query_scalar_insert_batch_certify(const char *sql, size_t *statement_count)
+{
+    PgQueryScalarInsertSource source;
+    size_t length = strlen(sql), start = 0U, count = 0U;
+    *statement_count = 0U;
+    if (!pg_query_simple_insert_source_size(length))
+        return false;
+    for (;;)
+    {
+        size_t next, probe;
+        if (!pg_query_scalar_insert_certify_statement(sql, length, start, true, &source, &next) ||
+            !pg_query_simple_insert_rows_size(++count))
+            return false;
+        probe = next;
+        pg_query_simple_insert_gap(sql, length, &probe);
+        if (probe == length)
+            break;
+        start = next;
+    }
+    if (count < 2U)
+        return false;
+    *statement_count = count;
+    return true;
 }
 
 static Node *
@@ -359,10 +410,34 @@ pg_query_scalar_insert_make_cell(const char *sql, const PgQueryScalarInsertCell 
     return (Node *) constant;
 }
 
+/* Complete-source admission has already proved every list length. Allocate
+ * its final native List layout once rather than repeatedly growing each row.
+ * This is ordinary context-owned storage, including the inline ListCells;
+ * no node or cell escapes the parser context. Keep the conservative admission
+ * bounds used by the lappend constructor, even though exact storage needs less.
+ * Callers fill every cell before any serializer can inspect the tree. */
 static List *
-pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proof)
+pg_query_scalar_insert_list(size_t count)
 {
-    PgQueryScalarInsertSource source;
+    List *list;
+    Size bytes;
+
+    if (count == 0U || !pg_query_simple_insert_rows_size(count) ||
+        count > (MaxAllocSize - offsetof(List, initial_elements)) / sizeof(ListCell))
+        elog(ERROR, "certified scalar INSERT list size is invalid");
+    bytes = offsetof(List, initial_elements) + count * sizeof(ListCell);
+    list = palloc(bytes);
+    list->type = T_List;
+    list->length = (int) count;
+    list->max_length = (int) count;
+    list->elements = list->initial_elements;
+    return list;
+}
+
+static RawStmt *
+pg_query_scalar_insert_construct(const char *sql, const PgQueryScalarInsertSource *proved)
+{
+    const PgQueryScalarInsertSource source = *proved;
     PgQueryScalarInsertCell cell;
     PgQuerySimpleInsertSlice name;
     RawStmt *raw;
@@ -372,15 +447,13 @@ pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proo
     size_t pos, row, column;
     char *names[3];
 
-    if (!pg_query_scalar_insert_certify(sql, &source))
-        return NIL;
     /* No fallbacks after proof.  Every allocation belongs to the caller's
      * existing parse memory context and follows its PG_TRY cleanup path. */
     raw = makeNode(RawStmt);
     insert = makeNode(InsertStmt);
     select = makeNode(SelectStmt);
     raw->stmt = (Node *) insert;
-    raw->stmt_location = 0;
+    raw->stmt_location = (int) source.statement_start;
     raw->stmt_len = source.statement_length;
     for (column = 0; column < source.relation_parts; ++column)
         names[column] = pnstrdup(sql + source.relation[column].start,
@@ -393,6 +466,7 @@ pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proo
         relation->catalogname = names[0];
     insert->relation = relation;
     pos = source.columns_start;
+    insert->cols = pg_query_scalar_insert_list(source.columns);
     for (column = 0; column < source.columns; ++column)
     {
         ResTarget *target;
@@ -403,13 +477,14 @@ pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proo
         target = makeNode(ResTarget);
         target->name = pnstrdup(sql + name.start, name.length);
         target->location = (int) name.start;
-        insert->cols = lappend(insert->cols, target);
+        insert->cols->elements[column].ptr_value = target;
     }
     insert->selectStmt = (Node *) select;
+    select->valuesLists = pg_query_scalar_insert_list(source.rows);
     pos = source.values_start;
     for (row = 0; row < source.rows; ++row)
     {
-        List *values = NIL;
+        List *values = pg_query_scalar_insert_list(source.columns);
         if ((row != 0 && !pg_query_simple_insert_punctuation(sql, source.length, &pos, ',')) ||
             !pg_query_simple_insert_punctuation(sql, source.length, &pos, '('))
             elog(ERROR, "certified scalar INSERT row changed during construction");
@@ -419,22 +494,60 @@ pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proo
                 !pg_query_simple_insert_punctuation(sql, source.length, &pos,
                     column + 1U == source.columns ? ')' : ','))
                 elog(ERROR, "certified scalar INSERT cell changed during construction");
-            values = lappend(values, pg_query_scalar_insert_make_cell(sql, &cell));
+            values->elements[column].ptr_value = pg_query_scalar_insert_make_cell(sql, &cell);
         }
-        select->valuesLists = lappend(select->valuesLists, values);
+        select->valuesLists->elements[row].ptr_value = values;
     }
+    return raw;
+}
+
+static List *
+pg_query_scalar_insert_from_source(const char *sql,
+    const PgQueryScalarInsertSource *source, PgQueryNativeScalarInsertProof *proof)
+{
+    List *result = list_make1(pg_query_scalar_insert_construct(sql, source));
+    /* Commit only after every native allocation and construction check. */
+    if (proof != NULL && source->graph_compatible)
     {
-        List *result = list_make1(raw);
-        /* Commit only after every native allocation and construction check. */
-        if (proof != NULL && source.graph_compatible)
-        {
-            proof->source_length = source.length;
-            proof->row_count = source.rows;
-            proof->column_count = source.columns;
-            proof->string_count = source.strings;
-            proof->text_bytes = source.graph_text_bytes;
-            proof->statement_length = source.statement_length;
-        }
-        return result;
+        proof->source_length = source->length;
+        proof->row_count = source->rows;
+        proof->column_count = source->columns;
+        proof->string_count = source->strings;
+        proof->text_bytes = source->graph_text_bytes;
+        proof->statement_length = source->statement_length;
     }
+    return result;
+}
+
+static List *
+pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proof)
+{
+    PgQueryScalarInsertSource source;
+    if (!pg_query_scalar_insert_certify(sql, &source))
+        return NIL;
+    return pg_query_scalar_insert_from_source(sql, &source, proof);
+}
+
+/* Dedicated batch caller only. This never mints singleton/native-graph
+ * provenance. The statement descriptor and every location use original byte
+ * offsets, including whitespace immediately after the previous semicolon. */
+static List *
+pg_query_try_scalar_insert_batch(const char *sql)
+{
+    PgQueryScalarInsertSource source;
+    List *result;
+    size_t count, length, start = 0U, statement;
+    if (!pg_query_scalar_insert_batch_certify(sql, &count))
+        return NIL;
+    length = strlen(sql);
+    result = pg_query_scalar_insert_list(count);
+    for (statement = 0U; statement < count; ++statement)
+    {
+        size_t next;
+        if (!pg_query_scalar_insert_certify_statement(sql, length, start, true, &source, &next))
+            elog(ERROR, "certified scalar INSERT batch changed during construction");
+        result->elements[statement].ptr_value = pg_query_scalar_insert_construct(sql, &source);
+        start = next;
+    }
+    return result;
 }

@@ -26,14 +26,29 @@ static int identity_probe(const char *sql, PgQueryIdentityScalarInsertProof *pro
     if (result) ++proof_successes;
     return result;
 }
+static size_t owned_plan_calls, owned_plan_successes;
+static int owned_identity_probe(const char *sql, size_t length,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, size_t *strings)
+{
+    int result;
+    size_t allocations = allocation_calls;
+    ++owned_plan_calls;
+    if (force_reference) { memset(plan, 0, sizeof(*plan)); *strings = 0U; return 0; }
+    result = pg_query_prove_mysql_owned_scalar_insert(sql, length, plan, strings);
+    CHECK(allocation_calls == allocations);
+    if (result) ++owned_plan_successes;
+    return result;
+}
+#define pg_query_prove_mysql_owned_scalar_insert owned_identity_probe
 #define pg_query_prove_mysql_identity_scalar_insert identity_probe
 #include "../../src/dialect/sqlparser_dialect_mysql.c"
 #undef pg_query_prove_mysql_identity_scalar_insert
+#undef pg_query_prove_mysql_owned_scalar_insert
 
 #ifdef SQLPARSER_IDENTITY_ALLOC_WRAPPERS
 static int armed;
 static unsigned native_depth;
-static size_t fail_at, injected, attempts, live, ledger_end;
+static size_t fail_at, fail_second, injected, attempts, live, ledger_end;
 static void *ledger[16384];
 struct MemoryContextData;
 struct MemoryContextData *__real_pg_query_enter_memory_context(void);
@@ -62,7 +77,7 @@ static int reject(void)
 {
     ++allocation_calls;
     if(!armed||native_depth)return 0;
-    if(++attempts!=fail_at)return 0;
+    if(++attempts!=fail_at && attempts!=fail_second)return 0;
     ++injected;return 1;
 }
 void *__wrap_malloc(size_t n)
@@ -78,7 +93,7 @@ void *__wrap_realloc(void *p,size_t n)
 void __wrap_free(void *p)
 { size_t i=slot(p);if(i<COUNT(ledger)){ledger[i]=NULL;--live;}__real_free(p); }
 static void arm(size_t at)
-{ CHECK(!live&&!native_depth);fail_at=at;injected=attempts=0;armed=1; }
+{ CHECK(!live&&!native_depth);fail_at=at;fail_second=0U;injected=attempts=0;armed=1; }
 #endif
 
 static void text_equal(const char *a,const char *b)
@@ -441,10 +456,91 @@ static void fragment_and_arguments(void)
     }
 }
 
+static void owned_plan_contract(void)
+{
+    static const char *rows[] = {
+        "'owned plan UTF8 张三李四 literal long enough',100.50,CURRENT_TIMESTAMP",
+        "'owned plan literal long enough',- 7,CURRENT_TIME(6)",
+        "'auto_increment unsigned zerofill straight_join',1,CURRENT_DATE"
+    };
+    PgQueryMysqlOwnedScalarInsertPlan plan, zero = {{0}};
+    sqlparser_parse_options_t options;
+    sqlparser_parse_options_default(&options);
+    stage = "owned plan success, pointer/length binding, consumption and fallbacks";
+    for (size_t i=0U;i<COUNT(rows);++i) {
+        char *sql=fixture(128U,0U,"s.t","a,b,c",rows[i],"; ");
+        char *out=NULL,*reference=NULL; void *state=NULL,*reference_state=NULL;
+        sqlparser_error_t e={0}, re={0}; size_t calls=owned_plan_calls, strings=0U;
+        CHECK(strlen(sql)>=4096U);
+        CHECK(sqlparser_mysql_preprocess_with_native_plan(sql,strlen(sql),&options.limits,
+            &out,&state,&plan,&e)==SQLPARSER_STATUS_OK);
+        CHECK(owned_plan_calls==calls+1U && memcmp(&plan,&zero,sizeof(plan))!=0);
+        CHECK(out!=sql);text_equal(out,sql);
+        force_reference=1;
+        CHECK(sqlparser_mysql_preprocess(sql,&options.limits,&reference,&reference_state,&re)==SQLPARSER_STATUS_OK);
+        force_reference=0;state_equal(state,reference_state);text_equal(out,reference);
+        /* Caller bytes are not the plan owner, and may be destroyed now. */
+        memset(sql,0xa7,strlen(sql));free(sql);
+        for (int mode=0;mode<6;++mode) {
+            PgQueryProtobufParseResult actual, expected;
+            PgQueryNativeScalarInsertProof proof={0}, empty={0};
+            size_t count=0U;int certified=0;
+            int parse_options=mode==4?PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS:PG_QUERY_PARSE_DEFAULT;
+            if(mode!=3) CHECK(pg_query_prove_mysql_owned_scalar_insert(out,strlen(out),&plan,&strings));
+            if(mode==2) memset(&plan,0,sizeof(plan));
+            actual=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+                mode==1?reference:out, strlen(out)+(mode==5), parse_options,
+                NULL,NULL,&count,&certified,&proof,&plan);
+            CHECK(!memcmp(&plan,&zero,sizeof(plan)));
+            expected=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
+                out,parse_options,NULL,NULL);
+            CHECK(!actual.error&&!expected.error&&actual.parse_tree.data&&expected.parse_tree.data);
+            CHECK(actual.parse_tree.len==expected.parse_tree.len);
+            CHECK(!memcmp(actual.parse_tree.data,expected.parse_tree.data,actual.parse_tree.len));
+            if(mode==4) CHECK(!memcmp(&proof,&empty,sizeof(proof)));
+            pg_query_free_protobuf_parse_result(actual);pg_query_free_protobuf_parse_result(expected);
+        }
+        memset(&plan,0xa7,sizeof(plan));
+        CHECK(!pg_query_prove_mysql_owned_scalar_insert(out,strlen(out)+1U,&plan,&strings));
+        CHECK(!memcmp(&plan,&zero,sizeof(plan))&&strings==0U);
+        memset(&plan,0xa7,sizeof(plan));
+        CHECK(!pg_query_prove_mysql_owned_scalar_insert(NULL,0U,&plan,&strings));
+        CHECK(!memcmp(&plan,&zero,sizeof(plan)));
+        public_parity(out,1,NULL);
+        free(out);free(reference);sqlparser_mysql_state_destroy(state);sqlparser_mysql_state_destroy(reference_state);
+    }
+    {
+        char *sql=fixture(128U,0U,"t","a,b","1,'simple constructor retains no new native graph proof'","");
+        PgQueryNativeScalarInsertProof proof={0},empty={0};size_t strings=0,count=0;int certified=0;
+        CHECK(pg_query_prove_mysql_owned_scalar_insert(sql,strlen(sql),&plan,&strings));
+        PgQueryProtobufParseResult parsed=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+            sql,strlen(sql),0,NULL,NULL,&count,&certified,&proof,&plan);
+        CHECK(!parsed.error&&certified&&count==1U&&!memcmp(&proof,&empty,sizeof(proof)));
+        CHECK(!memcmp(&plan,&zero,sizeof(plan)));pg_query_free_protobuf_parse_result(parsed);
+        public_parity(sql,0,NULL);free(sql);
+    }
+    {
+        char *sql=fixture(128U,0U,"unsigned","a,b,c",rows[0],"");
+        char *out=NULL;void *state=NULL;sqlparser_error_t e={0};
+        memset(&plan,0xa7,sizeof(plan));
+        CHECK(sqlparser_mysql_preprocess_with_native_plan(sql,strlen(sql),&options.limits,
+            &out,&state,&plan,&e)!=SQLPARSER_STATUS_OK);
+        CHECK(!memcmp(&plan,&zero,sizeof(plan))&&!out&&!state);public_parity(sql,0,NULL);free(sql);
+    }
+    for(int mode=0;mode<3;++mode) {
+        char *out=NULL;void *state=NULL;sqlparser_error_t e={0};size_t calls=owned_plan_calls;
+        memset(&plan,0xa7,sizeof(plan));
+        CHECK(sqlparser_mysql_preprocess_with_native_plan(NULL,0U,&options.limits,
+            mode==0?NULL:&out,mode==1?NULL:&state,&plan,&e)!=SQLPARSER_STATUS_OK);
+        CHECK(!memcmp(&plan,&zero,sizeof(plan))&&!out&&!state&&owned_plan_calls==calls);
+    }
+    ++cases;
+}
+
 #ifdef SQLPARSER_IDENTITY_ALLOC_WRAPPERS
 static void allocation_failures(void)
 {
-    char *sql=fixture(32U,4096U,"s.t","a,b,c","'x',100.50,CURRENT_TIMESTAMP","");
+    char *sql=fixture(128U,0U,"s.t","a,b,c","'owned plan literal long enough for admission',100.50,CURRENT_TIMESTAMP","");
     size_t boundaries=0;
     stage="every identity preprocessing allocation failure";
     for(size_t at=0;at<=boundaries;at++) {
@@ -454,6 +550,24 @@ static void allocation_failures(void)
         if(!at){boundaries=attempts;CHECK(boundaries==2U);CHECK(status==SQLPARSER_STATUS_OK);}
         else {CHECK(injected==1U);CHECK(status==SQLPARSER_STATUS_NO_MEMORY);CHECK(!out&&!state);CHECK(e.code==SQLPARSER_STATUS_NO_MEMORY);}
         free(out);sqlparser_mysql_state_destroy(state);CHECK(!live);preprocess_parity(sql,1,0);
+    }
+    stage="owned preprocessing required and optional allocation failures";
+    for(size_t at=0U;at<=3U;++at) {
+        PgQueryMysqlOwnedScalarInsertPlan plan,zero={{0}};
+        char *out=NULL;void *state=NULL;sqlparser_error_t e={0};sqlparser_parse_options_t o;
+        size_t calls=owned_plan_calls;sqlparser_parse_options_default(&o);
+        memset(&plan,0xa7,sizeof(plan));arm(at==3U?2U:at);
+        if(at==3U)fail_second=3U;
+        sqlparser_status_t status=sqlparser_mysql_preprocess_with_native_plan(
+            sql,strlen(sql),&o.limits,&out,&state,&plan,&e);armed=0;
+        if(at==0U) CHECK(status==SQLPARSER_STATUS_OK&&memcmp(&plan,&zero,sizeof(plan)));
+        else {
+            CHECK(!memcmp(&plan,&zero,sizeof(plan))&&owned_plan_calls==calls);
+            CHECK(injected==(at==3U?2U:1U));
+            if(at==2U) {CHECK(status==SQLPARSER_STATUS_OK&&out&&state);text_equal(out,sql);}
+            else CHECK(status==SQLPARSER_STATUS_NO_MEMORY&&!out&&!state&&e.code==status);
+        }
+        memset(&plan,0,sizeof(plan));free(out);sqlparser_mysql_state_destroy(state);CHECK(!live);
     }
     stage="public identity parse allocation failures and recovery";boundaries=0;
     for(size_t at=0;at<=boundaries;at++) {
@@ -468,7 +582,7 @@ static void allocation_failures(void)
                 sqlparser_query_graph_view_t graph; char *rendered=NULL;
                 /* Native graph provenance is an optional acceleration: its
                  * allocation failure must preserve the strict fallback. */
-                CHECK(h && h->native_scalar_provenance==NULL);
+                CHECK(h && (at == 2U || h->native_scalar_provenance==NULL));
                 CHECK(sqlparser_statement_query_graph(h,0U,&graph,&e)==SQLPARSER_STATUS_OK);
                 CHECK(sqlparser_deparse(h,&rendered,&e)==SQLPARSER_STATUS_OK);
                 text_equal(rendered,sql);sqlparser_string_free(rendered);
@@ -484,7 +598,7 @@ static void allocation_failures(void)
 
 int main(void)
 {
-    positives();exclusions();bounds();fragment_and_arguments();
+    positives();exclusions();bounds();fragment_and_arguments();owned_plan_contract();
 #ifdef SQLPARSER_IDENTITY_ALLOC_WRAPPERS
     allocation_failures();
 #endif

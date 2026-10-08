@@ -14685,12 +14685,31 @@ static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions(
 	return features;
 }
 
-static sqlparser_status_t sqlparser_mysql_preprocess_internal(
+/* Bounded rejection only. Complete certification runs on the final copy. */
+static int sqlparser_mysql_owned_plan_prefix(const char *sql, size_t length)
+{
+    size_t pos = 0U, i;
+    if (length < 4096U) return 0;
+    while (pos < 64U && (sql[pos] == ' ' || sql[pos] == '\t' ||
+        sql[pos] == '\n' || sql[pos] == '\r' || sql[pos] == '\f' || sql[pos] == '\v')) ++pos;
+    if (pos == 64U) return 0;
+    for (i = 0U; i < 6U; ++i) {
+        unsigned char c = (unsigned char)sql[pos + i];
+        if (c >= 'A' && c <= 'Z') c = (unsigned char)(c + ('a' - 'A'));
+        if (c != (unsigned char)"insert"[i]) return 0;
+    }
+    return sql[pos + 6U] == ' ' || sql[pos + 6U] == '\t' ||
+        sql[pos + 6U] == '\n' || sql[pos + 6U] == '\r' ||
+        sql[pos + 6U] == '\f' || sql[pos + 6U] == '\v';
+}
+
+static sqlparser_status_t sqlparser_mysql_preprocess_internal_plan(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
+    size_t input_length, PgQueryMysqlOwnedScalarInsertPlan *plan,
 	sqlparser_error_t *out_error)
 {
 	const char *mysql_sql;
@@ -14702,6 +14721,7 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 	sqlparser_status_t status;
 
 	(void)limits;
+    if (plan != NULL) memset(plan, 0, sizeof(*plan));
 
 	if (out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(
@@ -14729,6 +14749,25 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+
+    /* Speculative copy is optional, but any positive plan belongs to this
+     * exact final parser buffer. Keep required state allocation/error order.
+     * A miss clears authority before freeing bytes or entering old rewrites. */
+    if (plan != NULL && origins == NULL &&
+        sqlparser_mysql_owned_plan_prefix(input_sql, input_length)) {
+        size_t string_count = 0U;
+        quoted_sql = sqlparser_strndup(input_sql, input_length);
+        if (quoted_sql != NULL && pg_query_prove_mysql_owned_scalar_insert(
+                quoted_sql, input_length, plan, &string_count)) {
+            mysql_state->national_literals.literal_count = string_count;
+            *out_parser_sql = quoted_sql;
+            *out_state = mysql_state;
+            return SQLPARSER_STATUS_OK;
+        }
+        memset(plan, 0, sizeof(*plan));
+        free(quoted_sql);
+        quoted_sql = NULL;
+    }
 
 	/* Only ordinary, origin-free preprocessing may reuse the complete native
 	 * source proof. Clean literals preserve their exact source bytes and add
@@ -14913,6 +14952,25 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 	*out_parser_sql = quoted_sql;
 	*out_state = mysql_state;
 	return SQLPARSER_STATUS_OK;
+}
+
+/* Preserve the legacy entry and all direct/origin-aware callers. */
+static sqlparser_status_t sqlparser_mysql_preprocess_internal(
+    const char *input_sql, const sqlparser_limits_t *limits,
+    char **out_parser_sql, void **out_state,
+    sqlparser_identifier_origin_map_t *origins, sqlparser_error_t *out_error)
+{
+    return sqlparser_mysql_preprocess_internal_plan(input_sql, limits,
+        out_parser_sql, out_state, origins, 0U, NULL, out_error);
+}
+
+sqlparser_status_t sqlparser_mysql_preprocess_with_native_plan(
+    const char *input_sql, size_t input_length, const sqlparser_limits_t *limits,
+    char **out_parser_sql, void **out_state,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, sqlparser_error_t *out_error)
+{
+    return sqlparser_mysql_preprocess_internal_plan(input_sql, limits,
+        out_parser_sql, out_state, NULL, input_length, plan, out_error);
 }
 
 static sqlparser_status_t sqlparser_mysql_preprocess(

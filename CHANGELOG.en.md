@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.2
+
+- Optimize native construction of MySQL scalar INSERTs by reusing completed source validation, reducing repeated scanning and validation.
+- Optimize scalar VALUES encoding and temporary write plans, reducing repeated decoding, size calculation and copying.
+- Optimize Oracle-family multi-table inserts by reusing source spans and identifier-origin information, and improving branch storage, query graph construction and string rewriting.
+- Optimize preprocessing, query graphs and string rewriting for single- and multi-statement SQL Server-family INSERTs and Dameng scalar INSERTs.
+- Retain generic processing and validation for ineligible inputs. Public APIs and calling rules remain unchanged.
+
 ## 2.17.1
 
 - Optimize preprocessing, parsing, query graph construction and string rewriting for eligible single-statement batch INSERTs, reducing repeated parsing and intermediate AST materialization.

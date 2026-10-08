@@ -1805,9 +1805,9 @@ sqlparser_status_t sqlparser_handle_flush_ast(
 
 /* Both new buffers are independently owned and fully certified before the
  * current wire/graph is released. No AST or caller-owned payload survives. */
-sqlparser_status_t sqlparser_handle_commit_certified_insert_wire(
+static sqlparser_status_t sqlparser_handle_commit_certified_insert_wire_count(
     sqlparser_handle_t *handle, char **owned_sql, PgQueryProtobuf *owned_wire,
-    sqlparser_error_t *out_error)
+    size_t statement_count, sqlparser_error_t *out_error)
 {
     void *state = handle->dialect_state;
     const sqlparser_dialect_ops_t *ops = handle->dialect_ops;
@@ -1820,7 +1820,7 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_wire(
     handle->dialect_ops = ops;
     handle->dialect = dialect;
     handle->limits = limits;
-    handle->statement_count = 1U;
+    handle->statement_count = statement_count;
     handle->generation = generation;
     handle->sql = *owned_sql;
     *owned_sql = NULL;
@@ -1832,6 +1832,21 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_wire(
     handle->surface_source_complete = 1;
     sqlparser_error_clear(out_error);
     return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_handle_commit_certified_insert_wire(
+    sqlparser_handle_t *handle, char **owned_sql, PgQueryProtobuf *owned_wire,
+    sqlparser_error_t *out_error)
+{
+    return sqlparser_handle_commit_certified_insert_wire_count(handle, owned_sql, owned_wire, 1U, out_error);
+}
+
+sqlparser_status_t sqlparser_handle_commit_certified_insert_batch_wire(
+    sqlparser_handle_t *handle, char **owned_sql, PgQueryProtobuf *owned_wire,
+    size_t statement_count, sqlparser_error_t *out_error)
+{
+    return sqlparser_handle_commit_certified_insert_wire_count(
+        handle, owned_sql, owned_wire, statement_count, out_error);
 }
 
 /* Private destructive commit: the caller has proved native AST/wire parity,
@@ -4873,7 +4888,10 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	void *dialect_state;
 	sqlparser_control_state_t *control_state;
 	PgQueryNativeScalarInsertProof native_scalar_proof = {0};
+    PgQueryMysqlOwnedScalarInsertPlan mysql_owned_plan = {{0}};
+    int mysql_owned_plan_route;
 	PgQueryIdentityScalarInsertProof validation_source_proof = {0};
+	sqlparser_identity_insert_batch_proof_t validation_batch_proof = {0};
 	sqlparser_validation_preprocess_fn validation_preprocess;
 
 	if (out_handle == NULL) {
@@ -4921,9 +4939,17 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	 * destructive-reparse path keeps its existing parser/validation route. */
 	validation_preprocess = reuse_handle == NULL ?
 		sqlparser_dialect_validation_preprocessor(effective_options.dialect, dialect_ops) : NULL;
-	if (validation_preprocess != NULL) {
+    mysql_owned_plan_route = reuse_handle == NULL &&
+        effective_options.dialect == SQLPARSER_DIALECT_MYSQL &&
+        dialect_ops == sqlparser_dialect_mysql_ops() &&
+        dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_MYSQL);
+    if (mysql_owned_plan_route) {
+        status = sqlparser_mysql_preprocess_with_native_plan(sql, sql_len,
+            &effective_options.limits, &parser_sql, &dialect_state,
+            &mysql_owned_plan, out_error);
+    } else if (validation_preprocess != NULL) {
 		status = validation_preprocess(sql, &effective_options.limits,
-			&parser_sql, &dialect_state, &validation_source_proof, out_error);
+			&parser_sql, &dialect_state, &validation_source_proof, &validation_batch_proof, out_error);
 	} else {
 		status = dialect_ops->preprocess(sql, &effective_options.limits,
 			&parser_sql, &dialect_state, out_error);
@@ -4932,6 +4958,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 			dialect_ops->destroy_state(dialect_state);
 		}
+        memset(&mysql_owned_plan, 0, sizeof(mysql_owned_plan));
 		free(parser_sql);
 		return status;
 	}
@@ -4945,6 +4972,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 			dialect_ops->destroy_state(dialect_state);
 		}
+        memset(&mysql_owned_plan, 0, sizeof(mysql_owned_plan));
 		free(parser_sql);
 		return status;
 	}
@@ -4980,11 +5008,20 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		if (parser_sql_len >= 4096U) {
 			size_t certified_statements = 0;
 			int certified = 0;
-			parse_result =
-				pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
-					parser_sql, PG_QUERY_PARSE_DEFAULT,
-					sqlparser_observe_validation_tree, &validation,
-					&certified_statements, &certified, &native_scalar_proof);
+            if (mysql_owned_plan_route) {
+                parse_result =
+                    pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+                        parser_sql, parser_sql_len, PG_QUERY_PARSE_DEFAULT,
+                        sqlparser_observe_validation_tree, &validation,
+                        &certified_statements, &certified, &native_scalar_proof,
+                        &mysql_owned_plan);
+            } else {
+                parse_result =
+                    pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+                        parser_sql, PG_QUERY_PARSE_DEFAULT,
+                        sqlparser_observe_validation_tree, &validation,
+                        &certified_statements, &certified, &native_scalar_proof);
+            }
 			if (certified) {
 				validation.statement_count = certified_statements;
 				validation.status = SQLPARSER_STATUS_OK;
@@ -5028,26 +5065,62 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		size_t certified_statements = 0U;
 		int certified = 0;
 
-		/* Source proof only admits this exact registered owner's owned
-		 * parser copy and state. Validation is independently certified by
-		 * the writer: it rejects every MergeStmt/AExpr and all four SELECT
-		 * hierarchy fields examined by the common validator, recursively.
-		 * Ordinary grammar still parses the input; no native provenance is
-		 * minted, and any writer miss retains ordinary unpack/validation. */
+		/* The identity proof only admits this exact registered SQLServer
+		 * owner's owned parser copy and plain state. Each native constructor
+		 * independently proves the complete source grammar before allocating;
+		 * a miss still uses the ordinary lexer and grammar. The canonical
+		 * writer independently certifies validation of the resulting tree.
+		 * Do not request native graph provenance or enable the broader dialect
+		 * capability: strict wire admission and patch routes stay unchanged.
+		 * A writer/backend miss retains ordinary unpack/validation. */
 		parse_result =
-			pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary(
-				parser_sql, PG_QUERY_PARSE_DEFAULT,
-				&certified_statements, &certified);
+			pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+				parser_sql, PG_QUERY_PARSE_DEFAULT, NULL, NULL,
+				&certified_statements, &certified, NULL);
 		if (certified && certified_statements == 1U) {
 			validation.statement_count = certified_statements;
 			validation.status = SQLPARSER_STATUS_OK;
 			validation.observed = 1;
+		}
+	} else if (validation_preprocess != NULL &&
+	    validation_batch_proof.source_length == parser_sql_len &&
+	    validation_batch_proof.statement_count >= 2U &&
+	    sql_len == parser_sql_len &&
+	    (sql == parser_sql || memcmp(sql, parser_sql, sql_len) == 0)) {
+		size_t certified_statements = 0U;
+		int certified = 0;
+
+		memset(&validation_handle, 0, sizeof(validation_handle));
+		validation_handle.sql = (char *)sql;
+		validation_handle.parser_sql = parser_sql;
+		validation_handle.sql_len = sql_len;
+		validation_handle.parser_sql_len = parser_sql_len;
+		validation_handle.dialect = effective_options.dialect;
+		validation_handle.dialect_ops = dialect_ops;
+		validation_handle.dialect_state = dialect_state;
+		/* Preprocessing metadata is only a route gate. The dedicated batch
+		 * constructor proves every statement before allocating; no singleton
+		 * proof or native graph provenance can escape that entry point. */
+		if (sqlparser_dialect_state_is_plain_insert_batch_strings(
+		    &validation_handle, validation_batch_proof.statement_count,
+		    validation_batch_proof.string_count)) {
+			parse_result =
+				pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
+					parser_sql, PG_QUERY_PARSE_DEFAULT, &certified_statements, &certified);
+			if (certified && certified_statements == validation_batch_proof.statement_count) {
+				validation.statement_count = certified_statements;
+				validation.status = SQLPARSER_STATUS_OK;
+				validation.observed = 1;
+			}
+		} else {
+			parse_result = sqlparser_parse_protobuf_preserving_identifier_spelling(parser_sql);
 		}
 	} else {
 		parse_result =
 			sqlparser_parse_protobuf_preserving_identifier_spelling(
 				parser_sql);
 	}
+    memset(&mysql_owned_plan, 0, sizeof(mysql_owned_plan));
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, parser_sql, parse_result.error);
 		pg_query_free_protobuf_parse_result(parse_result);

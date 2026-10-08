@@ -330,6 +330,7 @@ dist:
 		--transform='s|^\./|$(DIST_NAME)/|' \
 		--exclude='*.a' \
 		--exclude='*.o' \
+		--exclude='*.orig' \
 		--exclude='*.so' \
 		--exclude='.DS_Store' \
 		--exclude='./bench/results' \
@@ -658,6 +659,22 @@ $(BIN_PATH)/test_scalar_insert_native: tests/unit/test_scalar_insert_native.c $(
 		-Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free \
 		-Wl,--wrap=strdup -Wl,--wrap=strndup $(LDFLAGS) $(LDLIBS) -o $@
 
+$(BIN_PATH)/test_mysql_owned_scalar_native: tests/unit/test_mysql_owned_scalar_native.c tests/unit/test_scalar_insert_native.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_SIMPLE_INSERT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options -Wl,--wrap=palloc -Wl,--wrap=palloc0 \
+		-Wl,--wrap=MemoryContextAlloc -Wl,--wrap=repalloc \
+		-Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=strdup -Wl,--wrap=strndup $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_scalar_insert_batch_native: tests/unit/test_scalar_insert_batch_native.c tests/unit/test_scalar_insert_native.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		-DSQLPARSER_SIMPLE_INSERT_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options -Wl,--wrap=palloc -Wl,--wrap=palloc0 \
+		-Wl,--wrap=MemoryContextAlloc -Wl,--wrap=repalloc \
+		-Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=strdup -Wl,--wrap=strndup $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_simple_insert_size_bounds: tests/unit/test_simple_insert_size_bounds.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
 		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
@@ -671,13 +688,13 @@ $(BIN_PATH)/test_validation_arena: tests/unit/test_validation_arena.c $(STATIC_L
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ARENA_ALLOC_COUNTS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=malloc -Wl,--wrap=free \
 		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
 		-Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_mysql_validation_observer: tests/unit/test_mysql_validation_observer.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_OBSERVER_TEST_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
 		-Wl,--wrap=calloc -Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_patch_batch_counts: tests/unit/test_patch_batch.c $(STATIC_LIB_PATH) | prep
@@ -703,6 +720,8 @@ $(SQLPARSER_BENCH_BIN): tools/sqlparser_bench.c $(STATIC_LIB_PATH) | prep
 $(LIBPG_QUERY_BASELINE_BIN): tools/libpg_query_baseline.c $(VENDOR_PG_QUERY_LIB) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(VENDOR_PG_QUERY_LIB) $(SQLPARSER_BENCH_WRAP_LDFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+
+include tests/oracle_scalar_constructor/Makefile.inc
 
 -include $(DEP_FILES)
 
@@ -735,6 +754,16 @@ $(BIN_PATH)/test_sqlserver_identity_preprocess: tests/unit/test_sqlserver_identi
 		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
 		$(LDFLAGS) $(LDLIBS) -o $@
 
+$(BIN_PATH)/test_sqlserver_batch_identity_preprocess: tests/unit/test_sqlserver_batch_identity_preprocess.c tests/unit/test_sqlserver_identity_preprocess.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_IDENTITY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_cached_spans: tests/unit/test_oracle_cached_spans.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_SPAN_TEST_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_oracle_multi_insert_certified_cell_span $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_oracle_origin_replay: tests/unit/test_oracle_origin_replay.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ORIGIN_REPLAY_WRAPPERS -DSQLPARSER_ORIGIN_REPLAY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=sqlparser_dialect_preprocess_identifier_origins \
@@ -750,7 +779,7 @@ $(BIN_PATH)/test_family_scalar_pipeline: tests/unit/test_family_scalar_pipeline.
 		-Wl,--wrap=sqlparser_handle_reparse_destructive \
 		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
 		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
 		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
 		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
 		$(LDFLAGS) $(LDLIBS) -o $@
@@ -763,7 +792,21 @@ $(BIN_PATH)/test_sqlserver_wire_pipeline: tests/unit/test_sqlserver_wire_pipelin
 		-Wl,--wrap=sqlparser_handle_reparse_destructive \
 		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
 		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
-		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_batch_wire_pipeline: tests/unit/test_sqlserver_batch_wire_pipeline.c tests/unit/test_sqlserver_wire_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_SQLSERVER_WIRE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_wire_scalar_batch_certify \
+		-Wl,--wrap=sqlparser_dialect_get_ops \
+		-Wl,--wrap=sqlparser_dialect_supports_plain_scalar_insert \
+		-Wl,--wrap=pg_query__parse_result__unpack \
+		-Wl,--wrap=sqlparser_handle_reparse_destructive \
+		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
 		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
 		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
 		$(LDFLAGS) $(LDLIBS) -o $@
@@ -788,16 +831,63 @@ $(BIN_PATH)/test_oracle_graph_classification_baseline: tests/unit/test_oracle_gr
 ORACLE_COMMIT_TEST_FLAGS := -DSQLPARSER_ORACLE_COMMIT_WRAPPERS
 ORACLE_COMMIT_TEST_WRAPS := -Wl,--wrap=sqlparser_handle_reparse_destructive \
 	-Wl,--wrap=sqlparser_oracle_try_commit_multi_insert_strings \
+	-Wl,--wrap=sqlparser_vastbase_oracle_multi_insert_identity_input \
+	-Wl,--wrap=sqlparser_oracle_note_multi_insert_edit \
 	-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
 	-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context
+$(BUILD_PATH)/tests/oracle_ascii_reference.o: tests/oracle_ascii_validation/patch_probe.c src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=1 -c $< -o $@
+
+$(BUILD_PATH)/tests/oracle_ascii_probe.o: tests/oracle_ascii_validation/patch_probe.c src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=0 -c $< -o $@
+
+$(BIN_PATH)/test_oracle_ascii_validation: tests/unit/test_oracle_ascii_validation.c tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h $(BUILD_PATH)/tests/oracle_ascii_reference.o $(BUILD_PATH)/tests/oracle_ascii_probe.o $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) $< $(BUILD_PATH)/tests/oracle_ascii_reference.o $(BUILD_PATH)/tests/oracle_ascii_probe.o $(STATIC_LIB_PATH) \
+		$(ORACLE_COMMIT_TEST_WRAPS) -Wl,--wrap=sqlparser_parse_insert_cell_node_sql $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_oracle_owned_commit: tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) $< $(STATIC_LIB_PATH) \
 		$(ORACLE_COMMIT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
 
+# Complete independent graph/state transcript for certified lazy origins.
+# Use matching reference sources and library for independent origin checks.
+ORACLE_ORIGIN_CERT_TEST_FLAGS := $(ORACLE_COMMIT_TEST_FLAGS) -DSQLPARSER_ORIGIN_CERT_WRAPPERS
+ORACLE_ORIGIN_CERT_TEST_WRAPS := $(ORACLE_COMMIT_TEST_WRAPS) \
+	-Wl,--wrap=sqlparser_oracle_replay_identifier_origins
+$(BIN_PATH)/test_oracle_certified_origins: tests/unit/test_oracle_certified_origins.c tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_ORIGIN_CERT_TEST_FLAGS) $< $(STATIC_LIB_PATH) \
+		$(ORACLE_ORIGIN_CERT_TEST_WRAPS) -Wl,--wrap=sqlparser_oracle_try_replay_certified_multi_insert_origins \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_certified_origins_baseline: tests/unit/test_oracle_certified_origins.c tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h | prep
+	@test -n "$(ORACLE_ORIGIN_CERT_BASELINE_LIB)" -a -n "$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)" || { echo "Set ORACLE_ORIGIN_CERT_BASELINE_LIB and ORACLE_ORIGIN_CERT_BASELINE_ROOT to the matching immutable archive and source"; exit 1; }
+	@$(CC) -I$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)/src/internal -I$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)/include $(CPPFLAGS) $(CFLAGS) \
+		$(ORACLE_ORIGIN_CERT_TEST_FLAGS) -DSQLPARSER_ORIGIN_CERT_BASELINE \
+		-D'SQLPARSER_ORACLE_COMMIT_AST_HEADER="$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)/src/core/sqlparser_ast_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_DIALECT_HEADER="$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)/src/dialect/sqlparser_dialect_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_ORACLE_HEADER="$(ORACLE_ORIGIN_CERT_BASELINE_ROOT)/src/dialect/sqlparser_dialect_oracle_internal.h"' \
+		$< $(ORACLE_ORIGIN_CERT_BASELINE_LIB) $(ORACLE_ORIGIN_CERT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
 $(BIN_PATH)/test_oracle_owned_commit_baseline: tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h | prep
-	@test -n "$(ORACLE_COMMIT_BASELINE_LIB)" || { echo "Set ORACLE_COMMIT_BASELINE_LIB to an immutable baseline archive"; exit 1; }
-	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) -DSQLPARSER_ORACLE_COMMIT_BASELINE \
+	@test -n "$(ORACLE_COMMIT_BASELINE_LIB)" -a -n "$(ORACLE_COMMIT_BASELINE_ROOT)" || { echo "Set ORACLE_COMMIT_BASELINE_LIB and ORACLE_COMMIT_BASELINE_ROOT to the immutable archive and matching source"; exit 1; }
+	@$(CC) -I$(ORACLE_COMMIT_BASELINE_ROOT)/src/internal -I$(ORACLE_COMMIT_BASELINE_ROOT)/include $(CPPFLAGS) $(CFLAGS) \
+		$(ORACLE_COMMIT_TEST_FLAGS) -DSQLPARSER_ORACLE_COMMIT_BASELINE \
+		-D'SQLPARSER_ORACLE_COMMIT_AST_HEADER="$(ORACLE_COMMIT_BASELINE_ROOT)/src/core/sqlparser_ast_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_DIALECT_HEADER="$(ORACLE_COMMIT_BASELINE_ROOT)/src/dialect/sqlparser_dialect_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_ORACLE_HEADER="$(ORACLE_COMMIT_BASELINE_ROOT)/src/dialect/sqlparser_dialect_oracle_internal.h"' \
 		$< $(ORACLE_COMMIT_BASELINE_LIB) $(ORACLE_COMMIT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
+
+# Build reference-library checks with that library's matching private headers.
+$(BIN_PATH)/test_oracle_owned_commit_reference: tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h | prep
+	@test -n "$(ORACLE_COMMIT_REFERENCE_LIB)" -a -n "$(ORACLE_COMMIT_REFERENCE_ROOT)" || { echo "Set ORACLE_COMMIT_REFERENCE_LIB and ORACLE_COMMIT_REFERENCE_ROOT to the immutable archive and matching source"; exit 1; }
+	@$(CC) -I$(ORACLE_COMMIT_REFERENCE_ROOT)/src/internal -I$(ORACLE_COMMIT_REFERENCE_ROOT)/include $(CPPFLAGS) $(CFLAGS) \
+		$(ORACLE_COMMIT_TEST_FLAGS) -DSQLPARSER_ORACLE_COMMIT_REFERENCE \
+		-D'SQLPARSER_ORACLE_COMMIT_AST_HEADER="$(ORACLE_COMMIT_REFERENCE_ROOT)/src/core/sqlparser_ast_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_DIALECT_HEADER="$(ORACLE_COMMIT_REFERENCE_ROOT)/src/dialect/sqlparser_dialect_internal.h"' \
+		-D'SQLPARSER_ORACLE_COMMIT_ORACLE_HEADER="$(ORACLE_COMMIT_REFERENCE_ROOT)/src/dialect/sqlparser_dialect_oracle_internal.h"' \
+		$< $(ORACLE_COMMIT_REFERENCE_LIB) $(ORACLE_COMMIT_TEST_WRAPS) $(LDFLAGS) $(LDLIBS) -o $@
 
 $(BIN_PATH)/test_sqlserver_insert_batch: tests/unit/test_sqlserver_insert_batch.c tests/unit/sqlparser_test_failure.h $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_SQLSERVER_BATCH_WRAPPERS $< $(STATIC_LIB_PATH) \
@@ -823,4 +913,51 @@ $(BIN_PATH)/test_sqlserver_validation_proof: tests/unit/test_sqlserver_validatio
 		-Wl,--wrap=sqlparser_dialect_get_ops -Wl,--wrap=sqlparser_dialect_validation_preprocessor \
 		-Wl,--wrap=sqlparser_wire_scalar_insert_certify -Wl,--wrap=sqlparser_wire_scalar_insert_from_native \
 		-Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=pg_query_protobuf_alloc_output \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_sqlserver_batch_native: tests/unit/test_sqlserver_batch_native.c tests/unit/test_sqlserver_validation_proof.c tests/unit/test_sqlserver_identity_preprocess.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@mkdir -p $(BUILD_PATH)/tests
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/include \
+		-I./vendor/libpg_query/src/postgres/include -fno-strict-aliasing -fwrapv \
+		-finstrument-functions -DSQLPARSER_VALIDATION_PROOF_WRAPPERS \
+		-c $< -o $(BUILD_PATH)/tests/test_sqlserver_batch_native.o
+	@$(CC) $(BUILD_PATH)/tests/test_sqlserver_batch_native.o $(STATIC_LIB_PATH) \
+		-Wl,--wrap=raw_parser_with_options \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query__parse_result__free_unpacked \
+		-Wl,--wrap=pg_query_nodes_to_protobuf_observed -Wl,--wrap=pg_query_nodes_to_protobuf_certified \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=sqlparser_dialect_get_ops -Wl,--wrap=sqlparser_dialect_validation_preprocessor \
+		-Wl,--wrap=sqlparser_wire_scalar_insert_certify -Wl,--wrap=sqlparser_wire_scalar_insert_from_native \
+		-Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=pg_query_protobuf_alloc_output \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_dameng_wire_pipeline: tests/unit/test_dameng_wire_pipeline.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -I./src/core -DSQLPARSER_DAMENG_WIRE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=sqlparser_dialect_get_ops \
+		-Wl,--wrap=sqlparser_dialect_supports_plain_scalar_insert \
+		-Wl,--wrap=pg_query__parse_result__unpack \
+		-Wl,--wrap=sqlparser_handle_reparse_destructive \
+		-Wl,--wrap=sqlparser_parse_insert_cell_node_sql \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
+		-Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native -Wl,--wrap=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+# These exact public-operation transcripts link independently to the immutable baseline.
+$(BIN_PATH)/test_dameng_wire_transcript_baseline: tests/unit/test_dameng_wire_transcript.c tests/unit/sqlparser_oracle_graph_records.h | prep
+	@test -n "$(DAMENG_BASELINE_LIB)" || { echo "set DAMENG_BASELINE_LIB to the immutable baseline archive"; exit 1; }
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(DAMENG_BASELINE_LIB) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_dameng_ascii_validation_baseline: tests/unit/test_dameng_ascii_validation.c | prep
+	@test -n "$(DAMENG_BASELINE_LIB)" || { echo "set DAMENG_BASELINE_LIB to the immutable baseline archive"; exit 1; }
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(DAMENG_BASELINE_LIB) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_dameng_identity_preprocess: tests/unit/test_dameng_identity_preprocess.c src/dialect/sqlparser_dialect_dameng.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/dialect -DSQLPARSER_IDENTITY_ALLOC_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		-Wl,--wrap=pg_query__parse_result__unpack -Wl,--wrap=pg_query__parse_result__free_unpacked \
+		-Wl,--wrap=sqlparser_parse_protobuf_preserving_identifier_spelling \
 		$(LDFLAGS) $(LDLIBS) -o $@

@@ -138,6 +138,9 @@ static int verify_map(sqlparser_handle_t *handle, const char *label)
          handle->dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE ||
          handle->dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE) &&
         sqlparser_oracle_state_has_multi_insert(handle->dialect_state);
+    if (sqlparser_oracle_multi_insert_source_is_current(handle) &&
+        sqlparser_oracle_state_multi_insert(handle->dialect_state)->oracle_outer_identity)
+        eligible = 1;
     expected_calls = !same_sql && !eligible;
     clear_origins(handle);
     replay_calls = 0U;
@@ -245,8 +248,8 @@ static int verify_lifecycle(sqlparser_dialect_t dialect, const char *sql)
     if (!parse_owned(dialect, output, &reparsed) ||
         !verify_map(reparsed, "fresh reparse") ||
         !verify_graph_and_deparse(reparsed)) goto done;
-    /* Actual destructive reparse increments generation and owns fresh state,
-     * but deliberately retains the strict full-replay fallback. */
+    /* Actual destructive reparse increments generation and binds its fresh
+     * state certificate before the next lazy origin request. */
     if (sqlparser_handle_reparse_destructive(reparsed, &output, &error) !=
         SQLPARSER_STATUS_OK || output != NULL ||
         !verify_map(reparsed, "destructive reparse fallback")) goto done;

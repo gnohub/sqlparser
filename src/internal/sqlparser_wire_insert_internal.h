@@ -108,4 +108,41 @@ sqlparser_status_t sqlparser_wire_scalar_insert_pack_proven_edits(const sqlparse
     const sqlparser_surface_source_edits_t *edits, PgQueryProtobuf *out);
 const sqlparser_wire_scalar_insert_t *sqlparser_query_graph_wire_scalar_insert(const sqlparser_handle_t *handle);
 const char *sqlparser_query_graph_wire_scalar_string(const sqlparser_handle_t *handle, size_t row, size_t column);
+
+/* Whole-owner batch certificate. Every embedded statement still addresses the
+ * full original source and full ParseResult wire, never a sliced fake handle. */
+typedef struct {
+    sqlparser_wire_scalar_insert_t insert;
+    uint32_t raw_location, relation_location;
+    uint32_t raw_wire_offset, raw_wire_length;
+    uint32_t *column_locations;
+    size_t cell_offset, column_offset, row_offset;
+} sqlparser_wire_scalar_batch_statement_t;
+
+typedef struct sqlparser_wire_scalar_batch {
+    const sqlparser_handle_t *owner;
+    const sqlparser_dialect_ops_t *ops;
+    sqlparser_dialect_t dialect;
+    unsigned long generation;
+    const char *sql, *parser_sql, *wire;
+    size_t sql_length, parser_sql_length, wire_length, statement_count;
+    size_t row_count, column_count, cell_count, string_count, text_bytes;
+    uint32_t version;
+    sqlparser_wire_scalar_batch_statement_t *statements;
+} sqlparser_wire_scalar_batch_t;
+
+sqlparser_wire_scalar_batch_t *sqlparser_wire_scalar_batch_certify(const sqlparser_handle_t *handle);
+void sqlparser_wire_scalar_batch_destroy(sqlparser_wire_scalar_batch_t *batch);
+int sqlparser_wire_scalar_batch_is_current(const sqlparser_wire_scalar_batch_t *batch,
+    const sqlparser_handle_t *handle);
+int sqlparser_wire_scalar_batch_certified_cell(const sqlparser_wire_scalar_batch_t *batch,
+    size_t statement, size_t row, size_t column, sqlparser_wire_scalar_cell_t *cell);
+sqlparser_status_t sqlparser_wire_scalar_batch_pack_proven_edits(const sqlparser_wire_scalar_batch_t *batch,
+    const sqlparser_surface_source_edits_t *edits, PgQueryProtobuf *out);
+const sqlparser_wire_scalar_batch_t *sqlparser_query_graph_wire_scalar_batch(const sqlparser_handle_t *handle);
+const char *sqlparser_query_graph_wire_scalar_batch_string(const sqlparser_handle_t *handle,
+    size_t statement, size_t row, size_t column);
+sqlparser_status_t sqlparser_handle_commit_certified_insert_batch_wire(
+    sqlparser_handle_t *handle, char **owned_sql, PgQueryProtobuf *owned_wire,
+    size_t statement_count, sqlparser_error_t *out_error);
 #endif

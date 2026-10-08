@@ -1657,9 +1657,99 @@ static void wsi_write_cell(wi_writer *w, const sqlparser_wire_scalar_cell_t *cel
     }
 }
 
+/* Private, synchronous plan: integer/function payload and text length are
+ * mutually exclusive. Keep all measured sizes without the cell's unused word. */
+typedef struct {
+    const char *text;
+    union { uint32_t length; int32_t integer; } payload;
+    int32_t location;
+    sqlparser_wire_scalar_kind_t kind;
+    wi_cell_sizes sizes;
+} wsi_planned_cell;
+
+static void wsi_plan_cell(wsi_planned_cell *entry,
+    const sqlparser_wire_scalar_cell_t *cell, const wi_cell_sizes *sizes)
+{
+    entry->text = cell->text;
+    if (cell->kind == SQLPARSER_WIRE_SCALAR_INTEGER || cell->kind == SQLPARSER_WIRE_SCALAR_VALUE_FUNCTION)
+        entry->payload.integer = cell->integer;
+    else entry->payload.length = cell->length;
+    entry->location = cell->location;
+    entry->kind = cell->kind;
+    entry->sizes = *sizes;
+}
+
+/* Only called after reserving an entire first-pass validated cell. */
+static inline uint8_t *wsi_emit_varint(uint8_t *next, uint32_t value)
+{
+    do {
+        *next++ = (uint8_t)((value & 0x7fU) | (value >= 0x80U ? 0x80U : 0U));
+        value >>= 7;
+    } while (value != 0U);
+    return next;
+}
+
+static inline uint8_t *wsi_emit_header(uint8_t *next, unsigned tag, uint32_t payload)
+{
+    return wsi_emit_varint(wsi_emit_varint(next, (tag << 3) | 2U), payload);
+}
+
+static inline uint8_t *wsi_emit_scalar(uint8_t *next, unsigned tag, uint32_t value)
+{
+    return value == 0U ? next : wsi_emit_varint(wsi_emit_varint(next, tag << 3), value);
+}
+
+static void wsi_write_planned_cell(wi_writer *w, const wsi_planned_cell *entry)
+{
+    uint64_t envelope = wi_envelope(WI_LIST_ITEMS, entry->sizes.node);
+    uint8_t *start = w->next, *next;
+    if (envelope > (uint64_t)(w->end - w->next)) {
+        /* Retain the checked writer's exact partial-write/failure behavior. */
+        sqlparser_wire_scalar_cell_t cell = {0};
+        cell.text = entry->text;
+        cell.location = entry->location;
+        cell.kind = entry->kind;
+        if (cell.kind == SQLPARSER_WIRE_SCALAR_INTEGER || cell.kind == SQLPARSER_WIRE_SCALAR_VALUE_FUNCTION)
+            cell.integer = entry->payload.integer;
+        else cell.length = entry->payload.length;
+        wsi_write_cell(w, &cell, &entry->sizes);
+        return;
+    }
+    next = wsi_emit_header(start, WI_LIST_ITEMS, entry->sizes.node);
+    if (entry->kind == SQLPARSER_WIRE_SCALAR_VALUE_FUNCTION) {
+        next = wsi_emit_header(next, PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION, entry->sizes.constant);
+        next = wsi_emit_scalar(next, 2U, (uint32_t)entry->payload.integer);
+        memcpy(next, wsi_typmod_default, sizeof(wsi_typmod_default));
+        next += sizeof(wsi_typmod_default);
+        next = wsi_emit_scalar(next, 5U, (uint32_t)entry->location);
+    } else {
+        unsigned kind = entry->kind == SQLPARSER_WIRE_SCALAR_INTEGER ? PG_QUERY__A__CONST__VAL_IVAL :
+            entry->kind == SQLPARSER_WIRE_SCALAR_STRING ? PG_QUERY__A__CONST__VAL_SVAL : PG_QUERY__A__CONST__VAL_FVAL;
+        next = wsi_emit_header(next, PG_QUERY__NODE__NODE_A_CONST, entry->sizes.constant);
+        next = wsi_emit_header(next, kind, entry->sizes.value);
+        if (entry->kind == SQLPARSER_WIRE_SCALAR_INTEGER)
+            next = wsi_emit_scalar(next, 1U, (uint32_t)entry->payload.integer);
+        else if (entry->payload.length != 0U) {
+            next = wsi_emit_header(next, 1U, entry->payload.length);
+            memcpy(next, entry->text, entry->payload.length);
+            next += entry->payload.length;
+        }
+        next = wsi_emit_scalar(next, WI_CONST_LOCATION, (uint32_t)entry->location);
+    }
+    w->next = next;
+    if ((uint64_t)(next - start) != envelope) w->failed = 1;
+}
+
 static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
     const sqlparser_surface_source_edits_t *edits, PgQueryProtobuf *out, int replacements_proven)
 {
+    /* Ephemeral validated write plan. Text borrows the immutable owned wire or
+     * edit replacement until this synchronous pack returns; no proof/owner
+     * lifetime changes. The optional allocation has a fixed scratch ceiling.
+     * An oversized plan or allocation miss uses the original two-pass codec. */
+    const size_t plan_budget = 2U * 1024U * 1024U;
+    wsi_planned_cell *plan = NULL;
+    size_t cell_count, plan_index = 0U;
     uint32_t *row_sizes = NULL;
     uint32_t select_size, select_node_size, insert_size, insert_node_size, raw_size, total_size, raw_length;
     uint64_t n;
@@ -1679,6 +1769,9 @@ static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
         !wi_edits(edits, replacements_proven)) return SQLPARSER_STATUS_UNSUPPORTED;
     row_sizes = malloc(insert->row_count * sizeof(*row_sizes));
     if (row_sizes == NULL) return SQLPARSER_STATUS_UNSUPPORTED;
+    cell_count = insert->row_count * insert->column_count;
+    if (cell_count <= plan_budget / sizeof(*plan))
+        plan = malloc(cell_count * sizeof(*plan));
     n = 0U;
     for (row = 0U; row < insert->row_count; row++) {
         wi_reader list;
@@ -1689,6 +1782,9 @@ static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
             wi_cell_sizes sizes;
             if (!wsi_read_cell(&list, &cell, replacements_proven) || !wsi_effective_cell(&cell, edits, &edit_index, &delta) ||
                 !wsi_measure_cell(&cell, &sizes)) goto unsupported;
+            if (plan != NULL) {
+                wsi_plan_cell(&plan[plan_index++], &cell, &sizes);
+            }
             row_size += wi_envelope(WI_LIST_ITEMS, sizes.node);
             if (row_size > UINT32_MAX) goto unsupported;
         }
@@ -1726,7 +1822,7 @@ static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
     if (n > UINT32_MAX || n > SIZE_MAX || n > PTRDIFF_MAX) goto unsupported;
     total_size = (uint32_t)n;
     out->data = malloc(total_size);
-    if (out->data == NULL) { free(row_sizes); return SQLPARSER_STATUS_NO_MEMORY; }
+    if (out->data == NULL) { free(plan); free(row_sizes); return SQLPARSER_STATUS_NO_MEMORY; }
     writer.next = (uint8_t *)out->data;
     writer.end = writer.next + total_size;
     writer.failed = 0;
@@ -1737,26 +1833,33 @@ static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
     wi_write_bytes(&writer, insert->wire + insert->prefix_offset, insert->prefix_length);
     wi_write_header(&writer, WI_INSERT_SELECT, select_node_size);
     wi_write_header(&writer, PG_QUERY__NODE__NODE_SELECT_STMT, select_size);
-    edit_index = 0U;
+    if (plan == NULL) edit_index = 0U;
+    plan_index = 0U;
     delta = 0;
     for (row = 0U; row < insert->row_count; row++) {
         wi_reader list;
-        if (!wsi_read_row(insert, row, &list, replacements_proven)) { writer.failed = 1; break; }
+        if (plan == NULL && !wsi_read_row(insert, row, &list, replacements_proven)) { writer.failed = 1; break; }
         wi_write_header(&writer, WI_SELECT_VALUES, (uint32_t)wi_envelope(PG_QUERY__NODE__NODE_LIST, row_sizes[row]));
         wi_write_header(&writer, PG_QUERY__NODE__NODE_LIST, row_sizes[row]);
         for (column = 0U; column < insert->column_count; column++) {
             sqlparser_wire_scalar_cell_t cell;
             wi_cell_sizes sizes;
+            if (plan != NULL) {
+                const wsi_planned_cell *entry = &plan[plan_index++];
+                wsi_write_planned_cell(&writer, entry);
+                continue;
+            }
             if (!wsi_read_cell(&list, &cell, replacements_proven) || !wsi_effective_cell(&cell, edits, &edit_index, &delta) ||
                 !wsi_measure_cell(&cell, &sizes)) { writer.failed = 1; break; }
             wsi_write_cell(&writer, &cell, &sizes);
         }
-        if (writer.failed || list.next != list.end) { writer.failed = 1; break; }
+        if (writer.failed || (plan == NULL && list.next != list.end)) { writer.failed = 1; break; }
     }
     wi_write_scalar(&writer, WI_SELECT_LIMIT, 1U);
     wi_write_scalar(&writer, WI_SELECT_OP, 1U);
     wi_write_scalar(&writer, WI_INSERT_OVERRIDE, 1U);
     wi_write_scalar(&writer, WI_RAW_LENGTH, raw_length);
+    free(plan);
     free(row_sizes);
     if (writer.failed || writer.next != writer.end || edit_index != edits->count) {
         free(out->data);
@@ -1766,6 +1869,7 @@ static sqlparser_status_t wsi_pack(const sqlparser_wire_scalar_insert_t *insert,
     out->len = total_size;
     return SQLPARSER_STATUS_OK;
 unsupported:
+    free(plan);
     free(row_sizes);
     return SQLPARSER_STATUS_UNSUPPORTED;
 }
@@ -1781,3 +1885,5 @@ sqlparser_status_t sqlparser_wire_scalar_insert_pack_proven_edits(const sqlparse
 {
     return wsi_pack(insert, edits, out, 1);
 }
+
+#include "sqlparser_wire_insert_batch.inc"

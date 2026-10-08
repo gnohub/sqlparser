@@ -12,6 +12,8 @@
 static const char *stage = "start";
 static size_t cases, proof_calls, proof_successes, allocation_calls;
 static int force_reference;
+static const char *complete_proof_source;
+static size_t proof_string_count_override;
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"%s:%d stage=%s case=%zu %s\n",__FILE__,__LINE__,stage,cases,#x); abort(); } } while (0)
 
@@ -24,7 +26,10 @@ static int identity_probe(const char *sql, PgQueryIdentityScalarInsertNamePredic
     if (force_reference) { if(proof)memset(proof,0,sizeof(*proof)); return 0; }
     result = pg_query_prove_identity_scalar_insert(sql,predicate,proof);
     CHECK(allocation_calls == allocations); /* Whole-source proof is allocation-free. */
-    if (result) ++proof_successes;
+    if (result && proof_string_count_override) proof->string_count=proof_string_count_override;
+    /* Batch preprocessing also calls the same recognizer on scratch slices.
+     * This original suite counts only complete-source singleton admission. */
+    if (result && (!complete_proof_source || complete_proof_source == sql)) ++proof_successes;
     return result;
 }
 #define pg_query_prove_identity_scalar_insert identity_probe
@@ -220,8 +225,10 @@ static void preprocess_parity(const char *sql,int admitted,int origins)
         CHECK(sqlparser_identifier_origin_map_new_identity(strlen(sql),&bm,&be)==SQLPARSER_STATUS_OK);
     }
     force_reference=0;
+    complete_proof_source=sql;
     ar=origins?sqlparser_sqlserver_preprocess_identifier_origins(sql,&options.limits,&a,&as,am,&ae):
         sqlparser_sqlserver_preprocess(sql,&options.limits,&a,&as,&ae);
+    complete_proof_source=NULL;
     if(origins)CHECK(proof_calls==calls);
     else if(admitted>=0) {
         if(proof_successes-before!=(size_t)admitted) {

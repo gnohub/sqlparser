@@ -396,7 +396,111 @@ static void native_wire_boundaries(void) {
  }
  printf("direct-wire native/reference byte differentials: %zu\n",COUNT(sqls)+COUNT(lengths));
 }
+/* Fused list-item encoding is compared against the generated Node visitors,
+ * not against another fused writer. Cache-frame counts may differ, but each
+ * writer must consume precisely its own first-pass frames. */
+static void fused_item(DirectWire *c,unsigned field,const void *object) {
+ if(!dw_scalar_list_item(c,field,object))dw_message(c,field,dw_Node,object);
+}
+static void fused_case(const void *object) {
+ static const unsigned fields[]={1U,15U,16U,268U,UINT_MAX};
+ static const unsigned depths[]={0U,252U,253U,254U,255U,256U};
+ static const int statuses[]={1,0,-1,-2};
+ for(size_t f=0;f<COUNT(fields);f++)for(size_t d=0;d<COUNT(depths);d++)
+ for(size_t st=0;st<COUNT(statuses);st++)for(size_t edge=0;edge<24U;edge++) {
+  DirectWire want={0},got={0};
+  want.status=got.status=statuses[st];want.depth=got.depth=depths[d];
+  want.position=got.position=edge?SIZE_MAX-(edge-1U):0U;
+  dw_message(&want,fields[f],dw_Node,object);fused_item(&got,fields[f],object);
+  CHECK(want.status==got.status && want.position==got.position && want.depth==got.depth);
+  free(want.sizes);free(got.sizes);
+ }
+ for(size_t f=0;f<COUNT(fields);f++)for(size_t d=0;d<COUNT(depths);d++)
+ for(int certify=0;certify<=1;certify++) {
+  DirectWire want={0},got={0};size_t size;
+  want.status=got.status=1;want.depth=got.depth=depths[d];
+  want.certifying=got.certifying=certify;
+  dw_message(&want,fields[f],dw_Node,object);fused_item(&got,fields[f],object);
+  CHECK(want.status==got.status && want.position==got.position);
+  if(want.status!=1){free(want.sizes);free(got.sizes);continue;}
+  size=want.position;
+  want.output=malloc(size+16U);got.output=malloc(size+16U);CHECK(want.output && got.output);
+  for(size_t edge=0;edge<20U;edge++) {
+   size_t limit=edge<16U?edge:(edge==16U?size/2U:(edge==17U?size-1U:(edge==18U?size:size+1U)));
+   if(limit>size+16U)continue;
+   memset(want.output,0xa5,size+16U);memset(got.output,0xa5,size+16U);
+   want.position=got.position=want.index=got.index=0U;
+   want.output_size=got.output_size=limit;want.status=got.status=1;
+   want.writing=got.writing=1;want.certifying=got.certifying=0;
+   dw_message(&want,fields[f],dw_Node,object);fused_item(&got,fields[f],object);
+   CHECK(want.status==got.status && want.position==got.position && want.depth==got.depth);
+   CHECK(memcmp(want.output,got.output,size+16U)==0);
+   if(got.status==1)CHECK(want.index==want.count && got.index==got.count);
+  }
+  free(want.output);free(got.output);free(want.sizes);free(got.sizes);
+ }
+}
+static void reference_scalar_list(DirectWire *c,const void *object) {
+ const List *list=object;const ListCell *cell;
+ foreach(cell,list)dw_message(c,1U,dw_Node,lfirst(cell));
+}
+static void fused_mixed_cache(void) {
+ A_Const values[4]={{0}};SQLValueFunction function={0};
+ List *list=malloc(offsetof(List,initial_elements)+5U*sizeof(ListCell));CHECK(list);
+ list->type=T_List;list->length=list->max_length=5;list->elements=list->initial_elements;
+ for(size_t i=0;i<4U;i++){values[i].type=T_A_Const;values[i].location=(int)i;list->elements[i].ptr_value=&values[i];}
+ values[0].val.ival.type=T_Integer;values[0].val.ival.ival=INT32_MIN;
+ values[1].val.boolval.type=T_Boolean;values[1].val.boolval.boolval=true;
+ values[2].val.sval.type=T_String;values[2].val.sval.sval="mixed";
+ values[3].isnull=true;
+ NodeSetTag(&function,T_SQLValueFunction);function.op=SVFOP_CURRENT_TIMESTAMP;function.typmod=-1;
+ list->elements[4].ptr_value=&function;
+ for(int certify=0;certify<=1;certify++) {
+  DirectWire want={0},got={0};
+  want.status=got.status=1;want.certifying=got.certifying=certify;
+  dw_message(&want,2U,reference_scalar_list,list);dw_message(&got,2U,dw_List,list);
+  CHECK(want.status==1 && got.status==1 && want.position==got.position);
+  CHECK(want.count==got.count+6U);
+  want.output_size=want.position;got.output_size=got.position;
+  want.output=malloc(want.output_size);got.output=malloc(got.output_size);CHECK(want.output && got.output);
+  want.position=got.position=0U;want.writing=got.writing=1;want.certifying=got.certifying=0;
+  dw_message(&want,2U,reference_scalar_list,list);dw_message(&got,2U,dw_List,list);
+  CHECK(want.status==1 && got.status==1 && want.position==got.position);
+  CHECK(want.index==want.count && got.index==got.count);
+  CHECK(memcmp(want.output,got.output,want.output_size)==0);
+  free(want.output);free(got.output);free(want.sizes);free(got.sizes);
+ }
+ free(list);
+ puts("direct-wire fused mixed cache frames passed");
+}
+static void fused_scalar_states(void) {
+ static const int32_t values[]={0,1,127,128,16383,16384,INT32_MAX,INT32_MIN,-1};
+ static const size_t lengths[]={0U,1U,126U,127U,128U,129U,16383U,16384U};
+ A_Const a={0};SQLValueFunction v={0};size_t cases=0U;
+ a.type=T_A_Const;a.val.ival.type=T_Integer;
+ for(size_t i=0;i<COUNT(values);i++) {
+  a.val.ival.ival=values[i];a.location=values[COUNT(values)-1U-i];fused_case(&a);cases++;
+ }
+ for(size_t i=0;i<COUNT(lengths);i++) {
+  char *text=malloc(lengths[i]+1U);CHECK(text);memset(text,'x',lengths[i]);text[lengths[i]]=0;
+  memset(&a,0,sizeof(a));a.type=T_A_Const;a.location=i&1U?-1:16384;
+  a.val.sval.type=T_String;a.val.sval.sval=text;a.val.sval.location=i&1U?-1:128;
+  fused_case(&a);cases++;
+  a.val.fval.type=T_Float;a.val.fval.fval=text;fused_case(&a);cases++;free(text);
+ }
+ memset(&a,0,sizeof(a));a.type=T_A_Const;a.val.sval.type=T_String;
+ fused_case(&a);cases++;
+ a.isnull=true;fused_case(&a);cases++;
+ a.isnull=false;a.val.boolval.type=T_Boolean;a.val.boolval.boolval=true;fused_case(&a);cases++;
+ /* SQLValueFunction.type is an Oid; its NodeTag lives in Expr. */
+ NodeSetTag(&v,T_SQLValueFunction);
+ for(size_t i=0;i<COUNT(values);i++) {
+  v.op=SVFOP_CURRENT_TIMESTAMP;v.typmod=values[i];v.location=values[COUNT(values)-1U-i];
+  v.type=i&1U?UINT32_MAX:0U;fused_case(&v);cases++;
+ }
+ printf("direct-wire fused scalar state/byte cases: %zu\n",cases);
+}
 int main(void) {
  boundary_states();scalar_boundary_states();primitive_message_states();primitive_sibling_cache();
- native_wire_boundaries();return 0;
+ fused_scalar_states();fused_mixed_cache();native_wire_boundaries();return 0;
 }

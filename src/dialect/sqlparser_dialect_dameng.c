@@ -11,6 +11,7 @@
 #include "sqlparser_dialect_dameng_internal.h"
 #include "sqlparser_dialect_minus_internal.h"
 #include "sqlparser_dialect_national_literal_internal.h"
+#include "src/pg_query_observer.h"
 
 typedef struct {
 	char *clause;
@@ -78,6 +79,36 @@ typedef struct {
 	size_t multi_update_capacity;
 	sqlparser_dialect_returning_into_state_t returning_into;
 } sqlparser_dameng_state_t;
+
+/* Keep exhaustive with sqlparser_dameng_state_t and its embedded owners.
+ * The strict source/wire certificate separately proves grammar and source
+ * identity. Ordinary string-to-string edits preserve only the lexical literal
+ * ordinal; every owner, allocation, counter and fragment checkpoint must be
+ * absent before retaining this state across a direct wire commit. In
+ * particular, a cloned state's fragment_literal_base is not a plain state. */
+static int sqlparser_dameng_state_is_plain_insert_strings(
+	const void *state, size_t string_count)
+{
+	const sqlparser_dameng_state_t *s = state;
+	if (s == NULL) return 0;
+	return s->bind_names == NULL && s->bind_count == 0U && s->bind_capacity == 0U &&
+		s->bind_occurrence_count == 0U &&
+		s->prepared_binds.names == NULL && s->prepared_binds.count == 0U &&
+		s->prepared_binds.capacity == 0U && s->prepared_binds.occurrence_count == 0U &&
+		s->prepared_binds.valid == 0 &&
+		s->top_restores == NULL && s->top_count == 0U && s->top_capacity == 0U &&
+		s->top_fragment_start == 0U && s->fragment_limit_base == 0U && s->limit_count == 0U &&
+		s->national_literals.items == NULL && s->national_literals.count == 0U &&
+		s->national_literals.capacity == 0U && s->national_literals.literal_count == string_count &&
+		s->national_literals.fragment_start == 0U && s->national_literals.fragment_literal_base == 0U &&
+		s->minuses.items == NULL && s->minuses.count == 0U && s->minuses.capacity == 0U &&
+		s->minuses.except_count == 0U && s->minuses.fragment_start == 0U &&
+		s->minuses.fragment_except_base == 0U && s->multi_insert == NULL &&
+		s->dblink_relations == NULL && s->dblink_count == 0U && s->dblink_capacity == 0U &&
+		s->next_dblink_id == 0U &&
+		s->multi_updates == NULL && s->multi_update_count == 0U && s->multi_update_capacity == 0U &&
+		s->returning_into.items == NULL && s->returning_into.count == 0U && s->returning_into.capacity == 0U;
+}
 
 typedef struct {
 	char *data;
@@ -4700,6 +4731,36 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text(
 		out_error);
 }
 
+/* Whole-source scalar recognition excludes comments, special quoting, binds,
+ * links and non-VALUES statements. These exact names can still trigger the
+ * legacy Dameng scanner in relation/column positions, even where PostgreSQL
+ * permits them. The callback receives a borrowed, non-terminated ASCII span;
+ * occurrences inside proved ordinary strings have no preprocessing effect. */
+static int sqlparser_dameng_identity_name(const char *name, size_t length)
+{
+	static const struct { const char *word; size_t length; } excluded[] = {
+		{"alter", 5U}, {"begin", 5U}, {"connect", 7U},
+		{"connect_by_root", 15U}, {"create", 6U}, {"current_timestamp", 17U},
+		{"except", 6U}, {"exec", 4U}, {"limit", 5U}, {"minus", 5U},
+		{"nocycle", 7U}, {"pivot", 5U}, {"prior", 5U}, {"procedure", 9U},
+		{"return", 6U}, {"returning", 9U}, {"select", 6U}, {"set", 3U},
+		{"start", 5U}
+	};
+	size_t i;
+
+	for (i = 0U; i < sizeof(excluded) / sizeof(excluded[0]); i++) {
+		size_t pos;
+		if (length != excluded[i].length) continue;
+		for (pos = 0U; pos < length; pos++) {
+			unsigned char c = (unsigned char)name[pos];
+			if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+			if (c != (unsigned char)excluded[i].word[pos]) break;
+		}
+		if (pos == length) return 0;
+	}
+	return 1;
+}
+
 static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
@@ -4728,6 +4789,25 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	status = sqlparser_dameng_state_new(&state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
+	}
+	/* This proves only preprocessing identity. Initial grammar/validation and
+	 * later wire certification remain independent and authoritative. Origins
+	 * and fragment preprocessing must retain their original bookkeeping. */
+	if (origins == NULL) {
+		PgQueryIdentityScalarInsertProof proof;
+		if (pg_query_prove_identity_scalar_insert(
+			    input_sql, sqlparser_dameng_identity_name, &proof)) {
+			rewritten_sql = sqlparser_strndup(input_sql, proof.source_length);
+			if (rewritten_sql == NULL) {
+				sqlparser_dameng_state_destroy(state);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			state->national_literals.literal_count = proof.string_count;
+			*out_parser_sql = rewritten_sql;
+			*out_state = state;
+			return SQLPARSER_STATUS_OK;
+		}
 	}
 	status = sqlparser_dialect_returning_into_validate(
 		SQLPARSER_DIALECT_DAMENG,
@@ -11480,8 +11560,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {
 	sqlparser_dameng_prepare_ast_state,
 	sqlparser_dameng_relation_link_sql,
 	0,
-	0,
-	NULL
+	1,
+	sqlparser_dameng_state_is_plain_insert_strings
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void)

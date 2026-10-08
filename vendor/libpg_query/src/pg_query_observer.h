@@ -50,6 +50,17 @@ int pg_query_prove_identity_scalar_insert(
 int pg_query_prove_mysql_identity_scalar_insert(
     const char *input, PgQueryIdentityScalarInsertProof *proof);
 
+/* Private, single-use complete-source plan. Only the vendor mint/consumer
+ * interpret these bytes. Bind to final, owned, immutable parser text; never
+ * retain in a handle/state or use count-only identity metadata as authority. */
+typedef struct PgQueryMysqlOwnedScalarInsertPlan
+{
+    unsigned char opaque[256];
+} PgQueryMysqlOwnedScalarInsertPlan;
+int pg_query_prove_mysql_owned_scalar_insert(
+    const char *owned_input, size_t input_length,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, size_t *string_count);
+
 /* Private native-constructor attestation for the narrower initial scalar
  * graph subset. Published only after the exact constructed tree has been
  * successfully serialized by the canonical certified writer. No parse-context
@@ -83,6 +94,25 @@ pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
     PgQueryProtobufObserver observer, void *context,
     size_t *statement_count, int *certified,
     PgQueryNativeScalarInsertProof *native_proof);
+
+/* Consumes/zeros plan before parsing. A missing/mismatched plan retains the
+ * existing native route, including complete admission and grammar fallback. */
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+    const char *input, size_t input_length, int parser_options,
+    PgQueryProtobufObserver observer, void *context,
+    size_t *statement_count, int *certified,
+    PgQueryNativeScalarInsertProof *native_proof,
+    PgQueryMysqlOwnedScalarInsertPlan *plan);
+
+/* Private all-or-nothing scalar INSERT batch constructor. Independent full
+ * source admission precedes native allocation; misses use ordinary grammar.
+ * Validation still requires canonical writer certification. No singleton or
+ * native graph provenance is produced, including on a backend writer miss. */
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
+    const char *input, int parser_options,
+    size_t *statement_count, int *certified);
 
 /* Validation-only route: always use the ordinary grammar. Certification is
  * produced by the existing canonical writer over that exact native tree.

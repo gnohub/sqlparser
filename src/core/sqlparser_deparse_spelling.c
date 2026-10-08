@@ -3060,6 +3060,19 @@ sqlparser_status_t sqlparser_identifier_origins_for_handle(
 		return SQLPARSER_STATUS_OK;
 	}
 
+	/* The constructor/clone/commit source certificate also proves when both
+	 * outer statement rewrites were identity. Build the complete origin map
+	 * with its existing source-SELECT writer without repeating those scans. */
+	origins = NULL;
+	status = sqlparser_oracle_try_replay_certified_multi_insert_origins(
+		handle, &origins, out_error);
+	if (status != SQLPARSER_STATUS_OK) return status;
+	if (origins != NULL) {
+		mutable_handle->identifier_origins = origins;
+		*out_origins = origins;
+		return SQLPARSER_STATUS_OK;
+	}
+
 	/* A fresh Oracle multi-insert already owns the exact preprocessing
 	 * result. Replay its existing origin writers rather than constructing
 	 * and discarding every branch/cell again. Generation zero also covers

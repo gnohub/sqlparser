@@ -165,6 +165,102 @@ static void dw_primitive_string_message(DirectWire *c,unsigned field,const char 
   dw_measure_envelope(c,field,length);
  }
 }
+/* A scalar list item has no descendants beyond Node, AConst and its
+ * primitive value (or Node and SQLValueFunction). Fuse those fixed envelopes
+ * without recording cache slots. The immutable native tree is still the sole
+ * input, and all other nodes retain the generated canonical visitors. */
+static size_t dw_fused_scalar_size(uint64_t value) {
+ return value?1U+dw_varint_length(value):0U;
+}
+static unsigned char *dw_fused_varint(unsigned char *out,uint64_t value) {
+ while(value>=128U){*out++=(unsigned char)(value|128U);value>>=7U;}
+ *out++=(unsigned char)value;return out;
+}
+static int dw_scalar_list_item(DirectWire *c,unsigned field,const void *object) {
+ const char *text=NULL;size_t text_length=0U,primitive=0U,body,node,total;
+ uint64_t value=0U,location=0U,text_location=0U,op=0U,type=0U,typmod=0U,n;
+ unsigned node_field,primitive_field=0U;int function=0;
+ unsigned char *out,*end;
+ if(!object || c->status!=1)return 0;
+ if(IsA(object,A_Const)) {
+  const A_Const *a=object;
+  if(a->isnull || c->depth>253U)return 0;
+  location=(uint64_t)(int64_t)(int32_t)a->location;
+  switch(nodeTag(&a->val.node)) {
+   case T_Integer:
+    primitive_field=1U;value=(uint64_t)(int64_t)(int32_t)a->val.ival.ival;break;
+   case T_Float:primitive_field=2U;text=a->val.fval.fval;break;
+   case T_String:
+    primitive_field=4U;text=a->val.sval.sval;
+    text_location=(uint64_t)(int64_t)(int32_t)a->val.sval.location;break;
+   default:return 0;
+  }
+  if(primitive_field==1U)primitive=dw_fused_scalar_size(value);
+  else {
+   text_length=text && *text?strlen(text):0U;
+   /* Decline impossible cached-message sizes before addition; the original
+    * visitor retains its exact overflow/error path on these edges. */
+   if(text_length>UINT32_MAX-32U)return 0;
+   primitive=(text_length?1U+dw_varint_length(text_length)+text_length:0U)+
+    dw_fused_scalar_size(text_location);
+  }
+  n=1U+dw_varint_length(primitive)+(uint64_t)primitive+dw_fused_scalar_size(location);
+  node_field=PG_QUERY__NODE__NODE_A_CONST;
+ } else if(IsA(object,SQLValueFunction)) {
+  const SQLValueFunction *v=object;
+  if(c->depth>254U)return 0;
+  function=1;node_field=PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION;
+  op=(uint64_t)(int64_t)(int32_t)_enumToIntSQLValueFunctionOp(v->op);
+  type=(uint64_t)(uint32_t)v->type;
+  typmod=(uint64_t)(int64_t)(int32_t)v->typmod;
+  location=(uint64_t)(int64_t)(int32_t)v->location;
+  n=dw_fused_scalar_size(op)+dw_fused_scalar_size(type)+
+    dw_fused_scalar_size(typmod)+dw_fused_scalar_size(location);
+ } else return 0;
+ if(n>UINT32_MAX)return 0;
+ body=(size_t)n;
+ n=dw_varint_length(((uint64_t)node_field<<3U)|2U)+dw_varint_length(body)+(uint64_t)body;
+ if(n>UINT32_MAX)return 0;
+ node=(size_t)n;
+ n=dw_varint_length(((uint64_t)field<<3U)|2U)+dw_varint_length(node)+(uint64_t)node;
+ if(n>SIZE_MAX || (size_t)n>SIZE_MAX-c->position)return 0;
+ total=(size_t)n;
+ if(!c->writing){c->position+=total;return 1;}
+ /* Reserve the complete fixed-shape item once. Unusual short output buffers
+  * use the existing primitive writes to preserve partial-byte failure state. */
+ if(c->position>c->output_size || total>c->output_size-c->position) {
+  dw_varint(c,((uint64_t)field<<3U)|2U);dw_varint(c,node);
+  dw_varint(c,((uint64_t)node_field<<3U)|2U);dw_varint(c,body);
+  if(function) {
+   dw_scalar(c,2U,op);dw_scalar(c,3U,type);dw_scalar(c,4U,typmod);dw_scalar(c,5U,location);
+  } else {
+   dw_varint(c,((uint64_t)primitive_field<<3U)|2U);dw_varint(c,primitive);
+   if(primitive_field==1U)dw_scalar(c,1U,value);
+   else {if(text_length)dw_data_field(c,1U,text,text_length);dw_scalar(c,2U,text_location);}
+   dw_scalar(c,11U,location);
+  }
+  return 1;
+ }
+ out=c->output+c->position;end=out+total;
+#define DW_FUSED_HEADER(f,len) do {out=dw_fused_varint(out,((uint64_t)(f)<<3U)|2U);out=dw_fused_varint(out,(len));} while(0)
+#define DW_FUSED_SCALAR(f,v) do {if(v){out=dw_fused_varint(out,(uint64_t)(f)<<3U);out=dw_fused_varint(out,(v));}} while(0)
+ DW_FUSED_HEADER(field,node);DW_FUSED_HEADER(node_field,body);
+ if(function) {
+  DW_FUSED_SCALAR(2U,op);DW_FUSED_SCALAR(3U,type);DW_FUSED_SCALAR(4U,typmod);DW_FUSED_SCALAR(5U,location);
+ } else {
+  DW_FUSED_HEADER(primitive_field,primitive);
+  if(primitive_field==1U)DW_FUSED_SCALAR(1U,value);
+  else {
+   if(text_length){DW_FUSED_HEADER(1U,text_length);memcpy(out,text,text_length);out+=text_length;}
+   DW_FUSED_SCALAR(2U,text_location);
+  }
+  DW_FUSED_SCALAR(11U,location);
+ }
+#undef DW_FUSED_HEADER
+#undef DW_FUSED_SCALAR
+ if(out!=end){c->status=-2;return 1;}
+ c->position+=total;return 1;
+}
 static void dw_list(DirectWire *c,unsigned field,const List *list) {
  const ListCell *cell;
  if(!list || c->status!=1)return;
@@ -173,7 +269,10 @@ static void dw_list(DirectWire *c,unsigned field,const List *list) {
  fprintf(stderr,"DIRECT_WIRE_FALLBACK_REASON non_node_list=%d\n",(int)nodeTag(list));
 #endif
  c->status=0;return;}
- foreach(cell,list) { dw_message(c,field,dw_Node,lfirst(cell)); if(c->status!=1)return; }
+ foreach(cell,list) {
+  if(!dw_scalar_list_item(c,field,lfirst(cell)))dw_message(c,field,dw_Node,lfirst(cell));
+  if(c->status!=1)return;
+ }
 }
 #include "direct_wire_visitors.inc"
 static int pg_query_try_direct_wire_mode(const void *object,PgQueryProtobuf *result,

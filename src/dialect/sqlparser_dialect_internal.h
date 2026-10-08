@@ -168,20 +168,41 @@ int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect);
 int sqlparser_dialect_supports_plain_scalar_insert(const sqlparser_handle_t *handle);
 int sqlparser_dialect_state_is_plain_insert_strings(
 	const sqlparser_handle_t *handle, size_t string_count);
+/* Exact-owner plain batch state predicate; not native/wire provenance. */
+int sqlparser_dialect_state_is_plain_insert_batch_strings(
+	const sqlparser_handle_t *handle, size_t statement_count, size_t string_count);
+int sqlparser_sqlserver_state_is_plain_insert_batch_strings(
+	const void *state, size_t statement_count, size_t string_count);
+int sqlparser_vastbase_sqlserver_state_is_plain_insert_batch_strings(
+	const void *state, size_t statement_count, size_t string_count);
 
 /* Separate, initial-parse-only capability. The callback returns scalar source
  * metadata from its actual identity-preprocessing pass, with the parser text
  * and state it just created. A zero record declines certification. No caller
  * pointer, proof, or additional allocation is retained in the state/handle.
  * The proof is NOT native-tree or wire provenance: the core still requires
- * exact source/parser bytes, the registered owner's state predicate, ordinary
- * grammar parsing and successful canonical writer certification. */
+ * exact source/parser bytes, the registered owner's state predicate, an
+ * independently complete native constructor (or ordinary grammar fallback),
+ * and successful canonical writer certification. Batch metadata is separate
+ * from singleton metadata and can never authorize singleton provenance. */
+/* Fresh exact base-MySQL initial parse only; never retained in state. */
+sqlparser_status_t sqlparser_mysql_preprocess_with_native_plan(
+    const char *input_sql, size_t input_length, const sqlparser_limits_t *limits,
+    char **out_parser_sql, void **out_state,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, sqlparser_error_t *out_error);
+
+typedef struct sqlparser_identity_insert_batch_proof {
+    size_t source_length;
+    size_t statement_count;
+    size_t string_count;
+} sqlparser_identity_insert_batch_proof_t;
 typedef sqlparser_status_t (*sqlparser_validation_preprocess_fn)(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error);
 sqlparser_validation_preprocess_fn sqlparser_dialect_validation_preprocessor(
 	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops);
@@ -191,6 +212,7 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
 	const char *input_sql,
@@ -198,6 +220,7 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error);
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void);

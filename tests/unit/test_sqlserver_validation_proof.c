@@ -1,5 +1,5 @@
 /* Validation regression: reuse the independent identity/state/guard
- * suite, then isolate ordinary-grammar writer certification and its allocator
+ * suite, then isolate independently certified native construction and its allocator
  * boundaries. This is correctness instrumentation, never a benchmark.
  *
  * The included production parser is compiled with -finstrument-functions so
@@ -26,6 +26,7 @@
 
 typedef struct {
     size_t grammar, simple_constructor, scalar_constructor, ordinary_entry, native_entry;
+    size_t batch_constructor, batch_entry;
     size_t certified_calls, certified_hits, unpack, unpack_free, observed;
     size_t control_take, bind_reset, owner_reset, strict_graph, native_graph, native_graph_hits;
 } vp_routes_t;
@@ -47,6 +48,9 @@ void __cyg_profile_func_enter(void *fn, void *caller)
     if (!vp_count_routes) return;
     if (fn == (void *)pg_query_try_simple_insert) ++vp_routes.simple_constructor;
     if (fn == (void *)pg_query_try_scalar_insert) ++vp_routes.scalar_constructor;
+    if (fn == (void *)pg_query_try_scalar_insert_batch) ++vp_routes.batch_constructor;
+    if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch)
+        ++vp_routes.batch_entry;
     if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary)
         ++vp_routes.ordinary_entry;
     if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native)
@@ -123,12 +127,17 @@ const sqlparser_dialect_ops_t *__wrap_sqlparser_dialect_get_ops(sqlparser_dialec
     copies[d] = *ops; return &copies[d];
 }
 static sqlparser_status_t vp_corrupt_proof(const char *sql, const sqlparser_limits_t *limits,
-    char **parser_sql, void **state, PgQueryIdentityScalarInsertProof *proof, sqlparser_error_t *error)
+    char **parser_sql, void **state, PgQueryIdentityScalarInsertProof *proof, sqlparser_identity_insert_batch_proof_t *batch_proof, sqlparser_error_t *error)
 {
-    sqlparser_status_t status = vp_base_preprocess(sql,limits,parser_sql,state,proof,error);
+    sqlparser_status_t status = vp_base_preprocess(sql,limits,parser_sql,state,proof,batch_proof,error);
     if (status == SQLPARSER_STATUS_OK && proof->row_count) {
         if (vp_bad_proof == 1) ++proof->source_length;
         else ++proof->string_count;
+    }
+    if (status == SQLPARSER_STATUS_OK && batch_proof != NULL && batch_proof->statement_count) {
+        if (vp_bad_proof == 1) ++batch_proof->source_length;
+        else if (vp_bad_proof == 2) ++batch_proof->string_count;
+        else ++batch_proof->statement_count;
     }
     return status;
 }
@@ -218,8 +227,10 @@ static void vp_start(void){CHECK(!vp_count_routes);memset(&vp_routes,0,sizeof(vp
 static vp_routes_t vp_stop(void){vp_count_routes=0;CHECK(!vp_converter_depth&&!vp_native_depth);return vp_routes;}
 static void vp_initial_routes(vp_routes_t r,int eligible,int mode)
 {
-    CHECK(r.grammar==1U&&r.simple_constructor==0U&&r.scalar_constructor==0U&&r.native_entry==0U);
-    CHECK(r.ordinary_entry==(size_t)eligible&&r.certified_calls==(size_t)eligible);
+    CHECK(r.grammar==(size_t)!eligible&&r.simple_constructor==(size_t)eligible);
+    CHECK(r.scalar_constructor<=(size_t)eligible&&r.native_entry==(size_t)eligible);
+    CHECK(r.ordinary_entry==0U&&r.certified_calls==(size_t)eligible);
+    CHECK(!r.batch_constructor&&!r.batch_entry);
     CHECK(r.certified_hits==(size_t)(eligible&&mode==VP_NORMAL));
     CHECK(r.unpack==(size_t)(!eligible||mode!=VP_NORMAL));
     CHECK(r.unpack_free==r.unpack);
@@ -234,9 +245,9 @@ static sqlparser_handle_t *vp_parse(const char *sql,sqlparser_dialect_t dialect)
 static void vp_pair(const char *sql,sqlparser_dialect_t dialect,int eligible,int mode)
 {
     char *owned=copy(sql);sqlparser_handle_t *a,*b;sqlparser_error_t e={0};vp_routes_t routes;
-    stage="fresh ordinary grammar, canonical bytes, full state and forced AST graph parity";
+    stage="fresh complete native construction, canonical bytes, full state and forced AST graph parity";
     vp_mode=mode;vp_start();a=vp_parse(owned,dialect);routes=vp_stop();vp_mode=VP_NORMAL;
-    vp_initial_routes(routes,eligible,mode);CHECK(!a->ast&&!a->native_scalar_provenance);
+    vp_initial_routes(routes,eligible,mode);CHECK(!a->ast&&!a->native_scalar_provenance&&!a->dialect_ops->plain_scalar_native_validation);
     force_reference=1;b=vp_parse(owned,dialect);force_reference=0;poison_free(owned);
     CHECK(!b->native_scalar_provenance);state_equal(a->dialect_state,b->dialect_state);
     CHECK(a->parse_tree.len==b->parse_tree.len&&!memcmp(a->parse_tree.data,b->parse_tree.data,a->parse_tree.len));
@@ -268,6 +279,65 @@ static void vp_route_boundaries(void)
             vp_bad_proof=0;vp_copy_owner=1;vp_pair(s,dialects[d],0,VP_NORMAL);vp_copy_owner=0;free(s);
         }
     }
+}
+/* Route assertions complement the inherited full preprocessing/error oracle:
+ * rewritten national strings/brackets, comments and statement boundaries must
+ * never reach a constructor through the SQLServer identity gate. */
+static void vp_native_fallbacks(void)
+{
+    static const struct { const char *table,*columns,*values,*tail; } inputs[]={
+        {"s.t","a,b,c","N'national',1,CURRENT_DATE",""},
+        {"[s].[t]","[a],b,c","'plain',1,CURRENT_DATE",""},
+        {"s.t","a,b,c","'one''two',1,CURRENT_DATE",""},
+        {"s.t","a,b,c","'plain',/* comment */1,CURRENT_DATE",""},
+        {"s.t","a,b,c","'plain',1,CURRENT_DATE","; -- trailing\n"},
+        {"s.t","a,b,c","'plain',1,CURRENT_DATE",";;"},
+        {"s.t","a,b,c","'plain',1,CURRENT_DATE","; SELECT 1"}
+    };
+    for(size_t d=0U;d<COUNT(dialects);++d)for(size_t i=0U;i<COUNT(inputs);++i){
+        char *sql=fixture(32U,4096U,inputs[i].table,inputs[i].columns,inputs[i].values,inputs[i].tail);
+        sqlparser_handle_t *a,*b;vp_routes_t r;
+        stage="SQLServer rewritten/comment/batch sources retain ordinary parsing";
+        vp_start();a=vp_parse(sql,dialects[d]);r=vp_stop();
+        CHECK(r.grammar==1U&&!r.simple_constructor&&!r.scalar_constructor&&!r.native_entry&&!r.ordinary_entry&&!r.batch_constructor&&!r.batch_entry);
+        CHECK(!a->native_scalar_provenance&&!a->dialect_ops->plain_scalar_native_validation);
+        force_reference=1;b=vp_parse(sql,dialects[d]);force_reference=0;
+        state_equal(a->dialect_state,b->dialect_state);handle_equal(a,b);
+        sqlparser_handle_destroy(a);sqlparser_handle_destroy(b);free(sql);++cases;
+    }
+    /* The complete two-column constructor is independently safe too. */
+    for(size_t d=0U;d<COUNT(dialects);++d){
+        char *sql=fixture(32U,4096U,"t","a,b","1,'plain'","; \n");
+        vp_pair(sql,dialects[d],1,VP_NORMAL);free(sql);
+    }
+}
+static void vp_native_options(void)
+{
+    static const int options[]={PG_QUERY_DISABLE_BACKSLASH_QUOTE,
+        PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS,PG_QUERY_DISABLE_ESCAPE_STRING_WARNING};
+    char *sql=fixture(32U,4096U,"s.t","a,b,c","'plain',1,CURRENT_DATE",";");
+    stage="nondefault native parser options always retain the ordinary grammar";
+    for(size_t i=0U;i<COUNT(options);++i){
+        size_t count=999U;int certified=1;PgQueryProtobufParseResult a,b;vp_routes_t r;
+        vp_start();a=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+            sql,options[i],NULL,NULL,&count,&certified,NULL);r=vp_stop();
+        b=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(sql,options[i],vp_observe,NULL);
+        CHECK(r.grammar==1U&&!r.simple_constructor&&!r.scalar_constructor&&r.native_entry==1U);
+        CHECK(!a.error&&!b.error&&count==1U&&certified);
+        CHECK(a.parse_tree.len==b.parse_tree.len&&!memcmp(a.parse_tree.data,b.parse_tree.data,a.parse_tree.len));
+        pg_query_free_protobuf_parse_result(a);pg_query_free_protobuf_parse_result(b);++cases;
+    }
+    free(sql);
+}
+static void vp_actual_fixture(const char *path)
+{
+    FILE *f=fopen(path,"rb");long length;char *sql;
+    CHECK(f&&fseek(f,0,SEEK_END)==0);length=ftell(f);CHECK(length>0&&length<16L*1024L*1024L);
+    CHECK(fseek(f,0,SEEK_SET)==0);sql=malloc((size_t)length+1U);CHECK(sql);
+    CHECK(fread(sql,1,(size_t)length,f)==(size_t)length&&fclose(f)==0);sql[length]='\0';
+    CHECK(strlen(sql)==(size_t)length);
+    for(size_t d=0U;d<COUNT(dialects);++d)vp_pair(sql,dialects[d],1,VP_NORMAL);
+    free(sql);
 }
 static void vp_exact_owners(void)
 {
@@ -346,8 +416,8 @@ static void vp_allocator_sweeps(void)
             sqlparser_parse_options_t o;sqlparser_handle_t *h=NULL;sqlparser_error_t e={0};sqlparser_status_t status;vp_routes_t r;
             sqlparser_parse_options_default(&o);o.dialect=dialects[d];sqlparser_pg_query_prepare();
             vp_arm(kind,at);vp_start();status=sqlparser_parse_with_options(sql,&o,&h,&e);r=vp_stop();vp_disarm();
-            CHECK(r.grammar==1U&&!r.simple_constructor&&!r.scalar_constructor&&r.ordinary_entry==1U&&r.certified_calls==1U);
-            CHECK(r.unpack==0U&&r.unpack_free==0U&&!r.native_entry);
+            CHECK(r.grammar==0U&&r.simple_constructor==1U&&r.scalar_constructor==1U&&r.ordinary_entry==0U&&r.certified_calls==1U);
+            CHECK(r.unpack==0U&&r.unpack_free==0U&&r.native_entry==1U);
             if(at==0U){
                 CHECK(status==SQLPARSER_STATUS_OK&&h&&!vp_injected&&r.certified_hits==1U);
                 CHECK(vp_cache_calls>=2U&&vp_output_calls==1U&&vp_live_blocks==1U&&vp_live_bytes==h->parse_tree.len);
@@ -389,11 +459,15 @@ static void vp_error_precedence(void)
 }
 #endif
 
-int main(int argc,char **argv)
+#ifndef SQLPARSER_VALIDATION_TEST_MAIN
+#define SQLPARSER_VALIDATION_TEST_MAIN main
+#endif
+int SQLPARSER_VALIDATION_TEST_MAIN(int argc,char **argv)
 {
 #ifdef SQLPARSER_VALIDATION_PROOF_WRAPPERS
-    vp_exact_owners();vp_route_boundaries();vp_graph_and_reparse();vp_writer_misses();vp_wrapper_and_errors();vp_allocator_sweeps();vp_error_precedence();
-    puts("SQLServer validation targeted routes, observed/AST parity, ownership and native-writer allocation sweeps passed");
+    vp_exact_owners();vp_route_boundaries();vp_native_fallbacks();vp_native_options();vp_graph_and_reparse();vp_writer_misses();vp_wrapper_and_errors();vp_allocator_sweeps();vp_error_precedence();
+    if(argc==2)vp_actual_fixture(argv[1]);
+    puts("SQLServer singleton native routes, observed/AST parity, ownership and native-writer allocation sweeps passed");
     puts("Backend check: no-certificate C++ contract emulated; this is not an actual C++ backend build");
 #else
     puts("SKIP: SQLServer validation route/failure checks require GNU function instrumentation and linker wrappers");

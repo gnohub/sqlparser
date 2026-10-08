@@ -1424,6 +1424,7 @@ static sqlparser_status_t sqlparser_vastbase_restore_session_statements(
 }
 
 static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
+	const sqlparser_dialect_ops_t *outer_ops,
 	const sqlparser_dialect_ops_t *base_ops,
 	unsigned int scan_flags,
 	const char *input_sql,
@@ -1431,6 +1432,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error)
 {
 	const char *parser_input;
@@ -1439,6 +1441,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	sqlparser_status_t status;
 
 	if (out_proof != NULL) memset(out_proof, 0, sizeof(*out_proof));
+	if (out_batch_proof != NULL) memset(out_batch_proof, 0, sizeof(*out_batch_proof));
 	if (input_sql == NULL || out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1484,13 +1487,18 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	/* Preserve both outer passes and their diagnostics/allocation order.
 	 * Only an unchanged outer source can forward the actual base proof;
 	 * Vastbase still owns the base state directly, without a wrapper. */
-	if (out_proof != NULL && base_ops == sqlparser_dialect_sqlserver_ops() &&
+	if ((out_proof != NULL || out_batch_proof != NULL) && base_ops == sqlparser_dialect_sqlserver_ops() &&
 	    rewritten_sql == NULL && hierarchy_sql == NULL) {
 		status = sqlparser_sqlserver_preprocess_validation_proof(
-			parser_input, limits, out_parser_sql, out_state, out_proof, out_error);
+			parser_input, limits, out_parser_sql, out_state, out_proof, out_batch_proof, out_error);
 	} else {
 		status = base_ops->preprocess(
 			parser_input, limits, out_parser_sql, out_state, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_multi_insert_record_outer_identity(
+			outer_ops, base_ops, *out_state,
+			rewritten_sql == NULL && hierarchy_sql == NULL);
 	}
 	free(hierarchy_sql);
 	free(rewritten_sql);
@@ -1503,14 +1511,16 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error)
 {
 	return sqlparser_vastbase_preprocess_delegate(
+		sqlparser_dialect_vastbase_sqlserver_ops(),
 		sqlparser_dialect_sqlserver_ops(),
 		SQLPARSER_VASTBASE_SCAN_NESTED_COMMENTS |
 			SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO |
 			SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES,
-		input_sql, limits, out_parser_sql, out_state, out_proof, out_error);
+		input_sql, limits, out_parser_sql, out_state, out_proof, out_batch_proof, out_error);
 }
 
 typedef sqlparser_status_t (*sqlparser_vastbase_origin_preprocess_fn)(
@@ -2849,13 +2859,14 @@ static sqlparser_status_t sqlparser_vastbase_project_session_delegate(
 		sqlparser_error_t *out_error) \
 		{ \
 			return sqlparser_vastbase_preprocess_delegate( \
+				sqlparser_dialect_vastbase_##TAG##_ops(), \
 				BASE_OPS_FN(), \
 				SCAN_FLAGS, \
 				input_sql, \
 			limits, \
 			out_parser_sql, \
 			out_state, \
-			NULL, \
+			NULL, NULL, \
 			out_error); \
 	} \
 	static sqlparser_status_t sqlparser_vastbase_##TAG##_postprocess_deparse( \
@@ -3243,6 +3254,15 @@ static int sqlparser_vastbase_sqlserver_state_is_plain_insert_strings(
 		base->state_is_plain_insert_strings(state, string_count);
 }
 
+int sqlparser_vastbase_sqlserver_state_is_plain_insert_batch_strings(
+	const void *state, size_t statement_count, size_t string_count)
+{
+	/* The SQLServer preprocess/clone/destroy paths below own this exact base
+	 * state directly. The registry checked the genuine outer owner first. */
+	return sqlparser_sqlserver_state_is_plain_insert_batch_strings(
+		state, statement_count, string_count);
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
 	SQLPARSER_DIALECT_VASTBASE_ORACLE,
 	"vastbase-oracle",
@@ -3267,7 +3287,7 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
 	sqlparser_vastbase_oracle_prepare_ast_state,
 	sqlparser_vastbase_oracle_relation_link_sql,
 	0,
-	0,
+	1,
 	NULL
 };
 

@@ -193,8 +193,8 @@ struct sqlparser_sqlserver_state {
  * string replacements preserve only these two lexical ordinals. No rewrite,
  * retained AST owner or inactive-but-populated fragment checkpoint may survive
  * the strict wire commit. Initial parsing and control extraction are unchanged. */
-static int sqlparser_sqlserver_state_is_plain_insert_strings(
-	const void *state, size_t string_count)
+static int sqlparser_sqlserver_state_is_plain_insert_strings_count(
+	const void *state, size_t statement_count, size_t string_count)
 {
 	const sqlparser_sqlserver_state_t *s = state;
 	if (s == NULL) return 0;
@@ -205,7 +205,7 @@ static int sqlparser_sqlserver_state_is_plain_insert_strings(
 		s->select_count == 0U && s->bit_word_count == 0U &&
 		s->bare_bit_restores == NULL && s->bare_bit_count == 0U && s->bare_bit_capacity == 0U &&
 		s->table_hints == NULL && s->table_hint_count == 0U && s->table_hint_capacity == 0U &&
-		s->table_source_count == 1U &&
+		s->table_source_count == statement_count &&
 		s->query_hints == NULL && s->query_hint_count == 0U && s->query_hint_capacity == 0U &&
 		s->json_suffixes == NULL && s->json_suffix_ordinals == NULL &&
 		s->json_suffix_count == 0U && s->json_suffix_capacity == 0U &&
@@ -227,6 +227,19 @@ static int sqlparser_sqlserver_state_is_plain_insert_strings(
 		s->fragment.cast_restore_count == 0U && s->fragment.cast_count == 0U &&
 		s->fragment.odbc_fn_count == 0U && s->fragment.output_dml_count == 0U &&
 		s->fragment.active == 0;
+}
+
+static int sqlparser_sqlserver_state_is_plain_insert_strings(
+	const void *state, size_t string_count)
+{
+	return sqlparser_sqlserver_state_is_plain_insert_strings_count(state, 1U, string_count);
+}
+
+int sqlparser_sqlserver_state_is_plain_insert_batch_strings(
+	const void *state, size_t statement_count, size_t string_count)
+{
+	return statement_count >= 2U &&
+		sqlparser_sqlserver_state_is_plain_insert_strings_count(state, statement_count, string_count);
 }
 
 typedef struct {
@@ -11134,12 +11147,92 @@ static int sqlparser_sqlserver_prove_identity_scalar_insert(
 		input, sqlparser_sqlserver_identity_name, proof);
 }
 
+typedef sqlparser_identity_insert_batch_proof_t sqlparser_sqlserver_identity_batch_t;
+
+/* Preprocessing identity only: this does not certify a native parse, wire,
+ * graph or validation shortcut. Reuse the existing complete scalar recognizer
+ * on bounded, owned slices and the existing forward statement scanner. The
+ * optional scratch allocation may fail silently; no partial proof escapes. */
+static int sqlparser_sqlserver_prove_identity_insert_batch(
+	const char *input, sqlparser_sqlserver_identity_batch_t *out_batch)
+{
+	sqlparser_sqlserver_identity_batch_t batch = {0};
+	char *scratch = NULL;
+	size_t capacity = 0U;
+	size_t start = 0U;
+	size_t end;
+	size_t next;
+
+	if (out_batch == NULL) return 0;
+	memset(out_batch, 0, sizeof(*out_batch));
+	/* Keep SELECT and other non-INSERT inputs away from strlen and scans. */
+	if (input == NULL || !sqlparser_sqlserver_ascii_word_equal(
+		    input, sqlparser_sqlserver_skip_space(input, 0U), "insert")) {
+		return 0;
+	}
+	batch.source_length = strlen(input);
+	end = sqlparser_sqlserver_statement_end(input, start, batch.source_length);
+	if (end >= batch.source_length) return 0;
+	next = sqlparser_sqlserver_skip_space(input, end + 1U);
+	/* A lone INSERT, even when the scalar proof missed it, retains its old
+	 * allocation/error behavior. An empty or non-INSERT second slice misses. */
+	if (next >= batch.source_length ||
+	    !sqlparser_sqlserver_ascii_word_equal(input, next, "insert")) {
+		return 0;
+	}
+	for (;;) {
+		PgQueryIdentityScalarInsertProof proof;
+		size_t length = end - start;
+		if (end < batch.source_length) length++;
+		/* The unchanged scalar recognizer declines sources below 4096 bytes.
+		 * Avoid optional scratch work for these guaranteed misses. */
+		if (length < 4096U || length == SIZE_MAX) break;
+		if (capacity <= length) {
+			char *grown;
+			size_t wanted = capacity == 0U ? 4096U : capacity;
+			while (wanted <= length) {
+				if (wanted > SIZE_MAX / 2U) {
+					wanted = length + 1U;
+					break;
+				}
+				wanted *= 2U;
+			}
+			grown = (char *)realloc(scratch, wanted);
+			if (grown == NULL) break;
+			scratch = grown;
+			capacity = wanted;
+		}
+		memcpy(scratch, input + start, length);
+		scratch[length] = '\0';
+		if (!sqlparser_sqlserver_prove_identity_scalar_insert(scratch, &proof) ||
+		    proof.string_count > SIZE_MAX - batch.string_count ||
+		    batch.statement_count == SIZE_MAX) {
+			break;
+		}
+		batch.string_count += proof.string_count;
+		batch.statement_count++;
+		if (end >= batch.source_length ||
+		    sqlparser_sqlserver_skip_space(input, end + 1U) == batch.source_length) {
+			free(scratch);
+			*out_batch = batch;
+			return 1;
+		}
+		start = end + 1U;
+		next = sqlparser_sqlserver_skip_space(input, start);
+		if (!sqlparser_sqlserver_ascii_word_equal(input, next, "insert")) break;
+		end = sqlparser_sqlserver_statement_end(input, start, batch.source_length);
+	}
+	free(scratch);
+	return 0;
+}
+
 sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_state_t *state;
@@ -11149,6 +11242,7 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	sqlparser_status_t status;
 
 	if (out_proof != NULL) memset(out_proof, 0, sizeof(*out_proof));
+	if (out_batch_proof != NULL) memset(out_batch_proof, 0, sizeof(*out_batch_proof));
 	if (out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -11171,10 +11265,11 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	/* This is a preprocessing-only proof. Ordinary grammar and a separate
-	 * canonical writer certificate remain authoritative for initial validation;
-	 * graph admission still requires its independent strict wire certificate.
-	 * Origin-aware and fragment preprocessing deliberately use the old path. */
+	/* These are preprocessing-only proofs. Each native constructor must
+	 * independently certify the complete source grammar, and the canonical
+	 * writer must separately certify initial validation. Graph admission still
+	 * requires its independent strict wire certificate. Origin-aware and
+	 * fragment parsing retain their ordinary grammar paths. */
 	{
 		PgQueryIdentityScalarInsertProof proof;
 		if (sqlparser_sqlserver_prove_identity_scalar_insert(input_sql, &proof)) {
@@ -11199,6 +11294,35 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 			/* Publish only after all original allocations, rejection checks
 			 * and state writes succeed. The proof describes this owned copy. */
 			if (out_proof != NULL) *out_proof = proof;
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	{
+		sqlparser_sqlserver_identity_batch_t batch;
+		if (sqlparser_sqlserver_prove_identity_insert_batch(input_sql, &batch)) {
+			preprocess_sql = sqlparser_strndup(input_sql, batch.source_length);
+			if (preprocess_sql == NULL) {
+				sqlparser_sqlserver_state_destroy(state);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			/* Preserve the complete-source RAW inventory, masking and error
+			 * contract even for trigger words inside ordinary string literals. */
+			status = sqlparser_sqlserver_reject_unsupported(input_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				free(preprocess_sql);
+				sqlparser_sqlserver_state_destroy(state);
+				return status;
+			}
+			state->literal_count = batch.string_count;
+			/* Legacy table_source_visit starts one INSERT target, closes it
+			 * at the explicit column list, and resets its scope at ';'. */
+			state->table_source_count = batch.statement_count;
+			*out_parser_sql = preprocess_sql;
+			*out_state = state;
+			/* Keep singleton proof zero. Separate identity metadata is only a
+			 * gate to independent whole-batch native and writer certification. */
+			if (out_batch_proof != NULL) *out_batch_proof = batch;
 			return SQLPARSER_STATUS_OK;
 		}
 	}
@@ -11262,7 +11386,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	sqlparser_error_t *out_error)
 {
 	return sqlparser_sqlserver_preprocess_validation_proof(
-		input_sql, limits, out_parser_sql, out_state, NULL, out_error);
+		input_sql, limits, out_parser_sql, out_state, NULL, NULL, out_error);
 }
 
 sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(

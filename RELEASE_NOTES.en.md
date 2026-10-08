@@ -1,14 +1,14 @@
-# v2.17.1 Release Notes
+# v2.17.2 Release Notes
 
-Version 2.17.1 improves batch INSERT parsing, query graph construction and string rewriting, and fixes related literal-text lifetimes. Public function signatures, structure layouts, exports and the 2.17.0 calling rules remain unchanged.
+Version 2.17.2 improves batch INSERT parsing, query graph construction and string rewriting. Public APIs and the 2.17.0 calling rules remain unchanged.
 
-## Improvements and Fixes
+## Improvements
 
-- Optimize preprocessing, parsing, query graph construction and string rewriting for eligible single-statement batch INSERTs, reducing repeated parsing and intermediate AST materialization.
-- Optimize INSERT validation and batch string replacement in SQL Server and compatible dialects, reusing validation evidence and combining source edits for eligible statements while retaining final validation.
-- Optimize string commits, SQL value function classification and identifier-origin handling for Oracle-family multi-table inserts.
-- Reduce repeated traversal, allocation and copying in serialization, selector resolution and source edits. Ineligible inputs retain generic processing and validation.
-- Fix the lifetime of some literal text in Oracle-family multi-table insert graphs.
+- Optimize native construction of MySQL scalar INSERTs by reusing completed source validation, reducing repeated scanning and validation.
+- Optimize scalar VALUES encoding and temporary write plans, reducing repeated decoding, size calculation and copying.
+- Optimize Oracle-family multi-table inserts by reusing source spans and identifier-origin information, and improving branch storage, query graph construction and string rewriting.
+- Optimize preprocessing, query graphs and string rewriting for single- and multi-statement SQL Server-family INSERTs and Dameng scalar INSERTs.
+- Retain generic processing and validation for ineligible inputs.
 
 ## Calling Rules
 

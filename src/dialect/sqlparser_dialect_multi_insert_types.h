@@ -2,6 +2,7 @@
 #define SQLPARSER_DIALECT_MULTI_INSERT_TYPES_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "sqlparser/sqlparser.h"
 
@@ -52,14 +53,42 @@ typedef struct {
 	int has_condition;
 	int is_else;
 	size_t condition_group_id;
+	uint32_t oracle_span_base;
 } sqlparser_dialect_multi_insert_branch_t;
+
+typedef struct {
+	uint32_t source_start;
+	uint32_t source_length;
+	uint32_t lexical_flags;
+} sqlparser_oracle_cell_span_t;
+
+enum {
+	SQLPARSER_ORACLE_CELL_ORDINARY_STRING = 1U,
+	SQLPARSER_ORACLE_CELL_IDENTITY = 2U
+};
 
 typedef struct {
 	sqlparser_dialect_multi_insert_mode_t mode;
 	sqlparser_dialect_multi_insert_branch_t *branches;
 	size_t branch_count;
+	/* Private constructor storage; only branch_count entries own values. */
+	size_t branch_capacity;
 	char *source_public_sql;
 	char *source_parser_sql;
+	/* Optional constructor facts, allocated only by the Oracle constructor.
+	 * IDs are stable indices; no caller, graph or cell-allocation pointers. */
+	sqlparser_oracle_cell_span_t *oracle_spans;
+	size_t oracle_span_count;
+	size_t oracle_span_capacity;
+	uint32_t oracle_source_start;
+	uint32_t oracle_source_length;
+	int oracle_spans_complete;
+	int oracle_spans_identity;
+	int oracle_outer_identity;
+	uint32_t *oracle_pending_ids;
+	size_t oracle_pending_count;
+	size_t oracle_pending_capacity;
+	int oracle_pending_disabled;
 	/* Oracle-only, issued after parse or a certified branch-string commit.
 	 * Kept here so ordinary handles and SELECT state pay no storage cost. */
 	struct {

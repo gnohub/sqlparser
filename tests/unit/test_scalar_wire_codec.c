@@ -4,25 +4,55 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sqlparser_wire_insert_internal.h"
+#include "../../src/core/sqlparser_wire_insert.c"
 
 static sqlparser_error_t error;
 static size_t checks;
 #define CHECK(x) do { ++checks; if (!(x)) { fprintf(stderr, "%s:%d: %s (%s)\n", __FILE__, __LINE__, #x, error.message); abort(); } } while (0)
 #ifdef SQLPARSER_SCALAR_CODEC_WRAPPERS
-static size_t fail_at, allocations, failures;
+static size_t fail_at, fail_also_at, allocations, failures, allocation_sizes[8];
 void *__real_malloc(size_t);
 void *__real_calloc(size_t, size_t);
 void *__wrap_malloc(size_t n) {
-    if (fail_at != 0U && ++allocations == fail_at) { failures++; return NULL; }
+    if (fail_at != 0U) {
+        ++allocations;
+        if (allocations <= 8U) allocation_sizes[allocations - 1U] = n;
+        if (allocations == fail_at || allocations == fail_also_at) { failures++; return NULL; }
+    }
     return __real_malloc(n);
 }
 void *__wrap_calloc(size_t n, size_t size) {
     if (fail_at != 0U && ++allocations == fail_at) { failures++; return NULL; }
     return __real_calloc(n, size);
 }
-static void arm(size_t index) { fail_at = index; allocations = failures = 0U; }
+static void arm(size_t index) { fail_at = index; fail_also_at = 0U; allocations = failures = 0U; }
 static void disarm(void) { fail_at = 0U; CHECK(failures == 1U); }
+#endif
+
+#ifdef SQLPARSER_SCALAR_CODEC_WRAPPERS
+/* Compare the optional validated write plan with the unchanged two-pass path
+ * on every successful normal pack, including zero, partial and all edits. */
+static sqlparser_status_t differential_pack(const sqlparser_wire_scalar_insert_t *cert,
+    const sqlparser_surface_source_edits_t *edits, PgQueryProtobuf *out, int proven)
+{
+    sqlparser_status_t status = proven ?
+        sqlparser_wire_scalar_insert_pack_proven_edits(cert, edits, out) :
+        sqlparser_wire_scalar_insert_pack(cert, edits, out);
+    if (status == SQLPARSER_STATUS_OK && fail_at == 0U) {
+        PgQueryProtobuf old = {0};
+        sqlparser_status_t old_status;
+        arm(2U);
+        old_status = proven ? sqlparser_wire_scalar_insert_pack_proven_edits(cert, edits, &old) :
+            sqlparser_wire_scalar_insert_pack(cert, edits, &old);
+        disarm();
+        CHECK(old_status == SQLPARSER_STATUS_OK && old.len == out->len);
+        CHECK(memcmp(old.data, out->data, old.len) == 0);
+        free(old.data);
+    }
+    return status;
+}
+#define sqlparser_wire_scalar_insert_pack(c, e, o) differential_pack(c, e, o, 0)
+#define sqlparser_wire_scalar_insert_pack_proven_edits(c, e, o) differential_pack(c, e, o, 1)
 #endif
 
 static sqlparser_handle_t *parse(const char *sql)
@@ -160,8 +190,15 @@ static void roundtrip(size_t columns, size_t padding, int semicolon, const char 
         }
         arm(1U); CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_UNSUPPORTED); disarm();
         CHECK(packed.data == NULL);
-        arm(2U); CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_NO_MEMORY); disarm();
-        CHECK(packed.data == NULL);
+        /* Optional validated-plan allocation failure retains the old codec. */
+        arm(2U); CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_OK); disarm();
+        same_wire(&packed, reference); free(packed.data);
+        arm(3U); CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_NO_MEMORY); disarm();
+        CHECK(packed.data == NULL && packed.len == 0U);
+        arm(2U); fail_also_at = 3U;
+        CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_NO_MEMORY);
+        fail_at = fail_also_at = 0U;
+        CHECK(failures == 2U && packed.data == NULL && packed.len == 0U);
         CHECK(sqlparser_wire_scalar_insert_pack(cert, &edits, &packed) == SQLPARSER_STATUS_OK);
         same_wire(&packed, reference); free(packed.data);
     }
@@ -226,6 +263,112 @@ static void long_string_boundaries(void)
     }
 }
 
+/* Include the private implementation above rather than exposing a test ABI.
+ * Every short capacity must match the original checked writer byte-for-byte,
+ * including untouched bytes, cursor movement and sticky failure state. */
+static void planned_writer_boundaries(void)
+{
+    static const uint32_t values[] = {0U, 1U, 126U, 127U, 128U, 129U,
+        16382U, 16383U, 16384U, 16385U, 2097151U, 2097152U,
+        268435455U, 268435456U, INT32_MAX};
+    static const uint32_t lengths[] = {0U, 1U, 117U, 118U, 119U, 120U,
+        126U, 127U, 128U, 129U, 16370U, 16371U, 16382U, 16383U, 16384U};
+    size_t kind, index;
+    char *text = malloc(16384U);
+    uint8_t *actual = malloc(16448U), *expected = malloc(16448U);
+    CHECK(text != NULL && actual != NULL && expected != NULL);
+    memset(text, 'q', 16384U);
+    for (kind = SQLPARSER_WIRE_SCALAR_INTEGER; kind <= SQLPARSER_WIRE_SCALAR_VALUE_FUNCTION; ++kind) {
+        for (index = 0U; index < sizeof(values) / sizeof(values[0]); ++index) {
+            sqlparser_wire_scalar_cell_t cell = {0};
+            wi_cell_sizes sizes;
+            wsi_planned_cell entry;
+            size_t count, capacity, sticky;
+            cell.kind = (sqlparser_wire_scalar_kind_t)kind;
+            cell.location = (int32_t)values[index];
+            cell.integer = kind == SQLPARSER_WIRE_SCALAR_VALUE_FUNCTION ?
+                PG_QUERY__SQLVALUE_FUNCTION_OP__SVFOP_CURRENT_DATE : (int32_t)values[index];
+            cell.text = text;
+            cell.length = lengths[index];
+            if (kind == SQLPARSER_WIRE_SCALAR_FLOAT && cell.length == 0U) cell.length = 1U;
+            CHECK(wsi_measure_cell(&cell, &sizes));
+            wsi_plan_cell(&entry, &cell, &sizes);
+            count = (size_t)wi_envelope(WI_LIST_ITEMS, sizes.node);
+            for (sticky = 0U; sticky <= 1U; ++sticky) {
+                for (capacity = 0U; capacity <= count + 1U; ++capacity) {
+                    wi_writer a = {actual, actual + capacity, (int)sticky};
+                    wi_writer b = {expected, expected + capacity, (int)sticky};
+                    memset(actual, 0xa5, count + 2U);
+                    memset(expected, 0xa5, count + 2U);
+                    wsi_write_planned_cell(&a, &entry);
+                    wsi_write_cell(&b, &cell, &sizes);
+                    CHECK(a.failed == b.failed && a.next - actual == b.next - expected);
+                    CHECK(memcmp(actual, expected, count + 2U) == 0);
+                    if (capacity >= count) CHECK(a.next == actual + count && a.failed == (int)sticky);
+                }
+            }
+        }
+    }
+    free(expected); free(actual); free(text);
+}
+
+#ifdef SQLPARSER_SCALAR_CODEC_WRAPPERS
+static void plan_budget_and_lifetime(void)
+{
+    const size_t entry_size = sizeof(wsi_planned_cell);
+    const size_t maximum_rows = (2U * 1024U * 1024U) / entry_size / 9U;
+    const size_t rows[] = {5000U, maximum_rows, maximum_rows + 1U};
+    size_t i;
+    CHECK(entry_size == sizeof(const char *) + 24U);
+    for (i = 0U; i < sizeof(rows) / sizeof(rows[0]); ++i) {
+        size_t row, used;
+        char *sql = malloc(rows[i] * 64U + 256U);
+        sqlparser_handle_t *handle;
+        sqlparser_wire_scalar_insert_t *cert;
+        sqlparser_surface_source_edits_t none = {0};
+        PgQueryProtobuf packed = {0};
+        PgQuery__ParseResult *tree;
+        CHECK(sql != NULL);
+        used = (size_t)sprintf(sql, "INSERT INTO budget_test(a,b,c,d,e,f,g,h,i) VALUES ");
+        for (row = 0U; row < rows[i]; ++row)
+            used += (size_t)sprintf(sql + used, "%s(1,127,'text',100.50,0,128,16384,2,3)", row ? "," : "");
+        strcpy(sql + used, ";");
+        handle = parse(sql);
+        cert = sqlparser_wire_scalar_insert_certify(handle); CHECK(cert != NULL);
+        arm(SIZE_MAX);
+        /* Parenthesized symbol bypasses the differential helper: the oversized
+         * case intentionally skips the optional allocation altogether. */
+        CHECK((sqlparser_wire_scalar_insert_pack)(cert, &none, &packed) == SQLPARSER_STATUS_OK);
+        fail_at = 0U;
+        CHECK(failures == 0U);
+        CHECK(allocations == (rows[i] <= maximum_rows ? 3U : 2U));
+        CHECK(allocation_sizes[0] == rows[i] * sizeof(uint32_t));
+        if (rows[i] <= maximum_rows) {
+            CHECK(allocation_sizes[1] == rows[i] * 9U * entry_size);
+            CHECK(allocation_sizes[1] <= 2U * 1024U * 1024U);
+            printf("validated plan: %zu-byte entries, %zu cells, %zu transient bytes plus %zu row-size bytes\n", entry_size, rows[i] * 9U, allocation_sizes[1], rows[i] * sizeof(uint32_t));
+        }
+        same_wire(&packed, handle);
+        if (rows[i] <= maximum_rows) {
+            PgQueryProtobuf fallback = {0};
+            arm(2U);
+            CHECK((sqlparser_wire_scalar_insert_pack)(cert, &none, &fallback) == SQLPARSER_STATUS_OK);
+            disarm();
+            CHECK(fallback.len == packed.len && memcmp(fallback.data, packed.data, packed.len) == 0);
+            free(fallback.data);
+        }
+        sqlparser_wire_scalar_insert_destroy(cert);
+        sqlparser_handle_destroy(handle);
+        memset(sql, 0xa5, used); free(sql);
+        tree = pg_query__parse_result__unpack(NULL, packed.len, (const uint8_t *)packed.data);
+        CHECK(tree != NULL && tree->n_stmts == 1U);
+        CHECK(tree->stmts[0]->stmt->insert_stmt->select_stmt->select_stmt->n_values_lists == rows[i]);
+        pg_query__parse_result__free_unpacked(tree, NULL);
+        free(packed.data);
+    }
+}
+#endif
+
 int main(void)
 {
     static const char *functions[] = {"CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "LOCALTIME", "LOCALTIMESTAMP", "CURRENT_ROLE", "CURRENT_USER", "USER", "SESSION_USER", "CURRENT_CATALOG", "CURRENT_SCHEMA"};
@@ -244,6 +387,10 @@ int main(void)
         CHECK(cert == NULL); sqlparser_handle_destroy(handle); free(sql);
     }
     long_string_boundaries();
+    planned_writer_boundaries();
+#ifdef SQLPARSER_SCALAR_CODEC_WRAPPERS
+    plan_budget_and_lifetime();
+#endif
     pg_query_exit();
     printf("scalar wire codec: %zu checks passed\n", checks);
     return 0;

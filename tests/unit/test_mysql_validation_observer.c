@@ -49,6 +49,25 @@ __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_nat
     return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
         sql, options, observer, context, statement_count, certified, native_proof);
 }
+PgQueryProtobufParseResult
+__real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(const char *, size_t, int, PgQueryProtobufObserver,
+    void *, size_t *, int *, PgQueryNativeScalarInsertProof *, PgQueryMysqlOwnedScalarInsertPlan *);
+PgQueryProtobufParseResult
+__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+    const char *sql, size_t length, int options, PgQueryProtobufObserver observer, void *context,
+    size_t *count, int *certified, PgQueryNativeScalarInsertProof *proof,
+    PgQueryMysqlOwnedScalarInsertPlan *plan)
+{
+    if (disable_observer) {
+        if (plan) memset(plan, 0, sizeof(*plan));
+        return __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+            sql, options, observer, context, count, certified, proof);
+    }
+    observed_parse_calls++;
+    return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+        sql, length, options, observer, context, count, certified, proof, plan);
+}
+
 PgQuery__ParseResult *__real_pg_query__parse_result__unpack(
     ProtobufCAllocator *, size_t, const uint8_t *);
 PgQuery__ParseResult *__wrap_pg_query__parse_result__unpack(

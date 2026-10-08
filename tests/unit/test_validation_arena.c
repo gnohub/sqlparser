@@ -39,6 +39,21 @@ __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_nat
     return __real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         sql, options, NULL, context);
 }
+PgQueryProtobufParseResult
+__real_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(const char *, size_t, int, PgQueryProtobufObserver,
+    void *, size_t *, int *, PgQueryNativeScalarInsertProof *, PgQueryMysqlOwnedScalarInsertPlan *);
+PgQueryProtobufParseResult
+__wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native_plan(
+    const char *sql, size_t length, int options, PgQueryProtobufObserver observer, void *context,
+    size_t *count, int *certified, PgQueryNativeScalarInsertProof *proof,
+    PgQueryMysqlOwnedScalarInsertPlan *plan)
+{
+    (void)length;
+    if (plan) memset(plan, 0, sizeof(*plan));
+    return __wrap_pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
+        sql, options, observer, context, count, certified, proof);
+}
+
 void *__wrap_malloc(size_t size)
 {
     void *p;

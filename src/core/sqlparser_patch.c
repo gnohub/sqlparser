@@ -8412,6 +8412,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	int raw_plain_verified,
 	int certified_insert_source,
 	const sqlparser_wire_scalar_insert_t *certified_wire_string_target,
+	const sqlparser_wire_scalar_batch_t *certified_wire_batch_target,
 	int *in_out_preserves_ordinals,
 	int *out_supported,
 	sqlparser_error_t *out_error)
@@ -8507,8 +8508,18 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	     known_node->a_const->val_case != PG_QUERY__A__CONST__VAL_SVAL ||
 	     in_out_preserves_ordinals == NULL || *in_out_preserves_ordinals != 2))
 		return SQLPARSER_STATUS_OK;
+	if (certified_wire_batch_target != NULL &&
+	    (certified_wire_string_target != NULL ||
+	     certified_wire_batch_target != sqlparser_query_graph_wire_scalar_batch(handle) ||
+	     certified_insert_source != 1 || handle->ast != NULL || handle->control != NULL ||
+	     patch->op != SQLPARSER_PATCH_REPLACE || selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL ||
+	     selector.statement_index >= certified_wire_batch_target->statement_count || known_node == NULL ||
+	     known_node->node_case != PG_QUERY__NODE__NODE_A_CONST || known_node->a_const == NULL ||
+	     known_node->a_const->val_case != PG_QUERY__A__CONST__VAL_SVAL ||
+	     in_out_preserves_ordinals == NULL || *in_out_preserves_ordinals != 2))
+		return SQLPARSER_STATUS_OK;
 	if (sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
-	    certified_wire_string_target == NULL) {
+	    certified_wire_string_target == NULL && certified_wire_batch_target == NULL) {
 		status = sqlparser_handle_ensure_ast(handle, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
@@ -9240,6 +9251,11 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	} else {
 		status = sqlparser_surface_source_edits_insert(
 			edits, source_start, source_end, replacement, replacement_length, out_supported, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && *out_supported &&
+	    selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL && patch->op == SQLPARSER_PATCH_REPLACE) {
+		sqlparser_oracle_note_multi_insert_edit(handle, selector.statement_index,
+			selector.row_index, selector.column_index, source_start, source_end);
 	}
 	free(rendered);
 	free(insertion);
@@ -10903,10 +10919,22 @@ static sqlparser_status_t sqlparser_patch_validate_expression_sql(
 	if (literal == NULL && handle->dialect_ops != NULL &&
 	    handle->dialect_ops->plain_ascii_string_fragments &&
 	    selector_kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
-	    in_out_preserves_ordinals != NULL && *in_out_preserves_ordinals == 2 &&
+	    in_out_preserves_ordinals != NULL &&
+	    (*in_out_preserves_ordinals == 2 ||
+	     (*in_out_preserves_ordinals == 1 &&
+	      ((handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	        handle->dialect_ops == sqlparser_dialect_oracle_ops()) ||
+	       (handle->dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE &&
+	        handle->dialect_ops == sqlparser_dialect_kingbase_oracle_ops()) ||
+	       (handle->dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE &&
+	        handle->dialect_ops == sqlparser_dialect_vastbase_oracle_ops())))) &&
 	    (raw_plain_verified || sqlparser_patch_plain_ascii_string_sql(sql_text))) {
 		/* The recognizer proves STRING AConst classification and unchanged
-		 * selector ordinals; retain the identical per-fragment limit check. */
+		 * selector ordinals; retain the identical per-fragment limit check.
+		 * Registered Oracle multi-insert planners use incoming 1, not 2.
+		 * Their portable parse produces one STRING AConst, no dialect state,
+		 * and leaves that incoming 1 untouched. Do not promote the planner's
+		 * proof, admit incoming 0, or trust a copied/mismatched owner here. */
 		return sqlparser_validate_handle_sql_input(
 			handle, sql_text, "expression patch SQL", out_error);
 	}
@@ -11603,7 +11631,7 @@ static sqlparser_status_t sqlparser_patch_apply_surface_batch(
 				sql_length, &preserves, &supported, out_error);
 		} else {
 			status = sqlparser_patch_plan_surface_edit(handle, patch, selector, edits,
-				&caches[0], sqlserver_surface_cache, known_node, known_parent, sql_length, 0, 0, NULL, &preserves, &supported, out_error);
+				&caches[0], sqlserver_surface_cache, known_node, known_parent, sql_length, 0, 0, NULL, NULL, &preserves, &supported, out_error);
 		}
 		if (status != SQLPARSER_STATUS_OK) return status;
 		if (supported || !*pending) break;
@@ -11848,7 +11876,7 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 				patch,
 				planned_selector,
 				surface_edits,
-				NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL,
+				NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL, NULL,
 				&surface_supported,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -11897,7 +11925,7 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 					patch,
 					planned_selector,
 					surface_edits,
-					NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL,
+					NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL, NULL,
 					&surface_supported,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
@@ -12757,7 +12785,7 @@ static sqlparser_status_t sqlparser_patch_try_readonly_insert_strings(
         }
 		supported = 0;
 		status = sqlparser_patch_plan_surface_edit(handle, patch, &selector,
-			&edits, &cache, NULL, node, parent, &sql_length, all_raw_plain, source_certified ? 1 : mixed_certified ? 2 : 0, NULL, &preserves, &supported, out_error);
+			&edits, &cache, NULL, node, parent, &sql_length, all_raw_plain, source_certified ? 1 : mixed_certified ? 2 : 0, NULL, NULL, &preserves, &supported, out_error);
 		if (status != SQLPARSER_STATUS_OK || !supported || preserves != 2) goto done;
 	}
 	/* Certification is allocation-free and cannot change validation/error order.
@@ -12882,7 +12910,7 @@ static sqlparser_status_t sqlparser_patch_try_wire_insert_strings(
         node.node_case = PG_QUERY__NODE__NODE_A_CONST;
         node.a_const = &constant;
         status = sqlparser_patch_plan_surface_edit(handle, patch, &selector,
-            &edits, &cache, NULL, &node, NULL, &sql_length, all_raw_plain, 1, NULL,
+            &edits, &cache, NULL, &node, NULL, &sql_length, all_raw_plain, 1, NULL, NULL,
             &preserves, &supported, out_error);
         if (status != SQLPARSER_STATUS_OK || !supported || preserves != 2) goto done;
     }
@@ -12977,7 +13005,7 @@ static sqlparser_status_t sqlparser_patch_try_wire_scalar_insert_strings(
         node.node_case = PG_QUERY__NODE__NODE_A_CONST;
         node.a_const = &constant;
         status = sqlparser_patch_plan_surface_edit(handle, patch, &selector,
-            &edits, &cache, NULL, &node, NULL, &sql_length, all_raw_plain, 1, insert,
+            &edits, &cache, NULL, &node, NULL, &sql_length, all_raw_plain, 1, insert, NULL,
             &preserves, &supported, out_error);
         if (status != SQLPARSER_STATUS_OK || !supported || preserves != 2) goto done;
     }
@@ -13012,6 +13040,8 @@ done:
     free(packed.data);
     return status;
 }
+
+#include "sqlparser_patch_wire_batch.inc"
 
 /* Patch data may borrow strings from a graph or another handle view. Copy
  * payloads before the first mutation, without cloning any SQL/AST/graph state.
@@ -13143,11 +13173,15 @@ sqlparser_status_t sqlparser_apply_patch(
 	status = sqlparser_patch_try_wire_scalar_insert_strings(handle, patches, &readonly_handled, out_error);
 	if (status != SQLPARSER_STATUS_OK) goto failed;
 	if (readonly_handled) return SQLPARSER_STATUS_OK;
+	status = sqlparser_patch_try_wire_scalar_batch_strings(handle, patches, &readonly_handled, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto failed;
+	if (readonly_handled) return SQLPARSER_STATUS_OK;
 	/* The old graph path already owned a generic AST. On a wire-batch miss,
 	 * restore that state once before its unchanged read-only/generic planner.
 	 * Keep graph-owned strings alive until input snapshots/planning finish. */
 	if ((sqlparser_query_graph_wire_insert(handle) != NULL ||
-	     sqlparser_query_graph_wire_scalar_insert(handle) != NULL) && handle->ast == NULL) {
+	     sqlparser_query_graph_wire_scalar_insert(handle) != NULL ||
+	     sqlparser_query_graph_wire_scalar_batch(handle) != NULL) && handle->ast == NULL) {
 		status = sqlparser_handle_ensure_ast(handle, out_error);
 		if (status != SQLPARSER_STATUS_OK) goto failed;
 	}

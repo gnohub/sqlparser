@@ -83,6 +83,29 @@ int sqlparser_dialect_state_is_plain_insert_strings(
 			handle->dialect_state, string_count);
 }
 
+int sqlparser_dialect_state_is_plain_insert_batch_strings(
+	const sqlparser_handle_t *handle, size_t statement_count, size_t string_count)
+{
+	const sqlparser_dialect_ops_t *ops;
+	if (handle == NULL || statement_count < 2U ||
+	    (ops = handle->dialect_ops) == NULL ||
+	    ops != sqlparser_dialect_get_ops(handle->dialect) ||
+	    handle->sql == NULL || handle->parser_sql == NULL ||
+	    handle->sql_len != handle->parser_sql_len ||
+	    (handle->sql != handle->parser_sql &&
+	     memcmp(handle->sql, handle->parser_sql, handle->sql_len) != 0)) return 0;
+	if ((handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
+	     handle->dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER) &&
+	    ops == sqlparser_dialect_sqlserver_ops())
+		return sqlparser_sqlserver_state_is_plain_insert_batch_strings(
+			handle->dialect_state, statement_count, string_count);
+	if (handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+	    ops == sqlparser_dialect_vastbase_sqlserver_ops())
+		return sqlparser_vastbase_sqlserver_state_is_plain_insert_batch_strings(
+			handle->dialect_state, statement_count, string_count);
+	return 0;
+}
+
 int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_POSTGRESQL ||
