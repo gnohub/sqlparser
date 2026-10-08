@@ -23,7 +23,7 @@ JANSSON_LIB = $(LIB_DIR)\jansson.lib
 
 PG_QUERY_DIR = vendor\libpg_query
 PG_QUERY_LIB = $(PG_QUERY_DIR)\pg_query.lib
-PG_QUERY_CFLAGS = /nologo /MD /utf-8 /I. /I.\vendor /I.\src\postgres\include /I.\src\include /I.\src\postgres\include\port\win32 /I.\src\postgres\include\port\win32_msvc
+PG_QUERY_CFLAGS = /nologo /std:c11 /MD /utf-8 /I. /I.\vendor /I.\src\postgres\include /I.\src\include /I.\src\postgres\include\port\win32 /I.\src\postgres\include\port\win32_msvc
 
 STATIC_LIB = $(LIB_DIR)\$(LIB_NAME).lib
 CLI_BIN = $(BIN_DIR)\sqlparser_cli.exe

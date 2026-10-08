@@ -4746,11 +4746,22 @@ static sqlparser_status_t sqlparser_validate_dialect_statements(
 /* Parsing needs an AST briefly for dialect validation, then discards it.
  * These blocks are confined to that read-only validation phase; no pointer
  * allocated here can escape into a public handle or a mutable AST. */
+#if defined(_MSC_VER)
+/* MSVC does not provide max_align_t in C mode. */
+typedef union {
+	long double floating;
+	long long integer;
+	void *pointer;
+} sqlparser_validation_alignment_t;
+#else
+typedef max_align_t sqlparser_validation_alignment_t;
+#endif
+
 typedef struct sqlparser_validation_block {
 	struct sqlparser_validation_block *next;
 	size_t used;
 	size_t capacity;
-	max_align_t data[];
+	sqlparser_validation_alignment_t data[];
 } sqlparser_validation_block_t;
 
 typedef struct {
@@ -4761,7 +4772,7 @@ static void *sqlparser_validation_alloc(void *context, size_t size)
 {
 	sqlparser_validation_arena_t *arena = context;
 	sqlparser_validation_block_t *block = arena->blocks;
-	size_t alignment = sizeof(max_align_t), rounded, capacity;
+	size_t alignment = sizeof(sqlparser_validation_alignment_t), rounded, capacity;
 	void *result;
 
 	if (size == 0U) size = 1U;
