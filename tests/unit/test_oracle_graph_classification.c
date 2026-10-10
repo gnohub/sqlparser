@@ -173,12 +173,22 @@ static size_t expected_calls(sqlparser_handle_t *h,size_t *full_count)
     const sqlparser_dialect_multi_insert_t *m=sqlparser_oracle_state_multi_insert(h->dialect_state);
     const char *remembered=NULL;size_t b,c,calls=0U;*full_count=0U;CHECK(m);
     for(b=0U;b<m->branch_count;b++)for(c=0U;c<m->branches[b].cell_count;c++){
-        const sqlparser_dialect_multi_insert_value_t *v=&m->branches[b].cells[c];PgQuery__Node *node=NULL,*semantic;
-        if(v->has_bind||v->has_literal||!v->parser_sql)continue;
-        CHECK(sqlparser_parse_insert_cell_node_sql(v->parser_sql,NULL,&node,&error)==SQLPARSER_STATUS_OK);
+        const sqlparser_dialect_multi_insert_branch_t *branch=&m->branches[b];
+#ifdef SQLPARSER_ORACLE_GRAPH_BASELINE
+        const sqlparser_dialect_multi_insert_value_t *v=&branch->cells[c];
+        const char *parser_sql=v->parser_sql;
+        int has_literal=v->has_literal;
+#else
+        const sqlparser_dialect_multi_insert_value_t *v=sqlparser_oracle_cell_legacy(branch,c);
+        const char *parser_sql=sqlparser_oracle_cell_parser_sql(branch,c);
+        int has_literal=sqlparser_oracle_cell_has_literal(branch,c);
+#endif
+        PgQuery__Node *node=NULL,*semantic;
+        if((v&&v->has_bind)||has_literal||!parser_sql)continue;
+        CHECK(sqlparser_parse_insert_cell_node_sql(parser_sql,NULL,&node,&error)==SQLPARSER_STATUS_OK);
         if(contains_parameter(&node->base)){sqlparser_free_proto_node(node);continue;}
         semantic=sqlparser_unwrap_grouping_node(node);++*full_count;
-        if(!remembered||strcmp(remembered,v->parser_sql)!=0){++calls;if(semantic&&semantic->node_case==PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION&&semantic->sqlvalue_function)remembered=v->parser_sql;}
+        if(!remembered||strcmp(remembered,parser_sql)!=0){++calls;if(semantic&&semantic->node_case==PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION&&semantic->sqlvalue_function)remembered=parser_sql;}
         else CHECK(semantic&&semantic->node_case==PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION&&semantic->sqlvalue_function);
         sqlparser_free_proto_node(node);
     }
@@ -257,23 +267,37 @@ static void malformed_retry(sqlparser_dialect_t dialect)
 {
     sqlparser_handle_t *h=parse(dialect,"INSERT ALL INTO T (C) VALUES (CURRENT_TIMESTAMP) INTO T (C) VALUES (CURRENT_TIMESTAMP) SELECT 1 FROM Dual");
     sqlparser_dialect_multi_insert_t *m=(sqlparser_dialect_multi_insert_t *)sqlparser_oracle_state_multi_insert(h->dialect_state);
-    sqlparser_query_graph_view_t g;char *saved=m->branches[1].cells[0].parser_sql;sqlparser_status_t status;
-    stage="malformed graph retry";m->branches[1].cells[0].parser_sql="CURRENT_TIMESTAMP +";
+    char **slot;
+#ifndef SQLPARSER_ORACLE_GRAPH_BASELINE
+    if(m->branches[1].cell_storage==SQLPARSER_ORACLE_CELL_STORAGE_COMPACT)
+        slot=&m->branches[1].oracle_compact_cells[0].parser_sql;
+    else
+#endif
+        slot=&m->branches[1].cells[0].parser_sql;
+    sqlparser_query_graph_view_t g;char *saved=*slot;sqlparser_status_t status;
+    stage="malformed graph retry";*slot="CURRENT_TIMESTAMP +";
     status=counted_graph(h,&g,&error);CHECK(status!=SQLPARSER_STATUS_OK&&h->query_graph==NULL);record_status(status);
-    m->branches[1].cells[0].parser_sql=saved;CHECK(counted_graph(h,&g,&error)==SQLPARSER_STATUS_OK);check_count(1U,2U);record_graph(h,&g);
+    *slot=saved;CHECK(counted_graph(h,&g,&error)==SQLPARSER_STATUS_OK);check_count(1U,2U);record_graph(h,&g);
     sqlparser_handle_destroy(h);
 }
 static void cache_hit_public_sql(sqlparser_dialect_t dialect)
 {
     sqlparser_handle_t *h=parse(dialect,"INSERT ALL INTO T (C) VALUES (CURRENT_TIMESTAMP) INTO T (C) VALUES (CURRENT_TIMESTAMP) SELECT 1 FROM Dual");
     sqlparser_dialect_multi_insert_t *m=(sqlparser_dialect_multi_insert_t *)sqlparser_oracle_state_multi_insert(h->dialect_state);
-    sqlparser_query_graph_view_t g;char *saved=m->branches[1].cells[0].public_sql;
-    stage="cache hit still validates public SQL";m->branches[1].cells[0].public_sql=NULL;
+    char **slot;
+#ifndef SQLPARSER_ORACLE_GRAPH_BASELINE
+    if(m->branches[1].cell_storage==SQLPARSER_ORACLE_CELL_STORAGE_COMPACT)
+        slot=&m->branches[1].oracle_compact_cells[0].public_sql;
+    else
+#endif
+        slot=&m->branches[1].cells[0].public_sql;
+    sqlparser_query_graph_view_t g;char *saved=*slot;
+    stage="cache hit still validates public SQL";*slot=NULL;
     CHECK(counted_graph(h,&g,&error)==SQLPARSER_STATUS_INTERNAL_ERROR&&h->query_graph==NULL);
     CHECK(strcmp(error.message,"multi-insert expression cell SQL is missing")==0);record_text(error.message);
-    m->branches[1].cells[0].public_sql="current_timestamp /* distinct public spelling */";
+    *slot="current_timestamp /* distinct public spelling */";
     CHECK(counted_graph(h,&g,&error)==SQLPARSER_STATUS_OK);check_count(1U,2U);record_graph(h,&g);
-    m->branches[1].cells[0].public_sql=saved;sqlparser_handle_destroy(h);
+    *slot=saved;sqlparser_handle_destroy(h);
 }
 #ifndef SQLPARSER_ORACLE_GRAPH_BASELINE
 static void same_literal(const sqlparser_literal_view_t *a,const sqlparser_literal_view_t *b)
@@ -294,9 +318,9 @@ static void live_literal_oracle(sqlparser_handle_t *h)
     sqlparser_query_graph_view_t g;void *churn[512];size_t b,c,n=0U,i;
     CHECK(m);
     for(b=0U;b<m->branch_count;b++)for(c=0U;c<m->branches[b].cell_count;c++){
-        const sqlparser_dialect_multi_insert_value_t *v=&m->branches[b].cells[c];PgQuery__Node *semantic;
-        CHECK(n<COUNT(nodes)&&v->parser_sql);
-        CHECK(sqlparser_parse_insert_cell_node_sql(v->parser_sql,NULL,&nodes[n],&error)==SQLPARSER_STATUS_OK);
+        const char *parser_sql=sqlparser_oracle_cell_parser_sql(&m->branches[b],c);PgQuery__Node *semantic;
+        CHECK(n<COUNT(nodes)&&parser_sql);
+        CHECK(sqlparser_parse_insert_cell_node_sql(parser_sql,NULL,&nodes[n],&error)==SQLPARSER_STATUS_OK);
         semantic=sqlparser_unwrap_grouping_node(nodes[n]);CHECK(semantic&&semantic->node_case==PG_QUERY__NODE__NODE_A_CONST);
         CHECK(sqlparser_fill_literal_view_from_a_const(semantic->a_const,&expected[n],&error)==SQLPARSER_STATUS_OK);++n;
     }

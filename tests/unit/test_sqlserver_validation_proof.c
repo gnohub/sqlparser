@@ -27,6 +27,7 @@
 typedef struct {
     size_t grammar, simple_constructor, scalar_constructor, ordinary_entry, native_entry;
     size_t batch_constructor, batch_entry;
+    size_t prefix_proof, old_identity_proof, old_batch_proof, preprocess_certify, native_certify;
     size_t certified_calls, certified_hits, unpack, unpack_free, observed;
     size_t control_take, bind_reset, owner_reset, strict_graph, native_graph, native_graph_hits;
 } vp_routes_t;
@@ -46,10 +47,18 @@ void __cyg_profile_func_enter(void *fn, void *caller)
 {
     (void)caller;
     if (!vp_count_routes) return;
+    if (fn == (void *)pg_query_prove_identity_insert_sequence) ++vp_routes.prefix_proof;
+    if (fn == (void *)pg_query_prove_identity_scalar_insert) ++vp_routes.old_identity_proof;
+    if (fn == (void *)sqlparser_sqlserver_prove_identity_insert_batch) ++vp_routes.old_batch_proof;
+    if (fn == (void *)pg_query_scalar_insert_certify_statement) {
+        if(vp_native_depth>0)++vp_routes.native_certify;
+        else ++vp_routes.preprocess_certify;
+    }
     if (fn == (void *)pg_query_try_simple_insert) ++vp_routes.simple_constructor;
     if (fn == (void *)pg_query_try_scalar_insert) ++vp_routes.scalar_constructor;
     if (fn == (void *)pg_query_try_scalar_insert_batch) ++vp_routes.batch_constructor;
-    if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch)
+    if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch ||
+        fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch_native)
         ++vp_routes.batch_entry;
     if (fn == (void *)pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_ordinary)
         ++vp_routes.ordinary_entry;

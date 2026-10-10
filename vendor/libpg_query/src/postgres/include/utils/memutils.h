@@ -109,6 +109,10 @@ extern void ProcessLogMemoryContextInterrupt(void);
  */
 
 /* aset.c */
+/* libpg_query private read-only sizing query. Zero declines non-AllocSet or
+ * non-small requests; no allocation or context state is changed. */
+extern Size pg_query_allocset_same_class_capacity(MemoryContext context, Size requested);
+
 extern MemoryContext AllocSetContextCreateInternal(MemoryContext parent,
 												   const char *name,
 												   Size minContextSize,

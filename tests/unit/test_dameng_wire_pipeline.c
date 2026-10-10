@@ -35,8 +35,8 @@ static void native_observer(const PgQuery__ParseResult *tree, void *context);
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "%s:%d case=%zu dialect=%s stage=%s fault=%zu %s: %s\n", \
     __FILE__, __LINE__, cases, family_index < COUNT(families) ? families[family_index].name : "all", stage, failure_index, #x, error.message); abort(); } } while (0)
 #ifdef SQLPARSER_DAMENG_WIRE_WRAPPERS
-/* Cross-object linker wrapping disables optimized graph AND commit routes on
- * the oracle. This is not another optimized handle accidentally compared with
+/* Cross-object linker wrapping disables current implementation graph AND commit routes on
+ * the oracle. This is not another current implementation handle accidentally compared with
  * the same fast path. The production parser remains deliberately unchanged. */
 const sqlparser_dialect_ops_t *__real_sqlparser_dialect_get_ops(sqlparser_dialect_t);
 static const sqlparser_dialect_ops_t *legacy_ops(sqlparser_dialect_t d)
@@ -574,7 +574,12 @@ static void lifecycle(size_t rows, size_t columns, int typed, size_t padding, in
     char **snapshots = calloc(rounds, sizeof(*snapshots));
     char *input = primary ? primary_source(rows, NULL) : scalar_source(rows, columns, NULL, padding, 0);
     sqlparser_handle_t *h = parse(input);
-    CHECK(h->native_scalar_provenance == NULL); /* native parser restriction is retained */
+    if (primary) CHECK(h->native_scalar_provenance != NULL);
+    if (h->native_scalar_provenance) {
+        CHECK(h->native_scalar_provenance->proof.row_count == rows);
+        CHECK(h->native_scalar_provenance->proof.column_count == columns);
+        CHECK(h->native_scalar_provenance->proof.source_length == h->sql_len);
+    }
     {
         sqlparser_query_graph_view_t initial_graph, legacy_graph;
         sqlparser_handle_t *legacy = reference(input, &legacy_graph);
@@ -826,7 +831,7 @@ static void allocation_boundaries(void)
             } else CHECK(allocation_failures == 1U);
             if (op == 1U) {
                 if (failure_index) CHECK(cert == NULL);
-                CHECK(!h->failed && h->native_scalar_provenance == NULL);
+                CHECK(!h->failed && h->native_scalar_provenance != NULL);
                 sqlparser_wire_scalar_insert_destroy(cert); cert = sqlparser_wire_scalar_insert_certify(h); CHECK(cert);
             } else if (op <= 2U) {
                 CHECK(h && !h->failed);
@@ -897,7 +902,7 @@ static void provenance_guards(void)
         sqlparser_handle_t *h = parse(sql), *clone = NULL;
         sqlparser_wire_scalar_insert_t *strict;
         sqlparser_query_graph_view_t graph;
-        ++cases; CHECK(h->native_scalar_provenance == NULL);
+        ++cases; CHECK(h->native_scalar_provenance != NULL);
         if (mode == 1U) {
             char *owned = malloc(h->parse_tree.len); CHECK(owned);
             memcpy(owned, h->parse_tree.data, h->parse_tree.len);
@@ -931,9 +936,12 @@ static void provenance_guards(void)
             CHECK(sqlparser_wire_scalar_insert_certify(h) == NULL);
             h->parse_tree.len = length;
         }
-        CHECK(sqlparser_wire_scalar_insert_from_native(h) == NULL);
+        sqlparser_wire_scalar_insert_t *native = sqlparser_wire_scalar_insert_from_native(h);
+        CHECK((native != NULL) == (mode == 0U || mode == 6U));
         strict = sqlparser_wire_scalar_insert_certify(h);
         if (mode != 5U) CHECK(strict); else CHECK(strict == NULL);
+        if (native) certificate_equal(native, strict);
+        sqlparser_wire_scalar_insert_destroy(native);
         sqlparser_wire_scalar_insert_destroy(strict);
         CHECK(sqlparser_statement_query_graph(h, 0U, &graph, &error) == SQLPARSER_STATUS_OK);
         if (mode != 5U) assert_fast(h, 65U, 13U);
@@ -1067,7 +1075,7 @@ static void state_predicate_guards(void)
 #endif
     strict = sqlparser_wire_scalar_insert_certify(h);
     stage = "every Dameng owning-state pointer count capacity and checkpoint rejects nonplain metadata";
-    CHECK(strict && h->native_scalar_provenance == NULL);
+    CHECK(strict && h->native_scalar_provenance != NULL);
     strings = strict->string_count;
     sqlparser_wire_scalar_insert_destroy(strict);
     CHECK(sqlparser_dialect_state_is_plain_insert_strings(h, strings));
@@ -1107,7 +1115,7 @@ static void state_predicate_guards(void)
 static void capability_scope(void)
 {
     size_t i;
-    stage = "Dameng strict wire admission preserves native parser restriction";
+    stage = "Dameng native construction remains restricted to the exact registered owner";
     CHECK(COUNT(dameng_fields) == 38U);
     for (i = 0U; i < COUNT(families); ++i) {
         sqlparser_handle_t fake = {0};

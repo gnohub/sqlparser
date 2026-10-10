@@ -2,6 +2,7 @@
  * Optional --wrap=sqlparser_oracle_multi_insert_certified_cell_span plus
  * -DSQLPARSER_SPAN_TEST_WRAPPERS observes admission without replacing results. */
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include "sqlparser_internal.h"
@@ -37,7 +38,7 @@ static void verify_handles(sqlparser_handle_t *actual, sqlparser_handle_t *refer
     size_t pass, b, c, before = hits;
     CHECK(multi && multi->branch_count);
     sqlparser_oracle_multi_insert_invalidate_source(reference);
-    /* First successful call must perform generic whole-statement validation. */
+    /* An independent complete constructor proof may satisfy the first scan. */
     for (pass = 0U; pass < 3U; ++pass) {
         for (b = multi->branch_count; b-- > 0U;) {
             for (c = multi->branches[b].cell_count; c-- > 0U;) {
@@ -45,7 +46,8 @@ static void verify_handles(sqlparser_handle_t *actual, sqlparser_handle_t *refer
                 int av = sqlparser_view_insert_cell_source_span(actual, NULL, &a, allow_comments, 0U, b, c, &as, &ae, &error);
                 int rv = sqlparser_view_insert_cell_source_span(reference, NULL, &r, allow_comments, 0U, b, c, &rs, &re, &error);
                 CHECK(av == rv && as == rs && ae == re);
-                if (pass == 0U && b + 1U == multi->branch_count && c + 1U == multi->branches[b].cell_count)
+                if (!multi->oracle_generic_spans_equivalent && pass == 0U &&
+                    b + 1U == multi->branch_count && c + 1U == multi->branches[b].cell_count)
                     CHECK(hits == before);
             }
         }
@@ -189,11 +191,70 @@ static void comment_policy(sqlparser_dialect_t dialect)
     CHECK(start == 0U && end == 0U);
     sqlparser_handle_destroy(h);
 }
+
+static void initial_proof_lifecycle(sqlparser_dialect_t dialect)
+{
+    const char *source = " \tINSERT ALL INTO alpha.t (a,b) VALUES ('old', 42) INTO beta.u VALUES ('keep') SELECT 1+2 AS n FROM dual;\n";
+    char *input = malloc(strlen(source) + 1U), *output = NULL;
+    sqlparser_handle_t *h, *clone = NULL, *fresh;
+    sqlparser_literal_value_t literal = {0};
+    sqlparser_patch_t patch = {0};
+    sqlparser_patch_list_t patches = {&patch, 1U};
+    size_t ss, se, vp, cs, ce;
+    const sqlparser_dialect_multi_insert_t *m;
+    CHECK(input); strcpy(input, source); h = parse(dialect, input);
+    memset(input, 'x', strlen(input)); free(input);
+    CHECK(sqlparser_oracle_multi_insert_initial_cell_span(h, 1U, 0U, &ss, &se, &vp, &cs, &ce));
+    CHECK(ss == 2U && h->sql[se] == ';' && !memcmp(h->sql + vp, "VALUES", 6U));
+    CHECK(ce - cs == 6U && !memcmp(h->sql + cs, "'keep'", 6U));
+    CHECK(sqlparser_handle_clone(h, &clone, &error) == SQLPARSER_STATUS_OK);
+    sqlparser_handle_destroy(h); h = clone; clone = NULL;
+    CHECK(sqlparser_oracle_multi_insert_initial_cell_span(h, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    literal.kind = SQLPARSER_LITERAL_KIND_STRING; literal.string_value = "old";
+    patch.op = SQLPARSER_PATCH_REPLACE; patch.selector = "stmt[0].insert_cell[0][0]"; patch.literal = &literal;
+    /* Even an equal replacement must invalidate the fresh-source proof. */
+    CHECK(sqlparser_apply_patch(h, &patches, &error) == SQLPARSER_STATUS_OK);
+    m = sqlparser_oracle_state_multi_insert(h->dialect_state);
+    CHECK(m && !m->oracle_generic_spans_equivalent);
+    ss=11U; se=13U; vp=17U; cs=19U; ce=23U;
+    CHECK(!sqlparser_oracle_multi_insert_initial_cell_span(h, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    CHECK(ss==11U && se==13U && vp==17U && cs==19U && ce==23U);
+    CHECK(sqlparser_handle_clone(h, &clone, &error) == SQLPARSER_STATUS_OK);
+    CHECK(!sqlparser_oracle_multi_insert_initial_cell_span(clone, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_handle_destroy(clone);
+    literal.string_value = "a much longer fresh value";
+    CHECK(sqlparser_apply_patch(h, &patches, &error) == SQLPARSER_STATUS_OK);
+    CHECK(sqlparser_deparse(h, &output, &error) == SQLPARSER_STATUS_OK);
+    fresh = parse(dialect, output); sqlparser_string_free(output);
+    CHECK(sqlparser_oracle_multi_insert_initial_cell_span(fresh, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_oracle_multi_insert_invalidate_source(fresh);
+    sqlparser_oracle_multi_insert_certify_source(fresh);
+    CHECK(!sqlparser_oracle_multi_insert_initial_cell_span(fresh, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_handle_destroy(fresh);
+    fresh = parse(dialect, source);
+    CHECK(sqlparser_oracle_multi_insert_initial_cell_span(fresh, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_handle_replace_contents(h, fresh);
+    sqlparser_handle_destroy(fresh);
+    CHECK(!sqlparser_oracle_multi_insert_initial_cell_span(h, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_handle_destroy(h);
+    h = parse(dialect, source);
+    /* The destructive reparse must discard its new constructor's proof even
+     * when generation wraps back to the fresh-parse value of zero. */
+    h->generation = ULONG_MAX;
+    sqlparser_oracle_multi_insert_certify_source(h);
+    CHECK(sqlparser_oracle_multi_insert_initial_cell_span(h, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    input = malloc(strlen(source) + 1U); CHECK(input); strcpy(input, source);
+    CHECK(sqlparser_handle_reparse_destructive(h, &input, &error) == SQLPARSER_STATUS_OK);
+    CHECK(input == NULL && h->generation == 0UL);
+    CHECK(!sqlparser_oracle_multi_insert_initial_cell_span(h, 0U, 0U, &ss, &se, &vp, &cs, &ce));
+    sqlparser_handle_destroy(h);
+}
 int main(void)
 {
     static const sqlparser_dialect_t dialects[] = { SQLPARSER_DIALECT_ORACLE, SQLPARSER_DIALECT_KINGBASE_ORACLE, SQLPARSER_DIALECT_VASTBASE_ORACLE };
     size_t d;
     for (d = 0U; d < sizeof(dialects) / sizeof(dialects[0]); ++d) {
+        initial_proof_lifecycle(dialects[d]);
         provenance_mismatches(dialects[d]);
         comment_policy(dialects[d]);
         clone_and_commits(dialects[d]);

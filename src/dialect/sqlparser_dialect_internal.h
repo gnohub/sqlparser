@@ -206,6 +206,20 @@ typedef sqlparser_status_t (*sqlparser_validation_preprocess_fn)(
 	sqlparser_error_t *out_error);
 sqlparser_validation_preprocess_fn sqlparser_dialect_validation_preprocessor(
 	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops);
+sqlparser_status_t sqlparser_dameng_preprocess_validation_proof(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
+	sqlparser_error_t *out_error);
+/* Internal replacement parses must not regain fresh Dameng proof admission. */
+sqlparser_status_t sqlparser_dameng_parse_legacy_replacement(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,

@@ -345,6 +345,31 @@ AllocSetFreeIndex(Size size)
 }
 
 
+/* Keep the caller's optional inline text within the actual existing node
+ * allocation class. Do not duplicate allocator bucket/configuration rules. */
+Size
+pg_query_allocset_same_class_capacity(MemoryContext context, Size requested)
+{
+    AllocSet set;
+    Size capacity;
+    int index;
+    if (context == NULL || !IsA(context, AllocSetContext) ||
+        requested == 0 || !AllocSizeIsValid(requested))
+        return 0;
+    set = (AllocSet) context;
+    if (requested > set->allocChunkLimit || requested > ALLOC_CHUNK_LIMIT)
+        return 0;
+    index = AllocSetFreeIndex(requested);
+    if (!FreeListIdxIsValid(index))
+        return 0;
+    capacity = GetChunkSizeFromFreeListIdx(index);
+    if (capacity < requested || capacity > set->allocChunkLimit ||
+        !AllocSizeIsValid(capacity))
+        return 0;
+    return capacity;
+}
+
+
 /*
  * Public routines
  */

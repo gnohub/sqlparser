@@ -3884,6 +3884,11 @@ static int sqlparser_sqlserver_prefilter_word_index(const char *word, size_t len
     return -1;
 }
 
+static inline int sqlparser_sqlserver_inventory_is_ident_char(unsigned char c)
+{
+    return isalnum(c) || c == '_' || c == '$' || c == '#' || c == '@';
+}
+
 static void sqlparser_sqlserver_raw_word_inventory(
     const char *sql, sqlparser_sqlserver_raw_word_inventory_t *out)
 {
@@ -3900,7 +3905,7 @@ static void sqlparser_sqlserver_raw_word_inventory(
     while (sql[pos] != '\0') {
         size_t start;
         int index;
-        if (!sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos])) {
+        if (!sqlparser_sqlserver_inventory_is_ident_char((unsigned char)sql[pos])) {
             pos++;
             continue;
         }
@@ -3909,7 +3914,7 @@ static void sqlparser_sqlserver_raw_word_inventory(
             if (sql[pos] == '@') out->has_at = 1;
             pos++;
         } while (sql[pos] != '\0' &&
-            sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos]));
+            sqlparser_sqlserver_inventory_is_ident_char((unsigned char)sql[pos]));
         /* Longer identifier tokens cannot equal any inventory keyword. */
         if (pos - start > max_word_length) continue;
         index = sqlparser_sqlserver_prefilter_word_index(sql + start, pos - start);
@@ -11240,6 +11245,8 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	char *preprocess_sql;
 	unsigned int candidates;
 	sqlparser_status_t status;
+	PgQueryIdentityInsertSequenceProof sequence;
+	PgQueryIdentityInsertSequenceKind sequence_kind;
 
 	if (out_proof != NULL) memset(out_proof, 0, sizeof(*out_proof));
 	if (out_batch_proof != NULL) memset(out_batch_proof, 0, sizeof(*out_batch_proof));
@@ -11265,6 +11272,8 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	sequence_kind = pg_query_prove_identity_insert_sequence(
+		input_sql, sqlparser_sqlserver_identity_name, &sequence);
 	/* These are preprocessing-only proofs. Each native constructor must
 	 * independently certify the complete source grammar, and the canonical
 	 * writer must separately certify initial validation. Graph admission still
@@ -11272,7 +11281,10 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	 * fragment parsing retain their ordinary grammar paths. */
 	{
 		PgQueryIdentityScalarInsertProof proof;
-		if (sqlparser_sqlserver_prove_identity_scalar_insert(input_sql, &proof)) {
+		if (sequence_kind == PG_QUERY_IDENTITY_INSERT_SINGLE) proof = sequence.single;
+		if (sequence_kind == PG_QUERY_IDENTITY_INSERT_SINGLE ||
+		    (sequence_kind == PG_QUERY_IDENTITY_INSERT_NONE &&
+		     sqlparser_sqlserver_prove_identity_scalar_insert(input_sql, &proof))) {
 			preprocess_sql = sqlparser_strndup(input_sql, proof.source_length);
 			if (preprocess_sql == NULL) {
 				sqlparser_sqlserver_state_destroy(state);
@@ -11299,7 +11311,14 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_validation_proof(
 	}
 	{
 		sqlparser_sqlserver_identity_batch_t batch;
-		if (sqlparser_sqlserver_prove_identity_insert_batch(input_sql, &batch)) {
+		if (sequence_kind == PG_QUERY_IDENTITY_INSERT_BATCH) {
+			batch.source_length = sequence.source_length;
+			batch.statement_count = sequence.statement_count;
+			batch.string_count = sequence.string_count;
+		}
+		if (sequence_kind == PG_QUERY_IDENTITY_INSERT_BATCH ||
+		    (sequence_kind == PG_QUERY_IDENTITY_INSERT_NONE &&
+		     sqlparser_sqlserver_prove_identity_insert_batch(input_sql, &batch))) {
 			preprocess_sql = sqlparser_strndup(input_sql, batch.source_length);
 			if (preprocess_sql == NULL) {
 				sqlparser_sqlserver_state_destroy(state);
@@ -16730,4 +16749,25 @@ static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void)
 {
 	return &SQLPARSER_SQLSERVER_OPS;
+}
+
+/* This is an exact owner gate, not a dialect compatibility capability. Kingbase
+ * aliases the builtin SQLServer owner; Vastbase delegates to its native state.
+ * Both require the base registry owner to remain builtin. Copied/extra wrappers
+ * must miss. The caller still proves identity source, plain state and
+ * native/writer metadata. */
+int sqlparser_sqlserver_is_registered_native_batch_owner(
+	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops)
+{
+	if (ops == NULL || ops != sqlparser_dialect_get_ops(dialect)) return 0;
+	if (dialect == SQLPARSER_DIALECT_SQLSERVER)
+		return ops == &SQLPARSER_SQLSERVER_OPS;
+	if (dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER)
+		return ops == &SQLPARSER_SQLSERVER_OPS &&
+			sqlparser_dialect_get_ops(SQLPARSER_DIALECT_SQLSERVER) ==
+				&SQLPARSER_SQLSERVER_OPS;
+	return dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+		ops == sqlparser_dialect_vastbase_sqlserver_ops() &&
+		sqlparser_dialect_get_ops(SQLPARSER_DIALECT_SQLSERVER) ==
+			&SQLPARSER_SQLSERVER_OPS;
 }

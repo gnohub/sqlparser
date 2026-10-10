@@ -58,6 +58,17 @@ sqlparser_status_t __wrap_sqlparser_handle_reparse_destructive(sqlparser_handle_
 }
 #ifndef SQLPARSER_ORACLE_COMMIT_BASELINE
 /* Observational only: call through unchanged. No certificate override. */
+#ifndef SQLPARSER_ORACLE_COMMIT_REFERENCE
+sqlparser_status_t __real_sqlparser_oracle_readonly_batch_commit(sqlparser_handle_t *, sqlparser_oracle_readonly_batch_t *, const sqlparser_surface_source_edits_t *, char **, int *, sqlparser_error_t *);
+sqlparser_status_t __wrap_sqlparser_oracle_readonly_batch_commit(sqlparser_handle_t *h, sqlparser_oracle_readonly_batch_t *batch, const sqlparser_surface_source_edits_t *edits, char **sql, int *handled, sqlparser_error_t *e)
+{
+    sqlparser_status_t status;
+    if (count_active) ++commit_entries;
+    status = __real_sqlparser_oracle_readonly_batch_commit(h, batch, edits, sql, handled, e);
+    if (count_active && status == SQLPARSER_STATUS_OK && *handled) ++commit_handled;
+    return status;
+}
+#endif
 sqlparser_status_t __real_sqlparser_oracle_try_commit_multi_insert_strings(sqlparser_handle_t *, const sqlparser_surface_source_edits_t *, char **, int *, sqlparser_error_t *);
 sqlparser_status_t __wrap_sqlparser_oracle_try_commit_multi_insert_strings(sqlparser_handle_t *h, const sqlparser_surface_source_edits_t *edits, char **sql, int *handled, sqlparser_error_t *e)
 {
@@ -87,6 +98,8 @@ sqlparser_status_t __wrap_sqlparser_vastbase_oracle_multi_insert_identity_input(
  * Sweep all implementation-owned allocations, excluding only that native context. */
 static int allocation_active;
 static unsigned native_depth;
+static unsigned unpack_depth;
+static int allocation_failed_in_unpack;
 static size_t allocation_calls, allocation_fail, allocation_live, ledger_end;
 static void *ledger[32768];
 struct MemoryContextData;
@@ -96,6 +109,15 @@ struct MemoryContextData *__wrap_pg_query_enter_memory_context(void)
 { ++native_depth; return __real_pg_query_enter_memory_context(); }
 void __wrap_pg_query_exit_memory_context(struct MemoryContextData *c)
 { __real_pg_query_exit_memory_context(c); CHECK(native_depth); --native_depth; }
+PgQuery__ParseResult *__real_pg_query__parse_result__unpack(ProtobufCAllocator *, size_t, const uint8_t *);
+PgQuery__ParseResult *__wrap_pg_query__parse_result__unpack(ProtobufCAllocator *allocator, size_t length, const uint8_t *data)
+{
+    PgQuery__ParseResult *result;
+    ++unpack_depth;
+    result = __real_pg_query__parse_result__unpack(allocator, length, data);
+    CHECK(unpack_depth); --unpack_depth;
+    return result;
+}
 void *__real_malloc(size_t);
 void *__real_calloc(size_t, size_t);
 void *__real_realloc(void *, size_t);
@@ -137,7 +159,11 @@ static int reject_allocation(int kind, void *pointer, size_t size)
 #else
     (void)kind; (void)pointer; (void)size;
 #endif
-    return allocation_calls == allocation_fail;
+    if (allocation_calls == allocation_fail) {
+        if (unpack_depth) allocation_failed_in_unpack = 1;
+        return 1;
+    }
+    return 0;
 }
 void *__wrap_malloc(size_t n)
 {void *p;if(reject_allocation(1,NULL,n))return NULL;p=__real_malloc(n);if(allocation_active&&!native_depth)track(p);return p;}
@@ -309,14 +335,15 @@ static void verify_constructor_spans(sqlparser_handle_t *h)
         CHECK(branch->oracle_span_base == flat);
         for (c = 0U; c < branch->cell_count; c++, flat++) {
             const sqlparser_oracle_cell_span_t *span;
-            const sqlparser_dialect_multi_insert_value_t *cell = &branch->cells[c];
+            const char *public_sql = sqlparser_oracle_cell_public_sql(branch, c);
+            const sqlparser_literal_view_t *literal = sqlparser_oracle_cell_literal(branch, c);
             CHECK(flat < m->oracle_span_count); span = &m->oracle_spans[flat];
             CHECK(span->source_start >= previous_end && span->source_start <= h->sql_len);
             CHECK(span->source_length <= h->sql_len - span->source_start);
-            CHECK(span->source_length == strlen(cell->public_sql));
-            CHECK(!memcmp(h->sql + span->source_start, cell->public_sql, span->source_length));
+            CHECK(public_sql && span->source_length == strlen(public_sql));
+            CHECK(!memcmp(h->sql + span->source_start, public_sql, span->source_length));
             CHECK(span->lexical_flags & SQLPARSER_ORACLE_CELL_IDENTITY);
-            if (cell->has_literal && cell->literal.kind == SQLPARSER_LITERAL_KIND_STRING)
+            if (sqlparser_oracle_cell_has_literal(branch, c) && literal->kind == SQLPARSER_LITERAL_KIND_STRING)
                 CHECK(span->lexical_flags & SQLPARSER_ORACLE_CELL_ORDINARY_STRING);
             previous_end = (size_t)span->source_start + span->source_length;
         }
@@ -343,7 +370,22 @@ static void record_state(sqlparser_handle_t *h)
         record_number(b->column_count); record_number(b->cell_count);
         for (j = 0U; j < b->column_count; j++) { record_text(b->columns[j].name); record_text(b->columns[j].sql); }
         for (j = 0U; j < b->cell_count; j++) {
-            const sqlparser_dialect_multi_insert_value_t *v = &b->cells[j];
+            const sqlparser_dialect_multi_insert_value_t *v;
+#if !defined(SQLPARSER_ORACLE_COMMIT_BASELINE) && !defined(SQLPARSER_ORACLE_COMMIT_REFERENCE)
+            sqlparser_dialect_multi_insert_value_t compact = {0};
+            v = sqlparser_oracle_cell_legacy(b, j);
+            if (v == NULL) {
+                compact.public_sql = (char *)sqlparser_oracle_cell_public_sql(b, j);
+                compact.parser_sql = (char *)sqlparser_oracle_cell_parser_sql(b, j);
+                compact.has_literal = sqlparser_oracle_cell_has_literal(b, j);
+                compact.literal = *sqlparser_oracle_cell_literal(b, j);
+                compact.literal_string_value = (char *)compact.literal.string_value;
+                compact.literal_float_value = (char *)compact.literal.float_value;
+                v = &compact;
+            }
+#else
+            v = &b->cells[j];
+#endif
             char *cell = NULL;
             record_text(v->public_sql); record_text(v->parser_sql); record_number(v->has_bind);
             record_number(v->bind_kind); record_text(v->bind); record_text(v->bind_sql);
@@ -1055,6 +1097,7 @@ static void constructor_allocation_sweep(sqlparser_dialect_t dialect)
         for (fail = 1U; fail < 32768U; fail++) {
             sqlparser_handle_t *h = NULL; sqlparser_status_t status; size_t calls; char *out;
             stage = cloning ? "allocation failure clone ledger" : "allocation failure constructor ledger";
+            CHECK(!unpack_depth); allocation_failed_in_unpack = 0;
             CHECK(!allocation_live && !native_depth); allocation_fail = fail; allocation_calls = 0U; allocation_active = 1;
             status = cloning ? sqlparser_handle_clone(source, &h, null_error ? NULL : &error) :
                 sqlparser_parse_with_options(input, &options, &h, null_error ? NULL : &error);
@@ -1065,12 +1108,19 @@ static void constructor_allocation_sweep(sqlparser_dialect_t dialect)
                 CHECK(counted_apply(h, &p, 1U, &error) == SQLPARSER_STATUS_OK);
                 out = verify(h, expected, 0); free(out);
             } else {
-                CHECK(status == SQLPARSER_STATUS_NO_MEMORY && h == NULL);
+                /* The existing core maps failed protobuf unpack to this exact
+                 * INTERNAL_ERROR. Admit it only when this iteration's actual
+                 * injected failure occurred within that unpack call. */
+                if (status == SQLPARSER_STATUS_INTERNAL_ERROR) {
+                    CHECK(allocation_failed_in_unpack && h == NULL);
+                    if (!null_error) CHECK(error.code == status &&
+                        !strcmp(error.message, "failed to unpack parse tree protobuf"));
+                } else CHECK(status == SQLPARSER_STATUS_NO_MEMORY && h == NULL);
             }
             sqlparser_handle_destroy(h);
             if (allocation_live || native_depth)
                 fprintf(stderr, "constructor ledger dialect=%s clone=%d null=%d fail=%zu calls=%zu status=%d live=%zu native_depth=%u\n", sqlparser_dialect_name(dialect), cloning, null_error, fail, calls, status, allocation_live, native_depth);
-            CHECK(allocation_live == 0U && native_depth == 0U);
+            CHECK(allocation_live == 0U && native_depth == 0U && unpack_depth == 0U);
             if (calls < fail) {
                 CHECK(status == SQLPARSER_STATUS_OK); complete = 1;
                 fprintf(stderr, "constructor sweep dialect=%s clone=%d null=%d checked=%zu calls=%zu clean\n", sqlparser_dialect_name(dialect), cloning, null_error, fail, calls);
@@ -1103,6 +1153,7 @@ static void check_optional_spans_absent(sqlparser_handle_t *h, size_t cells)
     const sqlparser_dialect_multi_insert_t *m = multi(h);
     CHECK(m->branch_count == 1U && m->branches[0].cell_count == cells);
     CHECK(!m->oracle_spans_complete && m->oracle_spans == NULL);
+    CHECK(!m->oracle_generic_spans_equivalent);
     CHECK(m->oracle_span_count == 0U && m->oracle_span_capacity == 0U);
 }
 #endif

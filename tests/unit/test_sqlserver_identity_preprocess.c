@@ -11,7 +11,7 @@
 
 static const char *stage = "start";
 static size_t cases, proof_calls, proof_successes, allocation_calls;
-static int force_reference;
+static int force_reference, force_prefix_reference;
 static const char *complete_proof_source;
 static size_t proof_string_count_override;
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
@@ -32,9 +32,30 @@ static int identity_probe(const char *sql, PgQueryIdentityScalarInsertNamePredic
     if (result && (!complete_proof_source || complete_proof_source == sql)) ++proof_successes;
     return result;
 }
+static PgQueryIdentityInsertSequenceKind identity_sequence_probe(const char *sql,
+    PgQueryIdentityScalarInsertNamePredicate predicate,
+    PgQueryIdentityInsertSequenceProof *proof)
+{
+    PgQueryIdentityInsertSequenceKind result;
+    size_t allocations=allocation_calls;
+    ++proof_calls;
+    if(force_reference||force_prefix_reference){
+        if(proof)memset(proof,0,sizeof(*proof));
+        return PG_QUERY_IDENTITY_INSERT_NONE;
+    }
+    result=pg_query_prove_identity_insert_sequence(sql,predicate,proof);
+    CHECK(allocation_calls==allocations);
+    if(result==PG_QUERY_IDENTITY_INSERT_SINGLE){
+        if(proof_string_count_override)proof->single.string_count=proof_string_count_override;
+        if(!complete_proof_source||complete_proof_source==sql)++proof_successes;
+    }
+    return result;
+}
 #define pg_query_prove_identity_scalar_insert identity_probe
+#define pg_query_prove_identity_insert_sequence identity_sequence_probe
 #include "../../src/dialect/sqlparser_dialect_sqlserver.c"
 #undef pg_query_prove_identity_scalar_insert
+#undef pg_query_prove_identity_insert_sequence
 /* Include unchanged OUTPUT implementation so opaque nested capacities and
  * owned payloads are compared too, without test-only production hooks. */
 #include "../../src/dialect/sqlparser_dialect_sqlserver_output.c"

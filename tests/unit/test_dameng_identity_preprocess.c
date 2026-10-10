@@ -360,7 +360,12 @@ static void handle_equal(sqlparser_handle_t *a,sqlparser_handle_t *b)
 {
     char *as=NULL,*bs=NULL;sqlparser_error_t ae={0},be={0};
     text_equal(a->parser_sql,b->parser_sql);text_equal(a->sql,b->sql);
-    CHECK(!a->native_scalar_provenance&&!b->native_scalar_provenance);
+    CHECK(!b->native_scalar_provenance);
+    if (a->native_scalar_provenance) {
+        CHECK(a->generation == 0UL);
+        CHECK(a->native_scalar_provenance->proof.source_length == a->sql_len);
+        CHECK(a->native_scalar_provenance->proof.row_count >= 32U);
+    }
     CHECK(!a->dialect_ops->plain_scalar_native_validation&&!b->dialect_ops->plain_scalar_native_validation);
     CHECK(a->parse_tree.len==b->parse_tree.len);
     CHECK(memcmp(a->parse_tree.data,b->parse_tree.data,a->parse_tree.len)==0);
@@ -392,9 +397,12 @@ static void public_one(const char *sql,int patch,const sqlparser_parse_options_t
 #endif
     force_reference=1;br=sqlparser_parse_with_options(owned,&options,&b,&be);force_reference=0;
 #ifdef SQLPARSER_IDENTITY_ALLOC_WRAPPERS
-    CHECK(anative==native_entries-native0&&aparse==parser_calls-parser0);
-    CHECK(aunpack==unpack_calls-unpack0&&afree==unpack_frees-free0);
-    if(ar==SQLPARSER_STATUS_OK){CHECK(aparse>=1U&&aunpack>=1U);}
+    CHECK(anative<=native_entries-native0&&aparse<=parser_calls-parser0);
+    CHECK(aunpack<=unpack_calls-unpack0&&afree<=unpack_frees-free0);
+    if(ar==SQLPARSER_STATUS_OK){
+        CHECK(anative>=1U&&parser_calls-parser0>=1U&&unpack_calls-unpack0>=1U);
+        if(a->native_scalar_provenance)CHECK(aparse==0U&&aunpack==0U&&afree==0U);
+    }
 #endif
     poison_free(owned); /* Neither path may borrow the caller's source. */
     CHECK(ar==br);CHECK(memcmp(&ae,&be,sizeof(ae))==0);
@@ -509,7 +517,7 @@ static void positives(void)
 }
 
 /* Independent frozen rewrite inventory from the legacy Dameng source;
- * do not reuse the optimized path's predicate or table to generate expectations. */
+ * do not reuse the current implementation's predicate or table to generate expectations. */
 static const char *const hazards[]={
     "alter","begin","connect","connect_by_root","create","current_timestamp","except","exec","limit",
     "minus","nocycle","pivot","prior","procedure","return","returning","select","set","start"
@@ -722,7 +730,9 @@ static void allocation_failures(void)
                     CHECK(injected==1U);
                     if(status==SQLPARSER_STATUS_OK) {
                         sqlparser_handle_t *ref=NULL;sqlparser_error_t re={0};
-                        CHECK(h&&!h->native_scalar_provenance);
+                        CHECK(h);
+                        if (h->native_scalar_provenance)
+                            CHECK(h->native_scalar_provenance->proof.source_length == h->sql_len);
                         force_reference=1;CHECK(sqlparser_parse_with_options(sql,&o,&ref,&re)==SQLPARSER_STATUS_OK);force_reference=0;
                         handle_equal(h,ref);state_equal(h->dialect_state,ref->dialect_state);sqlparser_handle_destroy(ref);
                     } else {

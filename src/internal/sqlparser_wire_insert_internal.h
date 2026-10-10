@@ -108,6 +108,10 @@ sqlparser_status_t sqlparser_wire_scalar_insert_pack_proven_edits(const sqlparse
     const sqlparser_surface_source_edits_t *edits, PgQueryProtobuf *out);
 const sqlparser_wire_scalar_insert_t *sqlparser_query_graph_wire_scalar_insert(const sqlparser_handle_t *handle);
 const char *sqlparser_query_graph_wire_scalar_string(const sqlparser_handle_t *handle, size_t row, size_t column);
+/* Private native-owned target proof; miss leaves outputs unchanged. */
+int sqlparser_query_graph_native_scalar_string_target(const sqlparser_handle_t *handle,
+    const sqlparser_wire_scalar_insert_t *insert, size_t row, size_t column,
+    int32_t *out_location, const char **out_string);
 
 /* Whole-owner batch certificate. Every embedded statement still addresses the
  * full original source and full ParseResult wire, never a sliced fake handle. */
@@ -132,6 +136,11 @@ typedef struct sqlparser_wire_scalar_batch {
 } sqlparser_wire_scalar_batch_t;
 
 sqlparser_wire_scalar_batch_t *sqlparser_wire_scalar_batch_certify(const sqlparser_handle_t *handle);
+/* Separate initial-native admission; strict certify never consumes this proof. */
+sqlparser_wire_scalar_batch_t *sqlparser_wire_scalar_batch_from_native(const sqlparser_handle_t *handle);
+/* Optional adoption after final clear_ast on a fresh initial handle only. */
+void sqlparser_handle_adopt_native_batch_provenance(sqlparser_handle_t *handle,
+    const PgQueryNativeScalarInsertBatchProof *proof);
 void sqlparser_wire_scalar_batch_destroy(sqlparser_wire_scalar_batch_t *batch);
 int sqlparser_wire_scalar_batch_is_current(const sqlparser_wire_scalar_batch_t *batch,
     const sqlparser_handle_t *handle);

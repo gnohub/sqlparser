@@ -1,6 +1,7 @@
 #ifndef SQLPARSER_DIALECT_MULTI_INSERT_TYPES_H
 #define SQLPARSER_DIALECT_MULTI_INSERT_TYPES_H
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -41,19 +42,45 @@ typedef struct {
 	char *literal_float_value;
 } sqlparser_dialect_multi_insert_value_t;
 
+/* Oracle-only identity cells own one allocation, rooted at public_sql.
+ * parser_sql and an optional literal text are distinct NUL-terminated slices. */
+typedef struct {
+	char *public_sql;
+	char *parser_sql;
+	sqlparser_literal_view_t literal;
+	int has_literal;
+} sqlparser_oracle_compact_value_t;
+
+#if UINTPTR_MAX == UINT64_MAX && LONG_MAX == INT64_MAX
+_Static_assert(sizeof(sqlparser_oracle_compact_value_t) == 64U,
+	"Oracle compact cells must retain the complete 64-byte record");
+#endif
+
+enum {
+	SQLPARSER_ORACLE_CELL_STORAGE_LEGACY = 0,
+	SQLPARSER_ORACLE_CELL_STORAGE_COMPACT = 1
+};
+
 typedef struct {
 	size_t ordinal;
 	sqlparser_dialect_multi_insert_relation_t relation;
 	sqlparser_dialect_multi_insert_column_t *columns;
 	size_t column_count;
+	/* Oracle-only exclusive header text owner; NULL means legacy field owners.
+	 * Independent of cells and optional lexical/graph proofs. */
+	char *oracle_header_text_block;
 	sqlparser_dialect_multi_insert_value_t *cells;
 	size_t cell_count;
+	/* Required ownership metadata; independent of every optional proof. */
+	sqlparser_oracle_compact_value_t *oracle_compact_cells;
+	int cell_storage;
 	char *condition_public_sql;
 	char *condition_parser_sql;
 	int has_condition;
 	int is_else;
 	size_t condition_group_id;
 	uint32_t oracle_span_base;
+	uint32_t oracle_values_position;
 } sqlparser_dialect_multi_insert_branch_t;
 
 typedef struct {
@@ -67,8 +94,15 @@ enum {
 	SQLPARSER_ORACLE_CELL_IDENTITY = 2U
 };
 
+enum {
+	SQLPARSER_ORACLE_GRAPH_HEADER_SIMPLE_ASCII_ALL = 1U
+};
+
 typedef struct {
 	sqlparser_dialect_multi_insert_mode_t mode;
+	/* Fresh-parse lexical facts for every owned relation/column header.
+	 * Independent of cell spans and source/parser identity; zero is unknown. */
+	uint32_t oracle_graph_header_flags;
 	sqlparser_dialect_multi_insert_branch_t *branches;
 	size_t branch_count;
 	/* Private constructor storage; only branch_count entries own values. */
@@ -85,6 +119,9 @@ typedef struct {
 	int oracle_spans_complete;
 	int oracle_spans_identity;
 	int oracle_outer_identity;
+	/* Complete constructor proof of the public statement/cell scanners.
+	 * Fresh parse/clone only; every mutation invalidates it. */
+	int oracle_generic_spans_equivalent;
 	uint32_t *oracle_pending_ids;
 	size_t oracle_pending_count;
 	size_t oracle_pending_capacity;

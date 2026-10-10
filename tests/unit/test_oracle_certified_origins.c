@@ -1,7 +1,7 @@
 /* Certified lazy Oracle origins: complete graph/state records against a
  * separately parsed fallback handle, every origin span against independent
  * preprocessing, exact-owner admission, lifecycle and allocation failures.
- * --record is byte-compared to this caller linked to the frozen reference
+ * --record is byte-compared to this caller linked to the reference
  * archive. Reuse only the existing complete record and allocation machinery;
  * none of its old main's scenarios is substituted for these checks. */
 #define main sqlparser_oracle_commit_test_main

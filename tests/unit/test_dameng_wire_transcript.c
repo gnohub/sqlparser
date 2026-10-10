@@ -1,6 +1,6 @@
-/* This test links independently to the current and reference libraries.
+/* This exact source links independently to current implementation and immutable baseline.
  * --record prints complete public graph/accessor/JSON/source/wire transcripts.
- * Neither binary overrides runtime capabilities or uses the optimized path as its reference. */
+ * No runtime capability override or current implementation oracle is used in either binary. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

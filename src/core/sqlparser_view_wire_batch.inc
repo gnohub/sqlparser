@@ -35,7 +35,12 @@ static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_batch(
     (void)handle; (void)out_error;
     return SQLPARSER_STATUS_OK;
 #endif
-    batch = sqlparser_wire_scalar_batch_certify(handle);
+    batch = sqlparser_wire_scalar_batch_from_native(handle);
+    if (batch == NULL) {
+        /* Strict admission retains its independent budget and source proof. */
+        sqlparser_handle_clear_native_batch_provenance(handle);
+        batch = sqlparser_wire_scalar_batch_certify(handle);
+    }
     if (batch == NULL) return SQLPARSER_STATUS_OK;
     if (batch->cell_count > SIZE_MAX / sizeof(*cache->dml_cells) ||
         batch->column_count > SIZE_MAX / sizeof(*cache->dml_columns) ||

@@ -2,7 +2,7 @@
 
 本文档说明 `sqlparser` 公共 C API 的主要类型、生命周期规则、结构化读取接口和改写接口。
 
-本手册描述 2.17.2 的 API。patch/deparse 失败后 handle 不可复用，
+本手册描述 2.17.3 的 API。patch/deparse 失败后 handle 不可复用，
 与 2.16.x 的回滚规则不同；公开 ABI 不变，详见[发布说明](../RELEASE_NOTES.md)。
 
 ## 概述

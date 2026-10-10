@@ -3,7 +3,7 @@
 This document describes the public C API types, lifecycle rules, structured
 read APIs, and rewrite APIs exposed by `sqlparser`.
 
-This reference describes the 2.17.2 API. A handle cannot be reused after
+This reference describes the 2.17.3 API. A handle cannot be reused after
 patch/deparse failure, unlike the rollback behavior in 2.16.x. Public ABI remains
 unchanged; see the [Release notes](../RELEASE_NOTES.en.md).
 

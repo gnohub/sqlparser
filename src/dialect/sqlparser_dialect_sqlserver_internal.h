@@ -15,4 +15,8 @@ int sqlparser_sqlserver_state_has_odbc_function(
 	const void *state,
 	size_t statement_index);
 
+/* Owner identity only; does not certify the source, state or native graph. */
+int sqlparser_sqlserver_is_registered_native_batch_owner(
+	sqlparser_dialect_t dialect, const sqlparser_dialect_ops_t *ops);
+
 #endif

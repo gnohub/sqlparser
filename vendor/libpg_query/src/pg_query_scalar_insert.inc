@@ -352,7 +352,8 @@ pg_query_scalar_insert_certify(const char *sql, PgQueryScalarInsertSource *sourc
  * allocated. An empty/mixed/ambiguous final slice invalidates the whole batch;
  * the caller then parses the original source with the ordinary grammar. */
 static bool
-pg_query_scalar_insert_batch_certify(const char *sql, size_t *statement_count)
+pg_query_scalar_insert_batch_certify(const char *sql, size_t *statement_count,
+    PgQueryScalarInsertSource *sources, size_t source_capacity)
 {
     PgQueryScalarInsertSource source;
     size_t length = strlen(sql), start = 0U, count = 0U;
@@ -365,6 +366,10 @@ pg_query_scalar_insert_batch_certify(const char *sql, size_t *statement_count)
         if (!pg_query_scalar_insert_certify_statement(sql, length, start, true, &source, &next) ||
             !pg_query_simple_insert_rows_size(++count))
             return false;
+        /* Private caller-stack snapshots only. No descriptor may be consumed
+         * until the complete immutable source succeeds and publishes count. */
+        if (count <= source_capacity)
+            sources[count - 1U] = source;
         probe = next;
         pg_query_simple_insert_gap(sql, length, &probe);
         if (probe == length)
@@ -377,10 +382,53 @@ pg_query_scalar_insert_batch_certify(const char *sql, size_t *statement_count)
     return true;
 }
 
+/* Return a request size only when text stays in the original node class.
+ * Kept separate so overflow/capacity edges need no enormous source fixture. */
+static Size
+pg_query_scalar_insert_inline_text_bytes(const PgQueryScalarInsertCell *cell,
+    Size text_capacity)
+{
+    if (text_capacity <= sizeof(A_Const) || text_capacity > MaxAllocSize ||
+        (cell->kind != PG_QUERY_SCALAR_STRING &&
+         (cell->kind != PG_QUERY_SCALAR_FLOAT || cell->negative)) ||
+        sizeof(A_Const) >= MaxAllocSize ||
+        cell->text.length > MaxAllocSize - sizeof(A_Const) - 1U ||
+        cell->text.length >= text_capacity - sizeof(A_Const))
+        return 0U;
+    return sizeof(A_Const) + cell->text.length + 1U;
+}
+
 static Node *
-pg_query_scalar_insert_make_cell(const char *sql, const PgQueryScalarInsertCell *cell)
+pg_query_scalar_insert_make_cell(const char *sql, const PgQueryScalarInsertCell *cell,
+    Size text_capacity)
 {
     A_Const *constant;
+    /* Only an owned-plan caller supplies the current AllocSet's real class.
+     * Small text may use its existing slack without growing the node's chunk.
+     * The interior string is borrowed by synchronous serializers and released
+     * only with the complete parse context; never independently pfree it. */
+    Size bytes = pg_query_scalar_insert_inline_text_bytes(cell, text_capacity);
+    if (bytes != 0U)
+    {
+        char *text;
+        constant = palloc0(bytes);
+        constant->type = T_A_Const;
+        constant->location = cell->location;
+        text = (char *) constant + sizeof(A_Const);
+        memcpy(text, sql + cell->text.start, cell->text.length);
+        text[cell->text.length] = '\0';
+        if (cell->kind == PG_QUERY_SCALAR_FLOAT)
+        {
+            constant->val.fval.type = T_Float;
+            constant->val.fval.fval = text;
+        }
+        else
+        {
+            constant->val.sval.type = T_String;
+            constant->val.sval.sval = text;
+        }
+        return (Node *) constant;
+    }
     if (cell->kind == PG_QUERY_SCALAR_SQL_VALUE)
     {
         SQLValueFunction *value = makeNode(SQLValueFunction);
@@ -435,7 +483,8 @@ pg_query_scalar_insert_list(size_t count)
 }
 
 static RawStmt *
-pg_query_scalar_insert_construct(const char *sql, const PgQueryScalarInsertSource *proved)
+pg_query_scalar_insert_construct_with_text_capacity(const char *sql,
+    const PgQueryScalarInsertSource *proved, Size text_capacity)
 {
     const PgQueryScalarInsertSource source = *proved;
     PgQueryScalarInsertCell cell;
@@ -494,18 +543,29 @@ pg_query_scalar_insert_construct(const char *sql, const PgQueryScalarInsertSourc
                 !pg_query_simple_insert_punctuation(sql, source.length, &pos,
                     column + 1U == source.columns ? ')' : ','))
                 elog(ERROR, "certified scalar INSERT cell changed during construction");
-            values->elements[column].ptr_value = pg_query_scalar_insert_make_cell(sql, &cell);
+            values->elements[column].ptr_value = pg_query_scalar_insert_make_cell(sql, &cell, text_capacity);
         }
         select->valuesLists->elements[row].ptr_value = values;
     }
     return raw;
 }
 
+/* Legacy singleton and batch constructors retain their original layout. */
+static RawStmt *
+pg_query_scalar_insert_construct(const char *sql, const PgQueryScalarInsertSource *proved)
+{
+    return pg_query_scalar_insert_construct_with_text_capacity(sql, proved, 0U);
+}
+
 static List *
 pg_query_scalar_insert_from_source(const char *sql,
-    const PgQueryScalarInsertSource *source, PgQueryNativeScalarInsertProof *proof)
+    const PgQueryScalarInsertSource *source, PgQueryNativeScalarInsertProof *proof,
+    bool owned_mysql_layout)
 {
-    List *result = list_make1(pg_query_scalar_insert_construct(sql, source));
+    Size text_capacity = owned_mysql_layout ?
+        pg_query_allocset_same_class_capacity(CurrentMemoryContext, sizeof(A_Const)) : 0U;
+    List *result = list_make1(pg_query_scalar_insert_construct_with_text_capacity(
+        sql, source, text_capacity));
     /* Commit only after every native allocation and construction check. */
     if (proof != NULL && source->graph_compatible)
     {
@@ -525,22 +585,55 @@ pg_query_try_scalar_insert(const char *sql, PgQueryNativeScalarInsertProof *proo
     PgQueryScalarInsertSource source;
     if (!pg_query_scalar_insert_certify(sql, &source))
         return NIL;
-    return pg_query_scalar_insert_from_source(sql, &source, proof);
+    return pg_query_scalar_insert_from_source(sql, &source, proof, false);
 }
 
-/* Dedicated batch caller only. This never mints singleton/native-graph
- * provenance. The statement descriptor and every location use original byte
- * offsets, including whitespace immediately after the previous semicolon. */
+/* Dedicated batch caller only. No singleton proof is minted. The optional
+ * batch candidate uses only this call's complete-source descriptors and is
+ * not published to the caller until canonical serialization succeeds. */
 static List *
-pg_query_try_scalar_insert_batch(const char *sql)
+pg_query_try_scalar_insert_batch(const char *sql, PgQueryNativeScalarInsertBatchProof *proof)
 {
+    PgQueryScalarInsertSource sources[PG_QUERY_NATIVE_SCALAR_BATCH_MAX_STATEMENTS];
     PgQueryScalarInsertSource source;
     List *result;
     size_t count, length, start = 0U, statement;
-    if (!pg_query_scalar_insert_batch_certify(sql, &count))
+    if (!pg_query_scalar_insert_batch_certify(sql, &count, sources,
+            sizeof(sources) / sizeof(sources[0])))
         return NIL;
     length = strlen(sql);
     result = pg_query_scalar_insert_list(count);
+    if (count <= sizeof(sources) / sizeof(sources[0]))
+    {
+        /* Every descriptor came from this call's complete independent proof.
+         * Keep the checked constructor, original offsets and legacy layout. */
+        for (statement = 0U; statement < count; ++statement)
+            result->elements[statement].ptr_value =
+                pg_query_scalar_insert_construct(sql, &sources[statement]);
+        if (proof != NULL)
+        {
+            for (statement = 0U; statement < count; ++statement)
+                if (!sources[statement].graph_compatible)
+                    return result;
+            /* All native allocations/checks completed. No source or context
+             * pointer escapes; unused fixed-capacity entries remain zero. */
+            proof->source_length = length;
+            for (statement = 0U; statement < count; ++statement)
+            {
+                const PgQueryScalarInsertSource *source = &sources[statement];
+                PgQueryNativeScalarInsertBatchStatementProof *out = &proof->statements[statement];
+                out->raw_start = source->statement_start;
+                out->raw_length = source->statement_length;
+                out->row_count = source->rows;
+                out->column_count = source->columns;
+                out->string_count = source->strings;
+                out->text_bytes = source->graph_text_bytes;
+            }
+            proof->statement_count = count;
+        }
+        return result;
+    }
+    /* Oversized batches retain the original full recertification path. */
     for (statement = 0U; statement < count; ++statement)
     {
         size_t next;

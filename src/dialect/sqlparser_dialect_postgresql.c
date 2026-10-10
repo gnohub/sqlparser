@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "sqlparser_dialect_national_literal_internal.h"
+#include "src/pg_query_observer.h"
 
 typedef struct {
 	char *data;
@@ -160,9 +161,11 @@ static sqlparser_status_t sqlparser_postgresql_buffer_reserve(
 static sqlparser_status_t sqlparser_postgresql_buffer_reserve_input(
 	sqlparser_postgresql_buffer_t *buffer,
 	const char *input,
+	size_t *out_input_length,
 	sqlparser_error_t *out_error)
 {
 	size_t len;
+	sqlparser_status_t status;
 
 	if (input == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL input must not be NULL");
@@ -173,7 +176,11 @@ static sqlparser_status_t sqlparser_postgresql_buffer_reserve_input(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
-	return sqlparser_postgresql_buffer_reserve(buffer, len + 1U, out_error);
+	status = sqlparser_postgresql_buffer_reserve(buffer, len + 1U, out_error);
+	if (status == SQLPARSER_STATUS_OK && out_input_length != NULL) {
+		*out_input_length = len;
+	}
+	return status;
 }
 
 static sqlparser_status_t sqlparser_postgresql_buffer_append_char(
@@ -664,6 +671,25 @@ static int sqlparser_postgresql_copy_comment(
 	return 0;
 }
 
+/* Only a negative filter for the existing complete scalar grammar. Each
+ * accepted source ends in ')' or optional ';', followed by scanner whitespace.
+ * Inspect at most 64 bytes total; unknown tails retain the complete proof.
+ * This is not a lexer and must never publish positive identity authority. */
+static int sqlparser_postgresql_identity_tail_may_match(
+	const char *sql, size_t length)
+{
+	size_t inspected = 0U;
+	while (length > 0U && inspected < 64U) {
+		char c = sql[--length];
+		++inspected;
+		/* Exactly scanner_isspace, independent of the process locale. */
+		if (c == ' ' || c == '\t' || c == '\n' || c == '\r' ||
+		    c == '\v' || c == '\f') continue;
+		return c == ')' || c == ';';
+	}
+	return length != 0U; /* Unexamined prefix: unknown, not a rejection. */
+}
+
 static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	const char *input_sql,
 	sqlparser_postgresql_state_t *state,
@@ -674,6 +700,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	sqlparser_postgresql_buffer_t out;
 	sqlparser_status_t status;
 	size_t index;
+	size_t input_length = 0U;
 
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect preprocess output must not be NULL");
@@ -686,7 +713,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	}
 
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_postgresql_buffer_reserve_input(&out, input_sql, out_error);
+	status = sqlparser_postgresql_buffer_reserve_input(&out, input_sql, &input_length, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -698,6 +725,24 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_postgresql_buffer_release(&out);
 		return status;
+	}
+
+	/* Reuse only the existing complete, allocation-free scalar subset proof.
+	 * Its MySQL name policy only narrows this identity route. No parser,
+	 * native-tree, graph, or wire authority is published here. Origin-aware
+	 * preprocessing keeps its original per-token origin recording.
+	 * Keep the original reserve above, including capacity/failure order. */
+	if (origins == NULL &&
+	    sqlparser_postgresql_identity_tail_may_match(input_sql, input_length)) {
+		PgQueryIdentityScalarInsertProof proof;
+		if (pg_query_prove_mysql_identity_scalar_insert(input_sql, &proof)) {
+			memcpy(out.data, input_sql, proof.source_length);
+			out.len = proof.source_length;
+			/* Fragments retain prior literals and their fragment base. size_t
+			 * addition has the same wrap semantics as the old repeated ++. */
+			state->national_literals.literal_count += proof.string_count;
+			goto finish;
+		}
 	}
 
 	index = 0U;
@@ -770,6 +815,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 		}
 	}
 
+finish:
 	status = sqlparser_postgresql_buffer_finish(&out, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_postgresql_buffer_commit_origin(
@@ -906,7 +952,7 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_national_literals(
 	size_t literal_ordinal;
 
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_postgresql_buffer_reserve_input(&out, sql, out_error);
+	status = sqlparser_postgresql_buffer_reserve_input(&out, sql, NULL, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}

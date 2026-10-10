@@ -1,5 +1,7 @@
 /* Separate complete-batch strict certificate. Reuses the existing bounded
  * source/wire readers; no dialect preprocessing/native provenance is minted. */
+#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
+
 static int wsb_add(size_t *value, size_t add)
 {
     if (add > SIZE_MAX - *value) return 0;
@@ -38,6 +40,223 @@ int sqlparser_wire_scalar_batch_is_current(const sqlparser_wire_scalar_batch_t *
         handle->identifier_spelling_status == SQLPARSER_STATUS_OK &&
         (handle->generation == 0UL || handle->surface_source_complete) &&
         sqlparser_dialect_state_is_plain_insert_batch_strings(handle, batch->statement_count, batch->string_count);
+}
+
+/* Validate scalar metadata and all original whole-owner state gates before
+ * optional adoption or consumption. The retained estimate includes the full
+ * fixed-capacity provenance allocation, even for a two-statement batch. */
+static int wsb_native_metadata(const sqlparser_handle_t *handle,
+    const PgQueryNativeScalarInsertBatchProof *proof, sqlparser_wire_scalar_batch_t *batch)
+{
+    size_t s, expected_start = 0U, retained = sizeof(*batch);
+    if (handle == NULL || proof == NULL ||
+        (handle->dialect != SQLPARSER_DIALECT_SQLSERVER &&
+         handle->dialect != SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+         handle->dialect != SQLPARSER_DIALECT_KINGBASE_SQLSERVER) ||
+        !sqlparser_sqlserver_is_registered_native_batch_owner(handle->dialect, handle->dialect_ops) ||
+        !sqlparser_dialect_supports_plain_scalar_insert(handle) || handle->generation != 0UL ||
+        handle->sql == NULL || handle->sql != handle->parser_sql ||
+        handle->sql_len != handle->parser_sql_len || proof->source_length != handle->sql_len ||
+        proof->source_length < 192U || proof->source_length > INT32_MAX ||
+        proof->source_length > PTRDIFF_MAX || handle->sql[proof->source_length] != '\0' ||
+        handle->parse_tree.data == NULL || handle->parse_tree.len == 0U ||
+        handle->parse_tree.len > UINT32_MAX || handle->parse_tree.len > PTRDIFF_MAX ||
+        proof->statement_count < 2U || proof->statement_count > PG_QUERY_NATIVE_SCALAR_BATCH_MAX_STATEMENTS ||
+        proof->statement_count != handle->statement_count ||
+        proof->statement_count > handle->parse_tree.len / 2U ||
+        proof->statement_count > SIZE_MAX / sizeof(*batch->statements)) return 0;
+    memset(batch, 0, sizeof(*batch));
+    batch->owner = handle; batch->ops = handle->dialect_ops; batch->dialect = handle->dialect;
+    batch->generation = handle->generation;
+    batch->sql = handle->sql; batch->sql_length = handle->sql_len;
+    batch->parser_sql = handle->parser_sql; batch->parser_sql_length = handle->parser_sql_len;
+    batch->wire = handle->parse_tree.data; batch->wire_length = handle->parse_tree.len;
+    batch->statement_count = proof->statement_count;
+    if (!wsb_add(&retained, sizeof(sqlparser_native_batch_provenance_t)) ||
+        !wsb_add(&retained, proof->statement_count * sizeof(*batch->statements))) return 0;
+    for (s = 0U; s < proof->statement_count; s++) {
+        const PgQueryNativeScalarInsertBatchStatementProof *p = &proof->statements[s];
+        size_t cells, end;
+        if (p->raw_start != expected_start || p->raw_start >= proof->source_length || p->raw_length < 0 ||
+            p->raw_start > INT32_MAX || p->row_count < 32U || p->row_count > UINT32_MAX ||
+            p->column_count == 0U || p->column_count > UINT32_MAX ||
+            p->column_count > SIZE_MAX / sizeof(sqlparser_wire_scalar_name_t) - 3U ||
+            p->column_count > SIZE_MAX / sizeof(uint32_t) ||
+            p->row_count > SIZE_MAX / p->column_count || p->row_count > SIZE_MAX / sizeof(uint32_t)) return 0;
+        cells = p->row_count * p->column_count;
+        if (cells > proof->source_length || p->string_count > cells ||
+            p->text_bytes < p->string_count || p->text_bytes > proof->source_length) return 0;
+        if (p->raw_length != 0) {
+            if ((size_t)p->raw_length >= proof->source_length - p->raw_start) return 0;
+            end = p->raw_start + (size_t)p->raw_length;
+            if (handle->sql[end] != ';') return 0;
+            expected_start = end + 1U;
+            if (s + 1U == proof->statement_count) {
+                wi_gap(handle->sql, proof->source_length, &expected_start);
+                if (expected_start != proof->source_length) return 0;
+            }
+        } else {
+            if (s + 1U != proof->statement_count) return 0;
+            expected_start = proof->source_length;
+        }
+        if (!wsb_add(&batch->cell_count, cells) || !wsb_add(&batch->row_count, p->row_count) ||
+            !wsb_add(&batch->column_count, p->column_count) || !wsb_add(&batch->string_count, p->string_count) ||
+            !wsb_add(&batch->text_bytes, p->text_bytes) || !wsb_add(&retained, p->text_bytes) ||
+            !wsb_add(&retained, (p->column_count + 3U) * sizeof(sqlparser_wire_scalar_name_t)) ||
+            !wsb_add(&retained, p->column_count * sizeof(uint32_t)) ||
+            !wsb_add(&retained, p->row_count * sizeof(uint32_t))) return 0;
+    }
+    return expected_start == proof->source_length && batch->cell_count <= proof->source_length &&
+        batch->text_bytes <= proof->source_length && batch->cell_count <= SIZE_MAX / 32U &&
+        retained <= batch->cell_count * 32U && sqlparser_wire_scalar_batch_is_current(batch, handle);
+}
+
+void sqlparser_handle_adopt_native_batch_provenance(sqlparser_handle_t *handle,
+    const PgQueryNativeScalarInsertBatchProof *proof)
+{
+    sqlparser_wire_scalar_batch_t description;
+    sqlparser_native_batch_provenance_t *provenance;
+    if (!wsb_native_metadata(handle, proof, &description) || handle->native_batch_provenance != NULL) return;
+    provenance = malloc(sizeof(*provenance));
+    if (provenance == NULL) return;
+    provenance->proof = *proof;
+    provenance->owner = handle; provenance->ops = handle->dialect_ops;
+    provenance->dialect = handle->dialect; provenance->generation = handle->generation;
+    provenance->sql = handle->sql; provenance->sql_length = handle->sql_len;
+    provenance->parser_sql = handle->parser_sql; provenance->parser_sql_length = handle->parser_sql_len;
+    provenance->wire = handle->parse_tree.data; provenance->wire_length = handle->parse_tree.len;
+    handle->native_batch_provenance = provenance;
+}
+
+/* This entry reuses only the complete source/native-tree/C-writer proof bound
+ * to these immutable owned bytes. It is not an arbitrary wire validator; the
+ * independent strict certifier below retains every source/cell check. */
+sqlparser_wire_scalar_batch_t *sqlparser_wire_scalar_batch_from_native(const sqlparser_handle_t *handle)
+{
+    const sqlparser_native_batch_provenance_t *provenance;
+    const PgQueryNativeScalarInsertBatchProof *proof;
+    sqlparser_wire_scalar_batch_t description, *batch;
+    wi_reader parse;
+    const uint8_t *base;
+    const char *sql;
+    size_t length, s, cell_offset = 0U, column_offset = 0U, row_offset = 0U;
+    if (handle == NULL || (provenance = handle->native_batch_provenance) == NULL ||
+        provenance->owner != handle || provenance->ops != handle->dialect_ops ||
+        provenance->dialect != handle->dialect || provenance->generation != handle->generation ||
+        provenance->sql != handle->sql || provenance->sql_length != handle->sql_len ||
+        provenance->parser_sql != handle->parser_sql || provenance->parser_sql_length != handle->parser_sql_len ||
+        provenance->wire != handle->parse_tree.data || provenance->wire_length != handle->parse_tree.len) return NULL;
+    proof = &provenance->proof;
+    if (!wsb_native_metadata(handle, proof, &description) || !wsi_schemas_match()) return NULL;
+    batch = malloc(sizeof(*batch));
+    if (batch == NULL) return NULL;
+    *batch = description;
+    batch->statements = calloc(batch->statement_count, sizeof(*batch->statements));
+    if (batch->statements == NULL) goto miss;
+    sql = batch->sql; length = batch->sql_length;
+    base = (const uint8_t *)batch->wire;
+    parse.next = base; parse.end = base + batch->wire_length;
+    if (!wi_optional_scalar(&parse, WI_PARSE_VERSION, &batch->version) || batch->version > INT32_MAX) goto miss;
+    for (s = 0U; s < batch->statement_count; s++) {
+        const PgQueryNativeScalarInsertBatchStatementProof *p = &proof->statements[s];
+        sqlparser_wire_scalar_batch_statement_t *statement = &batch->statements[s];
+        sqlparser_wire_scalar_insert_t *d = &statement->insert;
+        wi_reader raw, node, insert, relation, columns, column, target, select_node, values;
+        const uint8_t *raw_start = parse.next;
+        size_t index, row, position = p->raw_start;
+        size_t source_end = p->raw_length != 0 ? p->raw_start + (size_t)p->raw_length : length;
+        uint32_t location;
+        d->wire = batch->wire; d->wire_length = batch->wire_length;
+        d->sql = sql; d->sql_length = length; d->version = batch->version;
+        statement->cell_offset = cell_offset;
+        statement->column_offset = column_offset;
+        statement->row_offset = row_offset;
+        if (!wi_message(&parse, WI_PARSE_STMTS, &raw) ||
+            !wi_message(&raw, WI_RAW_STMT, &node) ||
+            !wi_optional_scalar(&raw, WI_RAW_LOCATION, &statement->raw_location) ||
+            !wi_optional_scalar(&raw, WI_RAW_LENGTH, &d->raw_length) || raw.next != raw.end ||
+            statement->raw_location != p->raw_start || d->raw_length != (uint32_t)p->raw_length ||
+            !wi_message(&node, PG_QUERY__NODE__NODE_INSERT_STMT, &insert) || node.next != node.end ||
+            !wi_word(sql, source_end, &position, "insert", 6U) ||
+            !wi_word(sql, source_end, &position, "into", 4U)) goto miss;
+        statement->raw_wire_offset = (uint32_t)(raw_start - base);
+        statement->raw_wire_length = (uint32_t)(parse.next - raw_start);
+        d->prefix_offset = (uint32_t)(insert.next - base);
+        if (!wi_message(&insert, WI_INSERT_RELATION, &relation)) goto miss;
+        columns = insert;
+        while (wi_key_is(&insert, WI_INSERT_COLS, 2U)) {
+            if (!wi_message(&insert, WI_INSERT_COLS, &column) || d->column_count >= p->column_count) goto miss;
+            d->column_count++;
+        }
+        if (d->column_count != p->column_count) goto miss;
+        d->prefix_length = (uint32_t)(insert.next - base) - d->prefix_offset;
+        if (!wi_message(&insert, WI_INSERT_SELECT, &select_node) || !wi_enum(&insert, WI_INSERT_OVERRIDE, 1U) ||
+            insert.next != insert.end || !wi_message(&select_node, PG_QUERY__NODE__NODE_SELECT_STMT, &values) ||
+            select_node.next != select_node.end) goto miss;
+        d->names = calloc(d->column_count + 3U, sizeof(*d->names));
+        statement->column_locations = malloc(d->column_count * sizeof(*statement->column_locations));
+        if (d->names == NULL || statement->column_locations == NULL) goto miss;
+        for (index = 0U; index < 3U; index++) {
+            sqlparser_wire_scalar_name_t *name = &d->names[index];
+            if (wi_key_is(&relation, (unsigned)index + 1U, 2U) &&
+                !wi_text(&relation, (unsigned)index + 1U, &name->text, &name->length)) goto miss;
+        }
+        if (d->names[2].text == NULL || (d->names[0].text != NULL && d->names[1].text == NULL) ||
+            !wi_enum(&relation, 4U, 1U) || !wi_message(&relation, 5U, &node) ||
+            node.end - node.next != 1 || *node.next != 'p' ||
+            !wi_scalar(&relation, 7U, &location) || relation.next != relation.end) goto miss;
+        wi_gap(sql, source_end, &position);
+        if (location != position) goto miss;
+        statement->relation_location = location;
+        for (index = 0U; index < 3U; index++) {
+            sqlparser_wire_scalar_name_t *name = &d->names[index];
+            if (name->text == NULL) continue;
+            if (!wsi_name_word(sql, source_end, &position, name->text, name->length) ||
+                !wsi_add_text(d, name->length) ||
+                (index < 2U && !wi_punctuation(sql, source_end, &position, '.'))) goto miss;
+        }
+        if (!wi_punctuation(sql, source_end, &position, '(')) goto miss;
+        for (index = 0U; index < d->column_count; index++) {
+            sqlparser_wire_scalar_name_t *name = &d->names[index + 3U];
+            if (!wi_message(&columns, WI_INSERT_COLS, &column) ||
+                !wi_message(&column, PG_QUERY__NODE__NODE_RES_TARGET, &target) || column.next != column.end ||
+                !wi_text(&target, 1U, &name->text, &name->length) ||
+                !wi_scalar(&target, 4U, &location) || target.next != target.end) goto miss;
+            wi_gap(sql, source_end, &position);
+            if (location != position || !wsi_name_word(sql, source_end, &position, name->text, name->length) ||
+                !wsi_add_text(d, name->length) ||
+                !wi_punctuation(sql, source_end, &position, index + 1U == d->column_count ? ')' : ',')) goto miss;
+            statement->column_locations[index] = location;
+        }
+        if (!wi_word(sql, source_end, &position, "values", 6U) ||
+            position >= source_end || d->text_bytes > p->text_bytes) goto miss;
+        d->text_bytes = p->text_bytes; d->string_count = p->string_count;
+        d->row_count = p->row_count;
+        d->row_offsets = malloc(d->row_count * sizeof(*d->row_offsets));
+        if (d->row_offsets == NULL) goto miss;
+        /* Preserve bounded canonical row/List envelopes in the same pass that
+         * records offsets. Only the proved cell interiors/source are skipped. */
+        for (row = 0U; row < d->row_count; row++) {
+            wi_reader list;
+            d->row_offsets[row] = (uint32_t)(values.next - base);
+            if (!wi_message(&values, WI_SELECT_VALUES, &node) ||
+                !wi_message(&node, PG_QUERY__NODE__NODE_LIST, &list) ||
+                node.next != node.end || list.next == list.end) goto miss;
+        }
+        if (!wi_enum(&values, WI_SELECT_LIMIT, 1U) || !wi_enum(&values, WI_SELECT_OP, 1U) ||
+            values.next != values.end) goto miss;
+        /* All aggregates were independently checked before allocating. */
+        cell_offset += d->row_count * d->column_count;
+        column_offset += d->column_count;
+        row_offset += d->row_count;
+    }
+    if (parse.next != parse.end || cell_offset != batch->cell_count ||
+        column_offset != batch->column_count || row_offset != batch->row_count ||
+        !sqlparser_wire_scalar_batch_is_current(batch, handle)) goto miss;
+    return batch;
+miss:
+    sqlparser_wire_scalar_batch_destroy(batch);
+    return NULL;
 }
 
 sqlparser_wire_scalar_batch_t *sqlparser_wire_scalar_batch_certify(const sqlparser_handle_t *handle)

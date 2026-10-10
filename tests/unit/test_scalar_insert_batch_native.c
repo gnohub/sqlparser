@@ -119,39 +119,69 @@ static void batch_cases(void)
         batch_parity(sql,0,rows>=32U&&length+1U>=4096U,2U);free(sql);free(safe);free(bad);
     }
 }
+static void batch_descriptor_capacity(void)
+{
+    static const size_t counts[]={15U,16U,17U};
+    char *one=fixture(32U,4096U,"Db.Sch.Tab","a,b,c","'UTF8 é € 😀; -- /* */',1,CURRENT_DATE","");
+    char *two=fixture(35U,4096U,"other_schema.other_table","a,b","'plain',1.e-2","");
+    char *bad=fixture(32U,4096U,"s.t","a,b,c","'unterminated,1,CURRENT_DATE","");
+    const char *parts[17];
+    stage="bounded descriptor 15/16/17 capacity, full-source rejection and RawStmt offsets";
+    for(size_t k=0U;k<BCOUNT(counts);k++){
+        size_t count=counts[k];
+        for(size_t i=0U;i<count;i++)parts[i]=(i%2U)?two:one;
+        for(int terminal=0;terminal<2;terminal++){
+            char *joined=batch_join(parts,count,"; \r\n\t");
+            const char *whole[]={joined,terminal?"; \r\n\t":" \r\n\t"};
+            char *sql=batch_join(whole,2U,"");batch_parity(sql,0,1,count);free(sql);free(joined);
+        }
+        {
+            char *joined=batch_join(parts,count,";\n");
+            const char *whole[]={joined,";; \r\n"};
+            char *sql=batch_join(whole,2U,"");batch_parity(sql,0,0,count);free(sql);free(joined);
+        }
+        parts[count-1U]="SELECT 1";
+        char *sql=batch_join(parts,count,";\n");batch_parity(sql,0,0,count);free(sql);
+        parts[count-1U]=bad;
+        sql=batch_join(parts,count,";\n");batch_parity(sql,0,0,0U);free(sql);
+    }
+    free(one);free(two);free(bad);
+}
 #ifdef SQLPARSER_SIMPLE_INSERT_WRAPPERS
-static void batch_native_oom(void)
+static void batch_native_oom(size_t expected_count)
 {
     char *a=fixture(128U,4096U,"Db.Sch.Tab","a,b,c,d,e,f,g,h,i",
         "'张三李四',1,-2147483648,100.50,CURRENT_TIMESTAMP,LOCALTIME(6),'',2147483647,-1.5e+3","");
-    const char *parts[]={a,a,a};char *sql=batch_join(parts,3U,"; \n");size_t boundaries=0U;
-    stage="native allocation boundaries across three statements and fresh-call recovery";
+    const char *parts[17];CHECK(expected_count<=BCOUNT(parts));
+    for(size_t i=0U;i<expected_count;i++)parts[i]=a;
+    char *sql=batch_join(parts,expected_count,"; \n");size_t boundaries=0U;
+    stage="native allocation boundaries across cached/overflow batches and fresh-call recovery";
     for(size_t at=0U;at<=boundaries;at++){
         PgQueryProtobufParseResult parsed;size_t count=0U;int certified=0;
         pg_query_exit();pg_query_init();native_attempts=injected=grammar_calls=0U;native_depth=0;fail_at=at;armed=1;
         parsed=pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(sql,0,&count,&certified);
         armed=0;native_depth=0;CHECK(grammar_calls==0U);
-        if(!at){boundaries=native_attempts;CHECK(boundaries&&!parsed.error&&parsed.parse_tree.data&&certified&&count==3U);}
+        if(!at){boundaries=native_attempts;CHECK(boundaries&&!parsed.error&&parsed.parse_tree.data&&certified&&count==expected_count);}
         else{
             CHECK(injected==1U);
             if(parsed.error)CHECK(strstr(parsed.error->message,"out of memory")!=NULL&&!certified&&!count);
             else{
                 PgQueryProtobufParseResult reference=pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(sql,0,NULL,NULL);
-                CHECK(!reference.error&&parsed.parse_tree.data&&certified&&count==3U);wire_equal(parsed.parse_tree,reference.parse_tree);
+                CHECK(!reference.error&&parsed.parse_tree.data&&certified&&count==expected_count);wire_equal(parsed.parse_tree,reference.parse_tree);
                 pg_query_free_protobuf_parse_result(reference);
             }
         }
         pg_query_free_protobuf_parse_result(parsed);CHECK(CurrentMemoryContext==TopMemoryContext);
-        batch_parity(sql,0,1,3U);CHECK(!native_live_bytes&&!native_live_blocks);
+        batch_parity(sql,0,1,expected_count);CHECK(!native_live_bytes&&!native_live_blocks);
     }
-    printf("scalar batch native allocation boundaries=%zu zero_live=yes\n",boundaries);free(sql);free(a);
+    printf("scalar batch native statements=%zu allocation boundaries=%zu zero_live=yes\n",expected_count,boundaries);free(sql);free(a);
 }
 #endif
 int main(int argc,char **argv)
 {
-    CHECK(argc<=2);batch_cases();
+    CHECK(argc<=2);batch_cases();batch_descriptor_capacity();
 #ifdef SQLPARSER_SIMPLE_INSERT_WRAPPERS
-    batch_native_oom();
+    batch_native_oom(3U);batch_native_oom(16U);batch_native_oom(17U);
 #endif
     if(argc==2){
         FILE *f=fopen(argv[1],"rb");long length;char *sql;CHECK(f&&fseek(f,0,SEEK_END)==0);

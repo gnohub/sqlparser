@@ -32,6 +32,76 @@ static void batch_admission(const char *sql, int expected, size_t statements, si
         CHECK(batch.source_length==strlen(sql));CHECK(batch.statement_count==statements);
         CHECK(batch.string_count==strings);CHECK(statements>=2U);
     } else CHECK(!memcmp(&batch,&zero,sizeof(batch)));
+    if(!proof_string_count_override){
+        PgQueryIdentityInsertSequenceProof sequence,empty={0};
+        PgQueryIdentityScalarInsertProof single,single_zero={0};
+        PgQueryIdentityInsertSequenceKind kind;
+        memset(&sequence,0xa5,sizeof(sequence));
+        kind=pg_query_prove_identity_insert_sequence(sql,sqlparser_sqlserver_identity_name,&sequence);
+        if(expected){
+            CHECK(kind==PG_QUERY_IDENTITY_INSERT_BATCH);
+            CHECK(sequence.source_length==batch.source_length&&sequence.statement_count==statements&&sequence.string_count==strings);
+            CHECK(!memcmp(&sequence.single,&single_zero,sizeof(single_zero)));
+        }else if(sqlparser_sqlserver_prove_identity_scalar_insert(sql,&single)){
+            CHECK(kind==PG_QUERY_IDENTITY_INSERT_SINGLE);
+            CHECK(sequence.source_length==single.source_length&&sequence.statement_count==1U&&sequence.string_count==single.string_count);
+            CHECK(!memcmp(&sequence.single,&single,sizeof(single)));
+        }else{
+            CHECK(kind==PG_QUERY_IDENTITY_INSERT_NONE&&!memcmp(&sequence,&empty,sizeof(empty)));
+        }
+    }
+}
+
+static void prefix_classification_boundaries(void)
+{
+    static const size_t counts[]={1U,2U,5U,15U,16U,17U};
+    char *safe=fixture(32U,4096U,"s.t","a,b","'é 😀; -- /* */',1","");
+    const char *parts[17];
+    stage="prefix NONE/SINGLE/BATCH classification and exact old slice bounds";
+    for(size_t k=0U;k<COUNT(counts);k++){
+        size_t count=counts[k];for(size_t i=0U;i<count;i++)parts[i]=safe;
+        for(int terminal=0;terminal<2;terminal++){
+            char *joined=join_parts(parts,count,"; \r\n\t");
+            const char *all[]={joined,terminal?"; \r\n\t":" \r\n\t"};
+            char *sql=join_parts(all,2U,"");batch_admission(sql,count>1U,count,32U*count);
+            free(sql);free(joined);
+        }
+    }
+    for(size_t length=4095U;length<=4097U;length++){
+        char *base=fixture(32U,0U,"s.t","a","'x'","");size_t padding=length-strlen(base);free(base);
+        char *edge=fixture(32U,padding,"s.t","a","'x'","");
+        const char *first[]={edge,safe};char *sql=join_parts(first,2U,";");
+        batch_admission(sql,length+1U>=4096U,2U,64U);free(sql);
+        const char *last[]={safe,edge};sql=join_parts(last,2U,";");
+        batch_admission(sql,length>=4096U,2U,64U);free(sql);free(edge);
+    }
+    {
+        char spaces[5001];memset(spaces,' ',5000U);spaces[5000]=0;
+        char *small=fixture(32U,0U,"s.t","a","'x'",";");
+        const char *padded_parts[]={small,spaces};char *padded=join_parts(padded_parts,2U,"");
+        batch_admission(padded,0,0U,0U); /* SINGLE may count padding after ';'. */
+        const char *batch_parts[]={safe,padded};char *sql=join_parts(batch_parts,2U,";");
+        batch_admission(sql,0,0U,0U); /* BATCH may not count that final padding. */
+        free(sql);
+        const char *first_parts[]={padded,safe};sql=join_parts(first_parts,2U,"");
+        batch_admission(sql,0,0U,0U); /* Nor padding after the first ';'. */
+        free(sql);free(padded);free(small);
+        small=fixture(32U,0U,"s.t","a","'x'","");
+        const char *inside_parts[]={small,spaces};padded=join_parts(inside_parts,2U,"");
+        const char *last_inside[]={safe,padded};sql=join_parts(last_inside,2U,";");
+        batch_admission(sql,1,2U,64U); /* No final ';': whitespace is in the slice. */
+        free(sql);
+        const char *first_inside[]={padded,safe};sql=join_parts(first_inside,2U,";");
+        batch_admission(sql,1,2U,64U); /* Whitespace before first ';' also counts. */
+        free(sql);free(padded);free(small);
+    }
+    {
+        PgQueryIdentityInsertSequenceProof p,z={0};
+        memset(&p,0xa5,sizeof(p));CHECK(pg_query_prove_identity_insert_sequence(NULL,sqlparser_sqlserver_identity_name,&p)==PG_QUERY_IDENTITY_INSERT_NONE);CHECK(!memcmp(&p,&z,sizeof(p)));
+        memset(&p,0xa5,sizeof(p));CHECK(pg_query_prove_identity_insert_sequence(safe,NULL,&p)==PG_QUERY_IDENTITY_INSERT_NONE);CHECK(!memcmp(&p,&z,sizeof(p)));
+        CHECK(pg_query_prove_identity_insert_sequence(safe,sqlparser_sqlserver_identity_name,NULL)==PG_QUERY_IDENTITY_INSERT_NONE);
+    }
+    free(safe);
 }
 
 static void batch_preprocess(const char *sql, int expected, size_t statements, size_t strings)
@@ -128,7 +198,7 @@ static void batch_hazards(void)
 
 static void batch_fallbacks_and_limits(void)
 {
-    static const char *suffixes[]={"SELECT 1","BEGIN SELECT 1 END","USE db",";","-- comment\n",
+    static const char *suffixes[]={"SELECT 1","BEGIN SELECT 1 END","USE db","GO\n",";","-- comment\n",
         "/* comment */","INSERT INTO t(a) VALUES ('small')","INSERT INTO t(a) OUTPUT inserted.a VALUES ('x')",
         "INSERT INTO [t](a) VALUES ('x')","INSERT INTO t(a) VALUES (N'x')","INSERT INTO t(a) VALUES ('unterminated"};
     static const char *values[]={"'a''b'","'back\\slash'","N'x'","'line\nline'","'\x80'","NULL",
@@ -199,13 +269,18 @@ static void batch_allocation_failures(void)
     char *small=fixture(32U,4096U,"s.t","a","'small'","");
     char *large=fixture(33U,16384U,"other_schema.other_table","a,b","'@ exec cross apply','large'","");
     const char *parts[]={small,large,small};char *sql=join_parts(parts,3U,";\n");
-    size_t scratch_boundaries=0U,preprocess_boundaries=0U;
+    size_t scratch_boundaries=0U,preprocess_boundaries[2]={0U,0U};
     stage="non-INSERT and singleton misses allocate no batch scratch";
     {
         sqlparser_sqlserver_identity_batch_t batch;
         arm(1U);CHECK(!sqlparser_sqlserver_prove_identity_insert_batch("SELECT 1",&batch));
         CHECK(!sqlparser_sqlserver_prove_identity_insert_batch(small,&batch));armed=0;
         CHECK(!attempts&&!injected&&!live);
+    }
+    {
+        PgQueryIdentityInsertSequenceProof sequence;
+        arm(1U);CHECK(pg_query_prove_identity_insert_sequence(sql,sqlparser_sqlserver_identity_name,&sequence)==PG_QUERY_IDENTITY_INSERT_BATCH);armed=0;
+        CHECK(sequence.statement_count==3U&&!attempts&&!injected&&!live);
     }
     stage="every optional scratch growth failure discards its partial batch proof";
     for(size_t at=0U;at<=scratch_boundaries;at++) {
@@ -217,19 +292,22 @@ static void batch_allocation_failures(void)
         CHECK(!live);
     }
     stage="batch state/copy/raw-mask OOM and optional allocation fallback preserve cleanup";
-    for(size_t at=0U;at<=preprocess_boundaries;at++) {
+    for(int legacy=0;legacy<2;legacy++)for(size_t at=0U;at<=preprocess_boundaries[legacy];at++) {
         char *out=NULL,*reference=NULL;void *state=NULL,*reference_state=NULL;
         sqlparser_parse_options_t o;sqlparser_error_t e={0},re={0};sqlparser_status_t result;
         PgQueryIdentityScalarInsertProof proof,zero={0};sqlparser_parse_options_default(&o);
-        memset(&proof,0xa5,sizeof(proof));force_reference=0;arm(at);
+        memset(&proof,0xa5,sizeof(proof));force_reference=0;force_prefix_reference=legacy;arm(at);
         result=sqlparser_sqlserver_preprocess_validation_proof(sql,&o.limits,&out,&state,&proof,NULL,&e);armed=0;
+        force_prefix_reference=0;
         CHECK(!memcmp(&proof,&zero,sizeof(proof)));
-        if(!at){preprocess_boundaries=attempts;CHECK(preprocess_boundaries==5U&&result==SQLPARSER_STATUS_OK);}
+        if(!at){preprocess_boundaries[legacy]=attempts;CHECK(preprocess_boundaries[legacy]==(legacy?5U:3U)&&result==SQLPARSER_STATUS_OK);}
         else {
             CHECK(injected==1U);
-            /* State=1, optional scratch=2/3, owned copy=4, RAW mask=5.
-             * Optional scratch failures must finish through legacy fallback. */
-            CHECK(result==((at==2U||at==3U)?SQLPARSER_STATUS_OK:SQLPARSER_STATUS_NO_MEMORY));
+            /* Retain every old optional-scratch failure under an explicit
+             * prefix-disabled reference. The current implementation has only the three
+             * required state/copy/RAW-mask allocations; compare actual
+             * boundaries independently, never equate changed OOM ordinals. */
+            CHECK(result==((legacy&&(at==2U||at==3U))?SQLPARSER_STATUS_OK:SQLPARSER_STATUS_NO_MEMORY));
         }
         if(result==SQLPARSER_STATUS_OK) {
             force_reference=1;
@@ -244,8 +322,8 @@ static void batch_allocation_failures(void)
         sqlparser_sqlserver_state_destroy(reference_state);CHECK(!live);
     }
     free(sql);free(small);free(large);
-    printf("SQLServer batch identity: scratch growth boundaries=%zu preprocess boundaries=%zu zero_live=yes\n",
-        scratch_boundaries,preprocess_boundaries);
+    printf("SQLServer batch identity: old scratch growth boundaries=%zu candidate preprocess boundaries=%zu old preprocess boundaries=%zu zero_live=yes\n",
+        scratch_boundaries,preprocess_boundaries[0],preprocess_boundaries[1]);
 }
 #endif
 
@@ -263,6 +341,7 @@ static void batch_external_fixture(const char *path)
 int main(int argc,char **argv)
 {
     CHECK(argc<=2);
+    prefix_classification_boundaries();
     fprintf(stderr,"SQLServer batch identity: positives\n");batch_positives();
     fprintf(stderr,"SQLServer batch identity: hazard inventory\n");batch_hazards();
     fprintf(stderr,"SQLServer batch identity: fallbacks and limits\n");batch_fallbacks_and_limits();

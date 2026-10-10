@@ -4767,6 +4767,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	char **out_parser_sql,
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
+	PgQueryIdentityScalarInsertProof *out_identity_proof,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dameng_state_t *state;
@@ -4774,6 +4775,9 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	sqlparser_status_t status;
 
 	(void)limits;
+	if (out_identity_proof != NULL) {
+		memset(out_identity_proof, 0, sizeof(*out_identity_proof));
+	}
 	if (out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect output must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -4806,6 +4810,9 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 			state->national_literals.literal_count = proof.string_count;
 			*out_parser_sql = rewritten_sql;
 			*out_state = state;
+			/* Publish only this call's completed identity pass, paired with
+			 * its owned parser copy and initialized Dameng state. */
+			if (out_identity_proof != NULL) *out_identity_proof = proof;
 			return SQLPARSER_STATUS_OK;
 		}
 	}
@@ -4874,7 +4881,24 @@ static sqlparser_status_t sqlparser_dameng_preprocess(
 		out_parser_sql,
 		out_state,
 		NULL,
+		NULL,
 		out_error);
+}
+
+sqlparser_status_t sqlparser_dameng_preprocess_validation_proof(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	PgQueryIdentityScalarInsertProof *out_proof,
+	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
+	sqlparser_error_t *out_error)
+{
+	if (out_proof != NULL) memset(out_proof, 0, sizeof(*out_proof));
+	/* Dameng admits one scalar statement only, never a statement batch. */
+	if (out_batch_proof != NULL) memset(out_batch_proof, 0, sizeof(*out_batch_proof));
+	return sqlparser_dameng_preprocess_internal(
+		input_sql, limits, out_parser_sql, out_state, NULL, out_proof, out_error);
 }
 
 sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
@@ -4904,6 +4928,7 @@ sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
 		out_parser_sql,
 		out_state,
 		origins,
+		NULL,
 		out_error);
 }
 
@@ -9552,7 +9577,7 @@ sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql_in_place(
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_DAMENG;
 	options.limits = handle->limits;
-	status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+	status = sqlparser_dameng_parse_legacy_replacement(public_sql, &options, &replacement, out_error);
 	free(public_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -9815,7 +9840,7 @@ sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 		sqlparser_parse_options_default(&options);
 		options.dialect = SQLPARSER_DIALECT_DAMENG;
 		options.limits = handle->limits;
-		status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+		status = sqlparser_dameng_parse_legacy_replacement(public_sql, &options, &replacement, out_error);
 	}
 	free(public_sql);
 	sqlparser_handle_destroy(candidate);

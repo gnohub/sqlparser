@@ -1100,6 +1100,25 @@ WSI_INLINE uint32_t wsi_function_length(unsigned op)
     }
 }
 
+/* Location offsets are commonly three-byte varints. The complete bound and
+ * continuation pattern below imply exactly the same three successful reads
+ * as wi_certified_u32, including its acceptance of nonminimal encodings.
+ * All other inputs retain the original reader and its failure side effects. */
+WSI_INLINE int wsi_certified_location_u32(const uint8_t **cursor,
+    const uint8_t *end, uint32_t *out)
+{
+    const uint8_t *p = *cursor;
+    if (end - p >= 3 && (p[0] & 0x80U) != 0U &&
+        (p[1] & 0x80U) != 0U && (p[2] & 0x80U) == 0U) {
+        uint32_t value = (uint32_t)(p[0] & 0x7fU) |
+            ((uint32_t)(p[1] & 0x7fU) << 7) | ((uint32_t)p[2] << 14);
+        *cursor = p + 3;
+        *out = value;
+        return 1;
+    }
+    return wi_certified_u32(cursor, end, out);
+}
+
 WSI_INLINE int wsi_certified_cell(const uint8_t **cursor, const uint8_t *end,
     sqlparser_wire_scalar_cell_t *cell)
 {
@@ -1147,7 +1166,7 @@ WSI_INLINE int wsi_certified_cell(const uint8_t **cursor, const uint8_t *end,
     }
     if (p == end) return 0;
     p++; /* AConst.location or SQLValueFunction.location. */
-    if (!wi_certified_u32(&p, end, &value) || value > INT32_MAX) return 0;
+    if (!wsi_certified_location_u32(&p, end, &value) || value > INT32_MAX) return 0;
     cell->location = (int32_t)value;
     *cursor = p;
     return 1;
@@ -1442,9 +1461,12 @@ sqlparser_wire_scalar_insert_t *sqlparser_wire_scalar_insert_from_native(const s
     /* This entry is not a verifier for caller-supplied or mutated protobuf.
      * Only the owned immutable output of the exact initial native constructor
      * and canonical serializer may reuse its semantic/source attestation. */
-    if (handle == NULL || handle->dialect_ops == NULL ||
-        !handle->dialect_ops->plain_scalar_native_validation || handle->generation != 0UL ||
+    if (handle == NULL || handle->dialect_ops == NULL || handle->generation != 0UL ||
         (provenance = handle->native_scalar_provenance) == NULL ||
+        (!handle->dialect_ops->plain_scalar_native_validation &&
+         !(handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+           handle->dialect_ops == sqlparser_dialect_dameng_ops() &&
+           handle->dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_DAMENG))) ||
         provenance->sql != handle->sql || handle->parser_sql != handle->sql ||
         provenance->wire != handle->parse_tree.data ||
         provenance->wire_length != handle->parse_tree.len) return NULL;

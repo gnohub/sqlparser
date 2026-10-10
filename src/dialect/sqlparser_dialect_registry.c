@@ -48,6 +48,10 @@ sqlparser_validation_preprocess_fn sqlparser_dialect_validation_preprocessor(
 	 * that happens to have compatible-looking callbacks. Kingbase shares
 	 * the exact base SQLServer owner; Vastbase keeps that owner's state. */
 	if (ops == NULL || ops != sqlparser_dialect_get_ops(dialect)) return NULL;
+	if (dialect == SQLPARSER_DIALECT_DAMENG &&
+	    ops == sqlparser_dialect_dameng_ops()) {
+		return sqlparser_dameng_preprocess_validation_proof;
+	}
 	if ((dialect == SQLPARSER_DIALECT_SQLSERVER ||
 	     dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER) &&
 	    ops == sqlparser_dialect_sqlserver_ops()) {

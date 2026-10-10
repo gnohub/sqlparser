@@ -562,6 +562,42 @@ $(BIN_PATH)/test_surface_node_dispatch: tests/unit/test_surface_node_dispatch.c 
 
 $(BIN_PATH)/test_wire_varint_dispatch: src/core/sqlparser_wire_insert.c
 
+# Dependencies for focused INSERT parsing and graph regressions.
+$(BIN_PATH)/test_certified_location_u32: src/core/sqlparser_wire_insert.c tests/unit/sqlparser_reference_certified_cell.inc
+$(BIN_PATH)/test_dameng_wire_transcript: tests/unit/test_dameng_wire_transcript.c
+$(BIN_PATH)/test_oracle_constructor_gates: tests/unit/test_oracle_constructor_gates.c tests/oracle_constructorgates/frozen_constructor_path.inc tests/oracle_constructorgates/cases.h tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_header_cache: tests/unit/test_oracle_header_cache.c tests/oracle_headercache/frozen_header_path.inc tests/oracle_headercache/compare_helpers.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_initial_span_certificate: tests/unit/test_oracle_initial_span_certificate.c tests/oracle_spancert/frozen_surface_scanners.inc tests/oracle_spancert/frozen_oracle_scanners.inc tests/oracle_spancert/frozen_view_scanners.inc tests/oracle_spancert/frozen_entry_scanners.inc src/core/sqlparser_view.c
+$(BIN_PATH)/test_oracle_list_bounds: tests/unit/test_oracle_list_bounds.c tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_list_bounds_public: tests/unit/test_oracle_list_bounds_public.c tests/oracle_listbounds/frozen_scanner_reference.inc tests/oracle_listbounds/frozen_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_quote_call_gates: tests/unit/test_oracle_quote_call_gates.c tests/oracle_quotegates/frozen_view_scanners.inc tests/oracle_quotegates/frozen_surface_scanner.inc src/core/sqlparser_view.c
+$(BIN_PATH)/test_oracle_returning_guard: tests/unit/test_oracle_returning_guard.c tests/oracle_returningguard/frozen_validator.inc tests/oracle_returningguard/frozen_surface_scanner.inc tests/oracle_returningguard/cases.h src/dialect/sqlparser_dialect_dml_result.c
+$(BIN_PATH)/test_oracle_scan_gate: tests/unit/test_oracle_scan_gate.c tests/oracle_scangates/frozen_oracle_scanner.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_statement_end: tests/unit/test_oracle_statement_end.c tests/oracle_statementend/frozen_statement_end.inc tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_value_facts: tests/unit/test_oracle_value_facts.c tests/oracle_valuefacts/frozen_value_path.inc tests/oracle_valuefacts/cases.h src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_statement_scan_gate: tests/unit/test_statement_scan_gate.c tests/oracle_scangates/frozen_statement_span.inc src/core/sqlparser_view.c
+$(BIN_PATH)/test_postgresql_identity_preprocess: tests/unit/test_postgresql_identity_preprocess.c src/dialect/sqlparser_dialect_postgresql.c
+$(BIN_PATH)/test_postgresql_identity_tail: tests/unit/test_postgresql_identity_tail.c src/dialect/sqlparser_dialect_postgresql.c
+$(BIN_PATH)/test_oracle_readonly_batch: tests/unit/test_oracle_readonly_batch.c
+
+$(BIN_PATH)/test_mysql_inline_cell_layout: tests/unit/test_mysql_inline_cell_layout.c $(VENDOR_PG_QUERY_INPUTS) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./vendor/libpg_query/src/postgres/include \
+		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_native_target_cache: tests/unit/test_native_target_cache.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_TARGET_CACHE_WRAPPERS $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc $(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_column_oom: tests/unit/test_oracle_column_oom.c src/dialect/sqlparser_dialect_oracle.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+$(BIN_PATH)/test_oracle_compact_lifecycle: tests/unit/test_oracle_compact_lifecycle.c $(wildcard tests/oracle_compact_backend/*) $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/core -I./src/dialect -DHEADER_CLASSIFICATION=1 \
+		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+
+
 $(BIN_PATH)/test_wire_insert_primary: tests/unit/test_wire_insert_primary.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_WIRE_GRAPH_WRAPPERS $< $(STATIC_LIB_PATH) \
 		-Wl,--wrap=pg_query__parse_result__unpack $(LDFLAGS) $(LDLIBS) -o $@
@@ -830,7 +866,9 @@ $(BIN_PATH)/test_oracle_graph_classification_baseline: tests/unit/test_oracle_gr
 # Optional --fixture SQL --golden-dir DIR; normal make test needs no private files.
 ORACLE_COMMIT_TEST_FLAGS := -DSQLPARSER_ORACLE_COMMIT_WRAPPERS
 ORACLE_COMMIT_TEST_WRAPS := -Wl,--wrap=sqlparser_handle_reparse_destructive \
+	-Wl,--wrap=pg_query__parse_result__unpack \
 	-Wl,--wrap=sqlparser_oracle_try_commit_multi_insert_strings \
+	-Wl,--wrap=sqlparser_oracle_readonly_batch_commit \
 	-Wl,--wrap=sqlparser_vastbase_oracle_multi_insert_identity_input \
 	-Wl,--wrap=sqlparser_oracle_note_multi_insert_edit \
 	-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \

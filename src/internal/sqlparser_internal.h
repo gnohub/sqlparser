@@ -183,6 +183,18 @@ typedef struct {
 	size_t wire_length;
 } sqlparser_native_scalar_provenance_t;
 
+/* Independent initial SQLSERVER batch attestation. Every borrowed pointer
+ * is bound to the exact owned handle generation, never a parse workspace. */
+typedef struct {
+    PgQueryNativeScalarInsertBatchProof proof;
+    const sqlparser_handle_t *owner;
+    const sqlparser_dialect_ops_t *ops;
+    sqlparser_dialect_t dialect;
+    unsigned long generation;
+    const char *sql, *parser_sql, *wire;
+    size_t sql_length, parser_sql_length, wire_length;
+} sqlparser_native_batch_provenance_t;
+
 struct sqlparser_handle {
 	char *sql;
 	char *parser_sql;
@@ -193,6 +205,7 @@ struct sqlparser_handle {
 	size_t statement_count;
 	PgQueryProtobuf parse_tree;
 	sqlparser_native_scalar_provenance_t *native_scalar_provenance;
+	sqlparser_native_batch_provenance_t *native_batch_provenance;
 	PgQuery__ParseResult *ast;
 	sqlparser_limits_t limits;
 	unsigned long generation;
@@ -259,6 +272,7 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle);
+void sqlparser_handle_clear_native_batch_provenance(sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);

@@ -29,6 +29,9 @@ static void bvp_pair(const char *sql,sqlparser_dialect_t dialect,int eligible,in
     CHECK(r.batch_entry==(size_t)eligible&&r.batch_constructor==(size_t)eligible);
     if(eligible){
         CHECK(!r.grammar&&r.certified_calls==1U);
+        CHECK(r.prefix_proof==1U&&!r.old_identity_proof&&!r.old_batch_proof);
+        CHECK(r.preprocess_certify==count);
+        CHECK(r.native_certify==(count<=16U?count:2U*count));
         CHECK(r.certified_hits==(size_t)(mode==VP_NORMAL));
         CHECK(r.unpack==(size_t)(mode!=VP_NORMAL)&&r.unpack_free==r.unpack);
     }
@@ -102,11 +105,33 @@ static void bvp_fallbacks(void)
     }
     free(safe);
 }
-static void bvp_writer_faults(void)
+static void bvp_descriptor_capacity(void)
+{
+    static const size_t counts[]={15U,16U,17U};
+    char *one=fixture(32U,4096U,"Db.Sch.Tab","a,b,c","'UTF8 é € 😀; -- /* */',1,CURRENT_DATE","");
+    char *two=fixture(35U,4096U,"other_schema.other_table","a,b","'plain',1.e-2","");
+    const char *parts[17];
+    for(size_t k=0U;k<COUNT(counts);k++){
+        size_t count=counts[k];
+        for(size_t i=0U;i<count;i++)parts[i]=(i%2U)?two:one;
+        for(int terminal=0;terminal<2;terminal++){
+            char *joined=bvp_join(parts,count,"; \r\n\t");
+            const char *whole[]={joined,terminal?"; \r\n\t":" \r\n\t"};
+            char *sql=bvp_join(whole,2U,"");
+            for(size_t d=0U;d<COUNT(dialects);d++)bvp_pair(sql,dialects[d],1,VP_NORMAL,NULL,count);
+            free(sql);free(joined);
+        }
+        printf("SQLServer batch descriptors statements=%zu certifications=%zu three-entry wire/state parity passed\n",count,count<=16U?count:2U*count);
+    }
+    free(one);free(two);
+}
+static void bvp_writer_faults(size_t expected_count)
 {
     char *one=fixture(128U,0U,"s.t","a,b,c,d,e,f,g,h,i",
         "'abcdefghijklmnopqrstuvwxyz0123456789',1,2147483648,1.25,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,USER,'UTF8 é € 😀'","");
-    const char *parts[]={one,one,one};char *sql=bvp_join(parts,3U,";\n");
+    const char *parts[17];CHECK(expected_count<=COUNT(parts));
+    for(size_t i=0U;i<expected_count;i++)parts[i]=one;
+    char *sql=bvp_join(parts,expected_count,";\n");
     for(size_t d=0U;d<COUNT(dialects);d++)for(int kind=VP_FAIL_CACHE;kind<=VP_FAIL_OUTPUT;kind++){
         size_t boundaries=0U;stage="batch certified writer cache/output faults and recovery";
         for(size_t at=0U;at<=boundaries;at++){
@@ -115,11 +140,14 @@ static void bvp_writer_faults(void)
             vp_arm(kind,at);vp_start();status=sqlparser_parse_with_options(sql,&o,&h,&e);r=vp_stop();vp_disarm();
             CHECK(!r.grammar&&!r.simple_constructor&&!r.scalar_constructor&&!r.native_entry&&r.batch_constructor==1U&&r.batch_entry==1U);
             CHECK(r.certified_calls==1U&&!r.unpack&&!r.unpack_free);
+            CHECK(r.prefix_proof==1U&&!r.old_identity_proof&&!r.old_batch_proof);
+            CHECK(r.preprocess_certify==expected_count);
+            CHECK(r.native_certify==(expected_count<=16U?expected_count:2U*expected_count));
             if(!at){CHECK(status==SQLPARSER_STATUS_OK&&h&&!vp_injected&&r.certified_hits==1U);boundaries=kind==VP_FAIL_CACHE?vp_cache_calls:vp_output_calls;CHECK(boundaries);}
             else{CHECK(vp_injected==1U&&status==SQLPARSER_STATUS_NO_MEMORY&&e.code==status&&!h&&!r.certified_hits);CHECK(!strcmp(e.message,"out of memory"));}
-            sqlparser_handle_destroy(h);CHECK(!vp_live_blocks&&!vp_live_bytes);bvp_pair(sql,dialects[d],1,VP_NORMAL,NULL,3U);
+            sqlparser_handle_destroy(h);CHECK(!vp_live_blocks&&!vp_live_bytes);bvp_pair(sql,dialects[d],1,VP_NORMAL,NULL,expected_count);
         }
-        printf("SQLServer batch writer fault dialect=%d target=%d boundaries=%zu zero_live=yes\n",(int)dialects[d],kind,boundaries);
+        printf("SQLServer batch writer fault statements=%zu dialect=%d target=%d boundaries=%zu zero_live=yes\n",expected_count,(int)dialects[d],kind,boundaries);
     }
     free(sql);free(one);
 }
@@ -136,7 +164,7 @@ int main(int argc,char **argv)
 {
     CHECK(argc<=2);
 #ifdef SQLPARSER_VALIDATION_PROOF_WRAPPERS
-    bvp_routes();bvp_fallbacks();bvp_writer_faults();vp_error_precedence();
+    bvp_routes();bvp_fallbacks();bvp_descriptor_capacity();bvp_writer_faults(3U);bvp_writer_faults(16U);bvp_writer_faults(17U);vp_error_precedence();
     if(argc==2)bvp_actual(argv[1]);
     pg_query_exit();printf("SQLServer batch-native routes, full-wire/state/graph/errors/faults: %zu cases\n",cases);
 #else

@@ -1842,6 +1842,21 @@ static int sqlparser_view_public_word_at(
 	return 1;
 }
 
+/* The public scanner's default switch arm is a side-effect-free miss.
+ * Preserve every possible opener, including dialect-specific misses, and leave
+ * prefix/boundary checks to the unchanged scanner at the original byte index. */
+static inline int sqlparser_view_public_quote_or_comment_byte(unsigned char ch)
+{
+	switch (ch) {
+		case '$': case 'q': case 'Q': case 'n': case 'N':
+		case '-': case '#': case '/': case '[': case '`':
+		case '\'': case '"':
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 static int sqlparser_view_public_statement_span_in_sql(
 	const sqlparser_handle_t *handle,
 	const char *sql,
@@ -1856,6 +1871,7 @@ static int sqlparser_view_public_statement_span_in_sql(
 	size_t pos;
 	size_t skipped;
 	size_t start;
+	int sqlserver_go;
 
 	if (handle == NULL || sql == NULL || out_start == NULL ||
 	    out_end == NULL) {
@@ -1894,6 +1910,8 @@ static int sqlparser_view_public_statement_span_in_sql(
 		return start < end;
 	}
 
+	/* Incompatible dialects make every GO probe a side-effect-free miss. */
+	sqlserver_go = sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 	current = 0U;
 	pos = 0U;
 	while (sql[pos] != '\0') {
@@ -1904,7 +1922,7 @@ static int sqlparser_view_public_statement_span_in_sql(
 		for (;;) {
 			if (sql[pos] == ';') {
 				pos++;
-			} else if (sqlparser_public_sqlserver_go_at(
+			} else if (sqlserver_go && sqlparser_public_sqlserver_go_at(
 					   handle->dialect,
 					   sql,
 					   pos,
@@ -1923,17 +1941,17 @@ static int sqlparser_view_public_statement_span_in_sql(
 		}
 		start = pos;
 		while (sql[pos] != '\0' && sql[pos] != ';') {
-			if (sqlparser_public_sqlserver_go_at(
+			if (sqlserver_go && sqlparser_public_sqlserver_go_at(
 				    handle->dialect,
 				    sql,
 				    pos,
 				    &after_go)) {
 				break;
 			}
-			skipped = sqlparser_public_skip_quoted_or_comment(
-				handle->dialect,
-				sql,
-				pos);
+			skipped = sqlparser_view_public_quote_or_comment_byte(
+				(unsigned char)sql[pos]) ?
+				sqlparser_public_skip_quoted_or_comment(
+					handle->dialect, sql, pos) : pos;
 			pos = skipped != pos ? skipped : pos + 1U;
 		}
 		end = pos;
@@ -1950,7 +1968,7 @@ static int sqlparser_view_public_statement_span_in_sql(
 		}
 		if (sql[pos] == ';') {
 			pos++;
-		} else if (sqlparser_public_sqlserver_go_at(
+		} else if (sqlserver_go && sqlparser_public_sqlserver_go_at(
 				   handle->dialect,
 				   sql,
 				   pos,
@@ -2216,7 +2234,7 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	size_t *out_end)
 {
 	const sqlparser_dialect_multi_insert_branch_t *branch;
-	const sqlparser_dialect_multi_insert_value_t *value;
+	const char *public_sql;
 	const char *sql;
 	size_t brace_depth;
 	size_t bracket_depth;
@@ -2311,10 +2329,10 @@ static int sqlparser_view_multi_insert_cell_source_span(
 	target_start = 0U;
 	target_values_position = 0U;
 	while (pos < source_start) {
-		skipped = sqlparser_public_skip_quoted_or_comment(
-			handle->dialect,
-			sql,
-			pos);
+		skipped = sqlparser_view_public_quote_or_comment_byte(
+			(unsigned char)sql[pos]) ?
+			sqlparser_public_skip_quoted_or_comment(
+				handle->dialect, sql, pos) : pos;
 		if (skipped != pos) {
 			if (skipped > source_start) {
 				return 0;
@@ -2356,7 +2374,7 @@ static int sqlparser_view_multi_insert_cell_source_span(
 		if (branch_index >= multi_insert->branch_count ||
 		    (branch = &multi_insert->branches[branch_index])->ordinal !=
 			    branch_index ||
-		    branch->cells == NULL || branch->cell_count == 0U) {
+		    !sqlparser_oracle_branch_has_cells(branch) || branch->cell_count == 0U) {
 			return 0;
 		}
 
@@ -2367,10 +2385,10 @@ static int sqlparser_view_multi_insert_cell_source_span(
 		brace_depth = 0U;
 		values_close = source_start;
 		for (pos = cell_start; pos < source_start; pos++) {
-			skipped = sqlparser_public_skip_quoted_or_comment(
-				handle->dialect,
-				sql,
-				pos);
+			skipped = sqlparser_view_public_quote_or_comment_byte(
+				(unsigned char)sql[pos]) ?
+				sqlparser_public_skip_quoted_or_comment(
+					handle->dialect, sql, pos) : pos;
 			if (skipped != pos) {
 				if (skipped > source_start) {
 					return 0;
@@ -2414,11 +2432,11 @@ static int sqlparser_view_multi_insert_cell_source_span(
 			}
 			if (cell_end <= cell_start ||
 			    cell_index >= branch->cell_count ||
-			    (value = &branch->cells[cell_index])->public_sql == NULL ||
-			    cell_end - cell_start != strlen(value->public_sql) ||
+			    (public_sql = sqlparser_oracle_cell_public_sql(branch, cell_index)) == NULL ||
+			    cell_end - cell_start != strlen(public_sql) ||
 			    memcmp(
 				    sql + cell_start,
-				    value->public_sql,
+				    public_sql,
 				    cell_end - cell_start) != 0) {
 				return 0;
 			}
@@ -2624,6 +2642,7 @@ int sqlparser_view_insert_cell_source_span(
 	size_t skipped;
 	size_t statement_end;
 	size_t statement_start;
+	size_t values_position;
 	int source_status;
 
 	if (out_start == NULL || out_end == NULL) {
@@ -2644,6 +2663,24 @@ int sqlparser_view_insert_cell_source_span(
 			handle->dialect_state) : NULL;
 	if (multi_insert != NULL) {
 		if (statement_index != 0U) return 0;
+		/* A separate constructor proof covers the complete first statement
+		 * and every retained branch/cell under the public scanner's rules.
+		 * Keep the old hot-cache path and every final per-cell check below. */
+		if ((cache == NULL || cache->valid != 2) &&
+		    sqlparser_oracle_multi_insert_initial_cell_span(
+			    handle, row_index, column_index, &statement_start, &statement_end,
+			    &values_position, out_start, out_end)) {
+			/* Match generic success timing, including a later comment/boundary
+			 * miss: it publishes its validated cursor before the final checks. */
+			if (cache != NULL) {
+				cache->valid = 2;
+				cache->search_position = statement_start;
+				cache->statement_end = statement_end;
+				cache->multi_branch_index = row_index;
+				cache->resume = values_position;
+			}
+			goto multi_insert_span_found;
+		}
 		if (cache != NULL && cache->valid == 2) {
 			statement_start = cache->search_position;
 			statement_end = cache->statement_end;
@@ -2690,6 +2727,7 @@ int sqlparser_view_insert_cell_source_span(
 		if (source_status <= 0) {
 			return source_status;
 		}
+	multi_insert_span_found:;
 	} else {
 		status = sqlparser_get_statement_node(
 			handle,
@@ -2787,10 +2825,10 @@ int sqlparser_view_insert_cell_source_span(
 		return 0;
 	}
 	for (pos = *out_start; pos < *out_end;) {
-		skipped = sqlparser_public_skip_quoted_or_comment(
-			handle->dialect,
-			handle->sql,
-			pos);
+		skipped = sqlparser_view_public_quote_or_comment_byte(
+			(unsigned char)handle->sql[pos]) ?
+			sqlparser_public_skip_quoted_or_comment(
+				handle->dialect, handle->sql, pos) : pos;
 		if (skipped == pos) {
 			pos++;
 			continue;
@@ -5869,15 +5907,25 @@ enum {
 	SQLPARSER_GRAPH_DML_CELL_HAS_BIND = 1U << 3,
 	SQLPARSER_GRAPH_DML_CELL_HAS_BIND_SQL = 1U << 4,
 	SQLPARSER_GRAPH_DML_CELL_HAS_BIND_POSITION = 1U << 5,
-	SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL = 1U << 6
+	SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL = 1U << 6,
+	SQLPARSER_GRAPH_DML_CELL_HAS_NATIVE_SOURCE = 1U << 7
 };
+
+/* INSERT_CELL does not export selector.item_index. Only a fresh native
+ * singleton graph may use this word for its certified source location. */
+typedef union {
+    size_t selector_item_index;
+    size_t certified_source_location;
+} sqlparser_graph_dml_cell_position_t;
+_Static_assert(sizeof(sqlparser_graph_dml_cell_position_t) == sizeof(size_t),
+    "native source location must not grow the DML cell");
 
 typedef struct {
 	sqlparser_graph_dml_cell_payload_t payload;
 	size_t dml_index;
 	size_t row_index;
 	size_t column_ordinal;
-	size_t selector_item_index;
+	sqlparser_graph_dml_cell_position_t selector_position;
 	uint8_t kind;
 	uint8_t selector_kind;
 	uint8_t flags;
@@ -7287,7 +7335,7 @@ static int sqlparser_graph_dml_cell_cache_init(
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML value selector is invalid");
 				return -1;
 			}
-			cell->selector_item_index = source->selector.item_index;
+			cell->selector_position.selector_item_index = source->selector.item_index;
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			if (source->selector.item_index != 0U ||
@@ -7449,7 +7497,7 @@ static int sqlparser_graph_dml_cell_cache_copy_public(
 		cell->selector.statement_index = statement_index;
 		switch (cell->selector.kind) {
 		case SQLPARSER_SELECTOR_KIND_VALUE:
-			cell->selector.item_index = source->selector_item_index;
+			cell->selector.item_index = source->selector_position.selector_item_index;
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			cell->selector.row_index = source->row_index;
@@ -20923,7 +20971,7 @@ static int sqlparser_graph_add_insert_literal_cell(
 	cell->dml_index = dml_index;
 	cell->row_index = row_index;
 	cell->column_ordinal = column_ordinal;
-	cell->selector_item_index = 0U;
+	cell->selector_position.selector_item_index = 0U;
 	cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
 	cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
 	cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
@@ -20969,7 +21017,7 @@ static void sqlparser_graph_add_insert_literal_rows(
 			cell->dml_index = dml_index;
 			cell->row_index = row_index;
 			cell->column_ordinal = column_index;
-			cell->selector_item_index = 0U;
+			cell->selector_position.selector_item_index = 0U;
 			cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
 			cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
 			cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
@@ -21146,7 +21194,7 @@ static int sqlparser_graph_add_insert_source_expression_cell(
 	cell->dml_index = dml_index;
 	cell->row_index = row_index;
 	cell->column_ordinal = column_index;
-	cell->selector_item_index = 0U;
+	cell->selector_position.selector_item_index = 0U;
 	cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_EXPRESSION;
 	cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
 	cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR |
@@ -21194,7 +21242,7 @@ static int sqlparser_graph_add_insert_mixed_rows(
 				cell->dml_index = dml_index;
 				cell->row_index = row_index;
 				cell->column_ordinal = column_index;
-				cell->selector_item_index = 0U;
+				cell->selector_position.selector_item_index = 0U;
 				cell->kind = (uint8_t)SQLPARSER_GRAPH_VALUE_LITERAL;
 				cell->selector_kind = (uint8_t)SQLPARSER_SELECTOR_KIND_INSERT_CELL;
 				cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
@@ -21616,6 +21664,7 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 static int sqlparser_graph_add_multi_insert_relation(
 	sqlparser_graph_build_t *build,
 	const sqlparser_dialect_multi_insert_relation_t *source,
+	int headers_simple,
 	size_t block_index,
 	size_t *out_relation_index,
 	sqlparser_error_t *out_error)
@@ -21634,7 +21683,14 @@ static int sqlparser_graph_add_multi_insert_relation(
 	relation.schema_name = source->schema_name;
 	relation.table_name = source->table_name;
 	relation.link_name = source->link_name;
-	sqlparser_graph_relation_sources(source->sql, &identifiers);
+	if (headers_simple) {
+		memset(&identifiers, 0, sizeof(identifiers));
+		identifiers.object.known = 1;
+		identifiers.schema.known = source->schema_name != NULL;
+		identifiers.database.known = source->database_name != NULL;
+	} else {
+		sqlparser_graph_relation_sources(source->sql, &identifiers);
+	}
 	if (source->link_sql != NULL) {
 		sqlparser_identifier_source_t link_identifier;
 
@@ -21662,6 +21718,7 @@ static int sqlparser_graph_add_multi_insert_dml_column(
 	size_t dml_index,
 	size_t ordinal,
 	const sqlparser_dialect_multi_insert_column_t *source,
+	int headers_simple,
 	sqlparser_graph_dml_branch_t *branch,
 	sqlparser_error_t *out_error)
 {
@@ -21672,7 +21729,7 @@ static int sqlparser_graph_add_multi_insert_dml_column(
 	column.dml_index = dml_index;
 	column.ordinal = ordinal;
 	column.column_name = source != NULL ? source->name : NULL;
-	if (source != NULL) {
+	if (source != NULL && !headers_simple) {
 		sqlparser_identifier_source_t identifier;
 
 		identifier =
@@ -21770,46 +21827,53 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	size_t column_ordinal,
 	size_t source_block_index,
 	int has_source_block,
-	const sqlparser_dialect_multi_insert_value_t *source,
+	const sqlparser_dialect_multi_insert_branch_t *source_branch,
+	size_t source_index,
 	const char **cached_sqlvalue_function_sql,
 	sqlparser_graph_dml_branch_t *branch,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_cell_t cell;
+	const sqlparser_dialect_multi_insert_value_t *legacy;
+	const char *public_sql;
+	const char *parser_sql;
 	const char *expression_sql;
 	PgQuery__Node *node;
 	PgQuery__Node *semantic_node;
 	size_t cell_index;
 
-	if (source == NULL) {
+	if (source_branch == NULL) {
 		return 0;
 	}
+	legacy = sqlparser_oracle_cell_legacy(source_branch, source_index);
+	public_sql = sqlparser_oracle_cell_public_sql(source_branch, source_index);
+	parser_sql = sqlparser_oracle_cell_parser_sql(source_branch, source_index);
 	memset(&cell, 0, sizeof(cell));
 	expression_sql = NULL;
 	node = NULL;
 	cell.dml_index = dml_index;
 	cell.row_index = branch_ordinal;
 	cell.column_ordinal = column_ordinal;
-	if (source->has_bind) {
+	if (legacy != NULL && legacy->has_bind) {
 		cell.kind = SQLPARSER_GRAPH_VALUE_BIND;
 		cell.has_bind = 1;
-		cell.bind_kind = source->bind_kind;
-		sqlparser_view_copy_public_text(cell.bind, sizeof(cell.bind), source->bind, NULL);
-		sqlparser_view_copy_public_text(cell.bind_sql, sizeof(cell.bind_sql), source->bind_sql, NULL);
+		cell.bind_kind = legacy->bind_kind;
+		sqlparser_view_copy_public_text(cell.bind, sizeof(cell.bind), legacy->bind, NULL);
+		sqlparser_view_copy_public_text(cell.bind_sql, sizeof(cell.bind_sql), legacy->bind_sql, NULL);
 		cell.has_bind_sql = cell.bind_sql[0] != '\0';
-		cell.bind_position = source->bind_position;
-		cell.has_bind_position = source->has_bind_position;
-	} else if (source->has_literal) {
+		cell.bind_position = legacy->bind_position;
+		cell.has_bind_position = legacy->has_bind_position;
+	} else if (sqlparser_oracle_cell_has_literal(source_branch, source_index)) {
 		cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
-		cell.literal = source->literal;
-	} else if (source->parser_sql != NULL &&
-		   !sqlparser_view_parser_sql_has_bind(source->parser_sql)) {
+		cell.literal = *sqlparser_oracle_cell_literal(source_branch, source_index);
+	} else if (parser_sql != NULL &&
+		   !sqlparser_view_parser_sql_has_bind(parser_sql)) {
 		if (*cached_sqlvalue_function_sql != NULL &&
-		    strcmp(*cached_sqlvalue_function_sql, source->parser_sql) == 0) {
+		    strcmp(*cached_sqlvalue_function_sql, parser_sql) == 0) {
 			cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
 		} else {
 			if (sqlparser_parse_insert_cell_node_sql(
-				    source->parser_sql,
+				    parser_sql,
 				    NULL,
 				    &node,
 				    out_error) != SQLPARSER_STATUS_OK) {
@@ -21862,7 +21926,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 				           build,
 				           source_block_index,
 				           semantic_node->column_ref,
-				           source->public_sql,
+				           public_sql,
 				           &cell.source_target_index)) {
 				sqlparser_graph_target_cache_t *target;
 
@@ -21881,7 +21945,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 			if (semantic_node != NULL &&
 			    semantic_node->node_case == PG_QUERY__NODE__NODE_SQLVALUE_FUNCTION &&
 			    semantic_node->sqlvalue_function != NULL) {
-				*cached_sqlvalue_function_sql = source->parser_sql;
+				*cached_sqlvalue_function_sql = parser_sql;
 			}
 		}
 	} else {
@@ -21893,7 +21957,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	cell.selector.column_index = column_ordinal;
 	cell.has_selector = 1;
 	if (cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION) {
-		if (source->public_sql == NULL || source->public_sql[0] == '\0') {
+		if (public_sql == NULL || public_sql[0] == '\0') {
 			sqlparser_error_set_message(
 				out_error,
 				SQLPARSER_STATUS_INTERNAL_ERROR,
@@ -21901,7 +21965,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 			sqlparser_free_proto_node(node);
 			return -1;
 		}
-		expression_sql = source->public_sql;
+		expression_sql = public_sql;
 	}
 	if (sqlparser_graph_add_dml_cell(
 		    build,
@@ -21918,6 +21982,102 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 		return -1;
 	}
 	return 0;
+}
+
+/* Fill a complete branch directly when existing cache capacities suffice.
+ * Existing capacities preserve the allocation order;
+ * compact-aware accessors preserve both storage kinds. Unknown cells retain
+ * their original classification and text ownership before index append. */
+static int sqlparser_graph_try_fill_multi_insert_branch(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t branch_ordinal,
+	size_t source_block_index,
+	int has_source_block,
+	const sqlparser_dialect_multi_insert_branch_t *source,
+	int headers_simple,
+	const char **cached_sqlvalue_function_sql,
+	sqlparser_graph_dml_branch_t *branch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache;
+	size_t index;
+	size_t remaining;
+
+	if (build == NULL || build->cache == NULL || build->statement == NULL ||
+	    source == NULL || branch == NULL || !headers_simple ||
+	    build->collect_relation_bindings || cached_sqlvalue_function_sql == NULL ||
+	    branch->target_columns.count != 0U || branch->target_columns.offset != 0U ||
+	    branch->rows.count != 0U || branch->rows.offset != 0U) return 0;
+	cache = build->cache;
+	if (cache->dml_column_count > cache->dml_column_capacity ||
+	    cache->dml_cell_count > cache->dml_cell_capacity ||
+	    cache->index_pool_count > cache->index_pool_capacity ||
+	    build->statement->dml_column_offset > cache->dml_column_count ||
+	    build->statement->dml_cell_offset > cache->dml_cell_count ||
+	    cache->dml_column_capacity > SIZE_MAX / sizeof(*cache->dml_columns) ||
+	    cache->dml_cell_capacity > SIZE_MAX / sizeof(*cache->dml_cells) ||
+	    cache->index_pool_capacity > SIZE_MAX / sizeof(*cache->index_pool) ||
+	    source->column_count > cache->dml_column_capacity - cache->dml_column_count ||
+	    source->cell_count > cache->dml_cell_capacity - cache->dml_cell_count ||
+	    (source->column_count != 0U &&
+	     (source->columns == NULL || cache->dml_columns == NULL)) ||
+	    (source->cell_count != 0U &&
+	     (!sqlparser_oracle_branch_has_cells(source) || cache->dml_cells == NULL))) return 0;
+	remaining = cache->index_pool_capacity - cache->index_pool_count;
+	if (source->column_count > remaining ||
+	    source->cell_count > remaining - source->column_count ||
+	    ((source->column_count != 0U || source->cell_count != 0U) &&
+	     cache->index_pool == NULL)) return 0;
+
+	for (index = 0U; index < source->column_count; index++) {
+		size_t global = cache->dml_column_count;
+		size_t local = global - build->statement->dml_column_offset;
+		sqlparser_graph_dml_column_t *column = &cache->dml_columns[global];
+
+		memset(column, 0, sizeof(*column));
+		column->index = local;
+		column->statement_index = build->statement_index;
+		column->dml_index = dml_index;
+		column->ordinal = index;
+		column->column_name = source->columns[index].name;
+		cache->dml_column_count++;
+		if (branch->target_columns.count == 0U)
+			branch->target_columns.offset = cache->index_pool_count;
+		cache->index_pool[cache->index_pool_count++] = local;
+		branch->target_columns.count++;
+	}
+	for (index = 0U; index < source->cell_count; index++) {
+		const sqlparser_dialect_multi_insert_value_t *legacy =
+			sqlparser_oracle_cell_legacy(source, index);
+		size_t global = cache->dml_cell_count;
+		size_t local = global - build->statement->dml_cell_offset;
+
+		if ((legacy == NULL || !legacy->has_bind) &&
+		    sqlparser_oracle_cell_has_literal(source, index)) {
+			sqlparser_graph_dml_cell_cache_t *cell = &cache->dml_cells[global];
+
+			memset(cell, 0, sizeof(*cell));
+			cell->dml_index = dml_index;
+			cell->row_index = branch_ordinal;
+			cell->column_ordinal = index;
+			cell->kind = SQLPARSER_GRAPH_VALUE_LITERAL;
+			cell->selector_kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+			cell->flags = SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+			cell->payload.literal = *sqlparser_oracle_cell_literal(source, index);
+			cache->dml_cell_count++;
+		} else if (sqlparser_graph_add_multi_insert_dml_cell(
+			build, dml_index, branch_ordinal, index, source_block_index,
+			has_source_block, source, index, cached_sqlvalue_function_sql, NULL,
+			out_error) != 0) {
+			return -1;
+		}
+		if (branch->rows.count == 0U)
+			branch->rows.offset = cache->index_pool_count;
+		cache->index_pool[cache->index_pool_count++] = local;
+		branch->rows.count++;
+	}
+	return 1;
 }
 
 static int sqlparser_graph_parse_identifier_parts(
@@ -22430,10 +22590,12 @@ static int sqlparser_graph_build_multi_insert_dml(
 	size_t dml_index;
 	size_t branch_index;
 	size_t *local_branch_indices;
+	int headers_simple;
 
 	if (build == NULL || stmt == NULL || multi == NULL) {
 		return 0;
 	}
+	headers_simple = sqlparser_oracle_multi_insert_graph_headers_simple(build->handle, multi);
 	/* Keep one positive classification key borrowed from this build's
 	 * handle-owned dialect state. Never retain a temporary parsed node. */
 	cached_sqlvalue_function_sql = NULL;
@@ -22497,6 +22659,7 @@ static int sqlparser_graph_build_multi_insert_dml(
 		if (sqlparser_graph_add_multi_insert_relation(
 			    build,
 			    &source_branch->relation,
+			    headers_simple,
 			    root_block_index,
 			    &branch.target_relation_index,
 			    out_error) != 0) {
@@ -22554,12 +22717,24 @@ static int sqlparser_graph_build_multi_insert_dml(
 
 		source_branch = &multi->branches[branch_index];
 		branch_item = &build->cache->dml_branches[build->statement->dml_branch_offset + local_branch_indices[branch_index]];
+		{
+			int fused = sqlparser_graph_try_fill_multi_insert_branch(
+				build, dml_index, branch_index, dml_item->source_block_index,
+				dml_item->has_source_block, source_branch, headers_simple,
+				&cached_sqlvalue_function_sql, branch_item, out_error);
+			if (fused < 0) {
+				free(local_branch_indices);
+				return -1;
+			}
+			if (fused > 0) continue;
+		}
 		for (index = 0U; index < source_branch->column_count; index++) {
 			if (sqlparser_graph_add_multi_insert_dml_column(
 				    build,
 				    dml_index,
 				    index,
 				    &source_branch->columns[index],
+				    headers_simple,
 				    branch_item,
 				    out_error) != 0) {
 				free(local_branch_indices);
@@ -22574,7 +22749,8 @@ static int sqlparser_graph_build_multi_insert_dml(
 				    index,
 				    dml_item->source_block_index,
 				    dml_item->has_source_block,
-				    &source_branch->cells[index],
+				    source_branch,
+				    index,
 				    &cached_sqlvalue_function_sql,
 				    branch_item,
 				    out_error) != 0) {
@@ -24967,6 +25143,56 @@ const char *sqlparser_query_graph_wire_scalar_string(const sqlparser_handle_t *h
         cell->payload.literal.string_value : NULL;
 }
 
+/* This is a zero-allocation, synchronous borrow from a private complete
+ * graph. Misses preserve both outputs and leave diagnostics to the old path. */
+int sqlparser_query_graph_native_scalar_string_target(const sqlparser_handle_t *handle,
+    const sqlparser_wire_scalar_insert_t *insert, size_t row, size_t column,
+    int32_t *out_location, const char **out_string)
+{
+    const sqlparser_query_graph_cache_t *cache;
+    const sqlparser_native_scalar_provenance_t *provenance;
+    const sqlparser_graph_dml_cell_cache_t *cell;
+    size_t index, location;
+#ifdef SQLPARSER_DISABLE_NATIVE_STRING_TARGET_CACHE
+    (void)handle; (void)insert; (void)row; (void)column;
+    (void)out_location; (void)out_string;
+    return 0;
+#endif
+    if (out_location == NULL || out_string == NULL || handle == NULL || insert == NULL ||
+        handle->failed || handle->dialect != SQLPARSER_DIALECT_MYSQL ||
+        handle->dialect_ops != sqlparser_dialect_mysql_ops() || handle->generation != 0UL ||
+        handle->ast != NULL || handle->control != NULL || handle->patch_batch_flags != 0U ||
+        handle->surface_source_edits.count != 0U || handle->surface_source_edits.items != NULL ||
+        handle->sql == NULL || handle->parser_sql != handle->sql || handle->parser_sql_len != handle->sql_len ||
+        (cache = handle->query_graph) == NULL || cache->statement_count != 1U ||
+        cache->generation != handle->generation || handle->query_graph_generation != handle->generation ||
+        cache->wire_scalar_insert != insert || insert->sql != handle->sql || insert->sql_length != handle->sql_len ||
+        handle->parse_tree.data == NULL || handle->parse_tree.len == 0U ||
+        insert->wire != handle->parse_tree.data || insert->wire_length != handle->parse_tree.len ||
+        (provenance = handle->native_scalar_provenance) == NULL ||
+        provenance->sql != handle->sql || provenance->wire != handle->parse_tree.data ||
+        provenance->wire_length != handle->parse_tree.len ||
+        provenance->proof.source_length != handle->sql_len ||
+        provenance->proof.row_count != insert->row_count || provenance->proof.column_count != insert->column_count ||
+        insert->column_count == 0U || row >= insert->row_count || column >= insert->column_count ||
+        row > SIZE_MAX / insert->column_count || cache->dml_cells == NULL) return 0;
+    index = row * insert->column_count;
+    if (column > SIZE_MAX - index) return 0;
+    index += column;
+    if (index >= cache->dml_cell_count) return 0;
+    cell = &cache->dml_cells[index];
+    if ((cell->flags & (SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR | SQLPARSER_GRAPH_DML_CELL_HAS_NATIVE_SOURCE)) !=
+            (SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR | SQLPARSER_GRAPH_DML_CELL_HAS_NATIVE_SOURCE) ||
+        cell->kind != SQLPARSER_GRAPH_VALUE_LITERAL || cell->payload.literal.kind != SQLPARSER_LITERAL_KIND_STRING ||
+        cell->selector_kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL || cell->row_index != row ||
+        cell->column_ordinal != column || cell->payload.literal.string_value == NULL) return 0;
+    location = cell->selector_position.certified_source_location;
+    if (location > INT32_MAX || location > handle->sql_len || handle->sql_len - location < 2U) return 0;
+    *out_location = (int32_t)location;
+    *out_string = cell->payload.literal.string_value;
+    return 1;
+}
+
 static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_insert(
     sqlparser_handle_t *handle, sqlparser_query_graph_cache_t **out_cache,
     sqlparser_error_t *out_error)
@@ -24977,12 +25203,15 @@ static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_insert(
     sqlparser_wire_scalar_cell_t *cells = NULL;
     size_t row, column, count, columns;
     char *text;
+    int native_source;
     *out_cache = NULL;
 #ifdef SQLPARSER_DISABLE_WIRE_SCALAR_INSERT_GRAPH
     (void)handle; (void)out_error;
     return SQLPARSER_STATUS_OK;
 #endif
     insert = sqlparser_wire_scalar_insert_from_native(handle);
+    native_source = insert != NULL && handle->dialect == SQLPARSER_DIALECT_MYSQL &&
+        handle->dialect_ops == sqlparser_dialect_mysql_ops();
     if (insert == NULL) {
         /* Do not retain unused attestation beside a strict certificate whose
          * original storage budget does not include it. */
@@ -25087,6 +25316,10 @@ static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_insert(
                 if (cells[column].kind == SQLPARSER_WIRE_SCALAR_STRING) {
                     cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_STRING;
                     cell->payload.literal.string_value = text;
+                    if (native_source && cells[column].location >= 0) {
+                        cell->selector_position.certified_source_location = (size_t)cells[column].location;
+                        cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_NATIVE_SOURCE;
+                    }
                 } else if (cells[column].kind == SQLPARSER_WIRE_SCALAR_FLOAT) {
                     cell->payload.literal.kind = SQLPARSER_LITERAL_KIND_FLOAT;
                     cell->payload.literal.float_value = text;
@@ -25479,6 +25712,17 @@ fail:
 	sqlparser_view_bind_position_cache_release(&bind_positions);
 	sqlparser_query_graph_cache_release(cache);
 	return status;
+}
+
+int sqlparser_query_graph_is_current_readonly(const sqlparser_handle_t *handle)
+{
+	const sqlparser_query_graph_cache_t *cache;
+	if (handle == NULL || handle->failed || handle->query_graph == NULL) return 0;
+	cache = handle->query_graph;
+	return handle->query_graph_generation == handle->generation &&
+		cache->generation == handle->generation &&
+		cache->statement_count == handle->statement_count &&
+		cache->statement_count > 0U && cache->statements != NULL;
 }
 
 static sqlparser_status_t sqlparser_query_graph_ensure(

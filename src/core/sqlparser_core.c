@@ -23,6 +23,8 @@
 #include "src/pg_query_observer.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_oracle_internal.h"
+#include "../dialect/sqlparser_dialect_vastbase_internal.h"
+#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
 #include "sqlparser_ast_internal.h"
 #include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
@@ -979,6 +981,13 @@ static void sqlparser_handle_clear_native_scalar_provenance(sqlparser_handle_t *
 	handle->native_scalar_provenance = NULL;
 }
 
+void sqlparser_handle_clear_native_batch_provenance(sqlparser_handle_t *handle)
+{
+    if (handle == NULL) return;
+    free(handle->native_batch_provenance);
+    handle->native_batch_provenance = NULL;
+}
+
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
@@ -995,10 +1004,12 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 
 	if (handle->ast != NULL) {
 		sqlparser_handle_clear_native_scalar_provenance(handle);
+		sqlparser_handle_clear_native_batch_provenance(handle);
 		return SQLPARSER_STATUS_OK;
 	}
 
 	sqlparser_handle_clear_native_scalar_provenance(handle);
+	sqlparser_handle_clear_native_batch_provenance(handle);
 	handle->ast = pg_query__parse_result__unpack(
 		NULL,
 		handle->parse_tree.len,
@@ -1117,6 +1128,7 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 	}
 
 	sqlparser_handle_clear_native_scalar_provenance(handle);
+	sqlparser_handle_clear_native_batch_provenance(handle);
 	sqlparser_oracle_multi_insert_invalidate_source(handle);
 	sqlparser_handle_clear_current_sql(handle);
 	sqlparser_handle_clear_query_graph(handle);
@@ -1507,6 +1519,7 @@ sqlparser_status_t sqlparser_handle_clone(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	/* Initial native proofs are intentionally not copied from the owner. */
 	clone->dialect = source->dialect;
 	clone->dialect_ops = source->dialect_ops;
 	clone->limits = source->limits;
@@ -1735,6 +1748,9 @@ void sqlparser_handle_replace_contents(
 	sqlparser_handle_release_contents(target);
 	*target = *source;
 	sqlparser_handle_clear_native_scalar_provenance(target);
+	sqlparser_handle_clear_native_batch_provenance(target);
+	sqlparser_oracle_multi_insert_discard_initial_span_proof(target);
+	sqlparser_oracle_multi_insert_discard_graph_header_proof(target);
 	target->patch_batch_flags |= batch_active;
 	memset(source, 0, sizeof(*source));
 	sqlparser_handle_clear_bind_occurrences(target);
@@ -1753,6 +1769,7 @@ sqlparser_status_t sqlparser_handle_flush_ast(
 		return SQLPARSER_STATUS_OK;
 	}
 	sqlparser_handle_clear_native_scalar_provenance(handle);
+	sqlparser_handle_clear_native_batch_provenance(handle);
 
 	if (handle->ast == NULL) {
 		sqlparser_error_set_message(
@@ -4884,6 +4901,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	sqlparser_handle_t **out_handle,
 	sqlparser_handle_t *reuse_handle,
 	char **owned_sql,
+	int allow_compact,
 	sqlparser_error_t *out_error)
 {
 	PgQueryProtobufParseResult parse_result;
@@ -4899,11 +4917,13 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	void *dialect_state;
 	sqlparser_control_state_t *control_state;
 	PgQueryNativeScalarInsertProof native_scalar_proof = {0};
+	PgQueryNativeScalarInsertBatchProof native_batch_proof = {0};
     PgQueryMysqlOwnedScalarInsertPlan mysql_owned_plan = {{0}};
     int mysql_owned_plan_route;
 	PgQueryIdentityScalarInsertProof validation_source_proof = {0};
 	sqlparser_identity_insert_batch_proof_t validation_batch_proof = {0};
 	sqlparser_validation_preprocess_fn validation_preprocess;
+	int dameng_native_proof_certified = 0;
 
 	if (out_handle == NULL) {
 		sqlparser_error_set_message(
@@ -4950,6 +4970,11 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	 * destructive-reparse path keeps its existing parser/validation route. */
 	validation_preprocess = reuse_handle == NULL ?
 		sqlparser_dialect_validation_preprocessor(effective_options.dialect, dialect_ops) : NULL;
+	/* Cold replacements retain every other owner's existing callback. */
+	if (!allow_compact &&
+	    validation_preprocess == sqlparser_dameng_preprocess_validation_proof) {
+		validation_preprocess = NULL;
+	}
     mysql_owned_plan_route = reuse_handle == NULL &&
         effective_options.dialect == SQLPARSER_DIALECT_MYSQL &&
         dialect_ops == sqlparser_dialect_mysql_ops() &&
@@ -4961,6 +4986,24 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
     } else if (validation_preprocess != NULL) {
 		status = validation_preprocess(sql, &effective_options.limits,
 			&parser_sql, &dialect_state, &validation_source_proof, &validation_batch_proof, out_error);
+    } else if (allow_compact && reuse_handle == NULL &&
+        effective_options.dialect == SQLPARSER_DIALECT_ORACLE &&
+        dialect_ops == sqlparser_dialect_oracle_ops() &&
+        dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_ORACLE)) {
+        status = sqlparser_oracle_preprocess_compact_initial(sql,
+            &effective_options.limits, &parser_sql, &dialect_state, out_error);
+    } else if (allow_compact && reuse_handle == NULL &&
+        effective_options.dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE &&
+        dialect_ops == sqlparser_dialect_kingbase_oracle_ops() &&
+        dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_KINGBASE_ORACLE)) {
+        status = sqlparser_kingbase_oracle_preprocess_compact_initial(sql,
+            &effective_options.limits, &parser_sql, &dialect_state, out_error);
+    } else if (allow_compact && reuse_handle == NULL &&
+        effective_options.dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE &&
+        dialect_ops == sqlparser_dialect_vastbase_oracle_ops() &&
+        dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_VASTBASE_ORACLE)) {
+        status = sqlparser_vastbase_oracle_preprocess_compact_initial(sql,
+            &effective_options.limits, &parser_sql, &dialect_state, out_error);
 	} else {
 		status = dialect_ops->preprocess(sql, &effective_options.limits,
 			&parser_sql, &dialect_state, out_error);
@@ -5076,22 +5119,47 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		size_t certified_statements = 0U;
 		int certified = 0;
 
-		/* The identity proof only admits this exact registered SQLServer
-		 * owner's owned parser copy and plain state. Each native constructor
-		 * independently proves the complete source grammar before allocating;
-		 * a miss still uses the ordinary lexer and grammar. The canonical
-		 * writer independently certifies validation of the resulting tree.
-		 * Do not request native graph provenance or enable the broader dialect
-		 * capability: strict wire admission and patch routes stay unchanged.
+		int exact_dameng_owner = allow_compact && reuse_handle == NULL &&
+			effective_options.dialect == SQLPARSER_DIALECT_DAMENG &&
+			dialect_ops == sqlparser_dialect_dameng_ops() &&
+			dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_DAMENG) &&
+			validation_preprocess == sqlparser_dameng_preprocess_validation_proof &&
+			dialect_ops->take_control_state == NULL &&
+			validation_source_proof.row_count >= 32U;
+
+		/* Identity metadata only admits this owner's owned parser copy and
+		 * plain state. The independent SINGLE constructor still proves the
+		 * whole source or falls back to the ordinary lexer and grammar. Only
+		 * the canonical writer may certify initial validation: it rejects all
+		 * MERGE/AExpr nodes and hierarchy SELECT fields checked by the dialect
+		 * validator. SQLServer keeps its existing NULL graph-proof request.
 		 * A writer/backend miss retains ordinary unpack/validation. */
 		parse_result =
 			pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_native(
 				parser_sql, PG_QUERY_PARSE_DEFAULT, NULL, NULL,
-				&certified_statements, &certified, NULL);
-		if (certified && certified_statements == 1U) {
+				&certified_statements, &certified,
+				exact_dameng_owner ? &native_scalar_proof : NULL);
+		if (certified && certified_statements == 1U &&
+		    (effective_options.dialect != SQLPARSER_DIALECT_DAMENG || exact_dameng_owner)) {
 			validation.statement_count = certified_statements;
 			validation.status = SQLPARSER_STATUS_OK;
 			validation.observed = 1;
+			/* A writer certificate alone is not native graph provenance.
+			 * Both complete-source passes must agree, including RawStmt's
+			 * semicolon-dependent statement length (zero without a semicolon). */
+			if (exact_dameng_owner &&
+			    native_scalar_proof.source_length == validation_source_proof.source_length &&
+			    native_scalar_proof.row_count == validation_source_proof.row_count &&
+			    native_scalar_proof.column_count == validation_source_proof.column_count &&
+			    native_scalar_proof.string_count == validation_source_proof.string_count &&
+			    native_scalar_proof.statement_length >= 0 &&
+			    native_scalar_proof.statement_length == validation_source_proof.statement_length) {
+				dameng_native_proof_certified = 1;
+			}
+		}
+		/* Any disagreement declines only optional provenance, not SQL. */
+		if (exact_dameng_owner && !dameng_native_proof_certified) {
+			memset(&native_scalar_proof, 0, sizeof(native_scalar_proof));
 		}
 	} else if (validation_preprocess != NULL &&
 	    validation_batch_proof.source_length == parser_sql_len &&
@@ -5110,14 +5178,27 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		validation_handle.dialect_ops = dialect_ops;
 		validation_handle.dialect_state = dialect_state;
 		/* Preprocessing metadata is only a route gate. The dedicated batch
-		 * constructor proves every statement before allocating; no singleton
-		 * proof or native graph provenance can escape that entry point. */
+		 * constructor independently proves every statement before allocating.
+		 * Only exact registered native/base-delegating SQLServer owners request
+		 * a separate graph proof; source/plain-state validation remains below. */
 		if (sqlparser_dialect_state_is_plain_insert_batch_strings(
 		    &validation_handle, validation_batch_proof.statement_count,
 		    validation_batch_proof.string_count)) {
-			parse_result =
-				pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
-					parser_sql, PG_QUERY_PARSE_DEFAULT, &certified_statements, &certified);
+			if (reuse_handle == NULL &&
+			    (effective_options.dialect == SQLPARSER_DIALECT_SQLSERVER ||
+			     effective_options.dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER ||
+			     effective_options.dialect == SQLPARSER_DIALECT_KINGBASE_SQLSERVER) &&
+			    sqlparser_sqlserver_is_registered_native_batch_owner(
+			        effective_options.dialect, dialect_ops)) {
+				parse_result =
+					pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch_native(
+						parser_sql, PG_QUERY_PARSE_DEFAULT, &certified_statements, &certified,
+						&native_batch_proof);
+			} else {
+				parse_result =
+					pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
+						parser_sql, PG_QUERY_PARSE_DEFAULT, &certified_statements, &certified);
+			}
 			if (certified && certified_statements == validation_batch_proof.statement_count) {
 				validation.statement_count = certified_statements;
 				validation.status = SQLPARSER_STATUS_OK;
@@ -5198,6 +5279,11 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	/* Adoption binds the constructor/serializer proof to these exact owned
 	 * bytes. Allocation is optional: a miss retains the strict graph path. */
 	if (reuse_handle == NULL && native_scalar_proof.row_count >= 32U &&
+	    (handle->dialect != SQLPARSER_DIALECT_DAMENG ||
+	     (allow_compact && dameng_native_proof_certified &&
+	      validation_preprocess == sqlparser_dameng_preprocess_validation_proof &&
+	      handle->dialect_ops == sqlparser_dialect_dameng_ops() &&
+	      handle->dialect_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_DAMENG))) &&
 	    native_scalar_proof.source_length == handle->sql_len &&
 	    handle->sql == handle->parser_sql && handle->sql_len == handle->parser_sql_len &&
 	    sqlparser_dialect_state_is_plain_insert_strings(handle, native_scalar_proof.string_count)) {
@@ -5265,8 +5351,15 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 			control_state = NULL;
 		}
 	}
+	/* Never adopt an initial proof after this handle has materialized AST. */
+	if (handle->ast != NULL)
+		memset(&native_batch_proof, 0, sizeof(native_batch_proof));
 	sqlparser_handle_clear_ast(handle);
 
+	/* Final owned source/wire, count, control and dialect state are settled.
+	 * Optional allocation failure cannot change successful parse semantics. */
+	if (reuse_handle == NULL)
+		sqlparser_handle_adopt_native_batch_provenance(handle, &native_batch_proof);
 	sqlparser_oracle_multi_insert_certify_source(handle);
 	pg_query_free_protobuf_parse_result(parse_result);
 	*out_handle = handle;
@@ -5279,7 +5372,29 @@ sqlparser_status_t sqlparser_parse_with_options(
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error)
 {
-	return sqlparser_parse_with_options_into(sql, options, out_handle, NULL, NULL, out_error);
+	return sqlparser_parse_with_options_into(sql, options, out_handle, NULL, NULL, 1, out_error);
+}
+
+/* Replacement parses use a fresh handle but cannot opt back into the initial
+ * compact constructor capability. */
+sqlparser_status_t sqlparser_oracle_parse_legacy_replacement(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_parse_with_options_into(sql, options, out_handle, NULL, NULL, 0, out_error);
+}
+
+/* Dameng replacements likewise use the cold path without borrowing another
+ * dialect owner's helper or minting initial native scalar provenance. */
+sqlparser_status_t sqlparser_dameng_parse_legacy_replacement(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_parse_with_options_into(sql, options, out_handle, NULL, NULL, 0, out_error);
 }
 
 /* *owned_sql must be independent of all handle storage and is consumed on
@@ -5302,7 +5417,7 @@ sqlparser_status_t sqlparser_handle_reparse_destructive(
 	options.limits = handle->limits;
 	sqlparser_handle_release_contents(handle);
 	status = sqlparser_parse_with_options_into(
-		*owned_sql, &options, &parsed, handle, owned_sql, out_error);
+		*owned_sql, &options, &parsed, handle, owned_sql, 0, out_error);
 	free(*owned_sql);
 	*owned_sql = NULL;
 	handle->generation = generation;
@@ -5314,6 +5429,8 @@ sqlparser_status_t sqlparser_handle_reparse_destructive(
 	}
 	handle->patch_batch_flags |= batch_active;
 	handle->surface_source_complete = 1;
+	sqlparser_oracle_multi_insert_discard_initial_span_proof(handle);
+	sqlparser_oracle_multi_insert_discard_graph_header_proof(handle);
 	sqlparser_oracle_multi_insert_certify_source(handle);
 	return SQLPARSER_STATUS_OK;
 }

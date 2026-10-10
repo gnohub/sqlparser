@@ -46,6 +46,32 @@ typedef int (*PgQueryIdentityScalarInsertNamePredicate)(
 int pg_query_prove_identity_scalar_insert(
     const char *input, PgQueryIdentityScalarInsertNamePredicate name_predicate,
     PgQueryIdentityScalarInsertProof *proof);
+
+/* Private conservative identity classification over bounded statement spans.
+ * Each statement is fully scalar-certified before its names are checked by
+ * the same pure predicate contract above. The predicate may run before later
+ * statements are known to pass; no metadata is published until the whole
+ * immutable source succeeds. NONE clears every output and requires the full
+ * previous preprocessing route. SINGLE preserves whole-source size/padding
+ * semantics; BATCH requires the historical minimum size of every slice.
+ * Counts only: no allocation, retained pointers, native/graph/wire proof. */
+typedef enum PgQueryIdentityInsertSequenceKind
+{
+    PG_QUERY_IDENTITY_INSERT_NONE,
+    PG_QUERY_IDENTITY_INSERT_SINGLE,
+    PG_QUERY_IDENTITY_INSERT_BATCH
+} PgQueryIdentityInsertSequenceKind;
+typedef struct PgQueryIdentityInsertSequenceProof
+{
+    size_t source_length;
+    size_t statement_count;
+    size_t string_count;
+    PgQueryIdentityScalarInsertProof single;
+} PgQueryIdentityInsertSequenceProof;
+PgQueryIdentityInsertSequenceKind pg_query_prove_identity_insert_sequence(
+    const char *input, PgQueryIdentityScalarInsertNamePredicate name_predicate,
+    PgQueryIdentityInsertSequenceProof *proof);
+
 /* Keep the existing MySQL-only policy at its caller boundary. */
 int pg_query_prove_mysql_identity_scalar_insert(
     const char *input, PgQueryIdentityScalarInsertProof *proof);
@@ -74,6 +100,27 @@ typedef struct PgQueryNativeScalarInsertProof
     size_t text_bytes;
     int statement_length;
 } PgQueryNativeScalarInsertProof;
+
+/* Private complete native-batch graph proof. Count is committed last, only
+ * after every checked construction and the exact tree's canonical C writer
+ * succeed. The ordinary grammar and C++ backend leave the entire record zero. */
+#define PG_QUERY_NATIVE_SCALAR_BATCH_MAX_STATEMENTS 16U
+typedef struct PgQueryNativeScalarInsertBatchStatementProof
+{
+    size_t raw_start;
+    int raw_length;
+    size_t row_count;
+    size_t column_count;
+    size_t string_count;
+    size_t text_bytes;
+} PgQueryNativeScalarInsertBatchStatementProof;
+typedef struct PgQueryNativeScalarInsertBatchProof
+{
+    size_t source_length;
+    size_t statement_count;
+    PgQueryNativeScalarInsertBatchStatementProof
+        statements[PG_QUERY_NATIVE_SCALAR_BATCH_MAX_STATEMENTS];
+} PgQueryNativeScalarInsertBatchProof;
 
 /* Shared output-allocation boundary for both serialization implementations. */
 void *pg_query_protobuf_alloc_output(size_t size);
@@ -113,6 +160,13 @@ PgQueryProtobufParseResult
 pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch(
     const char *input, int parser_options,
     size_t *statement_count, int *certified);
+
+/* The separate optional batch proof never changes the legacy entry above. */
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling_certified_batch_native(
+    const char *input, int parser_options,
+    size_t *statement_count, int *certified,
+    PgQueryNativeScalarInsertBatchProof *native_proof);
 
 /* Validation-only route: always use the ordinary grammar. Certification is
  * produced by the existing canonical writer over that exact native tree.

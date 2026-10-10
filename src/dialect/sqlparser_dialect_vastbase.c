@@ -5,6 +5,7 @@
 
 #include "sqlparser_dialect_internal.h"
 #include "sqlparser_dialect_oracle_internal.h"
+#include "sqlparser_dialect_vastbase_internal.h"
 #include "sqlparser_dialect_sqlserver_scan.h"
 
 #define SQLPARSER_VASTBASE_SCAN_DOLLAR_QUOTES 0x01U
@@ -62,6 +63,83 @@ static int sqlparser_vastbase_word_at(
 		}
 	}
 	return 1;
+}
+
+typedef enum sqlparser_vastbase_outer_keyword {
+	SQLPARSER_VASTBASE_OUTER_ALTER,
+	SQLPARSER_VASTBASE_OUTER_CONNECT
+} sqlparser_vastbase_outer_keyword_t;
+
+/* Only prove absence of the two outer passes' necessary words. Their
+ * scanners advance source positions without decoding or joining words, so
+ * every rewrite requires a consecutive raw match under word_at's tolower.
+ * Identifier, quote and comment matches deliberately retain the complete
+ * original pass from byte zero; this is not a syntax or identity proof.
+ *
+ * Build the complete first-byte equivalence class per call, as in the
+ * returning-into filter. ASCII-only starts would miss some locale matches.
+ * The fixed words bound the stack arrays; there is no cache or allocation.
+ */
+static int sqlparser_vastbase_outer_raw_may_match(
+	const char *sql,
+	sqlparser_vastbase_outer_keyword_t keyword)
+{
+#if CHAR_BIT == 8 && UCHAR_MAX == 255
+	static const unsigned char alter[] = "alter";
+	static const unsigned char connect[] = "connect";
+	unsigned char starts[256];
+	int folded[sizeof(connect) - 1U];
+	const unsigned char *word;
+	const char *position;
+	size_t count;
+	size_t index;
+	size_t length;
+	int value;
+
+	switch (keyword) {
+	case SQLPARSER_VASTBASE_OUTER_ALTER:
+		word = alter;
+		length = sizeof(alter) - 1U;
+		break;
+	case SQLPARSER_VASTBASE_OUTER_CONNECT:
+		word = connect;
+		length = sizeof(connect) - 1U;
+		break;
+	default:
+		return 1;
+	}
+	for (index = 0U; index < length; index++) {
+		folded[index] = tolower(word[index]);
+	}
+	count = 0U;
+	for (value = 1; value <= UCHAR_MAX; value++) {
+		if (tolower((unsigned char)value) == folded[0]) {
+			starts[count++] = (unsigned char)value;
+		}
+	}
+	starts[count] = '\0';
+	position = sql;
+	for (;;) {
+		position += strcspn(position, (const char *)starts);
+		if (*position == '\0') {
+			return 0;
+		}
+		for (index = 0U; index < length; index++) {
+			if (position[index] == '\0' ||
+			    tolower((unsigned char)position[index]) != folded[index]) {
+				break;
+			}
+		}
+		if (index == length) {
+			return 1;
+		}
+		position++;
+	}
+#else
+	(void)sql;
+	(void)keyword;
+	return 1;
+#endif
 }
 
 static size_t sqlparser_vastbase_quoted_span_end(
@@ -945,6 +1023,12 @@ static sqlparser_status_t sqlparser_vastbase_rewrite_hierarchy_phrases(
 	sqlparser_status_t status;
 
 	*out_sql = NULL;
+	/* Without CONNECT the NULL-output first pass has no rewrite, allocation,
+	 * reachable error or origin writes. Preserve its OK + NULL result. */
+	if (!sqlparser_vastbase_outer_raw_may_match(
+		    sql, SQLPARSER_VASTBASE_OUTER_CONNECT)) {
+		return SQLPARSER_STATUS_OK;
+	}
 	status = sqlparser_vastbase_rewrite_hierarchy_pass(
 		sql,
 		NULL,
@@ -1177,6 +1261,12 @@ static sqlparser_status_t sqlparser_vastbase_rewrite_session_statements(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
+	/* Without ALTER the NULL-output first pass has no rewrite, allocation,
+	 * reachable error or origin writes. Preserve its OK + NULL result. */
+	if (!sqlparser_vastbase_outer_raw_may_match(
+		    sql, SQLPARSER_VASTBASE_OUTER_ALTER)) {
+		return SQLPARSER_STATUS_OK;
+	}
 	status = sqlparser_vastbase_rewrite_session_pass(
 		sql,
 		NULL,
@@ -1433,6 +1523,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	void **out_state,
 	PgQueryIdentityScalarInsertProof *out_proof,
 	sqlparser_identity_insert_batch_proof_t *out_batch_proof,
+	int allow_oracle_compact_initial,
 	sqlparser_error_t *out_error)
 {
 	const char *parser_input;
@@ -1487,7 +1578,15 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	/* Preserve both outer passes and their diagnostics/allocation order.
 	 * Only an unchanged outer source can forward the actual base proof;
 	 * Vastbase still owns the base state directly, without a wrapper. */
-	if ((out_proof != NULL || out_batch_proof != NULL) && base_ops == sqlparser_dialect_sqlserver_ops() &&
+	if (allow_oracle_compact_initial &&
+	    outer_ops == sqlparser_dialect_vastbase_oracle_ops() &&
+	    outer_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_VASTBASE_ORACLE) &&
+	    base_ops == sqlparser_dialect_oracle_ops() &&
+	    base_ops == sqlparser_dialect_get_ops(SQLPARSER_DIALECT_ORACLE) &&
+	    rewritten_sql == NULL && hierarchy_sql == NULL) {
+		status = sqlparser_oracle_preprocess_compact_initial(
+			parser_input, limits, out_parser_sql, out_state, out_error);
+	} else if ((out_proof != NULL || out_batch_proof != NULL) && base_ops == sqlparser_dialect_sqlserver_ops() &&
 	    rewritten_sql == NULL && hierarchy_sql == NULL) {
 		status = sqlparser_sqlserver_preprocess_validation_proof(
 			parser_input, limits, out_parser_sql, out_state, out_proof, out_batch_proof, out_error);
@@ -1505,6 +1604,17 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	return status;
 }
 
+sqlparser_status_t sqlparser_vastbase_oracle_preprocess_compact_initial(
+	const char *input_sql, const sqlparser_limits_t *limits,
+	char **out_parser_sql, void **out_state, sqlparser_error_t *out_error)
+{
+	return sqlparser_vastbase_preprocess_delegate(
+		sqlparser_dialect_vastbase_oracle_ops(),
+		sqlparser_dialect_oracle_ops(),
+		SQLPARSER_VASTBASE_SCAN_ORACLE_Q_QUOTES,
+		input_sql, limits, out_parser_sql, out_state, NULL, NULL, 1, out_error);
+}
+
 sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
@@ -1520,7 +1630,7 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_validation_proof(
 		SQLPARSER_VASTBASE_SCAN_NESTED_COMMENTS |
 			SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO |
 			SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES,
-		input_sql, limits, out_parser_sql, out_state, out_proof, out_batch_proof, out_error);
+		input_sql, limits, out_parser_sql, out_state, out_proof, out_batch_proof, 0, out_error);
 }
 
 typedef sqlparser_status_t (*sqlparser_vastbase_origin_preprocess_fn)(
@@ -2866,7 +2976,7 @@ static sqlparser_status_t sqlparser_vastbase_project_session_delegate(
 			limits, \
 			out_parser_sql, \
 			out_state, \
-			NULL, NULL, \
+			NULL, NULL, 0, \
 			out_error); \
 	} \
 	static sqlparser_status_t sqlparser_vastbase_##TAG##_postprocess_deparse( \

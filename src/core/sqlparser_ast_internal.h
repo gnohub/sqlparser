@@ -6,6 +6,10 @@
 #include "sqlparser_internal.h"
 #include "sqlparser_control_internal.h"
 
+/* Never builds/binds or clears a graph. Both generations and statement
+ * coverage must already match before a read-only patch batch can use it. */
+int sqlparser_query_graph_is_current_readonly(const sqlparser_handle_t *handle);
+
 typedef struct {
 	const char *table_name;
 	const char *column_name;

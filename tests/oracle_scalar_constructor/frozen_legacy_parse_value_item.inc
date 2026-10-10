@@ -1,4 +1,4 @@
-/* Frozen reference constructor; only function name changed.
+/* Frozen verbatim reference constructor; only function name changed.
  * Independent legacy oracle: never calls any new scalar admission helper. */
 static sqlparser_status_t frozen_legacy_parse_value_item(
 	const char *sql,

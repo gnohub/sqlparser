@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -397,6 +398,62 @@ int sqlparser_dialect_returning_into_clause_at(
 	return 1;
 }
 
+/* This only proves absence; it never certifies SQL syntax. The validator's
+ * word matcher compares nine consecutive source bytes with locale-sensitive
+ * tolower. Its quote/comment/bind scanners only advance positions: they do
+ * not decode escapes, join words across comments, or modify the source.
+ * Therefore every possible keyword hit must also be a raw folded match.
+ * Keep even matches inside identifiers, quotes, comments and binds on the
+ * complete original path, starting at byte zero.
+ *
+ * Build the first-byte equivalence class on each call, including high bytes.
+ * ASCII-only R/r searching is not sufficient in every locale. No locale
+ * cache, allocation, input-length pass or identifier classification is needed.
+ */
+static int sqlparser_returning_into_raw_may_match(const char *sql)
+{
+#if CHAR_BIT == 8 && UCHAR_MAX == 255
+	static const unsigned char word[] = "returning";
+	unsigned char starts[256];
+	int folded[sizeof(word) - 1U];
+	size_t count;
+	size_t index;
+	int value;
+	const char *position;
+
+	for (index = 0U; index < sizeof(word) - 1U; index++) {
+		folded[index] = tolower(word[index]);
+	}
+	count = 0U;
+	for (value = 1; value <= UCHAR_MAX; value++) {
+		if (tolower((unsigned char)value) == folded[0]) {
+			starts[count++] = (unsigned char)value;
+		}
+	}
+	starts[count] = '\0';
+	position = sql;
+	for (;;) {
+		position += strcspn(position, (const char *)starts);
+		if (*position == '\0') {
+			return 0;
+		}
+		for (index = 0U; index < sizeof(word) - 1U; index++) {
+			if (position[index] == '\0' ||
+			    tolower((unsigned char)position[index]) != folded[index]) {
+				break;
+			}
+		}
+		if (index == sizeof(word) - 1U) {
+			return 1;
+		}
+		position++;
+	}
+#else
+	(void)sql;
+	return 1;
+#endif
+}
+
 sqlparser_status_t sqlparser_dialect_returning_into_validate(
 	sqlparser_dialect_t dialect,
 	const char *sql,
@@ -407,6 +464,10 @@ sqlparser_status_t sqlparser_dialect_returning_into_validate(
 	size_t position;
 
 	if (sql == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (dialect == SQLPARSER_DIALECT_ORACLE && !allow_return_keyword &&
+	    !sqlparser_returning_into_raw_may_match(sql)) {
 		return SQLPARSER_STATUS_OK;
 	}
 	position = 0U;

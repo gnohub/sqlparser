@@ -1,7 +1,7 @@
 /* Independent Oracle constructor differential checks.
- * Build this test with either the reference or current Oracle source and
+ * Build this identical caller twice, selecting reference/current Oracle C and
  * its matching library. Expected behavior comes from the frozen legacy constructor, never
- * from the proposed shortcut or a second optimized parse of expected SQL.
+ * from the optimized constructor or a second optimized parse of expected SQL.
  * The included frozen helper supplies complete public graph field records;
  * its main is renamed, and its optional wrapper hooks remain disabled. */
 #ifndef SCALAR_FROZEN_HELPER
@@ -340,7 +340,8 @@ static char *scalar_width_fixture(size_t width)
         size_t n = row == 1 ? 1 : row == 2 ? width + 1 : width;
         append_format(&b, "INTO T%zu VALUES (", row);
         for (col = 0; col < n; ++col) {
-            if (col) append(&b, ", "); append(&b, values[(row + col) % COUNT(values)]);
+            if (col) append(&b, ", ");
+            append(&b, values[(row + col) % COUNT(values)]);
         }
         append(&b, ") ");
     }

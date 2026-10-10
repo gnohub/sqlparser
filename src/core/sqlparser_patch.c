@@ -8399,7 +8399,7 @@ static int sqlparser_patch_certified_insert_cell_span(
     return 1;
 }
 
-static sqlparser_status_t sqlparser_patch_plan_surface_edit(
+static sqlparser_status_t sqlparser_patch_plan_surface_edit_with_oracle_batch(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_t *patch,
 	const sqlparser_selector_t *parsed_selector,
@@ -8413,6 +8413,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	int certified_insert_source,
 	const sqlparser_wire_scalar_insert_t *certified_wire_string_target,
 	const sqlparser_wire_scalar_batch_t *certified_wire_batch_target,
+	sqlparser_oracle_readonly_batch_t *oracle_readonly_batch,
 	int *in_out_preserves_ordinals,
 	int *out_supported,
 	sqlparser_error_t *out_error)
@@ -9254,12 +9255,44 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	}
 	if (status == SQLPARSER_STATUS_OK && *out_supported &&
 	    selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL && patch->op == SQLPARSER_PATCH_REPLACE) {
-		sqlparser_oracle_note_multi_insert_edit(handle, selector.statement_index,
-			selector.row_index, selector.column_index, source_start, source_end);
+		if (oracle_readonly_batch != NULL) {
+			sqlparser_oracle_readonly_batch_note(oracle_readonly_batch, selector.statement_index,
+				selector.row_index, selector.column_index, source_start, source_end);
+		} else {
+			sqlparser_oracle_note_multi_insert_edit(handle, selector.statement_index,
+				selector.row_index, selector.column_index, source_start, source_end);
+		}
 	}
 	free(rendered);
 	free(insertion);
 	return status;
+}
+
+/* Preserve all existing call sites, including the unchanged wire-batch include.
+ * Only the new whole-list Oracle entry provides an independent pending sink. */
+static sqlparser_status_t sqlparser_patch_plan_surface_edit(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	const sqlparser_selector_t *parsed_selector,
+	sqlparser_surface_source_edits_t *edits,
+	sqlparser_view_expression_source_cache_t *source_cache,
+	sqlparser_patch_sqlserver_surface_cache_t *sqlserver_surface_cache,
+	PgQuery__Node *known_node,
+	ProtobufCMessage *known_parent,
+	size_t *in_out_sql_length,
+	int raw_plain_verified,
+	int certified_insert_source,
+	const sqlparser_wire_scalar_insert_t *certified_wire_string_target,
+	const sqlparser_wire_scalar_batch_t *certified_wire_batch_target,
+	int *in_out_preserves_ordinals,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_patch_plan_surface_edit_with_oracle_batch(handle, patch,
+		parsed_selector, edits, source_cache, sqlserver_surface_cache, known_node,
+		known_parent, in_out_sql_length, raw_plain_verified, certified_insert_source,
+		certified_wire_string_target, certified_wire_batch_target, NULL,
+		in_out_preserves_ordinals, out_supported, out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_parse_insert_cell_fragment(
@@ -11459,11 +11492,14 @@ static sqlparser_status_t sqlparser_patch_can_defer_surface(
 			sqlparser_dialect_state_multi_insert(handle->dialect, handle->dialect_state);
 		if (patch->sql != NULL && patch->sql[0] == '\0') return SQLPARSER_STATUS_OK;
 		if (multi != NULL) {
-			const sqlparser_dialect_multi_insert_value_t *value;
+			const sqlparser_dialect_multi_insert_branch_t *branch;
+			const sqlparser_dialect_multi_insert_value_t *legacy;
 			if (selector->statement_index != 0U || selector->row_index >= multi->branch_count ||
 			    selector->column_index >= multi->branches[selector->row_index].cell_count) return SQLPARSER_STATUS_OK;
-			value = &multi->branches[selector->row_index].cells[selector->column_index];
-			if (!value->has_literal && !value->has_bind) return SQLPARSER_STATUS_OK;
+			branch = &multi->branches[selector->row_index];
+			legacy = sqlparser_oracle_cell_legacy(branch, selector->column_index);
+			if (!sqlparser_oracle_cell_has_literal(branch, selector->column_index) &&
+			    (legacy == NULL || !legacy->has_bind)) return SQLPARSER_STATUS_OK;
 		} else {
 			sqlparser_literal_view_t literal;
 			if (!pending && patch->source_selector == NULL) return SQLPARSER_STATUS_OK;
@@ -11486,7 +11522,8 @@ static sqlparser_status_t sqlparser_patch_can_defer_surface(
 				if (multi != NULL) {
 					if (source.statement_index != 0U || source.row_index >= multi->branch_count ||
 					    source.column_index >= multi->branches[source.row_index].cell_count ||
-					    !multi->branches[source.row_index].cells[source.column_index].has_literal)
+					    !sqlparser_oracle_cell_has_literal(
+						    &multi->branches[source.row_index], source.column_index))
 						return SQLPARSER_STATUS_OK;
 				} else {
 					sqlparser_literal_view_t literal;
@@ -11698,7 +11735,7 @@ static size_t sqlparser_patch_multi_insert_branch_size(
 		size += length;
 	}
 	for (index = 0U; index < branch->cell_count; index++) {
-		length = strlen(branch->cells[index].public_sql);
+		length = strlen(sqlparser_oracle_cell_public_sql(branch, index));
 		if (length > SIZE_MAX - size) {
 			return SIZE_MAX;
 		}
@@ -12990,15 +13027,20 @@ static sqlparser_status_t sqlparser_patch_try_wire_scalar_insert_strings(
         PgQuery__AConst constant = PG_QUERY__A__CONST__INIT;
         PgQuery__String string = PG_QUERY__STRING__INIT;
         int supported = 0, preserves = 2;
+        const char *target_string;
         /* Invalid selectors/bounds go through the original resolver, so this
          * optimization does not manufacture or reorder public diagnostics. */
         if (!sqlparser_patch_parse_insert_cell_selector(patch->selector, &selector) ||
             selector.statement_index != 0U || selector.row_index >= insert->row_count ||
             selector.column_index >= insert->column_count) goto done;
-        if (!sqlparser_wire_scalar_insert_certified_cell(insert, selector.row_index, selector.column_index, &cell) ||
-            cell.kind != SQLPARSER_WIRE_SCALAR_STRING) goto done;
-        string.sval = (char *)sqlparser_query_graph_wire_scalar_string(handle, selector.row_index, selector.column_index);
-        if (string.sval == NULL) goto done;
+        if (!sqlparser_query_graph_native_scalar_string_target(handle, insert,
+                selector.row_index, selector.column_index, &cell.location, &target_string)) {
+            if (!sqlparser_wire_scalar_insert_certified_cell(insert, selector.row_index, selector.column_index, &cell) ||
+                cell.kind != SQLPARSER_WIRE_SCALAR_STRING) goto done;
+            target_string = sqlparser_query_graph_wire_scalar_string(handle, selector.row_index, selector.column_index);
+            if (target_string == NULL) goto done;
+        }
+        string.sval = (char *)target_string;
         constant.val_case = PG_QUERY__A__CONST__VAL_SVAL;
         constant.sval = &string;
         constant.location = cell.location;
@@ -13140,6 +13182,87 @@ no_memory:
 	return SQLPARSER_STATUS_NO_MEMORY;
 }
 
+typedef enum {
+	SQLPARSER_ORACLE_BATCH_MISS = 0,
+	SQLPARSER_ORACLE_BATCH_ERROR,
+	SQLPARSER_ORACLE_BATCH_COMMITTED
+} sqlparser_oracle_batch_outcome_t;
+
+static sqlparser_status_t sqlparser_patch_try_readonly_oracle_strings(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_list_t *patches,
+	sqlparser_oracle_batch_outcome_t *outcome,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_readonly_batch_t batch = {0};
+	sqlparser_surface_source_edits_t edits = {0};
+	sqlparser_view_expression_source_cache_t cache = {0};
+	sqlparser_handle_t source_view;
+	sqlparser_status_t status = SQLPARSER_STATUS_OK;
+	char *sql = NULL;
+	size_t index, sql_length;
+	unsigned long original_generation = handle->generation;
+	int handled = 0;
+
+	*outcome = SQLPARSER_ORACLE_BATCH_MISS;
+	if (!sqlparser_oracle_readonly_batch_begin(handle, &batch)) return SQLPARSER_STATUS_OK;
+	/* Whole-list eligibility is silent and allocation-free. Any unsupported
+	 * selector/payload/target returns to the unchanged sequential error path. */
+	for (index = 0U; index < patches->count; index++) {
+		const sqlparser_patch_t *patch = &patches->items[index];
+		sqlparser_selector_t selector;
+		if (patch->op != SQLPARSER_PATCH_REPLACE || patch->name != NULL ||
+		    patch->default_sql != NULL || patch->source_selector != NULL ||
+		    patch->bind != NULL || patch->bool_operator != 0 ||
+		    (patch->literal != NULL ?
+			patch->literal->kind != SQLPARSER_LITERAL_KIND_STRING ||
+			patch->literal->string_value == NULL || patch->sql != NULL :
+			patch->sql == NULL || !sqlparser_patch_plain_ascii_string_sql(patch->sql)) ||
+		    !sqlparser_patch_parse_insert_cell_selector(patch->selector, &selector) ||
+		    !sqlparser_oracle_readonly_batch_target(&batch, selector.statement_index,
+			selector.row_index, selector.column_index)) goto done;
+	}
+	sql_length = handle->sql_len;
+	for (index = 0U; index < patches->count; index++) {
+		const sqlparser_patch_t *patch = &patches->items[index];
+		sqlparser_selector_t selector;
+		int supported = 0, preserves = 1;
+		if (!sqlparser_patch_parse_insert_cell_selector(patch->selector, &selector)) goto done;
+		status = sqlparser_patch_plan_surface_edit_with_oracle_batch(handle, patch,
+			&selector, &edits, &cache, NULL, NULL, NULL, &sql_length,
+			patch->literal == NULL, 0, NULL, NULL, &batch,
+			&preserves, &supported, out_error);
+		if (status != SQLPARSER_STATUS_OK || !supported || preserves != 1) goto done;
+	}
+	memset(&source_view, 0, sizeof(source_view));
+	source_view.sql = handle->sql;
+	source_view.sql_len = handle->sql_len;
+	source_view.limits = handle->limits;
+	source_view.surface_source_complete = 1;
+	source_view.surface_source_edits = edits;
+	status = sqlparser_restore_source_envelope(&source_view, &sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto done;
+	/* Every caller/graph-borrowed input has now been read. Edits and the full
+	 * restored SQL own their bytes before the pending-ID transaction begins. */
+	status = sqlparser_oracle_readonly_batch_commit(handle, &batch, &edits,
+		&sql, &handled, out_error);
+	if (status != SQLPARSER_STATUS_OK || !handled) goto done;
+	/* The original commit already invalidated derived views and advanced one
+	 * generation. Keep the apply boundary's AST/binder cleanup without a second
+	 * increment or promotion of the discarded initial-span/header proofs. */
+	handle->generation = original_generation + 1UL;
+	sqlparser_handle_clear_ast(handle);
+	sqlparser_oracle_multi_insert_certify_source(handle);
+	*outcome = SQLPARSER_ORACLE_BATCH_COMMITTED;
+done:
+	sqlparser_surface_source_edits_release(&edits);
+	sqlparser_oracle_readonly_batch_release(&batch);
+	free(sql);
+	if (status != SQLPARSER_STATUS_OK) *outcome = SQLPARSER_ORACLE_BATCH_ERROR;
+	else sqlparser_error_clear(out_error);
+	return status;
+}
+
 sqlparser_status_t sqlparser_apply_patch(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_list_t *patches,
@@ -13154,6 +13277,7 @@ sqlparser_status_t sqlparser_apply_patch(
 	int readonly_handled;
 	int had_control;
 	int oracle_source_current;
+	sqlparser_oracle_batch_outcome_t oracle_batch_outcome;
 	sqlparser_patch_list_t input_copy;
 	void *input_storage = NULL;
 
@@ -13176,6 +13300,9 @@ sqlparser_status_t sqlparser_apply_patch(
 	status = sqlparser_patch_try_wire_scalar_batch_strings(handle, patches, &readonly_handled, out_error);
 	if (status != SQLPARSER_STATUS_OK) goto failed;
 	if (readonly_handled) return SQLPARSER_STATUS_OK;
+	status = sqlparser_patch_try_readonly_oracle_strings(handle, patches, &oracle_batch_outcome, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto failed;
+	if (oracle_batch_outcome == SQLPARSER_ORACLE_BATCH_COMMITTED) return SQLPARSER_STATUS_OK;
 	/* The old graph path already owned a generic AST. On a wire-batch miss,
 	 * restore that state once before its unchanged read-only/generic planner.
 	 * Keep graph-owned strings alive until input snapshots/planning finish. */

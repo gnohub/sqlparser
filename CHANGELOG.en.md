@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.3
+
+- Optimize value storage, query graph construction and batched string replacement for Oracle-family multi-table inserts, reducing repeated scans, copying and allocations.
+- Optimize ordinary INSERT preprocessing in PostgreSQL and compatible dialects, reducing token-by-token processing when no dialect conversion is needed.
+- Reuse parsing and validation information for SQL Server-family batch INSERTs and Dameng scalar INSERTs, reducing repeated scans during query graph construction.
+- Optimize MySQL string replacement lookup, short literal storage and scalar VALUES location decoding.
+- Retain generic processing and validation for ineligible inputs. Public APIs, public structure layouts and calling rules remain unchanged.
+
 ## 2.17.2
 
 - Optimize native construction of MySQL scalar INSERTs by reusing completed source validation, reducing repeated scanning and validation.

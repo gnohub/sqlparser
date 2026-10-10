@@ -11,6 +11,7 @@
 #include "sqlparser_dialect_minus_internal.h"
 #include "sqlparser_dialect_national_literal_internal.h"
 #include "sqlparser_dialect_oracle_internal.h"
+#include "../core/sqlparser_ast_internal.h"
 
 typedef struct {
 	char *data;
@@ -219,6 +220,14 @@ static void sqlparser_oracle_value_clear(sqlparser_dialect_multi_insert_value_t 
 	memset(value, 0, sizeof(*value));
 }
 
+static void sqlparser_oracle_compact_values_clear(
+	sqlparser_oracle_compact_value_t *values, size_t count)
+{
+	size_t index;
+	for (index = 0U; index < count; index++) free(values[index].public_sql);
+	free(values);
+}
+
 static void sqlparser_oracle_multi_insert_branch_clear(sqlparser_dialect_multi_insert_branch_t *branch)
 {
 	size_t index;
@@ -226,15 +235,23 @@ static void sqlparser_oracle_multi_insert_branch_clear(sqlparser_dialect_multi_i
 	if (branch == NULL) {
 		return;
 	}
-	sqlparser_oracle_relation_clear(&branch->relation);
-	for (index = 0U; index < branch->column_count; index++) {
-		sqlparser_oracle_column_clear(&branch->columns[index]);
+	if (branch->oracle_header_text_block != NULL) {
+		free(branch->oracle_header_text_block);
+	} else {
+		sqlparser_oracle_relation_clear(&branch->relation);
+		for (index = 0U; index < branch->column_count; index++) {
+			sqlparser_oracle_column_clear(&branch->columns[index]);
+		}
 	}
 	free(branch->columns);
-	for (index = 0U; index < branch->cell_count; index++) {
-		sqlparser_oracle_value_clear(&branch->cells[index]);
+	if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+		sqlparser_oracle_compact_values_clear(branch->oracle_compact_cells, branch->cell_count);
+	} else {
+		for (index = 0U; index < branch->cell_count; index++) {
+			sqlparser_oracle_value_clear(&branch->cells[index]);
+		}
+		free(branch->cells);
 	}
-	free(branch->cells);
 	free(branch->condition_public_sql);
 	free(branch->condition_parser_sql);
 	memset(branch, 0, sizeof(*branch));
@@ -273,13 +290,12 @@ static sqlparser_status_t sqlparser_oracle_buffer_finish(
 	return sqlparser_oracle_buffer_reserve(buffer, 0U, out_error);
 }
 
-static sqlparser_status_t sqlparser_oracle_buffer_reserve_input(
+static sqlparser_status_t sqlparser_oracle_buffer_reserve_input_length(
 	sqlparser_oracle_buffer_t *buffer,
-	const char *input,
+	size_t input_len,
 	sqlparser_error_t *out_error)
 {
 	char *next;
-	size_t input_len;
 	size_t required;
 
 	if (buffer == NULL) {
@@ -289,7 +305,6 @@ static sqlparser_status_t sqlparser_oracle_buffer_reserve_input(
 			"buffer must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	input_len = input != NULL ? strlen(input) : 0U;
 	if (input_len == (size_t)-1) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -309,6 +324,18 @@ static sqlparser_status_t sqlparser_oracle_buffer_reserve_input(
 	buffer->capacity = required;
 	buffer->data[buffer->len] = '\0';
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_buffer_reserve_input(
+	sqlparser_oracle_buffer_t *buffer,
+	const char *input,
+	sqlparser_error_t *out_error)
+{
+	/* Preserve the original invalid-buffer check before reading input. */
+	if (buffer == NULL)
+		return sqlparser_oracle_buffer_reserve_input_length(buffer, 0U, out_error);
+	return sqlparser_oracle_buffer_reserve_input_length(
+		buffer, input != NULL ? strlen(input) : 0U, out_error);
 }
 
 static void sqlparser_oracle_state_destroy(void *state)
@@ -1754,9 +1781,12 @@ static size_t sqlparser_oracle_skip_quoted_or_comment_span(const char *sql, size
 	size_t q_prefix_len;
 	size_t pos;
 
-	pos = sqlparser_oracle_skip_dollar_quoted_span(sql, index);
-	if (pos != index) {
-		return pos;
+	/* The helper immediately declines every other leading byte. */
+	if (sql[index] == '$') {
+		pos = sqlparser_oracle_skip_dollar_quoted_span(sql, index);
+		if (pos != index) {
+			return pos;
+		}
 	}
 
 	q_prefix_len = sqlparser_oracle_q_quote_prefix_len(sql + index);
@@ -1831,6 +1861,11 @@ static size_t sqlparser_oracle_statement_end(const char *sql, size_t start)
 
 	index = start;
 	while (sql[index] != '\0') {
+		/* All other leading bytes are declined by the original helper. */
+		index += strcspn(sql + index, "$qQnN'\"-/;");
+		if (sql[index] == '\0') {
+			break;
+		}
 		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, index);
 		if (skipped > index) {
 			index = skipped;
@@ -1844,11 +1879,20 @@ static size_t sqlparser_oracle_statement_end(const char *sql, size_t start)
 	return index;
 }
 
-static size_t sqlparser_oracle_skip_leading_trivia(
+/* Necessary leading bytes only: keep the full helper and its absolute index
+ * for every possible quote/comment, including unsuccessful prefix matches. */
+static inline int sqlparser_oracle_quote_or_comment_may_start(unsigned char ch)
+{
+	return ch == '$' || ch == 'q' || ch == 'Q' || ch == 'n' || ch == 'N' ||
+		ch == '\'' || ch == '"' || ch == '-' || ch == '/';
+}
+
+static size_t sqlparser_oracle_skip_leading_trivia_with_span_proof(
 	const char *sql,
 	size_t start,
 	size_t end,
-	int nested_block_comments)
+	int nested_block_comments,
+	int *span_safe)
 {
 	size_t pos;
 	size_t skipped;
@@ -1856,6 +1900,7 @@ static size_t sqlparser_oracle_skip_leading_trivia(
 	pos = start;
 	for (;;) {
 		while (pos < end && isspace((unsigned char)sql[pos])) {
+			if (span_safe != NULL && (unsigned char)sql[pos] >= 0x80U) *span_safe = 0;
 			pos++;
 		}
 		if (pos >= end ||
@@ -1863,6 +1908,8 @@ static size_t sqlparser_oracle_skip_leading_trivia(
 		      (sql[pos] == '/' && pos + 1U < end && sql[pos + 1U] == '*'))) {
 			return pos;
 		}
+		/* A skipped comment is outside the deliberately comment-free proof. */
+		if (span_safe != NULL) *span_safe = 0;
 		if (nested_block_comments && sql[pos] == '/') {
 			size_t depth;
 
@@ -1890,6 +1937,77 @@ static size_t sqlparser_oracle_skip_leading_trivia(
 		}
 		pos = skipped < end ? skipped : end;
 	}
+}
+
+static size_t sqlparser_oracle_skip_leading_trivia(
+	const char *sql, size_t start, size_t end, int nested_block_comments)
+{
+	return sqlparser_oracle_skip_leading_trivia_with_span_proof(
+		sql, start, end, nested_block_comments, NULL);
+}
+
+/* These variants record facts during the existing whitespace walks. */
+static size_t sqlparser_oracle_span_trim_left(
+	const char *sql, size_t start, size_t end, int *span_safe)
+{
+	while (start < end && isspace((unsigned char)sql[start])) {
+		if ((unsigned char)sql[start] >= 0x80U) *span_safe = 0;
+		start++;
+	}
+	return start;
+}
+
+static size_t sqlparser_oracle_span_trim_right(
+	const char *sql, size_t start, size_t end, int *span_safe)
+{
+	while (end > start && isspace((unsigned char)sql[end - 1U])) {
+		if ((unsigned char)sql[end - 1U] >= 0x80U) *span_safe = 0;
+		end--;
+	}
+	return end;
+}
+
+/* One ASCII identifier at a time. State 0 needs a name, 1 is in its
+ * token, and 2 permits only whitespace or a relation component separator. */
+static int sqlparser_oracle_span_name_byte(unsigned char ch, int dotted, int *state)
+{
+	if (ch >= 0x80U) return 0;
+	if (isspace(ch)) {
+		if (*state == 1) *state = 2;
+		return 1;
+	}
+	if (dotted && ch == '.') {
+		if (*state == 0) return 0;
+		*state = 0;
+		return 1;
+	}
+	if (*state == 2) return 0;
+	if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' ||
+	    (*state == 1 && ch >= '0' && ch <= '9')) {
+		*state = 1;
+		return 1;
+	}
+	return 0;
+}
+
+/* A constructor fact must not outlive the ctype semantics used by the public
+ * scanner. Check a fixed alphabet, not locale-owned pointers or source bytes.
+ * All unquoted admitted bytes are ASCII; high bytes inside ordinary strings
+ * are opaque, and high-byte whitespace at cell boundaries is excluded. */
+static int sqlparser_oracle_span_ascii_ctype(void)
+{
+	unsigned int ch;
+	for (ch = 0U; ch < 128U; ch++) {
+		int upper = ch >= 'A' && ch <= 'Z';
+		int alnum = upper || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
+		int space = ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f' || ch == '\v';
+		if (!!isalnum(ch) != alnum || !!isspace(ch) != space ||
+		    tolower(ch) != (int)(upper ? ch + ('a' - 'A') : ch)) return 0;
+	}
+	/* Locale-folded high bytes cannot masquerade as a keyword byte in a
+	 * constructor helper's fixed-length INSERT/INTO/VALUES/EXCEPT jump. */
+	for (; ch < 256U; ch++) if (tolower(ch) < 128) return 0;
+	return 1;
 }
 
 static size_t sqlparser_oracle_skip_space_bounded(const char *sql, size_t pos, size_t end)
@@ -2907,10 +3025,11 @@ static sqlparser_status_t sqlparser_oracle_copy_question_placeholder(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_oracle_preprocess_text(
+static sqlparser_status_t sqlparser_oracle_preprocess_text_with_span_proof(
 	const char *input_sql,
 	sqlparser_oracle_state_t *state,
 	char **out_sql,
+	int *span_safe,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_buffer_t out;
@@ -2931,10 +3050,15 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 		int copied;
 		size_t q_prefix_len;
 
+		/* Every one-byte step is observed. Every opaque jump below declines
+		 * the proof; only the fixed ASCII EXCEPT token may skip safe bytes. */
+		if (span_safe != NULL && ((unsigned char)input_sql[index] >= 0x80U ||
+		    strchr(";'\"$`\\[]{}", input_sql[index]) != NULL)) *span_safe = 0;
 		q_prefix_len = sqlparser_oracle_q_quote_prefix_len(input_sql + index);
 		if (q_prefix_len > 0U) {
 			size_t literal_start;
 
+			if (span_safe != NULL) *span_safe = 0;
 			literal_start = out.len;
 			status = sqlparser_oracle_copy_q_string_literal(input_sql, &index, &out, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -2960,6 +3084,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 		if (sqlparser_oracle_is_n_string_literal(input_sql + index)) {
 			size_t literal_start;
 
+			if (span_safe != NULL) *span_safe = 0;
 			literal_start = out.len;
 			status = sqlparser_oracle_copy_n_string_literal(input_sql, &index, &out, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -2990,6 +3115,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 					index,
 					&source_length);
 			if (internal_keyword != NULL) {
+				if (span_safe != NULL) *span_safe = 0;
 				status = sqlparser_oracle_buffer_append_cstr(
 					&out,
 					internal_keyword,
@@ -3013,6 +3139,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 				return status;
 			}
 			if (index != before) {
+				if (span_safe != NULL) *span_safe = 0;
 				continue;
 			}
 		}
@@ -3033,10 +3160,12 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 		}
 		if (copied > 0) {
+			if (span_safe != NULL) *span_safe = 0;
 			continue;
 		}
 
 		if (has_returning_into && index == returning_into.into_start) {
+			if (span_safe != NULL) *span_safe = 0;
 			status = sqlparser_oracle_buffer_append_mem(
 				&out, ",   ", strlen("into"), out_error);
 			if (status == SQLPARSER_STATUS_OK) {
@@ -3051,6 +3180,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 				   index,
 				   0,
 				   &returning_into)) {
+			if (span_safe != NULL) *span_safe = 0;
 			status = sqlparser_dialect_returning_into_state_append(
 				&state->returning_into,
 				returning_into.statement_index,
@@ -3071,11 +3201,14 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 				has_returning_into = 1;
 			}
 		} else if (input_sql[index] == '?') {
+			if (span_safe != NULL) *span_safe = 0;
 			status = sqlparser_oracle_copy_question_placeholder(&index, &out, state, out_error);
 		} else if (input_sql[index] == ':' && input_sql[index + 1U] != '=' &&
 		    input_sql[index + 1U] != ':' && input_sql[index + 1U] != '\0') {
+			if (span_safe != NULL) *span_safe = 0;
 			status = sqlparser_oracle_copy_bind_placeholder(input_sql, &index, &out, state, out_error);
 		} else if (sqlparser_oracle_ascii_word_equal(input_sql, index, "minus")) {
+			if (span_safe != NULL) *span_safe = 0;
 			status = sqlparser_dialect_minuses_append(
 				&state->minuses,
 				state->minuses.except_count,
@@ -3123,6 +3256,14 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_oracle_preprocess_text(
+	const char *input_sql, sqlparser_oracle_state_t *state,
+	char **out_sql, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_text_with_span_proof(
+		input_sql, state, out_sql, NULL, out_error);
+}
+
 static sqlparser_status_t sqlparser_oracle_trimmed_slice_dup(
 	const char *sql,
 	size_t start,
@@ -3145,25 +3286,249 @@ static sqlparser_status_t sqlparser_oracle_trimmed_slice_dup(
 	return SQLPARSER_STATUS_OK;
 }
 
-static int sqlparser_oracle_find_matching_paren(
+enum {
+	SQLPARSER_ORACLE_LIST_BOUND_CAPACITY = 32,
+	SQLPARSER_ORACLE_LIST_COLUMNS = 1,
+	SQLPARSER_ORACLE_LIST_VALUES = 2
+};
+
+/* Branch-local, optional scan facts. The terminal close is an item boundary,
+ * including an empty VALUES item. Only a completed table may be consumed. */
+typedef struct {
+	size_t ends[SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
+	size_t count;
+	size_t start;
+	size_t close;
+	int complete;
+	int kind;
+} sqlparser_oracle_list_bounds_t;
+
+/* Parse-local exact-key facts. Semantic sources borrow independently owned
+ * text from the first successfully published eligible branch, never its
+ * relocatable branch/relation structure. No pointer here escapes parsing. */
+typedef struct {
+	const char *header;
+	size_t header_length;
+	size_t columns_open;
+	size_t columns_close;
+	sqlparser_oracle_list_bounds_t column_bounds;
+	size_t source_branch_index;
+	const char *text[6U + 2U * SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
+	size_t text_size[6U + 2U * SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
+	size_t text_bytes;
+	int text_ready;
+} sqlparser_oracle_multi_insert_header_cache_t;
+
+static int sqlparser_oracle_list_bounds_append(
+	sqlparser_oracle_list_bounds_t *bounds, size_t end)
+{
+	if (bounds->count >= SQLPARSER_ORACLE_LIST_BOUND_CAPACITY ||
+	    end < bounds->start ||
+	    (bounds->count != 0U && end <= bounds->ends[bounds->count - 1U])) {
+		bounds->count = 0U;
+		return 0;
+	}
+	bounds->ends[bounds->count++] = end;
+	return 1;
+}
+
+static int sqlparser_oracle_list_bounds_usable(
+	const sqlparser_oracle_list_bounds_t *bounds,
+	int kind, size_t start, size_t close)
+{
+	return bounds != NULL && bounds->complete && bounds->kind == kind &&
+		bounds->start == start && bounds->close == close &&
+		bounds->count != 0U &&
+		bounds->count <= SQLPARSER_ORACLE_LIST_BOUND_CAPACITY &&
+		bounds->ends[bounds->count - 1U] == close;
+}
+
+/* The caller separately proves every relation byte safe. Completed column
+ * bounds come only from the strict ASCII column scanner. Capture before the
+ * same scratch bounds are reused for VALUES, but publish only after add. */
+static int sqlparser_oracle_multi_insert_header_cache_prepare(
+	sqlparser_oracle_multi_insert_header_cache_t *candidate,
+	const char *sql,
+	size_t relation_start,
+	size_t columns_open,
+	size_t columns_close,
+	size_t end,
+	const sqlparser_oracle_list_bounds_t *bounds)
+{
+	size_t index;
+
+	if (candidate == NULL || sql == NULL || relation_start >= columns_open ||
+	    columns_open >= columns_close || columns_close >= end ||
+	    !sqlparser_oracle_list_bounds_usable(bounds, SQLPARSER_ORACLE_LIST_COLUMNS,
+		columns_open + 1U, columns_close)) return 0;
+	for (index = 0U; index < bounds->count; index++) {
+		if (bounds->ends[index] < bounds->start || bounds->ends[index] > columns_close ||
+		    (index != 0U && bounds->ends[index] <= bounds->ends[index - 1U])) return 0;
+	}
+	memset(candidate, 0, sizeof(*candidate));
+	candidate->header_length = columns_close - relation_start + 1U;
+	candidate->columns_open = columns_open - relation_start;
+	candidate->columns_close = columns_close - relation_start;
+	candidate->column_bounds.count = bounds->count;
+	candidate->column_bounds.start = bounds->start - relation_start;
+	candidate->column_bounds.close = columns_close - relation_start;
+	candidate->column_bounds.complete = 1;
+	candidate->column_bounds.kind = SQLPARSER_ORACLE_LIST_COLUMNS;
+	for (index = 0U; index < bounds->count; index++)
+		candidate->column_bounds.ends[index] = bounds->ends[index] - relation_start;
+	candidate->header = sql + relation_start;
+	return 1;
+}
+
+static int sqlparser_oracle_multi_insert_header_cache_match(
+	const sqlparser_oracle_multi_insert_header_cache_t *cache,
+	const char *sql,
+	size_t relation_start,
+	size_t end,
+	size_t *out_columns_open,
+	size_t *out_columns_close,
+	sqlparser_oracle_list_bounds_t *bounds)
+{
+	size_t index;
+
+	if (cache == NULL || cache->header == NULL || relation_start > end ||
+	    cache->header_length > end - relation_start ||
+	    memcmp(sql + relation_start, cache->header, cache->header_length) != 0) return 0;
+	/* prepare proved every relative offset is below header_length. The
+	 * subtraction guard above therefore also proves each addition safe. */
+	*out_columns_open = relation_start + cache->columns_open;
+	*out_columns_close = relation_start + cache->columns_close;
+	bounds->count = cache->column_bounds.count;
+	bounds->start = relation_start + cache->column_bounds.start;
+	bounds->close = relation_start + cache->column_bounds.close;
+	bounds->complete = 1;
+	bounds->kind = SQLPARSER_ORACLE_LIST_COLUMNS;
+	for (index = 0U; index < bounds->count; index++)
+		bounds->ends[index] = relation_start + cache->column_bounds.ends[index];
+	return 1;
+}
+
+/* Only called for a fresh-native exact header hit. Every resulting branch
+ * owns distinct NUL-terminated fields within its own block, plus its own
+ * columns array. A first hit measures legacy semantic strings once. */
+static sqlparser_status_t sqlparser_oracle_header_block_from_cache(
+	sqlparser_oracle_multi_insert_header_cache_t *cache,
+	const sqlparser_dialect_multi_insert_t *multi,
+	sqlparser_dialect_multi_insert_branch_t *branch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_multi_insert_column_t *columns;
+	sqlparser_dialect_multi_insert_relation_t relation;
+	char *block;
+	char *cursor;
+	char **slots[6U + 2U * SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
+	size_t count = cache->column_bounds.count;
+	size_t fields = 6U + count * 2U;
+	size_t index;
+
+	if (!cache->text_ready) {
+		const sqlparser_dialect_multi_insert_branch_t *source =
+			&multi->branches[cache->source_branch_index];
+		size_t bytes = 0U;
+		cache->text[0] = source->relation.database_name;
+		cache->text[1] = source->relation.schema_name;
+		cache->text[2] = source->relation.table_name;
+		cache->text[3] = source->relation.link_name;
+		cache->text[4] = source->relation.link_sql;
+		cache->text[5] = source->relation.sql;
+		for (index = 0U; index < count; index++) {
+			cache->text[6U + index * 2U] = source->columns[index].name;
+			cache->text[7U + index * 2U] = source->columns[index].sql;
+		}
+		for (index = 0U; index < fields; index++) {
+			size_t length = cache->text[index] != NULL ? strlen(cache->text[index]) : 0U;
+			if (cache->text[index] != NULL && length == SIZE_MAX) goto no_memory;
+			cache->text_size[index] = cache->text[index] != NULL ? length + 1U : 0U;
+			if (cache->text_size[index] > SIZE_MAX - bytes) goto no_memory;
+			bytes += cache->text_size[index];
+		}
+		cache->text_bytes = bytes;
+		cache->text_ready = 1;
+	}
+	if (count > SIZE_MAX / sizeof(*columns)) goto no_memory;
+	columns = (sqlparser_dialect_multi_insert_column_t *)calloc(count, sizeof(*columns));
+	if (columns == NULL) goto no_memory;
+	block = (char *)malloc(cache->text_bytes);
+	if (block == NULL) {
+		free(columns);
+		goto no_memory;
+	}
+	memset(&relation, 0, sizeof(relation));
+	slots[0] = &relation.database_name;
+	slots[1] = &relation.schema_name;
+	slots[2] = &relation.table_name;
+	slots[3] = &relation.link_name;
+	slots[4] = &relation.link_sql;
+	slots[5] = &relation.sql;
+	for (index = 0U; index < count; index++) {
+		slots[6U + index * 2U] = &columns[index].name;
+		slots[7U + index * 2U] = &columns[index].sql;
+	}
+	cursor = block;
+	for (index = 0U; index < fields; index++) {
+		if (cache->text_size[index] != 0U) {
+			memcpy(cursor, cache->text[index], cache->text_size[index]);
+			*slots[index] = cursor;
+			cursor += cache->text_size[index];
+		}
+	}
+	branch->relation = relation;
+	branch->columns = columns;
+	branch->column_count = count;
+	branch->oracle_header_text_block = block;
+	return SQLPARSER_STATUS_OK;
+
+no_memory:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static int sqlparser_oracle_find_matching_paren_with_bounds(
 	const char *sql,
 	size_t open_pos,
 	size_t end,
-	size_t *out_close)
+	size_t *out_close,
+	int kind,
+	sqlparser_oracle_list_bounds_t *bounds)
 {
 	size_t pos;
 	size_t depth;
+	int collect;
+	int name_state = 0;
 
+	if (bounds != NULL) {
+		bounds->complete = 0;
+		bounds->count = 0U;
+		bounds->start = 0U;
+		bounds->close = 0U;
+		bounds->kind = kind;
+	}
 	if (sql == NULL || out_close == NULL || open_pos >= end || sql[open_pos] != '(') {
 		return 0;
 	}
+	collect = bounds != NULL &&
+		(kind == SQLPARSER_ORACLE_LIST_COLUMNS || kind == SQLPARSER_ORACLE_LIST_VALUES);
 	pos = open_pos + 1U;
+	if (bounds != NULL) bounds->start = pos;
 	depth = 1U;
 	while (pos < end) {
 		size_t skipped;
 
-		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
+		skipped = sqlparser_oracle_quote_or_comment_may_start((unsigned char)sql[pos]) ?
+			sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
 		if (skipped > pos) {
+			/* Keep every original helper jump, even when it crosses end.
+			 * Only ordinary quoted VALUES text is admitted by this cache. */
+			if (collect && (kind == SQLPARSER_ORACLE_LIST_COLUMNS ||
+			    sql[pos] != '\'' || skipped > end)) {
+				collect = 0;
+				bounds->count = 0U;
+			}
 			pos = skipped;
 			continue;
 		}
@@ -3173,12 +3538,51 @@ static int sqlparser_oracle_find_matching_paren(
 			depth--;
 			if (depth == 0U) {
 				*out_close = pos;
+				if (collect && kind == SQLPARSER_ORACLE_LIST_COLUMNS && name_state == 0) {
+					collect = 0;
+					bounds->count = 0U;
+				}
+				if (collect && sqlparser_oracle_list_bounds_append(bounds, pos)) {
+					bounds->close = pos;
+					bounds->complete = 1;
+				}
 				return 1;
+			}
+		}
+		if (collect && kind == SQLPARSER_ORACLE_LIST_COLUMNS) {
+			/* The legacy column splitter has no parenthesis-depth condition.
+			 * Admit only wholly safe names, so its proof would stay unchanged. */
+			if (sql[pos] == ',') {
+				if (name_state == 0 || !sqlparser_oracle_list_bounds_append(bounds, pos))
+					collect = 0;
+				name_state = 0;
+			} else if (!sqlparser_oracle_span_name_byte((unsigned char)sql[pos], 0, &name_state)) {
+				collect = 0;
+			}
+			if (!collect) bounds->count = 0U;
+		} else if (collect) {
+			unsigned char ch = (unsigned char)sql[pos];
+			/* Complex quote/comment forms and locale-sensitive unquoted text
+			 * retain the complete original second scan. Round depth is shared. */
+			if (ch >= 0x80U || ch == '$' || ch == '[' || ch == ']' ||
+			    ch == '{' || ch == '}' || ch == '\\' || ch == '`' || ch == '"') {
+				collect = 0;
+				bounds->count = 0U;
+			} else if (ch == ',' && depth == 1U) {
+				collect = sqlparser_oracle_list_bounds_append(bounds, pos);
 			}
 		}
 		pos++;
 	}
+	if (bounds != NULL) bounds->count = 0U;
 	return 0;
+}
+
+static int sqlparser_oracle_find_matching_paren(
+	const char *sql, size_t open_pos, size_t end, size_t *out_close)
+{
+	return sqlparser_oracle_find_matching_paren_with_bounds(
+		sql, open_pos, end, out_close, 0, NULL);
 }
 
 static int sqlparser_oracle_find_top_level_word(
@@ -3405,12 +3809,14 @@ static sqlparser_status_t sqlparser_oracle_relation_from_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_oracle_parse_column_list(
+static sqlparser_status_t sqlparser_oracle_parse_column_list_with_bounds(
 	const char *sql,
 	size_t start,
 	size_t end,
 	sqlparser_dialect_multi_insert_column_t **out_columns,
 	size_t *out_count,
+	int *span_safe,
+	const sqlparser_oracle_list_bounds_t *bounds,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dialect_multi_insert_column_t *columns;
@@ -3418,6 +3824,9 @@ static sqlparser_status_t sqlparser_oracle_parse_column_list(
 	size_t capacity;
 	size_t item_start;
 	size_t pos;
+	size_t boundary_index = 0U;
+	int use_bounds;
+	int name_state = 0;
 
 	if (out_columns == NULL || out_count == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "column list outputs must not be NULL");
@@ -3430,20 +3839,34 @@ static sqlparser_status_t sqlparser_oracle_parse_column_list(
 	capacity = 0U;
 	item_start = start;
 	pos = start;
+	use_bounds = sqlparser_oracle_list_bounds_usable(
+		bounds, SQLPARSER_ORACLE_LIST_COLUMNS, start, end);
 	while (pos <= end) {
 		int at_end;
 		size_t skipped;
 
-		at_end = pos == end;
-		skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
-		if (skipped > pos) {
-			pos = skipped;
-			continue;
+		if (use_bounds) {
+			pos = bounds->ends[boundary_index++];
+			at_end = pos == end;
+		} else {
+			at_end = pos == end;
+			skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
+			if (skipped > pos) {
+				*span_safe = 0;
+				pos = skipped;
+				continue;
+			}
+			if (!at_end && sql[pos] != ',' &&
+			    !sqlparser_oracle_span_name_byte((unsigned char)sql[pos], 0, &name_state)) *span_safe = 0;
 		}
 		if (at_end || sql[pos] == ',') {
 			size_t item_end;
 			sqlparser_dialect_multi_insert_column_t *next;
 
+			/* A cached column list proved every original name check safe.
+			 * Never promote an already-false caller proof. */
+			if (!use_bounds && name_state == 0) *span_safe = 0;
+			name_state = 0;
 			if (count == capacity) {
 				size_t next_capacity;
 
@@ -3469,6 +3892,8 @@ static sqlparser_status_t sqlparser_oracle_parse_column_list(
 			}
 			if (sqlparser_oracle_trimmed_slice_dup(sql, item_start, item_end, &columns[count].sql, out_error) != SQLPARSER_STATUS_OK ||
 			    sqlparser_oracle_identifier_from_sql(sql, item_start, item_end, &columns[count].name, out_error) != SQLPARSER_STATUS_OK) {
+				free(columns[count].name);
+				free(columns[count].sql);
 				goto fail;
 			}
 			count++;
@@ -3492,6 +3917,15 @@ fail:
 		free(columns);
 	}
 	return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static inline sqlparser_status_t sqlparser_oracle_parse_column_list(
+	const char *sql, size_t start, size_t end,
+	sqlparser_dialect_multi_insert_column_t **out_columns, size_t *out_count,
+	int *span_safe, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_column_list_with_bounds(
+		sql, start, end, out_columns, out_count, span_safe, NULL, out_error);
 }
 
 static int sqlparser_oracle_text_is_integer_literal(const char *text)
@@ -3554,14 +3988,31 @@ static int sqlparser_oracle_ascii_text_equal(const char *left, const char *right
 	return left[index] == '\0' && right[index] == '\0';
 }
 
-static sqlparser_status_t sqlparser_oracle_unquote_string_literal(
+typedef enum {
+	SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN = 0,
+	SQLPARSER_ORACLE_VALUE_FACT_STRING,
+	SQLPARSER_ORACLE_VALUE_FACT_INTEGER,
+	SQLPARSER_ORACLE_VALUE_FACT_FLOAT,
+	SQLPARSER_ORACLE_VALUE_FACT_NULL,
+	SQLPARSER_ORACLE_VALUE_FACT_SQLVALUE
+} sqlparser_oracle_value_fact_class_t;
+
+/* Issued for one complete token and consumed within its constructor call.
+ * No borrowed pointer or fact is retained in dialect/handle state. */
+typedef struct {
+	size_t length;
+	int identity_kind;
+	sqlparser_oracle_value_fact_class_t literal_class;
+} sqlparser_oracle_value_facts_t;
+
+static sqlparser_status_t sqlparser_oracle_unquote_string_literal_with_length(
 	const char *text,
+	size_t len,
 	char **out_value,
 	uint32_t *out_lexical_flags,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_buffer_t out;
-	size_t len;
 	size_t pos;
 	int ordinary = 1;
 
@@ -3570,7 +4021,6 @@ static sqlparser_status_t sqlparser_oracle_unquote_string_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_value = NULL;
-	len = text != NULL ? strlen(text) : 0U;
 	if (len < 2U || text[0] != '\'' || text[len - 1U] != '\'') {
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
@@ -3609,24 +4059,47 @@ static sqlparser_status_t sqlparser_oracle_unquote_string_literal(
 	return *out_value != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
 }
 
-static sqlparser_status_t sqlparser_oracle_value_fill_literal(
+static sqlparser_status_t sqlparser_oracle_unquote_string_literal(
+	const char *text, char **out_value, uint32_t *out_lexical_flags,
+	sqlparser_error_t *out_error)
+{
+	/* The old NULL-output error must still precede any read of text. */
+	size_t length = out_value != NULL && text != NULL ? strlen(text) : 0U;
+	return sqlparser_oracle_unquote_string_literal_with_length(
+		text, length, out_value, out_lexical_flags, out_error);
+}
+
+static sqlparser_status_t sqlparser_oracle_value_fill_literal_with_facts(
 	sqlparser_dialect_multi_insert_value_t *value,
 	uint32_t *out_lexical_flags,
+	const sqlparser_oracle_value_facts_t *facts,
 	sqlparser_error_t *out_error)
 {
 	long long integer_value;
 	char *endptr;
+	sqlparser_oracle_value_fact_class_t literal_class;
 
 	if (value == NULL || value->public_sql == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	if (sqlparser_oracle_ascii_text_equal(value->public_sql, "null")) {
+	literal_class = facts != NULL && facts->identity_kind != 0 ?
+		facts->literal_class : SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN;
+	if (literal_class == SQLPARSER_ORACLE_VALUE_FACT_NULL ||
+	    (literal_class == SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN &&
+	     sqlparser_oracle_ascii_text_equal(value->public_sql, "null"))) {
 		value->has_literal = 1;
 		value->literal.kind = SQLPARSER_LITERAL_KIND_NULL;
 		return SQLPARSER_STATUS_OK;
 	}
-	if (value->public_sql[0] == '\'') {
-		if (sqlparser_oracle_unquote_string_literal(value->public_sql, &value->literal_string_value, out_lexical_flags, out_error) != SQLPARSER_STATUS_OK) {
+	if (literal_class == SQLPARSER_ORACLE_VALUE_FACT_STRING ||
+	    (literal_class == SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN && value->public_sql[0] == '\'')) {
+		sqlparser_status_t status = literal_class == SQLPARSER_ORACLE_VALUE_FACT_STRING ?
+			sqlparser_oracle_unquote_string_literal_with_length(value->public_sql,
+				facts->length, &value->literal_string_value, out_lexical_flags, out_error) :
+			sqlparser_oracle_unquote_string_literal(value->public_sql,
+				&value->literal_string_value, out_lexical_flags, out_error);
+		/* Keep the existing non-OK decoder behavior, including retained error. */
+		if (status != SQLPARSER_STATUS_OK) {
 			return SQLPARSER_STATUS_OK;
 		}
 		value->has_literal = 1;
@@ -3634,7 +4107,9 @@ static sqlparser_status_t sqlparser_oracle_value_fill_literal(
 		value->literal.string_value = value->literal_string_value;
 		return SQLPARSER_STATUS_OK;
 	}
-	if (sqlparser_oracle_text_is_integer_literal(value->public_sql)) {
+	if (literal_class == SQLPARSER_ORACLE_VALUE_FACT_INTEGER ||
+	    (literal_class == SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN &&
+	     sqlparser_oracle_text_is_integer_literal(value->public_sql))) {
 		endptr = NULL;
 		integer_value = strtoll(value->public_sql, &endptr, 10);
 		if (endptr != NULL && *endptr == '\0') {
@@ -3644,7 +4119,9 @@ static sqlparser_status_t sqlparser_oracle_value_fill_literal(
 		}
 		return SQLPARSER_STATUS_OK;
 	}
-	if (sqlparser_oracle_text_is_float_literal(value->public_sql)) {
+	if (literal_class == SQLPARSER_ORACLE_VALUE_FACT_FLOAT ||
+	    (literal_class == SQLPARSER_ORACLE_VALUE_FACT_UNKNOWN &&
+	     sqlparser_oracle_text_is_float_literal(value->public_sql))) {
 		value->literal_float_value = sqlparser_strdup(value->public_sql);
 		if (value->literal_float_value == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -3657,10 +4134,18 @@ static sqlparser_status_t sqlparser_oracle_value_fill_literal(
 	return SQLPARSER_STATUS_OK;
 }
 
-/* A complete-token proof for preprocessing identity, not a replacement for
- * literal classification. Unknown syntax stays with preprocess_text, including
- * prefixed/alternative strings, binds, comments and compound expressions. */
-static int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_length)
+static inline sqlparser_status_t sqlparser_oracle_value_fill_literal(
+	sqlparser_dialect_multi_insert_value_t *value,
+	uint32_t *out_lexical_flags, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_value_fill_literal_with_facts(value, out_lexical_flags, NULL, out_error);
+}
+
+/* One complete-token identity proof can also carry the literal category it
+ * already established. Unknown syntax keeps preprocessing and classification,
+ * including prefixed/alternative strings, binds, comments and expressions. */
+static int sqlparser_oracle_value_identity_facts(
+	const char *text, sqlparser_oracle_value_facts_t *facts)
 {
 	static const char *const sqlvalue_keywords[] = {
 		"current_date", "current_time", "current_timestamp",
@@ -3670,6 +4155,7 @@ static int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_le
 	size_t pos, index;
 	int saw_digit, saw_dot;
 
+	memset(facts, 0, sizeof(*facts));
 	if (text == NULL || text[0] == '\0') return 0;
 	if (text[0] == '\'') {
 		for (pos = 1U; text[pos] != '\0'; pos++) {
@@ -3681,7 +4167,9 @@ static int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_le
 				continue;
 			}
 			if (text[pos + 1U] != '\0') return 0;
-			*out_length = pos + 1U;
+			facts->length = pos + 1U;
+			facts->identity_kind = 1;
+			facts->literal_class = SQLPARSER_ORACLE_VALUE_FACT_STRING;
 			return 1; /* Exactly one ordinary String token. */
 		}
 		return 0;
@@ -3696,11 +4184,16 @@ static int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_le
 			else return 0;
 		}
 		if (!saw_digit) return 0;
-		*out_length = pos;
+		facts->length = pos;
+		facts->identity_kind = 2;
+		facts->literal_class = saw_dot ? SQLPARSER_ORACLE_VALUE_FACT_FLOAT :
+			SQLPARSER_ORACLE_VALUE_FACT_INTEGER;
 		return 2;
 	}
 	if (sqlparser_oracle_ascii_text_equal(text, "null")) {
-		*out_length = 4U;
+		facts->length = 4U;
+		facts->identity_kind = 2;
+		facts->literal_class = SQLPARSER_ORACLE_VALUE_FACT_NULL;
 		return 2;
 	}
 	/* These are the complete bare SQLValueFunction token alternatives in the
@@ -3708,46 +4201,76 @@ static int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_le
  * legacy path. None contains a rewrite keyword, bind, quote or DB-link. */
 	for (index = 0U; index < sizeof(sqlvalue_keywords) / sizeof(sqlvalue_keywords[0]); index++) {
 		if (sqlparser_oracle_ascii_text_equal(text, sqlvalue_keywords[index])) {
-			*out_length = strlen(sqlvalue_keywords[index]);
+			facts->length = strlen(sqlvalue_keywords[index]);
+			facts->identity_kind = 2;
+			/* Keep locale-folded high-byte spellings on the old literal
+			 * classifier, while retaining the original identity/length fact. */
+			for (pos = 0U; pos < facts->length; pos++)
+				if ((unsigned char)text[pos] >= 0x80U) break;
+			if (pos == facts->length)
+				facts->literal_class = SQLPARSER_ORACLE_VALUE_FACT_SQLVALUE;
 			return 2;
 		}
 	}
 	return 0;
 }
 
-static sqlparser_status_t sqlparser_oracle_preprocess_value_text(
+static inline int sqlparser_oracle_value_identity_kind(const char *text, size_t *out_length)
+{
+	sqlparser_oracle_value_facts_t facts;
+	int kind = sqlparser_oracle_value_identity_facts(text, &facts);
+	if (kind != 0) *out_length = facts.length;
+	return kind;
+}
+
+static sqlparser_status_t sqlparser_oracle_preprocess_value_text_with_facts(
 	const char *input_sql,
 	sqlparser_oracle_state_t *state,
 	char **out_sql,
+	int *out_span_safe,
+	sqlparser_oracle_value_facts_t *out_facts,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_buffer_t out;
 	sqlparser_status_t status;
-	size_t length = 0U;
-	int identity_kind = sqlparser_oracle_value_identity_kind(input_sql, &length);
+	sqlparser_oracle_value_facts_t facts;
+	int identity_kind = sqlparser_oracle_value_identity_facts(input_sql, &facts);
 
+	if (out_facts != NULL) memset(out_facts, 0, sizeof(*out_facts));
+	if (out_span_safe != NULL) *out_span_safe = identity_kind != 0;
 	if (identity_kind == 0)
 		return sqlparser_oracle_preprocess_text(input_sql, state, out_sql, out_error);
 	memset(&out, 0, sizeof(out));
 	/* Preserve the legacy first allocation (realloc(NULL, strlen + 1)), its
  * error, and its position before any state update. The complete identity
  * proof establishes that the old append/finish calls cannot allocate again. */
-	status = sqlparser_oracle_buffer_reserve_input(&out, input_sql, out_error);
+	status = sqlparser_oracle_buffer_reserve_input_length(&out, facts.length, out_error);
 	if (status != SQLPARSER_STATUS_OK) return status;
-	memcpy(out.data, input_sql, length + 1U);
-	out.len = length;
+	memcpy(out.data, input_sql, facts.length + 1U);
+	out.len = facts.length;
 	if (identity_kind == 1) state->national_literals.literal_count++;
 	*out_sql = sqlparser_oracle_buffer_take(&out);
+	/* Consumers receive identity only after the original byte copy succeeds. */
+	if (out_facts != NULL) *out_facts = facts;
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_oracle_parse_value_item(
+static inline sqlparser_status_t sqlparser_oracle_preprocess_value_text(
+	const char *input_sql, sqlparser_oracle_state_t *state, char **out_sql,
+	int *out_span_safe, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_value_text_with_facts(
+		input_sql, state, out_sql, out_span_safe, NULL, out_error);
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_value_item_with_span_proof(
 	const char *sql,
 	size_t start,
 	size_t end,
 	sqlparser_oracle_state_t *state,
 	sqlparser_dialect_multi_insert_value_t *out_value,
 	uint32_t *out_lexical_flags,
+	int *out_span_safe,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_bind_token_t bind_token;
@@ -3757,6 +4280,7 @@ static sqlparser_status_t sqlparser_oracle_parse_value_item(
 	sqlparser_bind_kind_t bind_kind;
 	size_t occurrence_before;
 	sqlparser_status_t status;
+	sqlparser_oracle_value_facts_t facts;
 
 	if (out_value == NULL || state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value arguments must not be NULL");
@@ -3769,13 +4293,16 @@ static sqlparser_status_t sqlparser_oracle_parse_value_item(
 		return status;
 	}
 	occurrence_before = state->bind_occurrence_count;
-	status = sqlparser_oracle_preprocess_value_text(out_value->public_sql, state, &out_value->parser_sql, out_error);
+	status = sqlparser_oracle_preprocess_value_text_with_facts(out_value->public_sql,
+		state, &out_value->parser_sql, out_span_safe, &facts, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_value_clear(out_value);
 		return status;
 	}
-	sql_len = strlen(out_value->public_sql);
-	if (sqlparser_bind_token_exact(
+	sql_len = facts.identity_kind != 0 ? facts.length : strlen(out_value->public_sql);
+	/* Identity preprocessing never increments bind_occurrence_count, so the
+	 * original exact-token/count predicate would necessarily be false. */
+	if (facts.identity_kind == 0 && sqlparser_bind_token_exact(
 		    SQLPARSER_DIALECT_ORACLE,
 		    out_value->public_sql,
 		    sql_len,
@@ -3811,15 +4338,26 @@ static sqlparser_status_t sqlparser_oracle_parse_value_item(
 		out_value->bind_position = occurrence_before + 1U;
 		out_value->has_bind_position = 1;
 	} else {
-		status = sqlparser_oracle_value_fill_literal(out_value, out_lexical_flags, out_error);
+		status = sqlparser_oracle_value_fill_literal_with_facts(
+			out_value, out_lexical_flags, &facts, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_oracle_value_clear(out_value);
 			return status;
 		}
 	}
-	if (out_lexical_flags != NULL && strcmp(out_value->public_sql, out_value->parser_sql) == 0)
+	if (out_lexical_flags != NULL && (facts.identity_kind != 0 ||
+	    strcmp(out_value->public_sql, out_value->parser_sql) == 0))
 		*out_lexical_flags |= SQLPARSER_ORACLE_CELL_IDENTITY;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_value_item(
+	const char *sql, size_t start, size_t end, sqlparser_oracle_state_t *state,
+	sqlparser_dialect_multi_insert_value_t *out_value,
+	uint32_t *out_lexical_flags, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_value_item_with_span_proof(
+		sql, start, end, state, out_value, out_lexical_flags, NULL, out_error);
 }
 
 static void sqlparser_oracle_discard_cell_spans(sqlparser_dialect_multi_insert_t *multi)
@@ -3828,18 +4366,19 @@ static void sqlparser_oracle_discard_cell_spans(sqlparser_dialect_multi_insert_t
 	multi->oracle_spans = NULL;
 	multi->oracle_span_count = multi->oracle_span_capacity = 0U;
 	multi->oracle_spans_complete = 0;
+	multi->oracle_generic_spans_equivalent = 0;
 }
 
 /* Optional facts are emitted at the constructor's existing cell boundary.
  * Allocation/range misses discard the whole partial proof, not the parse. */
 static void sqlparser_oracle_record_cell_span(sqlparser_dialect_multi_insert_t *multi,
-	const char *sql, size_t start, size_t end, uint32_t flags)
+	const char *sql, size_t start, size_t end, uint32_t flags, int *span_safe)
 {
 	sqlparser_oracle_cell_span_t *next;
 	size_t capacity;
 	if (!multi->oracle_spans_complete) return;
-	start = sqlparser_oracle_trim_left(sql, start, end);
-	end = sqlparser_oracle_trim_right(sql, start, end);
+	start = sqlparser_oracle_span_trim_left(sql, start, end, span_safe);
+	end = sqlparser_oracle_span_trim_right(sql, start, end, span_safe);
 	if (start > UINT32_MAX || end > UINT32_MAX || end < start ||
 	    multi->oracle_span_count >= UINT32_MAX) goto disable;
 	if (multi->oracle_span_count == multi->oracle_span_capacity) {
@@ -3861,7 +4400,289 @@ disable:
 	sqlparser_oracle_discard_cell_spans(multi);
 }
 
-static sqlparser_status_t sqlparser_oracle_parse_value_list(
+typedef struct {
+	size_t start;
+	size_t length;
+	size_t decoded_length;
+	sqlparser_oracle_value_fact_class_t literal_class;
+} sqlparser_oracle_compact_value_facts_t;
+
+static int sqlparser_oracle_compact_ascii_space(unsigned char ch)
+{
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f' || ch == '\v';
+}
+
+/* A complete, bounded semantic pass precedes every owning allocation. Bounds
+ * alone prove only delimiters. High bytes are permitted only inside strings. */
+static int sqlparser_oracle_try_compact_value_facts(
+	const char *sql, const sqlparser_oracle_list_bounds_t *bounds,
+	sqlparser_oracle_compact_value_facts_t *facts)
+{
+	static const char *const keywords[] = {
+		"null", "current_date", "current_time", "current_timestamp",
+		"localtime", "localtimestamp", "current_role", "current_user",
+		"session_user", "user", "current_catalog", "current_schema"
+	};
+	size_t index, start = bounds->start;
+	for (index = 0U; index < bounds->count; index++) {
+		size_t end = bounds->ends[index], pos, key;
+		sqlparser_oracle_compact_value_facts_t *fact = &facts[index];
+		int saw_digit = 0, saw_dot = 0, found = 0;
+		if (end < start || end > bounds->close) return 0;
+		while (start < end && sqlparser_oracle_compact_ascii_space((unsigned char)sql[start])) start++;
+		while (end > start && sqlparser_oracle_compact_ascii_space((unsigned char)sql[end - 1U])) end--;
+		if (start == end) return 0;
+		fact->start = start;
+		fact->length = end - start;
+		fact->decoded_length = 0U;
+		if (sql[start] == '\'') {
+			pos = start + 1U;
+			while (pos < end) {
+				unsigned char ch = (unsigned char)sql[pos++];
+				if (ch < 32U || ch == 127U || ch == '\\') return 0;
+				if (ch == '\'') {
+					if (pos == end) { found = 1; break; }
+					if (sql[pos] != '\'') return 0;
+					pos++;
+				}
+				fact->decoded_length++;
+			}
+			if (!found) return 0;
+			fact->literal_class = SQLPARSER_ORACLE_VALUE_FACT_STRING;
+		} else if ((sql[start] >= '0' && sql[start] <= '9') ||
+		           sql[start] == '+' || sql[start] == '-' || sql[start] == '.') {
+			pos = start + ((sql[start] == '+' || sql[start] == '-') ? 1U : 0U);
+			for (; pos < end; pos++) {
+				if (sql[pos] >= '0' && sql[pos] <= '9') saw_digit = 1;
+				else if (sql[pos] == '.' && !saw_dot) saw_dot = 1;
+				else return 0;
+			}
+			if (!saw_digit) return 0;
+			fact->literal_class = saw_dot ? SQLPARSER_ORACLE_VALUE_FACT_FLOAT :
+				SQLPARSER_ORACLE_VALUE_FACT_INTEGER;
+		} else {
+			for (key = 0U; key < sizeof(keywords) / sizeof(keywords[0]); key++) {
+				if (strlen(keywords[key]) != fact->length) continue;
+				for (pos = 0U; pos < fact->length; pos++) {
+					unsigned char ch = (unsigned char)sql[start + pos];
+					if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+					if (ch != (unsigned char)keywords[key][pos]) break;
+				}
+				if (pos == fact->length) { found = 1; break; }
+			}
+			if (!found) return 0;
+			fact->literal_class = key == 0U ? SQLPARSER_ORACLE_VALUE_FACT_NULL :
+				SQLPARSER_ORACLE_VALUE_FACT_SQLVALUE;
+		}
+		start = bounds->ends[index] + 1U;
+	}
+	return 1;
+}
+
+/* Fresh-native simple VALUES trial only. One bounded pass establishes both
+ * delimiters and the same compact semantic facts. All scratch is unpublished
+ * until the complete branch is proved. A miss leaves the original scanner,
+ * diagnostics, bounds fallback and constructor wholly responsible. */
+static int sqlparser_oracle_try_scan_compact_values(
+	const char *sql, size_t open, size_t end, size_t *out_close,
+	sqlparser_oracle_list_bounds_t *out_bounds,
+	sqlparser_oracle_compact_value_facts_t *out_facts)
+{
+	static const struct { const char *text; size_t length; } keywords[] = {
+		{"null", sizeof("null") - 1U},
+		{"current_date", sizeof("current_date") - 1U},
+		{"current_time", sizeof("current_time") - 1U},
+		{"current_timestamp", sizeof("current_timestamp") - 1U},
+		{"localtime", sizeof("localtime") - 1U},
+		{"localtimestamp", sizeof("localtimestamp") - 1U},
+		{"current_role", sizeof("current_role") - 1U},
+		{"current_user", sizeof("current_user") - 1U},
+		{"session_user", sizeof("session_user") - 1U},
+		{"user", sizeof("user") - 1U},
+		{"current_catalog", sizeof("current_catalog") - 1U},
+		{"current_schema", sizeof("current_schema") - 1U}
+	};
+	sqlparser_oracle_list_bounds_t bounds;
+	sqlparser_oracle_compact_value_facts_t facts[SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
+	size_t pos = open + 1U, count = 0U;
+
+	/* Caller already checked this delimiter; retain an explicit local guard. */
+	if (open >= end || sql[open] != '(') return 0;
+	memset(&bounds, 0, sizeof(bounds));
+	bounds.start = pos;
+	bounds.kind = SQLPARSER_ORACLE_LIST_VALUES;
+	for (;;) {
+		sqlparser_oracle_compact_value_facts_t *fact;
+		size_t token_end;
+		if (count == SQLPARSER_ORACLE_LIST_BOUND_CAPACITY) return 0;
+		while (pos < end && sqlparser_oracle_compact_ascii_space((unsigned char)sql[pos])) pos++;
+		if (pos == end) return 0;
+		fact = &facts[count];
+		fact->start = pos;
+		fact->decoded_length = 0U;
+		if (sql[pos] == '\'') {
+			int closed = 0;
+			pos++;
+			while (pos < end) {
+				unsigned char ch = (unsigned char)sql[pos++];
+				if (ch < 32U || ch == 127U || ch == '\\') return 0;
+				if (ch == '\'') {
+					if (pos < end && sql[pos] == '\'') pos++;
+					else { closed = 1; break; }
+				}
+				fact->decoded_length++;
+			}
+			if (!closed) return 0;
+			fact->literal_class = SQLPARSER_ORACLE_VALUE_FACT_STRING;
+		} else if ((sql[pos] >= '0' && sql[pos] <= '9') ||
+		           sql[pos] == '+' || sql[pos] == '-' || sql[pos] == '.') {
+			int saw_digit = 0, saw_dot = 0;
+			if (sql[pos] == '+' || sql[pos] == '-') pos++;
+			while (pos < end) {
+				unsigned char ch = (unsigned char)sql[pos];
+				if (ch >= '0' && ch <= '9') saw_digit = 1;
+				else if (ch == '.' && !saw_dot) saw_dot = 1;
+				else break;
+				pos++;
+			}
+			if (!saw_digit) return 0;
+			fact->literal_class = saw_dot ? SQLPARSER_ORACLE_VALUE_FACT_FLOAT :
+				SQLPARSER_ORACLE_VALUE_FACT_INTEGER;
+		} else {
+			char folded[sizeof("current_timestamp") - 1U];
+			size_t length = 0U, key;
+			while (pos < end) {
+				unsigned char ch = (unsigned char)sql[pos];
+				if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+				if (!((ch >= 'a' && ch <= 'z') || ch == '_')) break;
+				if (length == sizeof(folded)) return 0;
+				folded[length++] = (char)ch;
+				pos++;
+			}
+			for (key = 0U; key < sizeof(keywords) / sizeof(keywords[0]); key++) {
+				if (length == keywords[key].length &&
+				    memcmp(folded, keywords[key].text, length) == 0) break;
+			}
+			if (key == sizeof(keywords) / sizeof(keywords[0])) return 0;
+			fact->literal_class = key == 0U ? SQLPARSER_ORACLE_VALUE_FACT_NULL :
+				SQLPARSER_ORACLE_VALUE_FACT_SQLVALUE;
+		}
+		token_end = pos;
+		while (pos < end && sqlparser_oracle_compact_ascii_space((unsigned char)sql[pos])) pos++;
+		if (pos == end || (sql[pos] != ',' && sql[pos] != ')')) return 0;
+		fact->length = token_end - fact->start;
+		bounds.ends[count++] = pos;
+		if (sql[pos] == ')') {
+			bounds.count = count;
+			bounds.close = pos;
+			bounds.complete = 1;
+			*out_close = pos;
+			*out_bounds = bounds;
+			memcpy(out_facts, facts, count * sizeof(*facts));
+			return 1;
+		}
+		pos++;
+	}
+}
+
+/* Exactly one owning block. All three slices, when present, are disjoint. */
+static sqlparser_status_t sqlparser_oracle_compact_text_block(
+	const char *text, size_t length, size_t literal_bytes,
+	sqlparser_oracle_compact_value_t *value, char **out_literal,
+	sqlparser_error_t *out_error)
+{
+	size_t text_bytes, total;
+	char *block;
+	if (length == SIZE_MAX) goto no_memory;
+	text_bytes = length + 1U;
+	if (text_bytes > SIZE_MAX / 2U || literal_bytes > SIZE_MAX - 2U * text_bytes)
+		goto no_memory;
+	total = 2U * text_bytes + literal_bytes;
+	block = (char *)malloc(total);
+	if (block == NULL) goto no_memory;
+	memcpy(block, text, length);
+	block[length] = '\0';
+	memcpy(block + text_bytes, block, text_bytes);
+	value->public_sql = block;
+	value->parser_sql = block + text_bytes;
+	*out_literal = literal_bytes != 0U ? block + 2U * text_bytes : NULL;
+	return SQLPARSER_STATUS_OK;
+no_memory:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static sqlparser_status_t sqlparser_oracle_construct_compact_value_list(
+	const char *sql, const sqlparser_oracle_list_bounds_t *bounds,
+	const sqlparser_oracle_compact_value_facts_t *facts,
+	sqlparser_oracle_state_t *state, sqlparser_dialect_multi_insert_t *multi,
+	sqlparser_dialect_multi_insert_branch_t *branch, int *span_safe,
+	sqlparser_error_t *out_error)
+{
+	size_t index, item_start = bounds->start;
+	branch->cell_storage = SQLPARSER_ORACLE_CELL_STORAGE_COMPACT;
+	if (bounds->count > SIZE_MAX / sizeof(*branch->oracle_compact_cells)) goto no_memory;
+	branch->oracle_compact_cells = (sqlparser_oracle_compact_value_t *)calloc(
+		bounds->count, sizeof(*branch->oracle_compact_cells));
+	if (branch->oracle_compact_cells == NULL) goto no_memory;
+	for (index = 0U; index < bounds->count; index++) {
+		const sqlparser_oracle_compact_value_facts_t *fact = &facts[index];
+		sqlparser_oracle_compact_value_t *value = &branch->oracle_compact_cells[index];
+		size_t literal_bytes = 0U;
+		char *literal_text;
+		uint32_t flags = SQLPARSER_ORACLE_CELL_IDENTITY;
+		if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_STRING)
+			literal_bytes = fact->decoded_length + 1U;
+		else if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_FLOAT) {
+			if (fact->length == SIZE_MAX) goto no_memory;
+			literal_bytes = fact->length + 1U;
+		}
+		if (sqlparser_oracle_compact_text_block(sql + fact->start, fact->length,
+			literal_bytes, value, &literal_text, out_error) != SQLPARSER_STATUS_OK)
+			return SQLPARSER_STATUS_NO_MEMORY;
+		if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_STRING) {
+			size_t read, write = 0U;
+			/* The bounded pass proved exactly the old decoder's ordinary form. */
+			for (read = 1U; read + 1U < fact->length; read++) {
+				char ch = value->public_sql[read];
+				literal_text[write++] = ch;
+				if (ch == '\'') read++;
+			}
+			literal_text[write] = '\0';
+			value->has_literal = 1;
+			value->literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+			value->literal.string_value = literal_text;
+			state->national_literals.literal_count++;
+			flags |= SQLPARSER_ORACLE_CELL_ORDINARY_STRING;
+		} else if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_INTEGER) {
+			char *endptr = NULL;
+			long long integer = strtoll(value->public_sql, &endptr, 10);
+			if (endptr != NULL && *endptr == '\0') {
+				value->has_literal = 1;
+				value->literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+				value->literal.integer_value = integer;
+			}
+		} else if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_FLOAT) {
+			memcpy(literal_text, value->public_sql, fact->length + 1U);
+			value->has_literal = 1;
+			value->literal.kind = SQLPARSER_LITERAL_KIND_FLOAT;
+			value->literal.float_value = literal_text;
+		} else if (fact->literal_class == SQLPARSER_ORACLE_VALUE_FACT_NULL) {
+			value->has_literal = 1;
+			value->literal.kind = SQLPARSER_LITERAL_KIND_NULL;
+		}
+		/* Partial cleanup sees only fully prepared owning records. */
+		branch->cell_count++;
+		sqlparser_oracle_record_cell_span(multi, sql, item_start, bounds->ends[index], flags, span_safe);
+		item_start = bounds->ends[index] + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+no_memory:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_value_list_with_bounds(
 	const char *sql,
 	size_t start,
 	size_t end,
@@ -3869,6 +4690,8 @@ static sqlparser_status_t sqlparser_oracle_parse_value_list(
 	sqlparser_dialect_multi_insert_t *multi,
 	sqlparser_dialect_multi_insert_value_t **out_values,
 	size_t *out_count,
+	int *span_safe,
+	const sqlparser_oracle_list_bounds_t *bounds,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dialect_multi_insert_value_t *values;
@@ -3877,6 +4700,8 @@ static sqlparser_status_t sqlparser_oracle_parse_value_list(
 	size_t item_start;
 	size_t pos;
 	size_t depth;
+	size_t boundary_index = 0U;
+	int use_bounds;
 
 	if (out_values == NULL || out_count == NULL || state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value list arguments must not be NULL");
@@ -3890,31 +4715,39 @@ static sqlparser_status_t sqlparser_oracle_parse_value_list(
 	item_start = start;
 	pos = start;
 	depth = 0U;
+	use_bounds = sqlparser_oracle_list_bounds_usable(
+		bounds, SQLPARSER_ORACLE_LIST_VALUES, start, end);
 	while (pos <= end) {
 		int at_end;
 		size_t skipped;
 
-		at_end = pos == end;
-		skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
-		if (skipped > pos) {
-			pos = skipped;
-			continue;
-		}
-		if (!at_end && sql[pos] == '(') {
-			depth++;
-			pos++;
-			continue;
-		}
-		if (!at_end && sql[pos] == ')') {
-			if (depth > 0U) {
-				depth--;
+		if (use_bounds) {
+			pos = bounds->ends[boundary_index++];
+			at_end = pos == end;
+		} else {
+			at_end = pos == end;
+			skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
+			if (skipped > pos) {
+				pos = skipped;
+				continue;
 			}
-			pos++;
-			continue;
+			if (!at_end && sql[pos] == '(') {
+				depth++;
+				pos++;
+				continue;
+			}
+			if (!at_end && sql[pos] == ')') {
+				if (depth > 0U) {
+					depth--;
+				}
+				pos++;
+				continue;
+			}
 		}
 		if (at_end || (depth == 0U && sql[pos] == ',')) {
 			sqlparser_dialect_multi_insert_value_t *next;
 			uint32_t lexical_flags = 0U;
+			int cell_span_safe = 0;
 
 			if (count == capacity) {
 				size_t next_capacity;
@@ -3932,11 +4765,12 @@ static sqlparser_status_t sqlparser_oracle_parse_value_list(
 				values = next;
 				capacity = next_capacity;
 			}
-			if (sqlparser_oracle_parse_value_item(sql, item_start, pos, state, &values[count],
-				multi->oracle_spans_complete ? &lexical_flags : NULL, out_error) != SQLPARSER_STATUS_OK) {
+			if (sqlparser_oracle_parse_value_item_with_span_proof(sql, item_start, pos, state, &values[count],
+				multi->oracle_spans_complete ? &lexical_flags : NULL, &cell_span_safe, out_error) != SQLPARSER_STATUS_OK) {
 				goto fail;
 			}
-			sqlparser_oracle_record_cell_span(multi, sql, item_start, pos, lexical_flags);
+			if (!cell_span_safe) *span_safe = 0;
+			sqlparser_oracle_record_cell_span(multi, sql, item_start, pos, lexical_flags, span_safe);
 			count++;
 			item_start = pos + 1U;
 		}
@@ -3957,6 +4791,16 @@ fail:
 		free(values);
 	}
 	return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static inline sqlparser_status_t sqlparser_oracle_parse_value_list(
+	const char *sql, size_t start, size_t end, sqlparser_oracle_state_t *state,
+	sqlparser_dialect_multi_insert_t *multi,
+	sqlparser_dialect_multi_insert_value_t **out_values, size_t *out_count,
+	int *span_safe, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_value_list_with_bounds(
+		sql, start, end, state, multi, out_values, out_count, span_safe, NULL, out_error);
 }
 
 static sqlparser_status_t sqlparser_oracle_multi_insert_add_branch(
@@ -3996,7 +4840,7 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_add_branch(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
+static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into_with_compact(
 	const char *sql,
 	size_t *io_pos,
 	size_t end,
@@ -4006,6 +4850,10 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 	const char *condition_parser_sql,
 	int is_else,
 	size_t condition_group_id,
+	int *span_safe,
+	sqlparser_oracle_multi_insert_header_cache_t *header_cache,
+	int *all_headers_simple,
+	int allow_compact,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dialect_multi_insert_branch_t branch;
@@ -4018,62 +4866,104 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 	size_t values_open;
 	size_t values_close;
 	sqlparser_status_t status;
+	int relation_name_state = 0;
+	int local_header_safe = 1;
+	int header_hit;
+	int compact_allowed;
+	int compact_ready;
+	int header_candidate_ready = 0;
+	int header_simple = 0;
+	sqlparser_oracle_multi_insert_header_cache_t header_candidate;
+	sqlparser_oracle_list_bounds_t list_bounds;
+	sqlparser_oracle_compact_value_facts_t compact_facts[SQLPARSER_ORACLE_LIST_BOUND_CAPACITY];
 
 	memset(&branch, 0, sizeof(branch));
-	pos = sqlparser_oracle_trim_left(sql, *io_pos, end);
+	pos = sqlparser_oracle_span_trim_left(sql, *io_pos, end, span_safe);
 	if (!sqlparser_oracle_ascii_word_equal(sql, pos, "into")) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected INTO");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
-	pos = sqlparser_oracle_trim_left(sql, pos + strlen("into"), end);
+	pos = sqlparser_oracle_span_trim_left(sql, pos + strlen("into"), end, span_safe);
 	relation_start = pos;
 	columns_open = end;
 	values_pos = end;
-	while (pos < end) {
-		size_t skipped;
+	header_hit = sqlparser_oracle_multi_insert_header_cache_match(
+		header_cache, sql, relation_start, end, &columns_open, &columns_close, &list_bounds);
+	if (!header_hit) {
+		while (pos < end) {
+			size_t skipped;
 
-		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
-		if (skipped > pos) {
-			pos = skipped;
-			continue;
+			skipped = sqlparser_oracle_quote_or_comment_may_start((unsigned char)sql[pos]) ?
+				sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
+			if (skipped > pos) {
+				*span_safe = 0;
+				local_header_safe = 0;
+				pos = skipped;
+				continue;
+			}
+			if (sql[pos] == '(') {
+				columns_open = pos;
+				break;
+			}
+			if (sqlparser_oracle_ascii_word_equal(sql, pos, "values")) {
+				values_pos = pos;
+				break;
+			}
+			if (!sqlparser_oracle_span_name_byte((unsigned char)sql[pos], 1, &relation_name_state)) {
+				*span_safe = 0;
+				local_header_safe = 0;
+			}
+			pos++;
 		}
-		if (sql[pos] == '(') {
-			columns_open = pos;
-			break;
+		if (relation_name_state == 0) {
+			*span_safe = 0;
+			local_header_safe = 0;
 		}
-		if (sqlparser_oracle_ascii_word_equal(sql, pos, "values")) {
-			values_pos = pos;
-			break;
-		}
-		pos++;
 	}
 	if (columns_open == end && values_pos == end) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected VALUES");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 	relation_end = columns_open != end ? columns_open : values_pos;
-	status = sqlparser_oracle_relation_from_sql(sql, relation_start, relation_end, &branch.relation, out_error);
+	if (allow_compact && header_hit) {
+		status = sqlparser_oracle_header_block_from_cache(header_cache, multi, &branch, out_error);
+	} else {
+		status = sqlparser_oracle_relation_from_sql(sql, relation_start, relation_end, &branch.relation, out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	if (columns_open != end) {
-		if (!sqlparser_oracle_find_matching_paren(sql, columns_open, end, &columns_close)) {
+		if (!header_hit && !sqlparser_oracle_find_matching_paren_with_bounds(sql, columns_open, end, &columns_close,
+			SQLPARSER_ORACLE_LIST_COLUMNS, &list_bounds)) {
 			sqlparser_oracle_multi_insert_branch_clear(&branch);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT column list is not closed");
 			return SQLPARSER_STATUS_PARSE_ERROR;
 		}
-		status = sqlparser_oracle_parse_column_list(
-			sql,
-			columns_open + 1U,
-			columns_close,
-			&branch.columns,
-			&branch.column_count,
-			out_error);
+		if (branch.oracle_header_text_block == NULL) {
+			status = sqlparser_oracle_parse_column_list_with_bounds(
+				sql,
+				columns_open + 1U,
+				columns_close,
+				&branch.columns,
+				&branch.column_count,
+				span_safe,
+				&list_bounds,
+				out_error);
+		}
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_oracle_multi_insert_branch_clear(&branch);
 			return status;
 		}
-		pos = sqlparser_oracle_trim_left(sql, columns_close + 1U, end);
+		if (header_cache != NULL && header_cache->header == NULL && local_header_safe) {
+			header_candidate_ready = sqlparser_oracle_multi_insert_header_cache_prepare(
+				&header_candidate, sql, relation_start, columns_open, columns_close, end, &list_bounds);
+		}
+		/* Capture the completed strict ASCII column proof before VALUES
+		 * reuses these bounds. A cache hit carries the same header proof. */
+		header_simple = local_header_safe && sqlparser_oracle_list_bounds_usable(
+			&list_bounds, SQLPARSER_ORACLE_LIST_COLUMNS, columns_open + 1U, columns_close);
+		pos = sqlparser_oracle_span_trim_left(sql, columns_close + 1U, end, span_safe);
 	} else {
 		pos = values_pos;
 	}
@@ -4082,21 +4972,36 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected VALUES");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
-	pos = sqlparser_oracle_trim_left(sql, pos + strlen("values"), end);
+	if (pos <= UINT32_MAX) branch.oracle_values_position = (uint32_t)pos;
+	else *span_safe = 0;
+	pos = sqlparser_oracle_span_trim_left(sql, pos + strlen("values"), end, span_safe);
 	if (pos >= end || sql[pos] != '(') {
 		sqlparser_oracle_multi_insert_branch_clear(&branch);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT VALUES list expected '('");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 	values_open = pos;
-	if (!sqlparser_oracle_find_matching_paren(sql, values_open, end, &values_close)) {
+	compact_allowed = allow_compact && multi->mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL &&
+		condition_public_sql == NULL && condition_parser_sql == NULL && !is_else &&
+		condition_group_id == 0U;
+	compact_ready = compact_allowed && sqlparser_oracle_try_scan_compact_values(
+		sql, values_open, end, &values_close, &list_bounds, compact_facts);
+	if (!compact_ready && !sqlparser_oracle_find_matching_paren_with_bounds(
+		sql, values_open, end, &values_close, SQLPARSER_ORACLE_LIST_VALUES, &list_bounds)) {
 		sqlparser_oracle_multi_insert_branch_clear(&branch);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT VALUES list is not closed");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 	if (multi->oracle_spans_complete && multi->oracle_span_count < UINT32_MAX)
 		branch.oracle_span_base = (uint32_t)multi->oracle_span_count;
-	status = sqlparser_oracle_parse_value_list(
+	if (compact_ready || (compact_allowed &&
+	    sqlparser_oracle_list_bounds_usable(&list_bounds, SQLPARSER_ORACLE_LIST_VALUES,
+		values_open + 1U, values_close) &&
+	    sqlparser_oracle_try_compact_value_facts(sql, &list_bounds, compact_facts))) {
+		status = sqlparser_oracle_construct_compact_value_list(sql, &list_bounds, compact_facts,
+			state, multi, &branch, span_safe, out_error);
+	} else {
+		status = sqlparser_oracle_parse_value_list_with_bounds(
 		sql,
 		values_open + 1U,
 		values_close,
@@ -4104,7 +5009,10 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 		multi,
 		&branch.cells,
 		&branch.cell_count,
+		span_safe,
+		&list_bounds,
 		out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_multi_insert_branch_clear(&branch);
 		return status;
@@ -4121,15 +5029,54 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
 	}
 	branch.is_else = is_else;
 	branch.condition_group_id = condition_group_id;
-	if (condition_public_sql != NULL || is_else || condition_group_id != 0U)
+	if (condition_public_sql != NULL || is_else || condition_group_id != 0U) {
 		multi->oracle_spans_identity = 0;
+		*span_safe = 0;
+	}
 	status = sqlparser_oracle_multi_insert_add_branch(multi, &branch, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_multi_insert_branch_clear(&branch);
 		return status;
 	}
+	if (header_candidate_ready) {
+		header_candidate.source_branch_index = multi->branch_count - 1U;
+		*header_cache = header_candidate;
+	}
+	if (all_headers_simple != NULL) *all_headers_simple &= header_simple;
 	*io_pos = values_close + 1U;
 	return SQLPARSER_STATUS_OK;
+}
+
+static inline sqlparser_status_t sqlparser_oracle_parse_multi_insert_into_with_header_cache(
+	const char *sql, size_t *io_pos, size_t end, sqlparser_oracle_state_t *state,
+	sqlparser_dialect_multi_insert_t *multi, const char *condition_public_sql,
+	const char *condition_parser_sql, int is_else, size_t condition_group_id,
+	int *span_safe, sqlparser_oracle_multi_insert_header_cache_t *header_cache,
+	int *all_headers_simple, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_multi_insert_into_with_compact(
+		sql, io_pos, end, state, multi, condition_public_sql, condition_parser_sql,
+		is_else, condition_group_id, span_safe, header_cache, all_headers_simple, 0, out_error);
+}
+
+/* Preserve the private entry used by existing scanner tests and all
+ * conditional/FIRST call sites. */
+static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
+	const char *sql,
+	size_t *io_pos,
+	size_t end,
+	sqlparser_oracle_state_t *state,
+	sqlparser_dialect_multi_insert_t *multi,
+	const char *condition_public_sql,
+	const char *condition_parser_sql,
+	int is_else,
+	size_t condition_group_id,
+	int *span_safe,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_multi_insert_into_with_header_cache(
+		sql, io_pos, end, state, multi, condition_public_sql, condition_parser_sql,
+		is_else, condition_group_id, span_safe, NULL, NULL, out_error);
 }
 
 static int sqlparser_oracle_is_multi_insert_start(
@@ -4168,11 +5115,12 @@ static int sqlparser_oracle_is_multi_insert_start(
 	return 0;
 }
 
-static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
+static sqlparser_status_t sqlparser_oracle_parse_multi_insert_with_compact(
 	const char *input_sql,
 	sqlparser_oracle_state_t *state,
 	char **out_parser_sql,
 	int nested_block_comments,
+	int allow_compact,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dialect_multi_insert_t *multi;
@@ -4183,6 +5131,10 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	size_t pos;
 	size_t condition_group_id;
 	sqlparser_status_t status;
+	int span_safe;
+	int ascii_ctype;
+	int all_headers_simple;
+	sqlparser_oracle_multi_insert_header_cache_t header_cache;
 
 	if (out_parser_sql == NULL || state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert parser arguments must not be NULL");
@@ -4192,19 +5144,25 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	if (!sqlparser_oracle_is_multi_insert_start(input_sql, &mode, nested_block_comments)) {
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
+	span_safe = mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL;
+	/* This proof and its borrowed template last only for this synchronous
+	 * parse, under the existing immutable-input/unchanged-locale contract. */
+	ascii_ctype = sqlparser_oracle_span_ascii_ctype();
+	all_headers_simple = mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL && ascii_ctype;
+	memset(&header_cache, 0, sizeof(header_cache));
 	len = strlen(input_sql);
-	pos = sqlparser_oracle_skip_leading_trivia(input_sql, 0U, len, nested_block_comments);
-	end = sqlparser_oracle_trim_right(input_sql, pos, len);
+	pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(input_sql, 0U, len, nested_block_comments, &span_safe);
+	end = sqlparser_oracle_span_trim_right(input_sql, pos, len, &span_safe);
 	if (end > pos && input_sql[end - 1U] == ';') {
-		end = sqlparser_oracle_trim_right(input_sql, pos, end - 1U);
+		end = sqlparser_oracle_span_trim_right(input_sql, pos, end - 1U, &span_safe);
 	}
-	pos = sqlparser_oracle_skip_leading_trivia(
-		input_sql, pos + strlen("insert"), end, nested_block_comments);
-	pos = sqlparser_oracle_skip_leading_trivia(
+	pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(
+		input_sql, pos + strlen("insert"), end, nested_block_comments, &span_safe);
+	pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(
 		input_sql,
 		pos + (mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL ? strlen("all") : strlen("first")),
 		end,
-		nested_block_comments);
+		nested_block_comments, &span_safe);
 
 	multi = (sqlparser_dialect_multi_insert_t *)calloc(1U, sizeof(*multi));
 	if (multi == NULL) {
@@ -4218,7 +5176,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	condition_group_id = 0U;
 
 	while (pos < end) {
-		pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
+		pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(input_sql, pos, end, nested_block_comments, &span_safe);
 		if (pos >= end) {
 			break;
 		}
@@ -4231,8 +5189,9 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 			char *condition_public;
 			char *condition_parser;
 
-			condition_start = sqlparser_oracle_skip_leading_trivia(
-				input_sql, pos + strlen("when"), end, nested_block_comments);
+			all_headers_simple = 0;
+			condition_start = sqlparser_oracle_skip_leading_trivia_with_span_proof(
+				input_sql, pos + strlen("when"), end, nested_block_comments, &span_safe);
 			if (!sqlparser_oracle_find_top_level_word(input_sql, condition_start, end, "then", &then_pos)) {
 				sqlparser_oracle_multi_insert_destroy(multi);
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT WHEN is missing THEN");
@@ -4255,8 +5214,8 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 				sqlparser_oracle_multi_insert_destroy(multi);
 				return status;
 			}
-			pos = sqlparser_oracle_skip_leading_trivia(
-				input_sql, then_pos + strlen("then"), end, nested_block_comments);
+			pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(
+				input_sql, then_pos + strlen("then"), end, nested_block_comments, &span_safe);
 			condition_group_id++;
 			do {
 				status = sqlparser_oracle_parse_multi_insert_into(
@@ -4269,6 +5228,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 					condition_parser,
 					0,
 					condition_group_id,
+					&span_safe,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					free(condition_public);
@@ -4276,7 +5236,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 					sqlparser_oracle_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
+				pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(input_sql, pos, end, nested_block_comments, &span_safe);
 			} while (pos < end &&
 			         sqlparser_oracle_ascii_word_equal(input_sql, pos, "into"));
 			free(condition_public);
@@ -4284,8 +5244,9 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 			continue;
 		}
 		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "else")) {
-			pos = sqlparser_oracle_skip_leading_trivia(
-				input_sql, pos + strlen("else"), end, nested_block_comments);
+			all_headers_simple = 0;
+			pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(
+				input_sql, pos + strlen("else"), end, nested_block_comments, &span_safe);
 			condition_group_id++;
 			while (pos < end && sqlparser_oracle_ascii_word_equal(input_sql, pos, "into")) {
 				status = sqlparser_oracle_parse_multi_insert_into(
@@ -4298,17 +5259,18 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 					NULL,
 					1,
 					condition_group_id,
+					&span_safe,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_oracle_multi_insert_destroy(multi);
 					return status;
 				}
-				pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
+				pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(input_sql, pos, end, nested_block_comments, &span_safe);
 			}
 			continue;
 		}
 		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "into")) {
-			status = sqlparser_oracle_parse_multi_insert_into(
+			status = sqlparser_oracle_parse_multi_insert_into_with_compact(
 				input_sql,
 				&pos,
 				end,
@@ -4318,6 +5280,10 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 				NULL,
 				0,
 				0U,
+				&span_safe,
+				mode == SQLPARSER_DIALECT_MULTI_INSERT_ALL && ascii_ctype ? &header_cache : NULL,
+				&all_headers_simple,
+				allow_compact && ascii_ctype,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_oracle_multi_insert_destroy(multi);
@@ -4330,7 +5296,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	pos = sqlparser_oracle_skip_leading_trivia(input_sql, pos, end, nested_block_comments);
+	pos = sqlparser_oracle_skip_leading_trivia_with_span_proof(input_sql, pos, end, nested_block_comments, &span_safe);
 	if (multi->branch_count == 0U || pos >= end || !sqlparser_oracle_ascii_word_equal(input_sql, pos, "select")) {
 		sqlparser_oracle_multi_insert_destroy(multi);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT requires branches and a source SELECT");
@@ -4338,7 +5304,7 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 	}
 	status = sqlparser_oracle_trimmed_slice_dup(input_sql, pos, end, &multi->source_public_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_oracle_preprocess_text(multi->source_public_sql, state, &multi->source_parser_sql, out_error);
+		status = sqlparser_oracle_preprocess_text_with_span_proof(multi->source_public_sql, state, &multi->source_parser_sql, &span_safe, out_error);
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_multi_insert_destroy(multi);
@@ -4366,10 +5332,24 @@ static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
 		return status;
 	}
 
+	/* Publish only a complete proof. Optional span OOM never changes parsing. */
+	if (all_headers_simple)
+		multi->oracle_graph_header_flags = SQLPARSER_ORACLE_GRAPH_HEADER_SIMPLE_ASCII_ALL;
+	multi->oracle_generic_spans_equivalent = span_safe &&
+		multi->oracle_spans_complete && multi->oracle_spans_identity &&
+		ascii_ctype;
 	sqlparser_oracle_multi_insert_destroy(state->multi_insert);
 	state->multi_insert = multi;
 	*out_parser_sql = sqlparser_oracle_buffer_take(&parser);
 	return *out_parser_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static inline sqlparser_status_t sqlparser_oracle_parse_multi_insert(
+	const char *input_sql, sqlparser_oracle_state_t *state, char **out_parser_sql,
+	int nested_block_comments, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_parse_multi_insert_with_compact(
+		input_sql, state, out_parser_sql, nested_block_comments, 0, out_error);
 }
 
 static sqlparser_status_t sqlparser_oracle_param_to_bind(
@@ -4832,7 +5812,8 @@ static sqlparser_status_t sqlparser_oracle_render_multi_insert(
 				status = sqlparser_oracle_buffer_append_cstr(&out, ", ", out_error);
 			}
 			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_oracle_buffer_append_cstr(&out, branch->cells[index].public_sql, out_error);
+				status = sqlparser_oracle_buffer_append_cstr(&out,
+					sqlparser_oracle_cell_public_sql(branch, index), out_error);
 			}
 		}
 		if (status == SQLPARSER_STATUS_OK) {
@@ -6547,10 +7528,24 @@ void sqlparser_oracle_multi_insert_invalidate_source(sqlparser_handle_t *handle)
 {
 	sqlparser_dialect_multi_insert_t *multi = sqlparser_oracle_owned_multi_insert(handle);
 	if (multi != NULL) {
+		multi->oracle_generic_spans_equivalent = 0;
+		multi->oracle_graph_header_flags = 0U;
 		memset(&multi->oracle_source_provenance, 0, sizeof(multi->oracle_source_provenance));
 		multi->oracle_pending_count = 0U;
 		multi->oracle_pending_disabled = 0;
 	}
+}
+
+void sqlparser_oracle_multi_insert_discard_initial_span_proof(sqlparser_handle_t *handle)
+{
+	sqlparser_dialect_multi_insert_t *multi = sqlparser_oracle_owned_multi_insert(handle);
+	if (multi != NULL) multi->oracle_generic_spans_equivalent = 0;
+}
+
+void sqlparser_oracle_multi_insert_discard_graph_header_proof(sqlparser_handle_t *handle)
+{
+	sqlparser_dialect_multi_insert_t *multi = sqlparser_oracle_owned_multi_insert(handle);
+	if (multi != NULL) multi->oracle_graph_header_flags = 0U;
 }
 
 /* Called by the real outer preprocessing flow, never by a dialect tag alone. */
@@ -6601,6 +7596,17 @@ int sqlparser_oracle_multi_insert_source_is_current(const sqlparser_handle_t *ha
 		 (SQLPARSER_PATCH_BATCH_AST_DIRTY | SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY)) == 0U;
 }
 
+int sqlparser_oracle_multi_insert_graph_headers_simple(
+	const sqlparser_handle_t *handle, const sqlparser_dialect_multi_insert_t *multi)
+{
+	const sqlparser_dialect_multi_insert_t *owned = sqlparser_oracle_owned_multi_insert(handle);
+	return owned != NULL && owned == multi &&
+		(owned->oracle_graph_header_flags & SQLPARSER_ORACLE_GRAPH_HEADER_SIMPLE_ASCII_ALL) != 0U &&
+		handle->control == NULL && handle->statement_count == 1U &&
+		sqlparser_oracle_multi_insert_source_is_current(handle) &&
+		sqlparser_oracle_span_ascii_ctype();
+}
+
 int sqlparser_oracle_multi_insert_certified_cell_span(
 	const sqlparser_handle_t *handle, size_t branch_index, size_t column_index,
 	size_t *out_start, size_t *out_end)
@@ -6617,7 +7623,7 @@ int sqlparser_oracle_multi_insert_certified_cell_span(
 	    multi->branches == NULL || branch_index >= multi->branch_count ||
 	    multi->oracle_source_start > handle->sql_len) return 0;
 	branch = &multi->branches[branch_index];
-	if (branch->ordinal != branch_index || branch->cells == NULL ||
+	if (branch->ordinal != branch_index || !sqlparser_oracle_branch_has_cells(branch) ||
 	    column_index >= branch->cell_count ||
 	    column_index > SIZE_MAX - branch->oracle_span_base) return 0;
 	id = branch->oracle_span_base + column_index;
@@ -6628,6 +7634,45 @@ int sqlparser_oracle_multi_insert_certified_cell_span(
 	    span->source_length > multi->oracle_source_start - span->source_start) return 0;
 	*out_start = span->source_start;
 	*out_end = (size_t)span->source_start + span->source_length;
+	return 1;
+}
+
+int sqlparser_oracle_multi_insert_initial_cell_span(
+	const sqlparser_handle_t *handle, size_t branch_index, size_t column_index,
+	size_t *statement_start, size_t *statement_end, size_t *values_position,
+	size_t *out_start, size_t *out_end)
+{
+	const sqlparser_dialect_multi_insert_t *multi;
+	const sqlparser_dialect_multi_insert_branch_t *branch;
+	size_t start, end, cell_start, cell_end;
+	/* Owner/freshness precede Oracle-private reads. This proof is issued only
+	 * by complete constructor facts, never by the ordinary identity flag. */
+	if (statement_start == NULL || statement_end == NULL || values_position == NULL ||
+	    out_start == NULL || out_end == NULL ||
+	    !sqlparser_oracle_multi_insert_source_is_current(handle) ||
+	    handle->control != NULL || handle->statement_count != 1U) return 0;
+	multi = sqlparser_oracle_owned_multi_insert(handle);
+	if (!multi->oracle_generic_spans_equivalent ||
+	    multi->mode != SQLPARSER_DIALECT_MULTI_INSERT_ALL ||
+	    !sqlparser_oracle_span_ascii_ctype() ||
+	    multi->source_public_sql == NULL || multi->oracle_source_length == 0U ||
+	    multi->oracle_source_start > handle->sql_len ||
+	    multi->oracle_source_length > handle->sql_len - multi->oracle_source_start ||
+	    !sqlparser_oracle_multi_insert_certified_cell_span(
+		    handle, branch_index, column_index, &cell_start, &cell_end)) return 0;
+	branch = &multi->branches[branch_index];
+	end = (size_t)multi->oracle_source_start + multi->oracle_source_length;
+	/* The proof excludes leading comments/empty statements. This is only the
+	 * existing leading whitespace prefix, not a statement/source scan. */
+	start = sqlparser_oracle_trim_left(handle->sql, 0U, end);
+	if (start >= multi->oracle_source_start ||
+	    branch->oracle_values_position < start ||
+	    branch->oracle_values_position >= cell_start || cell_end > end) return 0;
+	*statement_start = start;
+	*statement_end = end;
+	*values_position = branch->oracle_values_position;
+	*out_start = cell_start;
+	*out_end = cell_end;
 	return 1;
 }
 
@@ -6726,10 +7771,15 @@ disable:
 }
 
 typedef struct {
-	sqlparser_dialect_multi_insert_value_t *target;
+	int cell_storage;
+	union {
+		sqlparser_dialect_multi_insert_value_t *legacy;
+		sqlparser_oracle_compact_value_t *compact;
+	} target;
 	char *public_sql;
 	char *parser_sql;
 	char *decoded;
+	sqlparser_oracle_compact_value_t compact;
 } sqlparser_oracle_string_commit_item_t;
 
 /* Recognize exactly one ordinary token, with byte-exact Oracle decoding.
@@ -6755,6 +7805,42 @@ static int sqlparser_oracle_commit_string_token(
 	if (expected != NULL && expected[write] != '\0') return 0;
 	if (decoded != NULL) decoded[write] = '\0';
 	return 1;
+}
+
+static const char *sqlparser_oracle_commit_owned_string(
+	const sqlparser_dialect_multi_insert_branch_t *branch, size_t column)
+{
+	const sqlparser_dialect_multi_insert_value_t *legacy = sqlparser_oracle_cell_legacy(branch, column);
+	const sqlparser_literal_view_t *literal = sqlparser_oracle_cell_literal(branch, column);
+	const char *public_sql = sqlparser_oracle_cell_public_sql(branch, column);
+	const char *parser_sql = sqlparser_oracle_cell_parser_sql(branch, column);
+	if (!sqlparser_oracle_cell_has_literal(branch, column) ||
+	    literal->kind != SQLPARSER_LITERAL_KIND_STRING ||
+	    public_sql == NULL || parser_sql == NULL || literal->string_value == NULL) return NULL;
+	if (legacy != NULL) {
+		if (legacy->has_bind || legacy->has_bind_position || legacy->literal_float_value != NULL ||
+		    legacy->literal_string_value == NULL || literal->string_value != legacy->literal_string_value)
+			return NULL;
+	} else {
+		/* Ownership and independent slices are required storage invariants,
+		 * not optional lexical proof bits. Also retain exact decoder checking. */
+		size_t length = strlen(public_sql);
+		if (parser_sql != public_sql + length + 1U || strcmp(public_sql, parser_sql) != 0 ||
+		    literal->string_value != parser_sql + length + 1U || literal->float_value != NULL ||
+		    !sqlparser_oracle_commit_string_token(public_sql, length, literal->string_value, NULL))
+			return NULL;
+	}
+	return literal->string_value;
+}
+
+static void sqlparser_oracle_commit_item_target(
+	sqlparser_oracle_string_commit_item_t *item,
+	sqlparser_dialect_multi_insert_branch_t *branch, size_t column)
+{
+	item->cell_storage = branch->cell_storage;
+	if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT)
+		item->target.compact = &branch->oracle_compact_cells[column];
+	else item->target.legacy = &branch->cells[column];
 }
 
 /* Read-only certification against retained branch ownership. It scans each
@@ -6794,7 +7880,7 @@ static int sqlparser_oracle_certify_string_edits(
 	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
 		sqlparser_dialect_multi_insert_branch_t *branch = &multi->branches[branch_index];
 		size_t close, item_start, column = 0U, depth = 0U;
-		if (branch->ordinal != branch_index || branch->cells == NULL || branch->cell_count == 0U ||
+		if (branch->ordinal != branch_index || !sqlparser_oracle_branch_has_cells(branch) || branch->cell_count == 0U ||
 		    branch->has_condition || branch->is_else || branch->condition_group_id != 0U ||
 		    branch->condition_public_sql != NULL || branch->condition_parser_sql != NULL) return 0;
 		pos = sqlparser_oracle_skip_leading_trivia(sql, pos, source_start, nested);
@@ -6818,26 +7904,27 @@ static int sqlparser_oracle_certify_string_edits(
 			if (pos == close || (depth == 0U && sql[pos] == ',')) {
 				size_t start = sqlparser_oracle_trim_left(sql, item_start, pos);
 				size_t finish = sqlparser_oracle_trim_right(sql, start, pos);
-				sqlparser_dialect_multi_insert_value_t *value;
+				const char *public_sql, *parser_sql;
+				size_t cell_index;
 				if (depth != 0U || start == finish || column >= branch->cell_count) return 0;
-				value = &branch->cells[column++];
-				if (value->public_sql == NULL || value->parser_sql == NULL ||
-				    strlen(value->public_sql) != finish - start ||
-				    memcmp(sql + start, value->public_sql, finish - start) != 0 ||
-				    strcmp(value->public_sql, value->parser_sql) != 0) return 0;
+				cell_index = column++;
+				public_sql = sqlparser_oracle_cell_public_sql(branch, cell_index);
+				parser_sql = sqlparser_oracle_cell_parser_sql(branch, cell_index);
+				if (public_sql == NULL || parser_sql == NULL ||
+				    strlen(public_sql) != finish - start ||
+				    memcmp(sql + start, public_sql, finish - start) != 0 ||
+				    strcmp(public_sql, parser_sql) != 0) return 0;
 				if (edit_index < edits->count && edits->items[edit_index].source_start < finish) {
 					const sqlparser_surface_source_edit_t *edit = &edits->items[edit_index];
+					const char *decoded = sqlparser_oracle_commit_owned_string(branch, cell_index);
 					if (edit->source_start != start || edit->source_end != finish ||
-					    !value->has_literal || value->has_bind || value->has_bind_position ||
-					    value->literal.kind != SQLPARSER_LITERAL_KIND_STRING ||
-					    value->literal_string_value == NULL || value->literal_float_value != NULL ||
-					    value->literal.string_value != value->literal_string_value ||
+					    decoded == NULL ||
 					    !sqlparser_oracle_commit_string_token(sql + start, finish - start,
-						value->literal_string_value, NULL) ||
+						decoded, NULL) ||
 					    edit->replacement == NULL || strlen(edit->replacement) != edit->replacement_length ||
 					    !sqlparser_oracle_commit_string_token(edit->replacement, edit->replacement_length, NULL, NULL))
 						return 0;
-					if (plan != NULL) plan[edit_index].target = value;
+					if (plan != NULL) sqlparser_oracle_commit_item_target(&plan[edit_index], branch, cell_index);
 					edit_index++;
 				}
 				item_start = pos + 1U;
@@ -6887,30 +7974,25 @@ static int sqlparser_oracle_certify_indexed_edits(
 		const sqlparser_surface_source_edit_t *edit = &edits->items[index];
 		const sqlparser_oracle_cell_span_t *span;
 		sqlparser_dialect_multi_insert_branch_t *branch;
-		sqlparser_dialect_multi_insert_value_t *value;
 		if (id >= multi->oracle_span_count) return 0;
 		span = &multi->oracle_spans[id];
 		while (branch_index + 1U < multi->branch_count &&
 		       multi->branches[branch_index + 1U].oracle_span_base <= id) branch_index++;
 		branch = &multi->branches[branch_index];
-		if (branch->oracle_span_base > id || branch->ordinal != branch_index || branch->cells == NULL)
+		if (branch->oracle_span_base > id || branch->ordinal != branch_index || !sqlparser_oracle_branch_has_cells(branch))
 			return 0;
 		column = id - branch->oracle_span_base;
 		if (column >= branch->cell_count) return 0;
-		value = &branch->cells[column];
 		if (edit->source_start != span->source_start || edit->source_end < edit->source_start ||
 		    edit->source_end - edit->source_start != span->source_length ||
 		    edit->source_end > multi->oracle_source_start ||
 		    (span->lexical_flags & (SQLPARSER_ORACLE_CELL_ORDINARY_STRING | SQLPARSER_ORACLE_CELL_IDENTITY)) !=
 			(SQLPARSER_ORACLE_CELL_ORDINARY_STRING | SQLPARSER_ORACLE_CELL_IDENTITY) ||
-		    !value->has_literal || value->has_bind || value->has_bind_position ||
-		    value->literal.kind != SQLPARSER_LITERAL_KIND_STRING ||
-		    value->literal_string_value == NULL || value->literal.string_value != value->literal_string_value ||
-		    value->literal_float_value != NULL || value->public_sql == NULL || value->parser_sql == NULL ||
+		    sqlparser_oracle_commit_owned_string(branch, column) == NULL ||
 		    edit->replacement == NULL || edit->replacement_length > UINT32_MAX ||
 		    strlen(edit->replacement) != edit->replacement_length ||
 		    !sqlparser_oracle_commit_string_token(edit->replacement, edit->replacement_length, NULL, NULL)) return 0;
-		if (plan != NULL) plan[index].target = value;
+		if (plan != NULL) sqlparser_oracle_commit_item_target(&plan[index], branch, column);
 	}
 	return 1;
 }
@@ -7003,12 +8085,23 @@ sqlparser_status_t sqlparser_oracle_try_commit_multi_insert_strings(
 	      sqlparser_oracle_certify_string_edits(handle, state->multi_insert, edits, plan))) goto done;
 	for (index = 0U; index < edits->count; index++) {
 		const sqlparser_surface_source_edit_t *edit = &edits->items[index];
-		plan[index].public_sql = sqlparser_strndup(edit->replacement, edit->replacement_length);
-		plan[index].parser_sql = sqlparser_strndup(edit->replacement, edit->replacement_length);
-		plan[index].decoded = (char *)malloc(edit->replacement_length - 1U);
-		if (plan[index].public_sql == NULL || plan[index].parser_sql == NULL || plan[index].decoded == NULL)
-			goto no_memory;
-		(void)sqlparser_oracle_commit_string_token(edit->replacement, edit->replacement_length, NULL, plan[index].decoded);
+		if (plan[index].cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+			char *decoded;
+			plan[index].compact.literal = plan[index].target.compact->literal;
+			plan[index].compact.has_literal = plan[index].target.compact->has_literal;
+			status = sqlparser_oracle_compact_text_block(edit->replacement, edit->replacement_length,
+				edit->replacement_length - 1U, &plan[index].compact, &decoded, out_error);
+			if (status != SQLPARSER_STATUS_OK) goto done;
+			(void)sqlparser_oracle_commit_string_token(edit->replacement, edit->replacement_length, NULL, decoded);
+			plan[index].compact.literal.string_value = decoded;
+		} else {
+			plan[index].public_sql = sqlparser_strndup(edit->replacement, edit->replacement_length);
+			plan[index].parser_sql = sqlparser_strndup(edit->replacement, edit->replacement_length);
+			plan[index].decoded = (char *)malloc(edit->replacement_length - 1U);
+			if (plan[index].public_sql == NULL || plan[index].parser_sql == NULL || plan[index].decoded == NULL)
+				goto no_memory;
+			(void)sqlparser_oracle_commit_string_token(edit->replacement, edit->replacement_length, NULL, plan[index].decoded);
+		}
 	}
 	/* The native parser input is unchanged. Replay only its source SELECT
 	 * origins at the new public offset, never reconstruct branch/cell state. */
@@ -7029,15 +8122,23 @@ sqlparser_status_t sqlparser_oracle_try_commit_multi_insert_strings(
 	else sqlparser_oracle_discard_cell_spans(state->multi_insert);
 	sqlparser_handle_invalidate_derived(handle);
 	for (index = 0U; index < edits->count; index++) {
-		sqlparser_dialect_multi_insert_value_t *value = plan[index].target;
-		free(value->public_sql);
-		free(value->parser_sql);
-		free(value->literal_string_value);
-		value->public_sql = plan[index].public_sql;
-		value->parser_sql = plan[index].parser_sql;
-		value->literal_string_value = plan[index].decoded;
-		value->literal.string_value = plan[index].decoded;
-		plan[index].public_sql = plan[index].parser_sql = plan[index].decoded = NULL;
+		if (plan[index].cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+			sqlparser_oracle_compact_value_t *value = plan[index].target.compact;
+			char *old_block = value->public_sql;
+			*value = plan[index].compact;
+			plan[index].compact.public_sql = NULL;
+			free(old_block);
+		} else {
+			sqlparser_dialect_multi_insert_value_t *value = plan[index].target.legacy;
+			free(value->public_sql);
+			free(value->parser_sql);
+			free(value->literal_string_value);
+			value->public_sql = plan[index].public_sql;
+			value->parser_sql = plan[index].parser_sql;
+			value->literal_string_value = plan[index].decoded;
+			value->literal.string_value = plan[index].decoded;
+			plan[index].public_sql = plan[index].parser_sql = plan[index].decoded = NULL;
+		}
 	}
 	free(handle->sql);
 	handle->sql = *owned_sql;
@@ -7057,9 +8158,13 @@ no_memory:
 done:
 	if (plan != NULL) {
 		for (index = 0U; index < edits->count; index++) {
-			free(plan[index].public_sql);
-			free(plan[index].parser_sql);
-			free(plan[index].decoded);
+			if (plan[index].cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+				free(plan[index].compact.public_sql);
+			} else {
+				free(plan[index].public_sql);
+				free(plan[index].parser_sql);
+				free(plan[index].decoded);
+			}
 		}
 	}
 	free(plan);
@@ -7067,12 +8172,203 @@ done:
 	return status;
 }
 
-static sqlparser_status_t sqlparser_oracle_preprocess_internal(
+/* A whole-batch preparation may omit input snapshots only while every retained
+ * owner stays immutable. Admission reads the real builtin owner first; its
+ * request-local target checks need no additional registry lookup per item. */
+int sqlparser_oracle_readonly_batch_begin(
+	const sqlparser_handle_t *handle,
+	sqlparser_oracle_readonly_batch_t *batch)
+{
+	sqlparser_oracle_state_t *state;
+	sqlparser_dialect_multi_insert_t *multi;
+	size_t statement_start, statement_end, values_position, start, end;
+
+	if (batch == NULL) return 0;
+	memset(batch, 0, sizeof(*batch));
+	if (!sqlparser_oracle_multi_insert_commit_owner(handle) || handle->failed ||
+	    handle->generation != 0UL || handle->control != NULL ||
+	    handle->statement_count != 1U || handle->patch_batch_flags != 0U ||
+	    handle->sql == NULL || handle->parser_sql == NULL ||
+	    handle->sql == handle->parser_sql || handle->identifier_mutation_count != 0U ||
+	    handle->surface_source_edits.items != NULL ||
+	    handle->surface_source_edits.count != 0U ||
+	    handle->surface_source_edits.capacity != 0U ||
+	    !sqlparser_query_graph_is_current_readonly(handle) ||
+	    !sqlparser_oracle_multi_insert_source_is_current(handle)) return 0;
+	state = (sqlparser_oracle_state_t *)handle->dialect_state;
+	if (state->multi_insert == NULL || state->bind_count != 0U || state->bind_occurrence_count != 0U ||
+	    state->prepared_binds.count != 0U || state->prepared_binds.occurrence_count != 0U ||
+	    state->national_literals.count != 0U || state->national_literals.fragment_start != 0U ||
+	    (state->national_literals.fragment_literal_base != 0U &&
+	     state->national_literals.fragment_literal_base != state->national_literals.literal_count) ||
+	    state->dblink_count != 0U ||
+	    state->next_dblink_id != 0U || state->minuses.count != 0U || state->minuses.except_count != 0U ||
+	    state->minuses.fragment_start != 0U || state->minuses.fragment_except_base != 0U ||
+	    state->returning_into.count != 0U) return 0;
+	multi = state->multi_insert;
+	if (multi->mode != SQLPARSER_DIALECT_MULTI_INSERT_ALL ||
+	    !multi->oracle_generic_spans_equivalent || !multi->oracle_spans_complete ||
+	    !multi->oracle_spans_identity || !multi->oracle_outer_identity ||
+	    multi->oracle_spans == NULL || multi->oracle_span_count == 0U ||
+	    multi->branches == NULL || multi->branch_count == 0U ||
+	    multi->oracle_pending_count != 0U || multi->oracle_pending_disabled ||
+	    ((multi->oracle_pending_ids == NULL) != (multi->oracle_pending_capacity == 0U)) ||
+	    !sqlparser_oracle_multi_insert_initial_cell_span(handle, 0U, 0U,
+		    &statement_start, &statement_end, &values_position, &start, &end)) return 0;
+	batch->handle = handle;
+	batch->owner = handle->dialect_ops;
+	batch->state = handle->dialect_state;
+	batch->multi = multi;
+	batch->sql = handle->sql;
+	batch->parser_sql = handle->parser_sql;
+	batch->wire = handle->parse_tree.data;
+	batch->sql_length = handle->sql_len;
+	batch->parser_sql_length = handle->parser_sql_len;
+	batch->wire_length = handle->parse_tree.len;
+	batch->generation = handle->generation;
+	batch->graph = handle->query_graph;
+	batch->admitted = 1;
+	return 1;
+}
+
+int sqlparser_oracle_readonly_batch_target(
+	const sqlparser_oracle_readonly_batch_t *batch,
+	size_t statement_index, size_t branch_index, size_t column_index)
+{
+	const sqlparser_dialect_multi_insert_t *multi;
+	const sqlparser_dialect_multi_insert_branch_t *branch;
+	const sqlparser_oracle_compact_value_t *cell;
+	const sqlparser_oracle_cell_span_t *span;
+	size_t id;
+
+	if (batch == NULL || !batch->admitted || statement_index != 0U) return 0;
+	multi = batch->multi;
+	if (branch_index >= multi->branch_count) return 0;
+	branch = &multi->branches[branch_index];
+	if (branch->ordinal != branch_index ||
+	    branch->cell_storage != SQLPARSER_ORACLE_CELL_STORAGE_COMPACT ||
+	    branch->oracle_compact_cells == NULL || column_index >= branch->cell_count ||
+	    column_index > SIZE_MAX - branch->oracle_span_base) return 0;
+	cell = &branch->oracle_compact_cells[column_index];
+	if (!cell->has_literal || cell->literal.kind != SQLPARSER_LITERAL_KIND_STRING ||
+	    cell->literal.string_value == NULL) return 0;
+	id = branch->oracle_span_base + column_index;
+	if (id >= multi->oracle_span_count || id >= UINT32_MAX) return 0;
+	span = &multi->oracle_spans[id];
+	return (span->lexical_flags & (SQLPARSER_ORACLE_CELL_ORDINARY_STRING | SQLPARSER_ORACLE_CELL_IDENTITY)) ==
+		(SQLPARSER_ORACLE_CELL_ORDINARY_STRING | SQLPARSER_ORACLE_CELL_IDENTITY) &&
+		span->source_length > 0U && span->source_start < multi->oracle_source_start &&
+		span->source_length <= multi->oracle_source_start - span->source_start;
+}
+
+void sqlparser_oracle_readonly_batch_note(
+	sqlparser_oracle_readonly_batch_t *batch,
+	size_t statement_index, size_t branch_index, size_t column_index,
+	size_t source_start, size_t source_end)
+{
+	const sqlparser_oracle_cell_span_t *span;
+	uint32_t *next;
+	size_t id, capacity;
+
+	if (batch == NULL || batch->disabled ||
+	    !sqlparser_oracle_readonly_batch_target(batch, statement_index, branch_index, column_index)) return;
+	id = batch->multi->branches[branch_index].oracle_span_base + column_index;
+	span = &batch->multi->oracle_spans[id];
+	if (source_start != span->source_start || source_end < source_start ||
+	    source_end - source_start != span->source_length) return;
+	if (batch->count == batch->capacity) {
+		capacity = batch->capacity == 0U ? 16U : batch->capacity * 2U;
+		if (capacity < batch->capacity || capacity > SIZE_MAX / sizeof(*next)) goto disable;
+		next = (uint32_t *)realloc(batch->ids, capacity * sizeof(*next));
+		if (next == NULL) goto disable;
+		batch->ids = next;
+		batch->capacity = capacity;
+	}
+	batch->ids[batch->count++] = (uint32_t)id;
+	return;
+disable:
+	/* Optional proof allocation never creates a new public failure. The exact
+	 * original commit will instead attempt its complete two-pass certificate. */
+	free(batch->ids);
+	batch->ids = NULL;
+	batch->count = batch->capacity = 0U;
+	batch->disabled = 1;
+}
+
+sqlparser_status_t sqlparser_oracle_readonly_batch_commit(
+	sqlparser_handle_t *handle,
+	sqlparser_oracle_readonly_batch_t *batch,
+	const sqlparser_surface_source_edits_t *edits,
+	char **owned_sql, int *out_handled,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_readonly_batch_t current;
+	sqlparser_dialect_multi_insert_t *multi;
+	uint32_t *old_ids, *scratch_ids;
+	size_t old_count, old_capacity;
+	int old_disabled;
+	sqlparser_status_t status;
+
+	*out_handled = 0;
+	/* Revalidate the complete captured owner tuple before the only temporary
+	 * owner write. All caller-payload reads have already ended at this point. */
+	if (batch == NULL || !batch->admitted || batch->handle != handle ||
+	    !sqlparser_oracle_readonly_batch_begin(handle, &current) ||
+	    current.owner != batch->owner || current.state != batch->state ||
+	    current.multi != batch->multi || current.sql != batch->sql ||
+	    current.parser_sql != batch->parser_sql || current.wire != batch->wire ||
+	    current.sql_length != batch->sql_length ||
+	    current.parser_sql_length != batch->parser_sql_length ||
+	    current.wire_length != batch->wire_length ||
+	    current.generation != batch->generation || current.graph != batch->graph)
+		return SQLPARSER_STATUS_OK;
+	multi = batch->multi;
+	old_ids = multi->oracle_pending_ids;
+	old_count = multi->oracle_pending_count;
+	old_capacity = multi->oracle_pending_capacity;
+	old_disabled = multi->oracle_pending_disabled;
+	multi->oracle_pending_ids = batch->ids;
+	multi->oracle_pending_count = batch->count;
+	multi->oracle_pending_capacity = batch->capacity;
+	multi->oracle_pending_disabled = batch->disabled;
+	batch->ids = NULL;
+	batch->count = batch->capacity = 0U;
+	batch->disabled = 0;
+	batch->admitted = 0;
+	status = sqlparser_oracle_try_commit_multi_insert_strings(
+		handle, edits, owned_sql, out_handled, out_error);
+	if (status == SQLPARSER_STATUS_OK && *out_handled) {
+		/* Commit keeps the new pending allocation but clears its count/disabled
+		 * during invalidation. The detached old allocation is no longer owned. */
+		free(old_ids);
+		return status;
+	}
+	/* Both certificates may already have sorted/deduplicated scratch. A MISS
+	 * (including typed backslash/control strings) or ERROR must restore all
+	 * four fields; the original graph/AST/source owners are still untouched. */
+	scratch_ids = multi->oracle_pending_ids;
+	multi->oracle_pending_ids = old_ids;
+	multi->oracle_pending_count = old_count;
+	multi->oracle_pending_capacity = old_capacity;
+	multi->oracle_pending_disabled = old_disabled;
+	free(scratch_ids);
+	return status;
+}
+
+void sqlparser_oracle_readonly_batch_release(sqlparser_oracle_readonly_batch_t *batch)
+{
+	if (batch == NULL) return;
+	free(batch->ids);
+	memset(batch, 0, sizeof(*batch));
+}
+
+static sqlparser_status_t sqlparser_oracle_preprocess_internal_with_compact(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	int allow_plain_returning,
+	int allow_compact,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_state_t *state;
@@ -7126,8 +8422,8 @@ static sqlparser_status_t sqlparser_oracle_preprocess_internal(
 	}
 
 	if (sqlparser_oracle_is_multi_insert_start(preprocess_input, NULL, allow_plain_returning)) {
-		status = sqlparser_oracle_parse_multi_insert(
-			preprocess_input, state, out_parser_sql, allow_plain_returning, out_error);
+		status = sqlparser_oracle_parse_multi_insert_with_compact(
+			preprocess_input, state, out_parser_sql, allow_plain_returning, allow_compact, out_error);
 		if (status == SQLPARSER_STATUS_OK && state->multi_insert != NULL)
 			state->multi_insert->oracle_outer_identity = rewritten_sql == NULL;
 		free(rewritten_sql);
@@ -7155,6 +8451,31 @@ static sqlparser_status_t sqlparser_oracle_preprocess_internal(
 
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_preprocess_internal(
+	const char *input_sql, const sqlparser_limits_t *limits, char **out_parser_sql,
+	void **out_state, int allow_plain_returning, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_internal_with_compact(
+		input_sql, limits, out_parser_sql, out_state, allow_plain_returning, 0, out_error);
+}
+
+sqlparser_status_t sqlparser_oracle_preprocess_compact_initial(
+	const char *input_sql, const sqlparser_limits_t *limits, char **out_parser_sql,
+	void **out_state, sqlparser_error_t *out_error)
+{
+	return sqlparser_oracle_preprocess_internal_with_compact(
+		input_sql, limits, out_parser_sql, out_state, 0, 1, out_error);
+}
+
+sqlparser_status_t sqlparser_kingbase_oracle_preprocess_compact_initial(
+	const char *input_sql, const sqlparser_limits_t *limits, char **out_parser_sql,
+	void **out_state, sqlparser_error_t *out_error)
+{
+	/* Keep Kingbase plain RETURNING and nested-comment semantics. */
+	return sqlparser_oracle_preprocess_internal_with_compact(
+		input_sql, limits, out_parser_sql, out_state, 1, 1, out_error);
 }
 
 static sqlparser_status_t sqlparser_oracle_preprocess(
@@ -7570,6 +8891,74 @@ static sqlparser_status_t sqlparser_oracle_value_clone(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_oracle_compact_value_clone_legacy(
+	const sqlparser_oracle_compact_value_t *source,
+	sqlparser_dialect_multi_insert_value_t *target,
+	sqlparser_error_t *out_error)
+{
+	if (source == NULL || target == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value clone arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(target, 0, sizeof(*target));
+	target->has_literal = source->has_literal;
+	target->literal = source->literal;
+	target->public_sql = sqlparser_strdup(source->public_sql);
+	target->parser_sql = sqlparser_strdup(source->parser_sql);
+	target->literal_string_value = sqlparser_strdup(source->literal.string_value);
+	target->literal_float_value = sqlparser_strdup(source->literal.float_value);
+	if ((source->public_sql != NULL && target->public_sql == NULL) ||
+	    (source->parser_sql != NULL && target->parser_sql == NULL) ||
+	    (source->literal.string_value != NULL && target->literal_string_value == NULL) ||
+	    (source->literal.float_value != NULL && target->literal_float_value == NULL)) {
+		sqlparser_oracle_value_clear(target);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	target->literal.string_value = target->literal_string_value;
+	target->literal.float_value = target->literal_float_value;
+	return SQLPARSER_STATUS_OK;
+}
+
+/* Prepare independent legacy owners without changing the compact branch. */
+static sqlparser_status_t sqlparser_oracle_compact_branch_prepare_legacy(
+	const sqlparser_dialect_multi_insert_branch_t *branch,
+	sqlparser_dialect_multi_insert_value_t **out_cells,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_multi_insert_value_t *cells;
+	size_t index;
+	sqlparser_status_t status;
+
+	*out_cells = NULL;
+	if (branch->cell_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (branch->cell_count > SIZE_MAX / sizeof(*cells)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	cells = (sqlparser_dialect_multi_insert_value_t *)calloc(branch->cell_count, sizeof(*cells));
+	if (cells == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	for (index = 0U; index < branch->cell_count; index++) {
+		status = sqlparser_oracle_compact_value_clone_legacy(
+			&branch->oracle_compact_cells[index], &cells[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			while (index > 0U) {
+				index--;
+				sqlparser_oracle_value_clear(&cells[index]);
+			}
+			free(cells);
+			return status;
+		}
+	}
+	*out_cells = cells;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
 	const sqlparser_dialect_multi_insert_t *source,
 	sqlparser_dialect_multi_insert_t **out_clone,
@@ -7592,6 +8981,7 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	clone->mode = source->mode;
+	/* Graph header classification is deliberately fresh-parse-only. */
 	clone->source_public_sql = sqlparser_strdup(source->source_public_sql);
 	clone->source_parser_sql = sqlparser_strdup(source->source_parser_sql);
 	if ((source->source_public_sql != NULL && clone->source_public_sql == NULL) ||
@@ -7624,6 +9014,7 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
 		dst_branch = &clone->branches[branch_index];
 		dst_branch->ordinal = src_branch->ordinal;
 		dst_branch->oracle_span_base = src_branch->oracle_span_base;
+		dst_branch->oracle_values_position = src_branch->oracle_values_position;
 		dst_branch->relation.database_name = sqlparser_strdup(src_branch->relation.database_name);
 		dst_branch->relation.schema_name = sqlparser_strdup(src_branch->relation.schema_name);
 		dst_branch->relation.table_name = sqlparser_strdup(src_branch->relation.table_name);
@@ -7668,9 +9059,18 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
 			}
 			dst_branch->cell_count = src_branch->cell_count;
 			for (index = 0U; index < src_branch->cell_count; index++) {
-				if (sqlparser_oracle_value_clone(&src_branch->cells[index], &dst_branch->cells[index], out_error) != SQLPARSER_STATUS_OK) {
+				sqlparser_status_t status;
+
+				if (src_branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+					status = sqlparser_oracle_compact_value_clone_legacy(
+						&src_branch->oracle_compact_cells[index], &dst_branch->cells[index], out_error);
+				} else {
+					status = sqlparser_oracle_value_clone(
+						&src_branch->cells[index], &dst_branch->cells[index], out_error);
+				}
+				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_oracle_multi_insert_destroy(clone);
-					return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+					return status;
 				}
 			}
 		}
@@ -7700,6 +9100,7 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
 			clone->oracle_spans_complete = 1;
 			clone->oracle_spans_identity = source->oracle_spans_identity;
 			clone->oracle_outer_identity = source->oracle_outer_identity;
+			clone->oracle_generic_spans_equivalent = source->oracle_generic_spans_equivalent;
 			clone->oracle_source_start = source->oracle_source_start;
 			clone->oracle_source_length = source->oracle_source_length;
 		}
@@ -7870,6 +9271,9 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 	sqlparser_oracle_state_t *state;
 	sqlparser_dialect_multi_insert_t *multi;
 	sqlparser_dialect_multi_insert_branch_t *branch;
+	sqlparser_dialect_multi_insert_value_t *legacy_cells;
+	sqlparser_oracle_compact_value_t *retired_cells;
+	size_t retired_cell_count;
 	sqlparser_parse_options_t options;
 	char *public_sql;
 	sqlparser_status_t status;
@@ -7884,6 +9288,9 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 	}
 	replacement = NULL;
 	public_sql = NULL;
+	legacy_cells = NULL;
+	retired_cells = NULL;
+	retired_cell_count = 0U;
 	state = (sqlparser_oracle_state_t *)handle->dialect_state;
 	multi = state != NULL ? state->multi_insert : NULL;
 	if (multi == NULL || branch_index >= multi->branch_count) {
@@ -7904,16 +9311,50 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
+		if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+			status = sqlparser_oracle_compact_branch_prepare_legacy(branch, &legacy_cells, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_oracle_value_clear(&value);
+				return status;
+			}
+			/* Derived literals may borrow the compact blocks being retired. */
+			sqlparser_handle_clear_query_graph(handle);
+			retired_cells = branch->oracle_compact_cells;
+			retired_cell_count = branch->cell_count;
+			branch->cells = legacy_cells;
+			branch->oracle_compact_cells = NULL;
+			branch->cell_storage = SQLPARSER_ORACLE_CELL_STORAGE_LEGACY;
+		}
 		sqlparser_oracle_value_clear(&branch->cells[column_index]);
 		branch->cells[column_index] = value;
+		if (retired_cells != NULL) {
+			sqlparser_oracle_compact_values_clear(retired_cells, retired_cell_count);
+		}
 		handle->generation++;
 		handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_MULTI_INSERT_DIRTY;
 		handle->surface_source_complete = 0;
 		sqlparser_handle_invalidate_derived(handle);
 		return SQLPARSER_STATUS_OK;
 	}
+	if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+		status = sqlparser_oracle_compact_branch_prepare_legacy(branch, &legacy_cells, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		retired_cells = branch->oracle_compact_cells;
+		retired_cell_count = branch->cell_count;
+		branch->cells = legacy_cells;
+		branch->oracle_compact_cells = NULL;
+		branch->cell_storage = SQLPARSER_ORACLE_CELL_STORAGE_LEGACY;
+	}
 	free(branch->cells[column_index].public_sql);
 	branch->cells[column_index].public_sql = sqlparser_strdup(sql_text);
+	/* Consume compact- or graph-owned input before clearing either owner.
+	 * No graph read occurs while the prepared legacy representation is live. */
+	if (retired_cells != NULL) {
+		sqlparser_handle_clear_query_graph(handle);
+		sqlparser_oracle_compact_values_clear(retired_cells, retired_cell_count);
+	}
 	if (branch->cells[column_index].public_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -7932,7 +9373,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 	sqlparser_parse_options_default(&options);
 	options.dialect = handle->dialect;
 	options.limits = handle->limits;
-	status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+	status = sqlparser_oracle_parse_legacy_replacement(public_sql, &options, &replacement, out_error);
 	free(public_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -7976,7 +9417,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_cell_sql(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "cell index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_sql = sqlparser_strdup(branch->cells[column_index].public_sql);
+	*out_sql = sqlparser_strdup(sqlparser_oracle_cell_public_sql(branch, column_index));
 	if (*out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -8024,6 +9465,46 @@ sqlparser_status_t sqlparser_oracle_multi_insert_condition_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* Copy a block-owned header into independent legacy fields, leaving the
+ * insertion slot empty. Does not retire the source or touch its graph. */
+static sqlparser_status_t sqlparser_oracle_header_prepare_legacy_insert(
+	const sqlparser_dialect_multi_insert_branch_t *branch,
+	size_t insert_index,
+	sqlparser_dialect_multi_insert_relation_t *relation,
+	sqlparser_dialect_multi_insert_column_t *columns,
+	sqlparser_error_t *out_error)
+{
+	const char *source[6];
+	char **target[6];
+	size_t index;
+
+	source[0] = branch->relation.database_name; target[0] = &relation->database_name;
+	source[1] = branch->relation.schema_name; target[1] = &relation->schema_name;
+	source[2] = branch->relation.table_name; target[2] = &relation->table_name;
+	source[3] = branch->relation.link_name; target[3] = &relation->link_name;
+	source[4] = branch->relation.link_sql; target[4] = &relation->link_sql;
+	source[5] = branch->relation.sql; target[5] = &relation->sql;
+	for (index = 0U; index < 6U; index++) {
+		*target[index] = sqlparser_strdup(source[index]);
+		if (source[index] != NULL && *target[index] == NULL) goto no_memory;
+	}
+	for (index = 0U; index < branch->column_count; index++) {
+		size_t slot = index < insert_index ? index : index + 1U;
+		columns[slot].name = sqlparser_strdup(branch->columns[index].name);
+		columns[slot].sql = sqlparser_strdup(branch->columns[index].sql);
+		if ((branch->columns[index].name != NULL && columns[slot].name == NULL) ||
+		    (branch->columns[index].sql != NULL && columns[slot].sql == NULL)) goto no_memory;
+	}
+	return SQLPARSER_STATUS_OK;
+
+no_memory:
+	sqlparser_oracle_relation_clear(relation);
+	for (index = 0U; index <= branch->column_count; index++)
+		sqlparser_oracle_column_clear(&columns[index]);
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	return SQLPARSER_STATUS_NO_MEMORY;
+}
+
 sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -8039,13 +9520,17 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	sqlparser_dialect_multi_insert_t *multi;
 	sqlparser_dialect_multi_insert_branch_t *branch;
 	sqlparser_dialect_multi_insert_column_t new_column;
+	sqlparser_dialect_multi_insert_relation_t next_relation;
+	char *retired_header;
 	sqlparser_dialect_multi_insert_value_t new_cell;
 	sqlparser_dialect_multi_insert_column_t *next_columns;
 	sqlparser_dialect_multi_insert_value_t *next_cells;
+	sqlparser_oracle_compact_value_t *retired_cells;
+	size_t retired_cell_count;
 	sqlparser_parse_options_t options;
 	char *public_sql;
 	size_t column_insert_index;
-	size_t cell_insert_index;
+	size_t cell_insert_index = 0U;
 	size_t index;
 	sqlparser_status_t status;
 	int has_cell;
@@ -8063,11 +9548,15 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	}
 
 	memset(&new_column, 0, sizeof(new_column));
+	memset(&next_relation, 0, sizeof(next_relation));
+	retired_header = NULL;
 	memset(&new_cell, 0, sizeof(new_cell));
 	candidate = NULL;
 	replacement = NULL;
 	next_columns = NULL;
 	next_cells = NULL;
+	retired_cells = NULL;
+	retired_cell_count = 0U;
 	public_sql = NULL;
 
 	if ((handle->patch_batch_flags & (SQLPARSER_PATCH_BATCH_ACTIVE | SQLPARSER_PATCH_BATCH_IN_PLACE)) != 0U) {
@@ -8142,25 +9631,85 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	column_insert_index = column_index > branch->column_count ? branch->column_count : column_index;
-	for (index = 0U; index < column_insert_index; index++) {
-		next_columns[index] = branch->columns[index];
-	}
-	next_columns[column_insert_index] = new_column;
-	memset(&new_column, 0, sizeof(new_column));
-	for (index = column_insert_index; index < branch->column_count; index++) {
-		next_columns[index + 1U] = branch->columns[index];
-	}
 	if (has_cell) {
 		cell_insert_index = column_index > branch->cell_count ?
 			branch->cell_count : column_index;
-		for (index = 0U; index < cell_insert_index; index++) {
-			next_cells[index] = branch->cells[index];
+		if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+			/* Finish all fallible copies before moving any column/new-cell owner. */
+			for (index = 0U; index < branch->cell_count; index++) {
+				size_t target_index;
+
+				target_index = index < cell_insert_index ? index : index + 1U;
+				status = sqlparser_oracle_compact_value_clone_legacy(
+					&branch->oracle_compact_cells[index], &next_cells[target_index], out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					size_t clear_index;
+
+					for (clear_index = 0U; clear_index < index; clear_index++) {
+						target_index = clear_index < cell_insert_index ? clear_index : clear_index + 1U;
+						sqlparser_oracle_value_clear(&next_cells[target_index]);
+					}
+					free(next_cells);
+					free(next_columns);
+					sqlparser_oracle_column_clear(&new_column);
+					sqlparser_oracle_value_clear(&new_cell);
+					if (candidate != handle) {
+						sqlparser_handle_destroy(candidate);
+					}
+					return status;
+				}
+			}
+		} else {
+			for (index = 0U; index < cell_insert_index; index++) {
+				next_cells[index] = branch->cells[index];
+			}
+			for (index = cell_insert_index; index < branch->cell_count; index++) {
+				next_cells[index + 1U] = branch->cells[index];
+			}
 		}
+	}
+	column_insert_index = column_index > branch->column_count ? branch->column_count : column_index;
+	if (branch->oracle_header_text_block != NULL) {
+		status = sqlparser_oracle_header_prepare_legacy_insert(
+			branch, column_insert_index, &next_relation, next_columns, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			/* Only converted compact cells are independently owned here.
+			 * Legacy next_cells still shallow-borrows the live source. */
+			if (has_cell && branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+				for (index = 0U; index <= branch->cell_count; index++)
+					sqlparser_oracle_value_clear(&next_cells[index]);
+			}
+			free(next_cells);
+			free(next_columns);
+			sqlparser_oracle_column_clear(&new_column);
+			sqlparser_oracle_value_clear(&new_cell);
+			if (candidate != handle) sqlparser_handle_destroy(candidate);
+			return status;
+		}
+	} else {
+		for (index = 0U; index < branch->column_count; index++) {
+			size_t slot = index < column_insert_index ? index : index + 1U;
+			next_columns[slot] = branch->columns[index];
+		}
+	}
+	/* All borrowed inputs have been consumed and all fallible copies are
+	 * complete. Retire graph borrows even for a name-only insertion. */
+	if (branch->oracle_header_text_block != NULL ||
+	    (has_cell && branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT))
+		sqlparser_handle_clear_query_graph(candidate);
+	next_columns[column_insert_index] = new_column;
+	memset(&new_column, 0, sizeof(new_column));
+	if (branch->oracle_header_text_block != NULL) {
+		retired_header = branch->oracle_header_text_block;
+		branch->relation = next_relation;
+		branch->oracle_header_text_block = NULL;
+	}
+	if (has_cell) {
 		next_cells[cell_insert_index] = new_cell;
 		memset(&new_cell, 0, sizeof(new_cell));
-		for (index = cell_insert_index; index < branch->cell_count; index++) {
-			next_cells[index + 1U] = branch->cells[index];
+		if (branch->cell_storage == SQLPARSER_ORACLE_CELL_STORAGE_COMPACT) {
+			retired_cells = branch->oracle_compact_cells;
+			retired_cell_count = branch->cell_count;
 		}
 	}
 	free(branch->columns);
@@ -8170,9 +9719,15 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	if (has_cell) {
 		free(branch->cells);
 		branch->cells = next_cells;
+		branch->oracle_compact_cells = NULL;
+		branch->cell_storage = SQLPARSER_ORACLE_CELL_STORAGE_LEGACY;
 		branch->cell_count++;
 		next_cells = NULL;
 	}
+	if (retired_cells != NULL) {
+		sqlparser_oracle_compact_values_clear(retired_cells, retired_cell_count);
+	}
+	free(retired_header);
 
 	candidate->generation++;
 	if (candidate == handle &&
@@ -8196,7 +9751,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 		sqlparser_parse_options_default(&options);
 		options.dialect = handle->dialect;
 		options.limits = handle->limits;
-		status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+		status = sqlparser_oracle_parse_legacy_replacement(public_sql, &options, &replacement, out_error);
 	}
 	free(public_sql);
 	sqlparser_handle_destroy(candidate);
