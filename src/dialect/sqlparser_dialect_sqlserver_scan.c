@@ -107,6 +107,11 @@ unsigned int sqlparser_sqlserver_candidate_mask(const char *text)
 			}
 		}
 		switch (tolower((unsigned char)text[pos])) {
+			case 'd':
+				if (sqlparser_sqlserver_ascii_word_equal(text, pos, "delete")) {
+					mask |= SQLPARSER_SQLSERVER_CANDIDATE_DELETE;
+				}
+				break;
 			case 'e':
 				if (sqlparser_sqlserver_ascii_word_equal(text, pos, "else")) {
 					mask |= SQLPARSER_SQLSERVER_CANDIDATE_CONTROL;

@@ -3142,7 +3142,8 @@ static int sqlparser_mysql_is_unsupported_update_join(const char *masked)
 static int sqlparser_mysql_is_unsupported_delete_join(const char *masked)
 {
 	return sqlparser_mysql_first_top_level_word_is(masked, "delete") &&
-		sqlparser_mysql_top_level_word_before(masked, "join", "where");
+		sqlparser_mysql_top_level_word_before(masked, "join", "where") &&
+		!sqlparser_mysql_top_level_word_before(masked, "using", "join");
 }
 
 static sqlparser_status_t sqlparser_mysql_reject_unsupported(
@@ -8928,6 +8929,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_delete_join_statement(
 	}
 	from_pos = sqlparser_mysql_find_top_level_word_between(masked, "from", start_pos + strlen("delete"), len);
 	join_pos = from_pos == (size_t)-1 ? (size_t)-1 : sqlparser_mysql_find_top_level_word_between(masked, "join", from_pos + strlen("from"), len);
+	if (join_pos != (size_t)-1 &&
+	    sqlparser_mysql_find_top_level_word_between(masked, "using", from_pos, join_pos) != (size_t)-1) {
+		/* An intact multi-source list is already in the core representation. */
+		free(masked);
+		return SQLPARSER_STATUS_OK;
+	}
 	on_pos = join_pos == (size_t)-1 ? (size_t)-1 : sqlparser_mysql_find_top_level_word_between(masked, "on", join_pos + strlen("join"), len);
 	where_pos = on_pos == (size_t)-1 ? (size_t)-1 : sqlparser_mysql_find_top_level_word_between(masked, "where", on_pos + strlen("on"), len);
 	free(masked);
@@ -14889,6 +14896,18 @@ static sqlparser_status_t sqlparser_mysql_preprocess_internal_plan(
 		return status;
 	}
 
+	rewritten_sql = NULL;
+	status = sqlparser_dialect_rewrite_delete_aliases(
+		SQLPARSER_DIALECT_MYSQL, quoted_sql, 0, &rewritten_sql, origins, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(quoted_sql);
+		sqlparser_mysql_state_destroy(mysql_state);
+		return status;
+	}
+	if (rewritten_sql != NULL) {
+		free(quoted_sql);
+		quoted_sql = rewritten_sql;
+	}
 	status = sqlparser_mysql_rewrite_session_statements(
 		&quoted_sql,
 		origins,
@@ -15190,6 +15209,7 @@ static sqlparser_status_t sqlparser_mysql_postprocess_deparse(
 	sqlparser_error_t *out_error)
 {
 	char *quoted_sql;
+	char *delete_sql;
 	sqlparser_mysql_literal_view_t *literals;
 	size_t literal_count;
 	sqlparser_status_t status;
@@ -15214,14 +15234,22 @@ static sqlparser_status_t sqlparser_mysql_postprocess_deparse(
 		return status;
 	}
 	quoted_sql = NULL;
+	delete_sql = NULL;
+	status = sqlparser_dialect_rewrite_delete_aliases(
+		SQLPARSER_DIALECT_MYSQL, core_sql, 1, &delete_sql, NULL, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(literals);
+		return status;
+	}
 	status = sqlparser_mysql_rewrite_pg_quotes_to_backticks(
-		core_sql,
+		delete_sql != NULL ? delete_sql : core_sql,
 		(const sqlparser_mysql_state_t *)state,
 		literals,
 		literal_count,
 		&quoted_sql,
 		out_error);
 	free(literals);
+	free(delete_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}

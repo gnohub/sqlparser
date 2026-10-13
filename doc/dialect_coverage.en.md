@@ -9,21 +9,21 @@ the corresponding KingbaseES case matrices.
 
 | Dialect | Source | Successful Cases | Expected-Failure Cases | Total Cases | Fixture Success Rate |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 238 | 0 | 238 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 278 | 0 | 278 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 294 | 0 | 294 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 653 | 0 | 653 | 100.00% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 225 | 0 | 225 | 100.00% |
-| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 223 | 0 | 223 | 100.00% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 278 | 0 | 278 | 100.00% |
-| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 262 | 0 | 262 | 100.00% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 633 | 0 | 633 | 100.00% |
-| KingbaseES PostgreSQL entry | `tests/cases/kingbase_postgresql_dialect_input.json` | 49 | 0 | 49 | 100.00% |
-| KingbaseES MySQL entry | `tests/cases/kingbase_mysql_dialect_input.json` | 43 | 0 | 43 | 100.00% |
-| KingbaseES Oracle entry | `tests/cases/kingbase_oracle_dialect_input.json` | 46 | 0 | 46 | 100.00% |
-| KingbaseES SQL Server entry | `tests/cases/kingbase_sqlserver_dialect_input.json` | 47 | 0 | 47 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 264 | 0 | 264 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 310 | 0 | 310 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 322 | 0 | 322 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 691 | 0 | 691 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 260 | 0 | 260 | 100.00% |
+| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 249 | 0 | 249 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 310 | 0 | 310 | 100.00% |
+| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 288 | 0 | 288 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 671 | 0 | 671 | 100.00% |
+| KingbaseES PostgreSQL entry | `tests/cases/kingbase_postgresql_dialect_input.json` | 75 | 0 | 75 | 100.00% |
+| KingbaseES MySQL entry | `tests/cases/kingbase_mysql_dialect_input.json` | 75 | 0 | 75 | 100.00% |
+| KingbaseES Oracle entry | `tests/cases/kingbase_oracle_dialect_input.json` | 72 | 0 | 72 | 100.00% |
+| KingbaseES SQL Server entry | `tests/cases/kingbase_sqlserver_dialect_input.json` | 85 | 0 | 85 | 100.00% |
 
-The thirteen fixtures contain 3269 final cases and 10305 independent patches
+The thirteen fixtures contain 3672 final cases and 10595 independent patches
 in total.
 
 ## Counting Rules

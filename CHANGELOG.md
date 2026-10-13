@@ -1,5 +1,13 @@
 # 变更记录
 
+## 2.17.5
+
+- 补充 13 个方言入口中直接字段 `IN/NOT IN` 谓词与右侧子查询的关联，复用已有输出项和 selector 信息。
+- `sqlparser_graph_predicate_t` 新增 `has_source_block` 和 `source_block_index`，通过现有读取接口返回；未新增公共函数，调用方需重新编译。
+- 补齐 MySQL、SQL Server、达梦及相关兼容入口的单目标 DELETE 别名处理，支持多表来源中的目标定位与改写。
+- 修复 SQL Server 及相关兼容入口在混合事务批次改写后丢失 `TRANSACTION` 关键字的问题。
+- 补充相关 JSON 回归用例，统一 Oracle 测试目录布局并合并重复参考实现。
+
 ## 2.17.4
 
 - 优化 MySQL 批量 INSERT 存储与字符串替换，以及 AST 构建、片段解析和反解析，减少重复解析、序列化与内存分配。

@@ -1,22 +1,362 @@
-/* Independent Oracle constructor differential checks.
- * Build this identical caller twice, selecting reference/current Oracle C and
- * its matching library. Expected behavior comes from the frozen legacy constructor, never
- * from the optimized constructor or a second optimized parse of expected SQL.
- * The included frozen helper supplies complete public graph field records;
- * its main is renamed, and its optional wrapper hooks remain disabled. */
-#ifndef SCALAR_FROZEN_HELPER
-#error Supply SCALAR_FROZEN_HELPER as the owned-commit graph-record helper path
-#endif
-#ifndef SCALAR_ORACLE_SOURCE
-#error Supply SCALAR_ORACLE_SOURCE as the Oracle production C path to inspect
-#endif
-#define main frozen_owned_commit_main
-#include SCALAR_FROZEN_HELPER
+/* Oracle scalar constructor parity, admission and allocation checks. */
+#define main scalar_owned_commit_helpers_main
+#include "test_oracle_owned_commit.c"
 #undef main
-#include SCALAR_ORACLE_SOURCE
-#include "frozen_legacy_parse_value_item.inc"
-#include "scalar_state.h"
-#include "scalar_alloc.h"
+#include "../../src/dialect/sqlparser_dialect_oracle.c"
+/* Frozen verbatim reference constructor; only function name changed.
+ * Independent legacy oracle: never calls any new scalar admission helper. */
+static sqlparser_status_t frozen_legacy_parse_value_item(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_oracle_state_t *state,
+	sqlparser_dialect_multi_insert_value_t *out_value,
+	uint32_t *out_lexical_flags,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_bind_token_t bind_token;
+	const char *key_start;
+	size_t key_len;
+	size_t sql_len;
+	sqlparser_bind_kind_t bind_kind;
+	size_t occurrence_before;
+	sqlparser_status_t status;
+
+	if (out_value == NULL || state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_value, 0, sizeof(*out_value));
+	if (out_lexical_flags != NULL) *out_lexical_flags = 0U;
+	status = sqlparser_oracle_trimmed_slice_dup(sql, start, end, &out_value->public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	occurrence_before = state->bind_occurrence_count;
+	status = sqlparser_oracle_preprocess_text(out_value->public_sql, state, &out_value->parser_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_value_clear(out_value);
+		return status;
+	}
+	sql_len = strlen(out_value->public_sql);
+	if (sqlparser_bind_token_exact(
+		    SQLPARSER_DIALECT_ORACLE,
+		    out_value->public_sql,
+		    sql_len,
+		    0U,
+		    sql_len,
+		    &bind_token) &&
+	    state->bind_occurrence_count == occurrence_before + 1U) {
+		bind_kind = bind_token.kind;
+		key_start = bind_token.key_length > 0U ?
+			out_value->public_sql + bind_token.key_start :
+			NULL;
+		key_len = bind_token.key_length;
+		out_value->has_bind = 1;
+		out_value->bind_kind = bind_kind;
+		if (bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && key_start == NULL) {
+			(void)snprintf(out_value->bind, sizeof(out_value->bind), "%lu", (unsigned long)(occurrence_before + 1U));
+		} else {
+			if (key_len >= sizeof(out_value->bind)) {
+				sqlparser_oracle_value_clear(out_value);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind key is too long");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			memcpy(out_value->bind, key_start, key_len);
+			out_value->bind[key_len] = '\0';
+		}
+		if (sql_len >= sizeof(out_value->bind_sql)) {
+			sqlparser_oracle_value_clear(out_value);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind SQL is too long");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		memcpy(out_value->bind_sql, out_value->public_sql, sql_len);
+		out_value->bind_sql[sql_len] = '\0';
+		out_value->bind_position = occurrence_before + 1U;
+		out_value->has_bind_position = 1;
+	} else {
+		status = sqlparser_oracle_value_fill_literal(out_value, out_lexical_flags, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_value_clear(out_value);
+			return status;
+		}
+	}
+	if (out_lexical_flags != NULL && strcmp(out_value->public_sql, out_value->parser_sql) == 0)
+		*out_lexical_flags |= SQLPARSER_ORACLE_CELL_IDENTITY;
+	return SQLPARSER_STATUS_OK;
+}
+/* Deterministic field-by-field Oracle state, including pointer relationships.
+ * Owner pointers become preorder positions in the complete protobuf AST.
+ * No padding bytes or process addresses enter a transcript. */
+static const ProtobufCMessage *scalar_owner_root;
+static size_t scalar_owner_walk(const ProtobufCMessage *m, const void *wanted, size_t *ordinal)
+{
+    size_t i, j, result;
+    const unsigned char *base = (const unsigned char *)m;
+    if (!m) return 0;
+    ++*ordinal;
+    if (m == wanted) return *ordinal;
+    for (i = 0; i < m->descriptor->n_fields; ++i) {
+        const ProtobufCFieldDescriptor *f = &m->descriptor->fields[i];
+        if (f->type != PROTOBUF_C_TYPE_MESSAGE) continue;
+        if ((f->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) &&
+            *(const int *)(base + f->quantifier_offset) != (int)f->id) continue;
+        if (f->label == PROTOBUF_C_LABEL_REPEATED) {
+            size_t n = *(const size_t *)(base + f->quantifier_offset);
+            ProtobufCMessage *const *items = *(ProtobufCMessage *const *const *)(base + f->offset);
+            for (j = 0; j < n; ++j)
+                if ((result = scalar_owner_walk(items[j], wanted, ordinal))) return result;
+        } else if ((result = scalar_owner_walk(
+            *(ProtobufCMessage *const *)(base + f->offset), wanted, ordinal))) return result;
+    }
+    return 0;
+}
+static void scalar_record_owner(const void *owner)
+{
+    size_t ordinal = 0, identity = 0;
+    if (owner) identity = scalar_owner_walk(scalar_owner_root, owner, &ordinal);
+    record_number(owner != NULL); record_number(identity);
+    /* A detached owner is explicitly visible as nonnull/zero, never silently
+     * equated to NULL. Pre-AST state and clone-reset owners are legitimate. */
+}
+static void scalar_record_error(sqlparser_status_t status, const sqlparser_error_t *e)
+{
+    record_number(status); record_number(e != NULL);
+    if (e) {
+        record_number(e->code); record_number((unsigned)e->cursor);
+        record_number((unsigned)e->line); record_number((unsigned)e->column);
+        record_text(e->message); /* Also on OK: unquote may swallow NO_MEMORY. */
+    }
+}
+static void scalar_record_value(const sqlparser_dialect_multi_insert_value_t *v)
+{
+    record_text(v->public_sql); record_text(v->parser_sql);
+    record_number(v->has_bind); record_number(v->bind_kind);
+    record_text(v->bind); record_text(v->bind_sql);
+    record_number(v->bind_position); record_number(v->has_bind_position);
+    record_number(v->has_literal); record_sqlparser_literal_view_t(&v->literal);
+    record_text(v->literal_string_value); record_text(v->literal_float_value);
+    record_number(v->public_sql && v->public_sql == v->parser_sql);
+    record_number(v->literal.string_value && v->literal.string_value == v->literal_string_value);
+    record_number(v->literal.float_value && v->literal.float_value == v->literal_float_value);
+}
+static void scalar_record_multi(const sqlparser_dialect_multi_insert_t *m,
+    const sqlparser_handle_t *h, const sqlparser_oracle_state_t *state)
+{
+    size_t i, j;
+    record_number(m != NULL); if (!m) return;
+    record_number(m->mode); record_number(m->branch_count);
+    record_text(m->source_public_sql); record_text(m->source_parser_sql);
+    for (i = 0; i < m->branch_count; ++i) {
+        const sqlparser_dialect_multi_insert_branch_t *b = &m->branches[i];
+        record_number(b->ordinal);
+        record_text(b->relation.database_name); record_text(b->relation.schema_name);
+        record_text(b->relation.table_name); record_text(b->relation.link_name);
+        record_text(b->relation.link_sql); record_text(b->relation.sql);
+        record_number(b->column_count); record_number(b->cell_count);
+        record_text(b->condition_public_sql); record_text(b->condition_parser_sql);
+        record_number(b->has_condition); record_number(b->is_else);
+        record_number(b->condition_group_id); record_number(b->oracle_span_base);
+        for (j = 0; j < b->column_count; ++j) {
+            record_text(b->columns[j].name); record_text(b->columns[j].sql);
+        }
+        for (j = 0; j < b->cell_count; ++j) scalar_record_value(&b->cells[j]);
+    }
+    record_number(m->oracle_spans != NULL); record_number(m->oracle_span_count);
+    record_number(m->oracle_span_capacity); record_number(m->oracle_source_start);
+    record_number(m->oracle_source_length); record_number(m->oracle_spans_complete);
+    record_number(m->oracle_spans_identity); record_number(m->oracle_outer_identity);
+    for (i = 0; i < m->oracle_span_count; ++i) {
+        record_number(m->oracle_spans[i].source_start);
+        record_number(m->oracle_spans[i].source_length);
+        record_number(m->oracle_spans[i].lexical_flags);
+    }
+    record_number(m->oracle_pending_ids != NULL); record_number(m->oracle_pending_count);
+    record_number(m->oracle_pending_capacity); record_number(m->oracle_pending_disabled);
+    for (i = 0; i < m->oracle_pending_count; ++i) record_number(m->oracle_pending_ids[i]);
+    record_number(m->oracle_source_provenance.sql != NULL);
+    record_number(m->oracle_source_provenance.parser_sql != NULL);
+    record_number(m->oracle_source_provenance.wire != NULL);
+    record_number(m->oracle_source_provenance.state != NULL);
+    record_number(m->oracle_source_provenance.sql_length);
+    record_number(m->oracle_source_provenance.parser_sql_length);
+    record_number(m->oracle_source_provenance.wire_length);
+    record_number(m->oracle_source_provenance.generation);
+    record_number(h && m->oracle_source_provenance.sql == h->sql);
+    record_number(h && m->oracle_source_provenance.parser_sql == h->parser_sql);
+    record_number(h && m->oracle_source_provenance.wire == h->parse_tree.data);
+    record_number(m->oracle_source_provenance.state == state);
+}
+static void scalar_record_state(const sqlparser_oracle_state_t *s, const sqlparser_handle_t *h)
+{
+    size_t i;
+    scalar_owner_root = h ? (const ProtobufCMessage *)h->ast : NULL;
+    record_number(s != NULL); if (!s) return;
+    record_number(s->bind_names != NULL); record_number(s->bind_count);
+    record_number(s->bind_capacity); record_number(s->bind_occurrence_count);
+    for (i = 0; i < s->bind_count; ++i) record_text(s->bind_names[i]);
+    record_number(s->prepared_binds.names != NULL);
+    record_number(s->prepared_binds.count); record_number(s->prepared_binds.capacity);
+    record_number(s->prepared_binds.occurrence_count); record_number(s->prepared_binds.valid);
+    for (i = 0; i < s->prepared_binds.count; ++i) record_text(s->prepared_binds.names[i]);
+    record_number(s->national_literals.items != NULL);
+    record_number(s->national_literals.count); record_number(s->national_literals.capacity);
+    record_number(s->national_literals.literal_count); record_number(s->national_literals.fragment_start);
+    record_number(s->national_literals.fragment_literal_base);
+    for (i = 0; i < s->national_literals.count; ++i) {
+        record_text(s->national_literals.items[i].sql);
+        record_text(s->national_literals.items[i].surface_sql);
+        record_number(s->national_literals.items[i].ordinal);
+        scalar_record_owner(s->national_literals.items[i].owner);
+    }
+    record_number(s->dblink_relations != NULL); record_number(s->dblink_count);
+    record_number(s->dblink_capacity); record_number(s->next_dblink_id);
+    for (i = 0; i < s->dblink_count; ++i) {
+        const sqlparser_oracle_dblink_relation_t *d = &s->dblink_relations[i];
+        record_text(d->parser_object_name); record_text(d->public_object_name);
+        record_text(d->public_link_name); record_text(d->public_object_sql);
+        record_text(d->public_link_sql); scalar_record_owner(d->owner);
+    }
+    record_number(s->minuses.items != NULL); record_number(s->minuses.count);
+    record_number(s->minuses.capacity); record_number(s->minuses.except_count);
+    record_number(s->minuses.fragment_start); record_number(s->minuses.fragment_except_base);
+    for (i = 0; i < s->minuses.count; ++i) {
+        record_number(s->minuses.items[i].ordinal); scalar_record_owner(s->minuses.items[i].owner);
+    }
+    scalar_record_multi(s->multi_insert, h, s);
+    record_number(s->returning_into.items != NULL); record_number(s->returning_into.count);
+    record_number(s->returning_into.capacity);
+    for (i = 0; i < s->returning_into.count; ++i) {
+        const sqlparser_dialect_returning_into_item_t *r = &s->returning_into.items[i];
+        record_number(r->statement_index); record_number(r->pair_count);
+        record_number(r->keyword_uppercase_mask); record_number(r->into_uppercase_mask);
+        record_number(r->uses_return_keyword);
+    }
+}
+/* GNU linker wrappers. Observe the exact ordinal, type and sizes; no timing.
+ * PostgreSQL memory-context allocations retain the established exclusion,
+ * since its native OOM path can longjmp or abort outside sqlparser ownership. */
+typedef struct { void *pointer; size_t identity, bytes; } scalar_slot;
+typedef struct { int kind; size_t count, size, old_identity; int success; } scalar_event;
+static scalar_slot scalar_ledger[65536];
+static scalar_event scalar_events[65536];
+static size_t scalar_live, scalar_end, scalar_calls, scalar_fail;
+static int scalar_active;
+static unsigned scalar_native_depth;
+void *__real_malloc(size_t);
+void *__real_calloc(size_t, size_t);
+void *__real_realloc(void *, size_t);
+void __real_free(void *);
+struct MemoryContextData;
+struct MemoryContextData *__real_pg_query_enter_memory_context(void);
+void __real_pg_query_exit_memory_context(struct MemoryContextData *);
+struct MemoryContextData *__wrap_pg_query_enter_memory_context(void)
+{ ++scalar_native_depth; return __real_pg_query_enter_memory_context(); }
+void __wrap_pg_query_exit_memory_context(struct MemoryContextData *p)
+{ __real_pg_query_exit_memory_context(p); CHECK(scalar_native_depth); --scalar_native_depth; }
+static size_t scalar_find(void *p)
+{
+    size_t i;
+    if (p && scalar_live) for (i = 0; i < scalar_end; ++i)
+        if (scalar_ledger[i].pointer == p) return i;
+    return COUNT(scalar_ledger);
+}
+static void scalar_track(void *p, size_t identity, size_t bytes)
+{
+    size_t i;
+    if (!p) return;
+    CHECK(scalar_find(p) == COUNT(scalar_ledger));
+    for (i = 0; i < scalar_end && scalar_ledger[i].pointer; ++i) {}
+    CHECK(i < COUNT(scalar_ledger));
+    scalar_ledger[i] = (scalar_slot){p, identity, bytes}; ++scalar_live;
+    if (i == scalar_end) ++scalar_end;
+}
+static scalar_event *scalar_begin_event(int kind, size_t count, size_t size, void *old)
+{
+    scalar_event *e; size_t slot;
+    if (!scalar_active || scalar_native_depth) return NULL;
+    CHECK(scalar_calls < COUNT(scalar_events));
+    e = &scalar_events[scalar_calls++]; slot = scalar_find(old);
+    *e = (scalar_event){kind, count, size,
+        old ? (slot < COUNT(scalar_ledger) ? scalar_ledger[slot].identity : (size_t)-1) : 0, 0};
+    return e;
+}
+void *__wrap_malloc(size_t n)
+{
+    scalar_event *e = scalar_begin_event(1, 1, n, NULL); void *p;
+    if (e && scalar_calls == scalar_fail) return NULL;
+    p = __real_malloc(n);
+    if (e) { e->success = p != NULL; scalar_track(p, scalar_calls, n); }
+    return p;
+}
+void *__wrap_calloc(size_t n, size_t size)
+{
+    scalar_event *e = scalar_begin_event(2, n, size, NULL); void *p;
+    if (e && scalar_calls == scalar_fail) return NULL;
+    p = __real_calloc(n, size);
+    if (e) { e->success = p != NULL; scalar_track(p, scalar_calls, n * size); }
+    return p;
+}
+void *__wrap_realloc(void *p, size_t n)
+{
+    size_t slot = scalar_find(p);
+    scalar_event *e = scalar_begin_event(3, 1, n, p); void *q;
+    if (e && scalar_calls == scalar_fail) return NULL;
+    q = __real_realloc(p, n);
+    if (e) e->success = q != NULL;
+    if (q || !n) {
+        if (slot < COUNT(scalar_ledger)) {
+            scalar_ledger[slot].pointer = q;
+            scalar_ledger[slot].bytes = n;
+            if (!q) --scalar_live;
+        } else if (e) scalar_track(q, scalar_calls, n);
+    }
+    return q;
+}
+void __wrap_free(void *p)
+{
+    size_t slot = scalar_find(p);
+    if (slot < COUNT(scalar_ledger)) {
+        scalar_ledger[slot].pointer = NULL; --scalar_live;
+    }
+    __real_free(p);
+}
+static void scalar_start(size_t fail)
+{
+    CHECK(!scalar_live && !scalar_native_depth && !scalar_active);
+    scalar_calls = scalar_end = 0; scalar_fail = fail; scalar_active = 1;
+}
+static void scalar_stop(void)
+{ CHECK(scalar_active && !scalar_native_depth); scalar_active = 0; }
+static void scalar_record_allocations(void)
+{
+    size_t i; record_number(scalar_calls);
+    for (i = 0; i < scalar_calls; ++i) {
+        const scalar_event *e = &scalar_events[i];
+        record_number(e->kind); record_number(e->count); record_number(e->size);
+        record_number(e->old_identity); record_number(e->success);
+    }
+}
+static void scalar_record_residue(void)
+{
+    size_t i; record_number(scalar_live);
+    for (i = 0; i < scalar_end; ++i) if (scalar_ledger[i].pointer) {
+        record_number(scalar_ledger[i].identity); record_number(scalar_ledger[i].bytes);
+    }
+}
+static void scalar_reclaim_recorded_residue(void)
+{
+    size_t i;
+    /* Legacy constructor OOM has a known leak. Observe and compare its exact
+     * allocation identity/size first, then reclaim only test-ledger residues
+     * so the next independent trial and sanitizer run remain useful. Never
+     * use this for ordinary primitive/lifetime checks, which require zero. */
+    CHECK(!scalar_active && !scalar_native_depth);
+    for (i = 0; i < scalar_end; ++i) if (scalar_ledger[i].pointer) {
+        __real_free(scalar_ledger[i].pointer); scalar_ledger[i].pointer = NULL; --scalar_live;
+    }
+    CHECK(!scalar_live);
+}
 
 static void scalar_begin_record(const char *kind, size_t dialect, size_t fixture,
     size_t phase, size_t fail, int null_error, text_buffer *b)
@@ -237,10 +577,8 @@ static void scalar_primitive(int allocations)
         for (fail = 0; fail <= stop; ++fail) {
             char *actual = scalar_primitive_once(sqlparser_oracle_parse_value_item, token, seed, fail, null_error, &calls);
             char *legacy = scalar_primitive_once(frozen_legacy_parse_value_item, token, seed, fail, null_error, &legacy_calls);
-            text_buffer b;
             CHECK(calls == legacy_calls); same_text(actual, legacy);
-            scalar_begin_record(allocations ? "primitive-oom" : "primitive", 0, token, seed, fail, null_error, &b);
-            record_text(actual); scalar_end_record(&b); free(actual); free(legacy);
+            free(actual); free(legacy);
             if (!allocations || (fail && calls < fail)) break;
         }
         CHECK(!allocations || fail <= stop);
@@ -449,9 +787,10 @@ static void scalar_admission(void)
 int main(int argc, char **argv)
 {
     size_t i;
-    if (argc != 2) { fputs("usage: test_oracle_scalar_constructor --primitive|--primitive-oom|--handles|--constructor-oom\n", stderr); return 2; }
+    if (argc > 2) { fputs("usage: test_oracle_scalar_constructor [--primitive|--primitive-oom|--handles|--constructor-oom|--admission]\n", stderr); return 2; }
     scalar_init_boundaries();
-    if (!strcmp(argv[1], "--primitive")) scalar_primitive(0);
+    if (argc == 1) { scalar_admission(); scalar_primitive(0); }
+    else if (!strcmp(argv[1], "--primitive")) scalar_primitive(0);
     else if (!strcmp(argv[1], "--primitive-oom")) scalar_primitive(1);
     else if (!strcmp(argv[1], "--handles")) scalar_handles();
     else if (!strcmp(argv[1], "--constructor-oom")) scalar_constructor_oom();
@@ -459,5 +798,6 @@ int main(int argc, char **argv)
     else return 2;
     for (i = 0; i < COUNT(scalar_boundary_tokens); ++i) free(scalar_boundary_tokens[i]);
     CHECK(!record_sink && !scalar_live && !scalar_active && !scalar_native_depth);
+    puts("PASS: Oracle scalar constructor parity checks");
     return 0;
 }

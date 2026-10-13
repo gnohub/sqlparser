@@ -1,14 +1,18 @@
-# v2.17.4 Release Notes
+# v2.17.5 Release Notes
 
-Version 2.17.4 improves batch INSERT processing, expression-fragment rewriting and name enumeration, reducing repeated parsing, serialization and allocations. An optional bulk name reader is added; existing function signatures, public structure layouts and calling rules remain unchanged.
+Version 2.17.5 adds predicate-to-subquery links, extends DELETE alias handling, and fixes SQL Server transaction output after rewriting.
 
-## Improvements
+## Changes
 
-- Optimize eligible MySQL batch INSERT storage and string replacement, reducing intermediate representations and copying.
-- Optimize AST construction, fragment parsing and deparsing by reusing validated structures. Reuse the AST and update source locations for eligible PostgreSQL literal replacements.
-- Reduce inactive-field scans in name, WHERE and identifier traversal. Add `sqlparser_statement_names()` to enumerate a statement's name atoms in one call.
-- Fix rewriting fidelity for certain delimited identifiers, generated aliases and national character literals.
-- Preserve existing fast-parser admission; retain generic processing and validation for ineligible inputs.
+- Link direct-field `IN/NOT IN` predicates to their RHS query blocks across all 13 dialect entries, reusing existing ordered output targets, fields, values, and selectors. `NOT IN` retains its existing `NOT` parent structure.
+- Extend single-target DELETE alias handling in MySQL, SQL Server, Dameng, and related compatibility entries, including target resolution and rewriting within multi-table sources.
+- Preserve the SQL Server `TRANSACTION` keyword after rewriting mixed transaction batches, including related compatibility entries.
+- Add related JSON regression cases, consolidate Oracle tests into the shared test layout, and merge duplicate reference implementations.
+
+## API Compatibility
+
+- Add `has_source_block` and `source_block_index` to `sqlparser_graph_predicate_t`, returned by the existing `sqlparser_query_graph_predicate_at()` function. View JSON exposes the link as `source_block`.
+- No public functions are added; existing function signatures and calling rules remain unchanged. The public structure layout is extended, so callers must recompile against the updated header.
 
 ## Calling Rules
 

@@ -2,13 +2,14 @@
 
 [简体中文](./README.md)
 
-`sqlparser` is a generic SQL parse, rewrite, and deparse library with a stable C API. It parses SQL into a reusable handle, exposes structural inspection APIs, supports controlled mutation, and deparses the rewritten structure back to SQL.
+`sqlparser` is a generic SQL parse, rewrite, and deparse library with a C API. It parses SQL into a reusable handle, exposes structural inspection APIs, supports controlled mutation, and deparses the rewritten structure back to SQL.
 
 **Compatibility:** this release retains the 2.17.0 calling rules. Patch or deparse failure invalidates the handle;
 destroy it once instead of retrying or reading the previous state. Successful
 patch/deparse rounds reuse the same handle. Every nonempty apply invalidates
 borrowed views, even for identical SQL; a successful empty list preserves them.
-Public ABI is unchanged; these failure and borrowed-view rules differ from 2.16.x. Read the
+Version 2.17.5 extends `sqlparser_graph_predicate_t`, so callers must recompile when upgrading.
+These failure and borrowed-view rules differ from 2.16.x. Read the
 [Release notes](./RELEASE_NOTES.en.md) before adoption.
 
 The parser kernel is based on a pinned vendored `libpg_query` version:

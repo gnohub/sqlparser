@@ -3,9 +3,9 @@
 This document describes the public C API types, lifecycle rules, structured
 read APIs, and rewrite APIs exposed by `sqlparser`.
 
-This reference describes the 2.17.4 API. A handle cannot be reused after
-patch/deparse failure, unlike the rollback behavior in 2.16.x. Existing interfaces
-and public structure layouts are unchanged; an optional bulk name reader is added.
+This reference describes the 2.17.5 API. This version adds subquery-link fields
+to `sqlparser_graph_predicate_t`; callers must recompile. A handle cannot be reused
+after patch/deparse failure, unlike the rollback behavior in 2.16.x.
 See the [Release notes](../RELEASE_NOTES.en.md).
 
 ## Overview
@@ -996,6 +996,14 @@ it across apply. Do not dereference old view pointers after invalidation.
 - `predicates[]` represents the predicate tree for `WHERE`, `ON`, `HAVING`,
   `START WITH`, and `CONNECT BY`;
   the `children` span reports child predicates for `AND`, `OR`, and `NOT`.
+- For a direct-field `IN (SELECT ...)` predicate, `has_source_block = 1`
+  and `source_block_index` identifies the RHS query entry block (`source_block`
+  in View JSON). Read its ordered `targets` and reuse their field, value, and
+  selector information. `NOT IN` retains a `NOT` parent with the link on its
+  `IN` child. Other predicates have `has_source_block = 0`; star expansion and
+  per-column row comparisons are not inferred. These fields are returned by
+  the existing `sqlparser_query_graph_predicate_at()` function; callers must
+  recompile against the updated header.
 - Hierarchical queries reuse `fields[]`, `values[]`, and `predicates[]`.
   Occurrences in `START WITH` and `CONNECT BY` use
   `SQLPARSER_CLAUSE_KIND_START_WITH` and `SQLPARSER_CLAUSE_KIND_CONNECT_BY`.

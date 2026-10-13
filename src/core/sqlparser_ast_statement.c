@@ -44,6 +44,11 @@ static int sqlparser_relation_equal(
 	}
 	sqlparser_fill_relation_view_for_handle(handle, left, &left_view);
 	sqlparser_fill_relation_view_for_handle(handle, right, &right_view);
+	if (handle != NULL && handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    left_view.alias_name != NULL && right_view.alias_name != NULL &&
+	    strcmp(left_view.alias_name, right_view.alias_name) != 0) {
+		return 0;
+	}
 	return sqlparser_optional_relation_name_equal(
 		       left_view.database_name, right_view.database_name) &&
 	       sqlparser_optional_relation_name_equal(
@@ -95,6 +100,7 @@ sqlparser_status_t sqlparser_find_duplicate_delete_relation(
 {
 	size_t dml_count;
 	size_t dml_index;
+	PgQuery__DeleteStmt *alias_delete;
 
 	if (target == NULL || out_primary == NULL || out_duplicate == NULL) {
 		sqlparser_error_set_message(
@@ -105,9 +111,23 @@ sqlparser_status_t sqlparser_find_duplicate_delete_relation(
 	}
 	*out_primary = target;
 	*out_duplicate = NULL;
-	dml_count = sqlparser_dialect_dml_result_count(
-		handle,
-		statement_index);
+	alias_delete = NULL;
+	if (handle != NULL && target->alias != NULL &&
+	    (handle->dialect == SQLPARSER_DIALECT_DAMENG ||
+	     sqlparser_dialect_is_mysql_compatible(handle->dialect))) {
+		PgQuery__Node *statement;
+		sqlparser_status_t status = sqlparser_get_statement_node(
+			handle, statement_index, &statement, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (statement != NULL && statement->node_case == PG_QUERY__NODE__NODE_DELETE_STMT &&
+		    statement->delete_stmt != NULL && statement->delete_stmt->n_using_clause != 0U) {
+			alias_delete = statement->delete_stmt;
+		}
+	}
+	dml_count = alias_delete != NULL ? 1U :
+		sqlparser_dialect_dml_result_count(handle, statement_index);
 	for (dml_index = 0U; dml_index < dml_count; dml_index++) {
 		sqlparser_dialect_dml_result_dml_t dml;
 		ProtobufCMessage *message;
@@ -116,32 +136,34 @@ sqlparser_status_t sqlparser_find_duplicate_delete_relation(
 		size_t index;
 		sqlparser_status_t status;
 
-		memset(&dml, 0, sizeof(dml));
-		if (!sqlparser_dialect_dml_result_dml_at(
-			    handle,
-			    statement_index,
-			    dml_index,
-			    &dml)) {
-			sqlparser_error_set_message(
-				out_error,
-				SQLPARSER_STATUS_INTERNAL_ERROR,
-				"DML result metadata is inconsistent");
-			return SQLPARSER_STATUS_INTERNAL_ERROR;
-		}
-		if (dml.kind != SQLPARSER_GRAPH_DML_DELETE ||
-		    !dml.has_duplicate_target_relation) {
-			continue;
-		}
-		message = NULL;
-		status = sqlparser_get_dml_result_message(
-			handle,
-			statement_index,
-			dml_index,
-			NULL,
-			&message,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			return status;
+		message = alias_delete != NULL ? (ProtobufCMessage *)alias_delete : NULL;
+		if (alias_delete == NULL) {
+			memset(&dml, 0, sizeof(dml));
+			if (!sqlparser_dialect_dml_result_dml_at(
+				    handle,
+				    statement_index,
+				    dml_index,
+				    &dml)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"DML result metadata is inconsistent");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			if (dml.kind != SQLPARSER_GRAPH_DML_DELETE ||
+			    !dml.has_duplicate_target_relation) {
+				continue;
+			}
+			status = sqlparser_get_dml_result_message(
+				handle,
+				statement_index,
+				dml_index,
+				NULL,
+				&message,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
 		}
 		if (message == NULL ||
 		    message->descriptor != &pg_query__delete_stmt__descriptor) {
@@ -164,6 +186,9 @@ sqlparser_status_t sqlparser_find_duplicate_delete_relation(
 		}
 		if (stmt->relation == target) {
 			if (duplicate == NULL) {
+				if (alias_delete != NULL) {
+					return SQLPARSER_STATUS_OK;
+				}
 				sqlparser_error_set_message(
 					out_error,
 					SQLPARSER_STATUS_INTERNAL_ERROR,

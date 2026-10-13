@@ -101,6 +101,17 @@ typedef int (*sqlparser_dialect_dml_result_visit_fn)(
 	const sqlparser_dialect_dml_result_dml_t *dml,
 	void *context);
 
+/* Input uses core quoting. A NULL output means no rewrite was necessary.
+ * Alias targets are represented by a target relation plus the intact source
+ * list; deparse recovers the target alias directly, without retained state. */
+sqlparser_status_t sqlparser_dialect_rewrite_delete_aliases(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	int to_public,
+	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+
 int sqlparser_dialect_postgresql_dml_result_visit(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,

@@ -2,8 +2,8 @@
 
 本文档说明 `sqlparser` 公共 C API 的主要类型、生命周期规则、结构化读取接口和改写接口。
 
-本手册描述 2.17.4 的 API。patch/deparse 失败后 handle 不可复用，
-与 2.16.x 的回滚规则不同；现有接口和公开结构体布局不变，新增可选的批量名称读取接口，详见[发布说明](../RELEASE_NOTES.md)。
+本手册描述 2.17.5 的 API。本版本扩展了 `sqlparser_graph_predicate_t` 的子查询关联字段，调用方需重新编译。
+patch/deparse 失败后 handle 不可复用，与 2.16.x 的回滚规则不同，详见[发布说明](../RELEASE_NOTES.md)。
 
 ## 概述
 
@@ -758,6 +758,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。
 - `predicates[]` 表达 `WHERE`、`ON`、`HAVING`、`START WITH`、`CONNECT BY` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
+- 对直接字段的 `IN (SELECT ...)` 谓词，`has_source_block = 1`，`source_block_index` 指向右侧子查询入口 block；View JSON 对应 `source_block`。按该 block 的 `targets` 读取有序输出项，再使用已有 field、value 和 selector 信息。`NOT IN` 保留 `NOT` 父节点，关联位于其 `IN` 子节点。其他谓词的 `has_source_block` 为 `0`；不推断星号展开或多列逐项对应关系。字段由现有 `sqlparser_query_graph_predicate_at()` 返回，调用方需使用更新后的头文件重新编译。
 - 层次查询字段和值复用 `fields[]`、`values[]` 和 `predicates[]`。`START WITH` 与 `CONNECT BY` occurrence 分别使用 `SQLPARSER_CLAUSE_KIND_START_WITH` 和 `SQLPARSER_CLAUSE_KIND_CONNECT_BY`；同一 SELECT 中的条件相关 occurrence 按 `WHERE`、`START WITH`、`CONNECT BY`、`GROUP BY` / `HAVING`、窗口与 `ORDER BY` 的语义遍历顺序构建。selector 仍来自通用 AST descriptor 遍历，应作为不透明定位路径使用，不能按源文本子句顺序推导序号。
 - 当前查询块存在 `CONNECT BY` 时，未加标识符定界符的 `LEVEL`、`CONNECT_BY_ISLEAF` 和 `CONNECT_BY_ISCYCLE` 使用 `sqlparser_graph_field_t.pseudo = 1`，不关联 relation；对应 SELECT pseudo target 通过 `field_index` 回指该字段。带定界符的 `"LEVEL"` 和不含 `CONNECT BY` 的查询块保持普通字段语义，嵌套 SELECT 不继承外层层次上下文。
 - `PRIOR` 透明标记其操作数内的字段 occurrence，设置 `sqlparser_graph_field_t.prior = 1`，且仅适用于当前 `CONNECT BY` 条件。`CONNECT_BY_ROOT` 的 SELECT target 仍为 `SQLPARSER_GRAPH_TARGET_EXPRESSION`；其底层字段通过单个 `target_path` entry 表达，`kind = "operator"`、`name = "CONNECT_BY_ROOT"`、`arg_index = 0`。

@@ -424,7 +424,8 @@ static int sqlparser_sqlserver_output_identifier_token_next(
 static int sqlparser_sqlserver_output_identifier_tokens_equal(
 	const char *sql,
 	const sqlparser_sqlserver_token_t *left,
-	const sqlparser_sqlserver_token_t *right)
+	const sqlparser_sqlserver_token_t *right,
+	sqlparser_dialect_t dialect)
 {
 	size_t left_pos;
 	size_t right_pos;
@@ -452,7 +453,18 @@ static int sqlparser_sqlserver_output_identifier_tokens_equal(
 		if (!has_left || !has_right) {
 			return has_left == has_right;
 		}
-		if (tolower(left_char) != tolower(right_char)) {
+		if (dialect == SQLPARSER_DIALECT_DAMENG) {
+			if (left->kind == SQLPARSER_SQLSERVER_TOKEN_WORD) {
+				left_char = (unsigned char)toupper(left_char);
+			}
+			if (right->kind == SQLPARSER_SQLSERVER_TOKEN_WORD) {
+				right_char = (unsigned char)toupper(right_char);
+			}
+		} else {
+			left_char = (unsigned char)tolower(left_char);
+			right_char = (unsigned char)tolower(right_char);
+		}
+		if (left_char != right_char) {
 			return 0;
 		}
 	}
@@ -605,6 +617,7 @@ static int sqlparser_sqlserver_output_edit_compare(const void *left, const void 
 static sqlparser_status_t sqlparser_sqlserver_output_apply_edits(
 	char **io_sql,
 	sqlparser_sqlserver_output_edits_t *edits,
+	int input_owned,
 	sqlparser_error_t *out_error)
 {
 	const char *sql;
@@ -798,7 +811,9 @@ static sqlparser_status_t sqlparser_sqlserver_output_apply_edits(
 			return status;
 		}
 	}
-	free(*io_sql);
+	if (input_owned) {
+		free(*io_sql);
+	}
 	*io_sql = rewritten;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1263,6 +1278,7 @@ static int sqlparser_sqlserver_output_boundary_word(
 			       sqlparser_sqlserver_token_word_equal(sql, token, "option");
 		case SQLPARSER_GRAPH_DML_DELETE:
 			return sqlparser_sqlserver_token_word_equal(sql, token, "from") ||
+			       sqlparser_sqlserver_token_word_equal(sql, token, "using") ||
 			       sqlparser_sqlserver_token_word_equal(sql, token, "where") ||
 			       sqlparser_sqlserver_token_word_equal(sql, token, "option");
 		case SQLPARSER_GRAPH_DML_MERGE:
@@ -1376,6 +1392,7 @@ static int sqlparser_sqlserver_output_delete_relation_at(
 static int sqlparser_sqlserver_output_find_delete_source(
 	const char *sql,
 	const sqlparser_sqlserver_output_tokens_t *tokens,
+	sqlparser_dialect_t dialect,
 	size_t begin,
 	size_t end,
 	const sqlparser_sqlserver_token_t *wanted_alias,
@@ -1425,7 +1442,7 @@ static int sqlparser_sqlserver_output_find_delete_source(
 		}
 		if ((wanted_alias != NULL && alias_index != (size_t)-1 &&
 		     sqlparser_sqlserver_output_identifier_tokens_equal(
-			     sql, wanted_alias, &tokens->items[alias_index])) ||
+			     sql, wanted_alias, &tokens->items[alias_index], dialect)) ||
 		    (wanted_alias == NULL && source_ordinal == wanted_ordinal)) {
 			if (out_span != NULL) {
 				*out_span = source_span;
@@ -1449,6 +1466,7 @@ static int sqlparser_sqlserver_output_find_delete_source(
 static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	const char *sql,
 	const sqlparser_sqlserver_output_tokens_t *tokens,
+	sqlparser_dialect_t dialect,
 	size_t next_index,
 	size_t output_index,
 	sqlparser_sqlserver_output_dml_t *dml,
@@ -1456,6 +1474,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	sqlparser_error_t *out_error)
 {
 	size_t boundary_index;
+	size_t edit_start;
 	size_t target_start;
 	size_t target_end;
 	size_t parser_target_start;
@@ -1467,14 +1486,27 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	char *replacement;
 	sqlparser_status_t status;
 
-	if (next_index >= output_index || output_index >= tokens->count) {
+	if (next_index >= tokens->count) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "SQL Server DELETE target is missing");
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
+	edit_start = tokens->items[next_index].start;
+	if (sqlparser_sqlserver_token_word_equal(sql, &tokens->items[next_index], "from")) {
+		next_index++;
+	}
 	boundary_index = sqlparser_sqlserver_output_find_boundary(
-		sql, tokens, output_index, SQLPARSER_GRAPH_DML_DELETE);
+		sql, tokens, output_index != (size_t)-1 ? output_index : next_index,
+		SQLPARSER_GRAPH_DML_DELETE);
+	if (output_index == (size_t)-1) {
+		output_index = boundary_index;
+	}
+	if (next_index >= output_index) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "SQL Server DELETE target is missing");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
 	if (boundary_index < tokens->count &&
-	    sqlparser_sqlserver_token_word_equal(sql, &tokens->items[boundary_index], "from")) {
+	    (sqlparser_sqlserver_token_word_equal(sql, &tokens->items[boundary_index], "from") ||
+	     sqlparser_sqlserver_token_word_equal(sql, &tokens->items[boundary_index], "using"))) {
 		dml->delete_source_from = 1;
 		status = sqlparser_sqlserver_output_edit_add(
 			edits,
@@ -1487,13 +1519,17 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 			return status;
 		}
 	}
-	if (sqlparser_sqlserver_token_word_equal(sql, &tokens->items[next_index], "from")) {
+	target_start = tokens->items[next_index].start;
+	target_end = tokens->items[output_index - 1U].end;
+	/* A normal FROM object target already has the core representation. Only
+	 * a single identifier that resolves to a source alias needs expansion. */
+	if (edit_start != target_start &&
+	    (output_index != next_index + 1U || !dml->delete_source_from ||
+	     !sqlparser_sqlserver_output_find_delete_source(
+		     sql, tokens, dialect, boundary_index + 1U, tokens->count,
+		     &tokens->items[next_index], 0U, NULL, NULL, NULL, NULL))) {
 		return SQLPARSER_STATUS_OK;
 	}
-
-	target_start = tokens->items[next_index].start;
-	target_end = sqlparser_sqlserver_trim_right(
-		sql, target_start, tokens->items[output_index].start);
 	status = sqlparser_sqlserver_output_validate_identifier(
 		sql,
 		target_start,
@@ -1515,6 +1551,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 		if (sqlparser_sqlserver_output_find_delete_source(
 			    sql,
 			    tokens,
+			    dialect,
 			    boundary_index + 1U,
 			    tokens->count,
 			    &tokens->items[next_index],
@@ -1526,7 +1563,11 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 			dml->delete_target_form = SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_ALIAS;
 			parser_target_start = source_span.start;
 			parser_target_end = source_span.end;
-			parser_alias_start = tokens->items[source_alias_index].start;
+			/* The relation owns the source declaration's quoting. SQL Server
+			 * retains its established target-reference spelling contract. */
+			if (dialect != SQLPARSER_DIALECT_DAMENG) {
+				parser_alias_start = tokens->items[source_alias_index].start;
+			}
 		}
 	}
 	if (parser_target_end < parser_target_start || target_end < target_start ||
@@ -1571,7 +1612,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	replacement[replacement_len] = '\0';
 	edit_index = edits->count;
 	status = sqlparser_sqlserver_output_edit_add(
-		edits, target_start, target_end, NULL, replacement, out_error);
+		edits, edit_start, target_end, NULL, replacement, out_error);
 	if (status == SQLPARSER_STATUS_OK && parser_alias_start != (size_t)-1) {
 		size_t prefix_len;
 
@@ -2175,7 +2216,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_process_statement(
 	top_start = 0U;
 	top_end = 0U;
 	next_index = root_index + 1U;
-	if (output_index != (size_t)-1) {
+	if (output_index != (size_t)-1 || kind == SQLPARSER_GRAPH_DML_DELETE) {
 		status = sqlparser_sqlserver_output_parse_top(
 			sql,
 			&tokens,
@@ -2195,6 +2236,12 @@ static sqlparser_status_t sqlparser_sqlserver_output_process_statement(
 		(next_index >= tokens.count ||
 		 !sqlparser_sqlserver_token_word_equal(sql, &tokens.items[next_index], "into"));
 	needs_state = output_index != (size_t)-1 || omitted_into || top_sql != NULL;
+	if (kind == SQLPARSER_GRAPH_DML_DELETE && next_index < tokens.count) {
+		needs_state = needs_state ||
+			!sqlparser_sqlserver_token_word_equal(sql, &tokens.items[next_index], "from") ||
+			sqlparser_sqlserver_output_find_word_between(
+				sql, &tokens, next_index + 1U, tokens.count, "from") != (size_t)-1;
+	}
 	if (!needs_state) {
 		free(top_sql);
 		sqlparser_sqlserver_output_tokens_clear(&tokens);
@@ -2236,11 +2283,11 @@ static sqlparser_status_t sqlparser_sqlserver_output_process_statement(
 	}
 	dml->top_sql = top_sql;
 	dml->omitted_into = omitted_into;
-	if (status == SQLPARSER_STATUS_OK && output_index != (size_t)-1 &&
-	    kind == SQLPARSER_GRAPH_DML_DELETE) {
+	if (status == SQLPARSER_STATUS_OK && kind == SQLPARSER_GRAPH_DML_DELETE) {
 		status = sqlparser_sqlserver_output_prepare_delete(
 			sql,
 			&tokens,
+			SQLPARSER_DIALECT_SQLSERVER,
 			next_index,
 			output_index,
 			dml,
@@ -2449,7 +2496,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_nested_parser_sql(
 		&edits,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_output_apply_edits(&parser_sql, &edits, out_error);
+		status = sqlparser_sqlserver_output_apply_edits(&parser_sql, &edits, 1, out_error);
 	}
 	sqlparser_sqlserver_output_edits_clear(&edits);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -2880,7 +2927,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_preprocess_nested(
 		start = end < sql_len && sql[end] == ';' ? end + 1U : end;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, out_error);
+		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, 1, out_error);
 	}
 	sqlparser_sqlserver_output_edits_clear(&edits);
 	return status;
@@ -2940,7 +2987,8 @@ static sqlparser_status_t sqlparser_sqlserver_output_preprocess_internal(
 	*out_state = NULL;
 	candidates &= SQLPARSER_SQLSERVER_CANDIDATE_INSERT |
 		SQLPARSER_SQLSERVER_CANDIDATE_MERGE |
-		SQLPARSER_SQLSERVER_CANDIDATE_OUTPUT;
+		SQLPARSER_SQLSERVER_CANDIDATE_OUTPUT |
+		SQLPARSER_SQLSERVER_CANDIDATE_DELETE;
 	if (candidates == 0U) {
 		return SQLPARSER_STATUS_OK;
 	}
@@ -3000,7 +3048,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_preprocess_internal(
 		start = end < sql_len && sql[end] == ';' ? end + 1U : end;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, out_error);
+		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, 1, out_error);
 	}
 	sqlparser_sqlserver_output_edits_clear(&edits);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -3682,7 +3730,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_build_delete_source(
 	}
 	target_name_len = target_name_end - target.start;
 	aliases_equal = sqlparser_sqlserver_output_identifier_tokens_equal(
-		sql, target_alias, source_alias);
+		sql, target_alias, source_alias, SQLPARSER_DIALECT_SQLSERVER);
 	if (aliases_equal) {
 		source_suffix_len = source.end - source_name_end;
 	} else {
@@ -4079,11 +4127,12 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 			goto done;
 		}
 	}
-	if (dml->channel_count == 0U) {
+	if (dml->channel_count == 0U && dml->kind != SQLPARSER_GRAPH_DML_DELETE) {
 		status = SQLPARSER_STATUS_OK;
 		goto done;
 	}
-	returning_index = sqlparser_sqlserver_output_find_word_between(
+	returning_index = dml->channel_count == 0U ? tokens.count :
+		sqlparser_sqlserver_output_find_word_between(
 		sql,
 		&tokens,
 		root_index + 1U,
@@ -4103,32 +4152,36 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 		}
 		expected_count += dml->channels[channel_index].target_count;
 	}
-	status = sqlparser_sqlserver_output_returning_spans(
-		&tokens,
-		returning_index,
-		statement_end,
-		expected_count,
-		&spans,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		goto done;
+	if (dml->channel_count != 0U) {
+		status = sqlparser_sqlserver_output_returning_spans(
+			&tokens,
+			returning_index,
+			statement_end,
+			expected_count,
+			&spans,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto done;
+		}
+		status = sqlparser_sqlserver_output_build_public_clause(
+			sql,
+			&tokens,
+			dml,
+			spans,
+			&clause,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto done;
+		}
+		insertion_pos = sqlparser_sqlserver_output_public_insert_position(
+			sql,
+			&tokens,
+			root_index,
+			returning_index,
+			dml->kind);
+	} else {
+		insertion_pos = statement_end;
 	}
-	status = sqlparser_sqlserver_output_build_public_clause(
-		sql,
-		&tokens,
-		dml,
-		spans,
-		&clause,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		goto done;
-	}
-	insertion_pos = sqlparser_sqlserver_output_public_insert_position(
-		sql,
-		&tokens,
-		root_index,
-		returning_index,
-		dml->kind);
 	delete_source_index = (size_t)-1;
 	if (dml->delete_source_from) {
 		delete_source_index = sqlparser_sqlserver_output_find_word_between(
@@ -4198,6 +4251,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 				if (!sqlparser_sqlserver_output_find_delete_source(
 					    sql,
 					    &tokens,
+					    SQLPARSER_DIALECT_SQLSERVER,
 					    delete_source_index + 1U,
 					    returning_index,
 					    NULL,
@@ -4260,6 +4314,9 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 		if (status != SQLPARSER_STATUS_OK) {
 			goto done;
 		}
+	}
+	if (dml->channel_count == 0U) {
+		goto done;
 	}
 	insertion_start = insertion_pos;
 	while (insertion_start > statement_start &&
@@ -4330,6 +4387,143 @@ done:
 	free(clause);
 	free(spans);
 	sqlparser_sqlserver_output_tokens_clear(&tokens);
+	return status;
+}
+
+sqlparser_status_t sqlparser_dialect_rewrite_delete_aliases(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	int to_public,
+	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_output_edits_t edits;
+	sqlparser_status_t status;
+	size_t start;
+	size_t length;
+
+	*out_sql = NULL;
+	if (!sqlparser_sqlserver_output_ascii_contains(sql, "delete")) {
+		return SQLPARSER_STATUS_OK;
+	}
+	memset(&edits, 0, sizeof(edits));
+	edits.origins = origins;
+	length = strlen(sql);
+	status = SQLPARSER_STATUS_OK;
+	for (start = 0U; start < length && status == SQLPARSER_STATUS_OK;) {
+		sqlparser_sqlserver_output_tokens_t tokens;
+		sqlparser_sqlserver_output_dml_t dml;
+		size_t end;
+		size_t root;
+		size_t target;
+		size_t source;
+		size_t alias;
+		size_t ordinal;
+		size_t keyword;
+
+		end = sqlparser_sqlserver_statement_end(sql, start, length);
+		memset(&tokens, 0, sizeof(tokens));
+		memset(&dml, 0, sizeof(dml));
+		keyword = sqlparser_sqlserver_skip_trivia(sql, start);
+		if (keyword >= end ||
+		    (!sqlparser_sqlserver_ascii_word_equal(sql, keyword, "delete") &&
+		     !sqlparser_sqlserver_ascii_word_equal(sql, keyword, "with"))) {
+			goto next_statement;
+		}
+		status = sqlparser_sqlserver_output_tokenize(sql, start, end, &tokens, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_output_tokens_clear(&tokens);
+			break;
+		}
+		root = sqlparser_sqlserver_output_find_root_dml(sql, &tokens);
+		if (root == (size_t)-1 ||
+		    !sqlparser_sqlserver_token_word_equal(sql, &tokens.items[root], "delete")) {
+			goto next_statement;
+		}
+		target = root + 1U;
+		if (target < tokens.count &&
+		    sqlparser_sqlserver_token_word_equal(sql, &tokens.items[target], "from")) {
+			target++;
+		}
+		source = sqlparser_sqlserver_output_find_boundary(
+			sql, &tokens, target, SQLPARSER_GRAPH_DML_DELETE);
+		if (source >= tokens.count ||
+		    (!sqlparser_sqlserver_token_word_equal(sql, &tokens.items[source], "from") &&
+		     !sqlparser_sqlserver_token_word_equal(sql, &tokens.items[source], "using"))) {
+			goto next_statement;
+		}
+		if (to_public) {
+			sqlparser_sqlserver_output_span_t span;
+			size_t name_end;
+
+			if (!sqlparser_sqlserver_output_delete_relation_at(
+				    sql, &tokens, target, source, &span, &name_end, &alias) ||
+			    alias == (size_t)-1) {
+				goto next_statement;
+			}
+		} else {
+			alias = target;
+			if (target + 1U != source ||
+			    !sqlparser_sqlserver_output_token_is_identifier(&tokens.items[target])) {
+				goto next_statement;
+			}
+		}
+		if (!sqlparser_sqlserver_output_find_delete_source(
+			    sql, &tokens, dialect, source + 1U, tokens.count, &tokens.items[alias],
+			    0U, NULL, NULL, NULL, &ordinal)) {
+			goto next_statement;
+		}
+		if (!to_public && dialect == SQLPARSER_DIALECT_MYSQL) {
+			size_t index;
+			size_t join_count = 0U;
+			int using_form = sqlparser_sqlserver_token_word_equal(sql, &tokens.items[source], "using");
+
+			for (index = source + 1U; index < tokens.count; index++) {
+				if (sqlparser_sqlserver_output_token_top(&tokens.items[index]) &&
+				    sqlparser_sqlserver_token_word_equal(sql, &tokens.items[index], "join")) {
+					join_count++;
+				}
+			}
+			/* Preserve selectors for the existing simple/two-source rewrite.
+			 * USING differs only in header spelling for those shapes. */
+			if (join_count <= 1U) {
+				if (using_form) {
+					status = sqlparser_sqlserver_output_edit_add(
+						&edits, tokens.items[root + 1U].start,
+						tokens.items[target].start, NULL, NULL, out_error);
+					if (status == SQLPARSER_STATUS_OK) {
+						status = sqlparser_sqlserver_output_edit_add(
+							&edits, tokens.items[source].start, tokens.items[source].end,
+							"FROM", NULL, out_error);
+					}
+				}
+				goto next_statement;
+			}
+		}
+		dml.kind = SQLPARSER_GRAPH_DML_DELETE;
+		if (to_public) {
+			dml.delete_target_form = SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_ALIAS;
+			dml.delete_source_from = 1;
+			dml.delete_alias_source_ordinal = ordinal;
+			status = sqlparser_sqlserver_output_postprocess_dml(
+				sql, start, end, &dml, &edits, out_error);
+		} else {
+			status = sqlparser_sqlserver_output_prepare_delete(
+				sql, &tokens, dialect, root + 1U, (size_t)-1, &dml, &edits, out_error);
+		}
+	next_statement:
+		sqlparser_sqlserver_output_tokens_clear(&tokens);
+		start = end < length ? end + 1U : end;
+	}
+	if (status == SQLPARSER_STATUS_OK && edits.count != 0U) {
+		char *rewritten = (char *)sql;
+		status = sqlparser_sqlserver_output_apply_edits(&rewritten, &edits, 0, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			*out_sql = rewritten;
+		}
+	}
+	sqlparser_sqlserver_output_edits_clear(&edits);
 	return status;
 }
 
@@ -4561,7 +4755,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_unwrap_nested(
 		replacement = NULL;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, out_error);
+		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, 1, out_error);
 	}
 	free(replacement);
 	sqlparser_sqlserver_output_edits_clear(&edits);
@@ -4632,7 +4826,7 @@ sqlparser_status_t sqlparser_sqlserver_output_postprocess(
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, out_error);
+		status = sqlparser_sqlserver_output_apply_edits(io_sql, &edits, 1, out_error);
 	}
 	sqlparser_sqlserver_output_edits_clear(&edits);
 	if (status == SQLPARSER_STATUS_OK) {

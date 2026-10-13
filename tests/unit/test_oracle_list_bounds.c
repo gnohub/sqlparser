@@ -9,8 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../../src/dialect/sqlparser_dialect_oracle.c"
-#include "../oracle_listbounds/frozen_scanner_reference.inc"
-
+#include "sqlparser_reference_oracle_list_scanners.inc"
 static size_t comparisons;
 static size_t complete_columns;
 static size_t complete_values;

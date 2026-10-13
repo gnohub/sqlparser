@@ -653,6 +653,9 @@ typedef struct {
 	int has_value;
 	sqlparser_index_span_t children;
 	int nocycle;
+	/* RHS query block for a direct-field IN/NOT IN subquery predicate. */
+	int has_source_block;
+	size_t source_block_index;
 } sqlparser_graph_predicate_t;
 
 typedef struct {

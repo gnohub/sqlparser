@@ -566,17 +566,17 @@ $(BIN_PATH)/test_wire_varint_dispatch: src/core/sqlparser_wire_insert.c
 # Dependencies for focused INSERT parsing and graph regressions.
 $(BIN_PATH)/test_certified_location_u32: src/core/sqlparser_wire_insert.c tests/unit/sqlparser_reference_certified_cell.inc
 $(BIN_PATH)/test_dameng_wire_transcript: tests/unit/test_dameng_wire_transcript.c
-$(BIN_PATH)/test_oracle_constructor_gates: tests/unit/test_oracle_constructor_gates.c tests/oracle_constructorgates/frozen_constructor_path.inc tests/oracle_constructorgates/cases.h tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_header_cache: tests/unit/test_oracle_header_cache.c tests/oracle_headercache/frozen_header_path.inc tests/oracle_headercache/compare_helpers.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_initial_span_certificate: tests/unit/test_oracle_initial_span_certificate.c tests/oracle_spancert/frozen_surface_scanners.inc tests/oracle_spancert/frozen_oracle_scanners.inc tests/oracle_spancert/frozen_view_scanners.inc tests/oracle_spancert/frozen_entry_scanners.inc src/core/sqlparser_view.c
-$(BIN_PATH)/test_oracle_list_bounds: tests/unit/test_oracle_list_bounds.c tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_list_bounds_public: tests/unit/test_oracle_list_bounds_public.c tests/oracle_listbounds/frozen_scanner_reference.inc tests/oracle_listbounds/frozen_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_quote_call_gates: tests/unit/test_oracle_quote_call_gates.c tests/oracle_quotegates/frozen_view_scanners.inc tests/oracle_quotegates/frozen_surface_scanner.inc src/core/sqlparser_view.c
-$(BIN_PATH)/test_oracle_returning_guard: tests/unit/test_oracle_returning_guard.c tests/oracle_returningguard/frozen_validator.inc tests/oracle_returningguard/frozen_surface_scanner.inc tests/oracle_returningguard/cases.h src/dialect/sqlparser_dialect_dml_result.c
-$(BIN_PATH)/test_oracle_scan_gate: tests/unit/test_oracle_scan_gate.c tests/oracle_scangates/frozen_oracle_scanner.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_statement_end: tests/unit/test_oracle_statement_end.c tests/oracle_statementend/frozen_statement_end.inc tests/oracle_listbounds/frozen_scanner_reference.inc src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_oracle_value_facts: tests/unit/test_oracle_value_facts.c tests/oracle_valuefacts/frozen_value_path.inc tests/oracle_valuefacts/cases.h src/dialect/sqlparser_dialect_oracle.c
-$(BIN_PATH)/test_statement_scan_gate: tests/unit/test_statement_scan_gate.c tests/oracle_scangates/frozen_statement_span.inc src/core/sqlparser_view.c
+$(BIN_PATH)/test_oracle_constructor_gates: tests/unit/test_oracle_constructor_gates.c tests/unit/sqlparser_reference_oracle_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_header_cache: tests/unit/test_oracle_header_cache.c src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_initial_span_certificate: tests/unit/test_oracle_initial_span_certificate.c src/core/sqlparser_view.c
+$(BIN_PATH)/test_oracle_list_bounds: tests/unit/test_oracle_list_bounds.c tests/unit/sqlparser_reference_oracle_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_list_bounds_public: tests/unit/test_oracle_list_bounds_public.c tests/unit/sqlparser_reference_oracle_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_quote_call_gates: tests/unit/test_oracle_quote_call_gates.c tests/unit/sqlparser_reference_surface_scanner.inc src/core/sqlparser_view.c
+$(BIN_PATH)/test_oracle_returning_guard: tests/unit/test_oracle_returning_guard.c tests/unit/sqlparser_reference_surface_scanner.inc src/dialect/sqlparser_dialect_dml_result.c
+$(BIN_PATH)/test_oracle_scan_gate: tests/unit/test_oracle_scan_gate.c src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_statement_end: tests/unit/test_oracle_statement_end.c tests/unit/sqlparser_reference_oracle_list_scanners.inc src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_oracle_value_facts: tests/unit/test_oracle_value_facts.c src/dialect/sqlparser_dialect_oracle.c
+$(BIN_PATH)/test_statement_scan_gate: tests/unit/test_statement_scan_gate.c src/core/sqlparser_view.c
 $(BIN_PATH)/test_postgresql_identity_preprocess: tests/unit/test_postgresql_identity_preprocess.c src/dialect/sqlparser_dialect_postgresql.c
 $(BIN_PATH)/test_postgresql_identity_tail: tests/unit/test_postgresql_identity_tail.c src/dialect/sqlparser_dialect_postgresql.c
 $(BIN_PATH)/test_oracle_readonly_batch: tests/unit/test_oracle_readonly_batch.c
@@ -594,7 +594,7 @@ $(BIN_PATH)/test_oracle_column_oom: tests/unit/test_oracle_column_oom.c src/dial
 		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
 		$(LDFLAGS) $(LDLIBS) -o $@
 
-$(BIN_PATH)/test_oracle_compact_lifecycle: tests/unit/test_oracle_compact_lifecycle.c $(wildcard tests/oracle_compact_backend/*) $(STATIC_LIB_PATH) | prep
+$(BIN_PATH)/test_oracle_compact_lifecycle: tests/unit/test_oracle_compact_lifecycle.c $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -I./src/core -I./src/dialect -DHEADER_CLASSIFICATION=1 \
 		$< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
 
@@ -758,7 +758,19 @@ $(LIBPG_QUERY_BASELINE_BIN): tools/libpg_query_baseline.c $(VENDOR_PG_QUERY_LIB)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(VENDOR_PG_QUERY_LIB) $(SQLPARSER_BENCH_WRAP_LDFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
 
-include tests/oracle_scalar_constructor/Makefile.inc
+# Scalar construction checks use the same unit-test entry as other dialects.
+$(BIN_PATH)/test_oracle_scalar_constructor: tests/unit/test_oracle_scalar_constructor.c tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h tests/unit/sqlparser_test_failure.h src/dialect/sqlparser_dialect_oracle.c $(STATIC_LIB_PATH) | prep
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -fno-builtin -DSCALAR_OPTIMIZED=1 $< $(STATIC_LIB_PATH) \
+		-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
+		-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context \
+		$(LDFLAGS) $(LDLIBS) -o $@
+
+.PHONY: test-oracle-scalar-constructor test-oracle-scalar-constructor-alloc
+test-oracle-scalar-constructor: $(BIN_PATH)/test_oracle_scalar_constructor
+	@$(BIN_PATH)/test_oracle_scalar_constructor
+
+test-oracle-scalar-constructor-alloc: $(BIN_PATH)/test_oracle_scalar_constructor
+	@$(BIN_PATH)/test_oracle_scalar_constructor --primitive-oom
 
 -include $(DEP_FILES)
 
@@ -874,13 +886,13 @@ ORACLE_COMMIT_TEST_WRAPS := -Wl,--wrap=sqlparser_handle_reparse_destructive \
 	-Wl,--wrap=sqlparser_oracle_note_multi_insert_edit \
 	-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free \
 	-Wl,--wrap=pg_query_enter_memory_context -Wl,--wrap=pg_query_exit_memory_context
-$(BUILD_PATH)/tests/oracle_ascii_reference.o: tests/oracle_ascii_validation/patch_probe.c src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
+$(BUILD_PATH)/tests/oracle_ascii_reference.o: tests/unit/sqlparser_oracle_ascii_probe.inc src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
 	@mkdir -p $(dir $@)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=1 -c $< -o $@
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=1 -x c -c $< -o $@
 
-$(BUILD_PATH)/tests/oracle_ascii_probe.o: tests/oracle_ascii_validation/patch_probe.c src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
+$(BUILD_PATH)/tests/oracle_ascii_probe.o: tests/unit/sqlparser_oracle_ascii_probe.inc src/core/sqlparser_patch.c $(BUILD_SIGNATURE_FILE) | prep
 	@mkdir -p $(dir $@)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=0 -c $< -o $@
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSQLPARSER_ASCII_REFERENCE=0 -x c -c $< -o $@
 
 $(BIN_PATH)/test_oracle_ascii_validation: tests/unit/test_oracle_ascii_validation.c tests/unit/test_oracle_owned_commit.c tests/unit/sqlparser_oracle_graph_records.h $(BUILD_PATH)/tests/oracle_ascii_reference.o $(BUILD_PATH)/tests/oracle_ascii_probe.o $(STATIC_LIB_PATH) | prep
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $(ORACLE_COMMIT_TEST_FLAGS) $< $(BUILD_PATH)/tests/oracle_ascii_reference.o $(BUILD_PATH)/tests/oracle_ascii_probe.o $(STATIC_LIB_PATH) \

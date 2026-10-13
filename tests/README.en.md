@@ -49,7 +49,7 @@ The `tests/` directory records functional coverage for `sqlparser`.
 ## Layout
 
 - `tests/unit/`
-  Unit tests and API regression tests.
+  Unit tests, API regressions, and shared test reference implementations. Dialect-specific internal checks use this same directory.
 - `tests/cases/`
   Named SQL cases, batch fixtures, and supporting notes.
 

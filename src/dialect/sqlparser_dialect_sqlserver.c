@@ -7943,6 +7943,7 @@ int sqlparser_sqlserver_generated_identifier_spelling(
 static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 	const char *core_sql,
 	const sqlparser_sqlserver_state_t *state,
+	sqlparser_fragment_context_t fragment_context,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -7950,6 +7951,7 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 	size_t index;
 	size_t unicode_index;
 	size_t literal_ordinal;
+	int statement_start;
 	sqlparser_status_t status;
 
 	memset(&out, 0, sizeof(out));
@@ -7960,8 +7962,18 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 	index = 0U;
 	unicode_index = 0U;
 	literal_ordinal = 0U;
+	statement_start = fragment_context == SQLPARSER_FRAGMENT_CONTEXT_STATEMENT;
 	while (core_sql[index] != '\0') {
-		if (core_sql[index] == '\'') {
+		if (statement_start &&
+		    sqlparser_sqlserver_ascii_word_equal(core_sql, index, "begin") &&
+		    (core_sql[sqlparser_sqlserver_skip_space(core_sql, index + 5U)] == ';' ||
+		     core_sql[sqlparser_sqlserver_skip_space(core_sql, index + 5U)] == '\0')) {
+			/* The core renders a transaction BEGIN without its optional keyword.
+			 * SQL Server requires that keyword to distinguish it from a block. */
+			status = sqlparser_sqlserver_buffer_append_cstr(&out, "BEGIN TRANSACTION", out_error);
+			index += 5U;
+			statement_start = 0;
+		} else if (core_sql[index] == '\'') {
 			size_t literal_end;
 			int use_unicode_prefix;
 
@@ -7998,6 +8010,7 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 				index = literal_end;
 			}
 			literal_ordinal++;
+			statement_start = 0;
 		} else if ((core_sql[index] == '-' &&
 		            core_sql[index + 1U] == '-') ||
 		           (core_sql[index] == '/' &&
@@ -8019,8 +8032,10 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 			           strlen(SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX)) == 0) {
 			status = sqlparser_sqlserver_append_public_system_variable(
 				core_sql, &index, &out, out_error);
+			statement_start = 0;
 		} else if (core_sql[index] == '"' && core_sql[index + 1U] == '#') {
 			status = sqlparser_sqlserver_append_public_temp_identifier(core_sql, &index, &out, out_error);
+			statement_start = 0;
 		} else if (core_sql[index] == '"' || core_sql[index] == '[') {
 			size_t identifier_end;
 
@@ -8035,14 +8050,21 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 			if (status == SQLPARSER_STATUS_OK) {
 				index = identifier_end;
 			}
+			statement_start = 0;
 		} else if (core_sql[index] == '$') {
 			status = sqlparser_sqlserver_param_to_public(core_sql, &index, state, &out, out_error);
+			statement_start = 0;
 		} else if (sqlparser_sqlserver_ascii_word_equal(core_sql, index, "pg_catalog") &&
 		           core_sql[index + strlen("pg_catalog")] == '.' &&
 		           sqlparser_sqlserver_ascii_word_equal(core_sql, index + strlen("pg_catalog") + 1U, "bit")) {
 			status = sqlparser_sqlserver_buffer_append_cstr(&out, "bit", out_error);
 			index += strlen("pg_catalog.bit");
+			statement_start = 0;
 		} else {
+			if (!isspace((unsigned char)core_sql[index])) {
+				statement_start = core_sql[index] == ';' &&
+					fragment_context == SQLPARSER_FRAGMENT_CONTEXT_STATEMENT;
+			}
 			status = sqlparser_sqlserver_buffer_append_char(&out, core_sql[index], out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				index++;
@@ -10815,7 +10837,8 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_text(
 	}
 
 	public_sql = NULL;
-	status = sqlparser_sqlserver_postprocess_core(core_sql, state, &public_sql, out_error);
+	status = sqlparser_sqlserver_postprocess_core(
+		core_sql, state, fragment_context, &public_sql, out_error);
 	free(odbc_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;

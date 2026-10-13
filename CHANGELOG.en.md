@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.5
+
+- Link direct-field `IN/NOT IN` predicates to their RHS subqueries across all 13 dialect entries, reusing existing output targets and selectors.
+- Add `has_source_block` and `source_block_index` to `sqlparser_graph_predicate_t`, returned through the existing reader. No public functions are added; callers must recompile.
+- Extend single-target DELETE alias handling in MySQL, SQL Server, Dameng, and related compatibility entries, including target resolution and rewriting within multi-table sources.
+- Preserve the SQL Server `TRANSACTION` keyword after rewriting mixed transaction batches, including related compatibility entries.
+- Add related JSON regression cases, consolidate Oracle tests into the shared test layout, and merge duplicate reference implementations.
+
 ## 2.17.4
 
 - Optimize MySQL batch INSERT storage and string replacement, AST construction, fragment parsing and deparsing, reducing repeated parsing, serialization and allocations.

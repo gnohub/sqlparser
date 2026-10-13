@@ -6227,6 +6227,9 @@ typedef struct {
 	sqlparser_graph_pending_expression_t *pending_expressions;
 	size_t pending_expression_count;
 	size_t pending_expression_capacity;
+	sqlparser_graph_pointer_index_t *pending_sublinks;
+	size_t pending_sublink_count;
+	size_t pending_sublink_capacity;
 } sqlparser_graph_build_t;
 
 static void sqlparser_graph_dml_result_build_state_save(
@@ -6449,6 +6452,7 @@ static void sqlparser_graph_build_clear(sqlparser_graph_build_t *build)
 	free(build->collected_column_refs);
 	free(build->collected_assignment_targets);
 	free(build->pending_expressions);
+	free(build->pending_sublinks);
 	build->relation_identifiers = NULL;
 	build->relation_identifier_count = 0U;
 	build->relation_identifier_capacity = 0U;
@@ -6477,6 +6481,9 @@ static void sqlparser_graph_build_clear(sqlparser_graph_build_t *build)
 	build->pending_expressions = NULL;
 	build->pending_expression_count = 0U;
 	build->pending_expression_capacity = 0U;
+	build->pending_sublinks = NULL;
+	build->pending_sublink_count = 0U;
+	build->pending_sublink_capacity = 0U;
 }
 
 static int sqlparser_graph_select_has_target_list(const PgQuery__SelectStmt *stmt)
@@ -16285,6 +16292,21 @@ static int sqlparser_graph_build_predicate_tree(
 			if (sqlparser_graph_add_predicate(build, &predicate, &predicate_index, out_error) != 0) {
 				return -1;
 			}
+			if (predicate.has_left_field) {
+				sqlparser_graph_pointer_index_t *pending;
+
+				if (sqlparser_query_graph_reserve_sparse_array(
+					    (void **)&build->pending_sublinks,
+					    &build->pending_sublink_capacity,
+					    build->pending_sublink_count + 1U,
+					    sizeof(*build->pending_sublinks),
+					    out_error) != 0) {
+					return -1;
+				}
+				pending = &build->pending_sublinks[build->pending_sublink_count++];
+				pending->pointer = node->sub_link;
+				pending->index = build->statement->predicate_offset + predicate_index;
+			}
 			if (out_predicate_index != NULL) {
 				*out_predicate_index = predicate_index;
 			}
@@ -16313,11 +16335,19 @@ static int sqlparser_graph_build_predicate_tree(
 	}
 }
 
+static int sqlparser_graph_walk_predicate_expr(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	PgQuery__Node *node,
+	sqlparser_error_t *out_error);
+
 static int sqlparser_graph_walk_predicate_node(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
 	sqlparser_clause_kind_t clause,
 	PgQuery__Node *node,
+	sqlparser_index_span_t sublinks,
 	sqlparser_error_t *out_error)
 {
 	size_t index;
@@ -16334,6 +16364,7 @@ static int sqlparser_graph_walk_predicate_node(
 				    block_index,
 				    clause,
 				    node->bool_expr->args != NULL ? node->bool_expr->args[index] : NULL,
+				    sublinks,
 				    out_error) != 0) {
 				return -1;
 			}
@@ -16345,23 +16376,20 @@ static int sqlparser_graph_walk_predicate_node(
 	    sqlparser_graph_func_call_is_dml_join_wrapper(
 		    build, node->func_call)) {
 		for (index = 0U; index < node->func_call->n_args; index++) {
-			if (node->func_call != build->mysql_dml_join_wrapper &&
-			    sqlparser_graph_build_predicate_tree(
+			PgQuery__Node *arg = node->func_call->args != NULL ?
+				node->func_call->args[index] : NULL;
+			int status = node->func_call != build->mysql_dml_join_wrapper ?
+				sqlparser_graph_walk_predicate_expr(
+					build, block_index, SQLPARSER_CLAUSE_KIND_ON, arg, out_error) :
+				sqlparser_graph_walk_predicate_node(
 				    build,
 				    block_index,
 				    SQLPARSER_CLAUSE_KIND_ON,
-				    node->func_call->args != NULL ?
-					    node->func_call->args[index] : NULL,
-				    NULL,
-				    out_error) < 0) {
-				return -1;
-			}
-			if (sqlparser_graph_walk_predicate_node(
-				    build,
-				    block_index,
-				    SQLPARSER_CLAUSE_KIND_ON,
-				    node->func_call->args != NULL ? node->func_call->args[index] : NULL,
-				    out_error) != 0) {
+				    arg,
+				    sublinks,
+				    out_error);
+
+			if (status != 0) {
 				return -1;
 			}
 		}
@@ -16379,11 +16407,26 @@ static int sqlparser_graph_walk_predicate_node(
 		testexpr = sqlparser_unwrap_grouping_node(node->sub_link->testexpr);
 		if (testexpr != NULL &&
 		    testexpr->node_case == PG_QUERY__NODE__NODE_COLUMN_REF) {
-			return sqlparser_graph_build_sublink(
+			size_t predicate_index = sublinks.count > 0U ?
+				sqlparser_graph_node_index_find(
+					build->pending_sublinks + sublinks.offset,
+					sublinks.count, node->sub_link) : (size_t)-1;
+			size_t source_block_index;
+
+			if (sqlparser_graph_build_sublink(
 				build,
 				node->sub_link,
-				NULL,
-				out_error);
+				&source_block_index,
+				out_error) != 0) {
+				return -1;
+			}
+			if (predicate_index != (size_t)-1) {
+				sqlparser_graph_predicate_t *predicate =
+					&build->cache->predicates[predicate_index];
+				predicate->source_block_index = source_block_index;
+				predicate->has_source_block = 1;
+			}
+			return 0;
 		}
 	}
 	if (node->node_case == PG_QUERY__NODE__NODE_NULL_TEST &&
@@ -16476,6 +16519,7 @@ static int sqlparser_graph_walk_predicate_expr(
 {
 	const PgQuery__FuncCall *saved_wrapper;
 	PgQuery__FuncCall *wrapper;
+	sqlparser_index_span_t sublinks;
 	int expression_status;
 	int predicate_status;
 
@@ -16492,18 +16536,19 @@ static int sqlparser_graph_walk_predicate_expr(
 	}
 	if (wrapper != NULL) {
 		build->mysql_dml_join_wrapper = wrapper;
-		if (build->collect_relation_bindings) {
-			expression_status = sqlparser_graph_walk_expr(
-				build,
-				block_index,
-				clause,
-				node,
-				0U,
-				0,
-				out_error);
-			build->mysql_dml_join_wrapper = saved_wrapper;
-			return expression_status;
-		}
+	}
+	if (build->collect_relation_bindings) {
+		expression_status = sqlparser_graph_walk_expr(
+			build, block_index, clause, node, 0U, 0, out_error);
+		build->mysql_dml_join_wrapper = saved_wrapper;
+		return expression_status;
+	}
+
+	/* Match the two passes by AST identity without changing graph ordinals.
+	 * Nested queries append their own range; each range is discarded after use. */
+	sublinks.offset = build->pending_sublink_count;
+	predicate_status = 0;
+	if (wrapper != NULL) {
 		predicate_status = sqlparser_graph_build_predicate_tree(
 			build,
 			block_index,
@@ -16511,40 +16556,22 @@ static int sqlparser_graph_walk_predicate_expr(
 			wrapper->args[0],
 			NULL,
 			out_error);
-		if (predicate_status >= 0) {
-			predicate_status = sqlparser_graph_build_predicate_tree(
-					build,
-					block_index,
-					clause,
-					node,
-					NULL,
-					out_error);
-		}
-		expression_status = predicate_status < 0 ? -1 :
-			sqlparser_graph_walk_predicate_node(
-				build,
-				block_index,
-				clause,
-				node,
-				out_error);
-		build->mysql_dml_join_wrapper = saved_wrapper;
-		return expression_status;
 	}
-	if (build->collect_relation_bindings) {
-		return sqlparser_graph_walk_expr(
-			build,
-			block_index,
-			clause,
-			node,
-			0U,
-			0,
-			out_error);
+	if (predicate_status >= 0) {
+		predicate_status = sqlparser_graph_build_predicate_tree(
+			build, block_index, clause, node, NULL, out_error);
 	}
-	predicate_status = sqlparser_graph_build_predicate_tree(build, block_index, clause, node, NULL, out_error);
-	if (predicate_status < 0) {
-		return -1;
+	sublinks.count = build->pending_sublink_count - sublinks.offset;
+	if (predicate_status >= 0 && sublinks.count > 1U) {
+		qsort(build->pending_sublinks + sublinks.offset, sublinks.count,
+			sizeof(*build->pending_sublinks), sqlparser_graph_node_index_compare);
 	}
-	return sqlparser_graph_walk_predicate_node(build, block_index, clause, node, out_error);
+	expression_status = predicate_status < 0 ? -1 :
+		sqlparser_graph_walk_predicate_node(
+			build, block_index, clause, node, sublinks, out_error);
+	build->pending_sublink_count = sublinks.offset;
+	build->mysql_dml_join_wrapper = saved_wrapper;
+	return expression_status;
 }
 
 static int sqlparser_graph_walk_node_array(
@@ -19494,6 +19521,11 @@ static int sqlparser_graph_range_var_equal(
 	}
 	sqlparser_fill_relation_view_for_handle(handle, left, &left_view);
 	sqlparser_fill_relation_view_for_handle(handle, right, &right_view);
+	if (handle != NULL && handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    left_view.alias_name != NULL && right_view.alias_name != NULL &&
+	    strcmp(left_view.alias_name, right_view.alias_name) != 0) {
+		return 0;
+	}
 	return sqlparser_graph_optional_text_equal(left_view.database_name, right_view.database_name) &&
 	       sqlparser_graph_optional_text_equal(left_view.schema_name, right_view.schema_name) &&
 	       sqlparser_graph_optional_text_equal(left_view.table_name, right_view.table_name) &&
@@ -23334,7 +23366,11 @@ static int sqlparser_graph_build_delete_dml(
 	build->duplicate_delete_target = stmt->relation;
 	build->duplicate_delete_block_index = block_index;
 	build->skip_duplicate_delete_target =
-		stmt->relation != NULL && dml_result_info.has_duplicate_target_relation;
+		stmt->relation != NULL &&
+		(dml_result_info.has_duplicate_target_relation ||
+		 (stmt->relation->alias != NULL && build->handle != NULL &&
+		  (build->handle->dialect == SQLPARSER_DIALECT_DAMENG ||
+		   sqlparser_dialect_is_mysql_compatible(build->handle->dialect))));
 	for (index = 0U; index < stmt->n_using_clause; index++) {
 		if (sqlparser_graph_build_from_item(build, block_index, stmt->using_clause[index], out_error) != 0) {
 			build->duplicate_delete_target = saved_duplicate_target;
@@ -27772,6 +27808,7 @@ static json_t *sqlparser_graph_predicate_json(
 	    sqlparser_json_set_optional_size(object, "right_field", predicate->has_right_field, predicate->right_field_index) != 0 ||
 	    sqlparser_json_set_optional_size(object, "value", predicate->has_value, predicate->value_index) != 0 ||
 	    sqlparser_json_set_optional_size(object, "right_expression", has_right_expression, right_expression) != 0 ||
+	    sqlparser_json_set_optional_size(object, "source_block", predicate->has_source_block, predicate->source_block_index) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "children", &children) != 0) {
 		json_decref(object);
 		json_decref(children);

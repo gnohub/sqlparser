@@ -4860,7 +4860,19 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 		0U,
 		out_error);
 	free(rewritten_sql);
+	if (status == SQLPARSER_STATUS_OK) {
+		rewritten_sql = NULL;
+		status = sqlparser_dialect_rewrite_delete_aliases(
+			SQLPARSER_DIALECT_DAMENG, *out_parser_sql, 0,
+			&rewritten_sql, origins, out_error);
+		if (rewritten_sql != NULL) {
+			free(*out_parser_sql);
+			*out_parser_sql = rewritten_sql;
+		}
+	}
 	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_parser_sql);
+		*out_parser_sql = NULL;
 		sqlparser_dameng_state_destroy(state);
 		return status;
 	}
@@ -9041,6 +9053,7 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 	sqlparser_error_t *out_error)
 {
 	char *public_sql;
+	char *delete_sql;
 	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
@@ -9054,7 +9067,16 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 	}
 
 	public_sql = NULL;
-	status = sqlparser_dameng_postprocess_text(core_sql, (const sqlparser_dameng_state_t *)state, NULL, &public_sql, out_error);
+	delete_sql = NULL;
+	status = sqlparser_dialect_rewrite_delete_aliases(
+		SQLPARSER_DIALECT_DAMENG, core_sql, 1, &delete_sql, NULL, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dameng_postprocess_text(
+		delete_sql != NULL ? delete_sql : core_sql,
+		(const sqlparser_dameng_state_t *)state, NULL, &public_sql, out_error);
+	free(delete_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
