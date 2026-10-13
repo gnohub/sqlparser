@@ -138,8 +138,8 @@ int main(void)
     size_t i;
     CHECK(large && rows);
     strcpy(large,"SELECT '"); memset(large+8,'x',70000); strcpy(large+70008,"'");
-    exercise("SELECT 1",0); exercise(large,1);
-    p=rows+sprintf(rows,"INSERT INTO t(id,v) VALUES ");
+    exercise("SELECT 1",0); exercise(large,0); /* Owned AST validation needs no temporary arena. */
+    memset(rows,' ',128U);p=rows+128U+sprintf(rows+128U,"INSERT INTO t(id,v) VALUES ");
     for(i=0;i<500;i++) p+=sprintf(p,"%s(%zu,'value-%zu')",i?",":"",i,i);
     exercise(rows,1);
     free(large); free(rows);

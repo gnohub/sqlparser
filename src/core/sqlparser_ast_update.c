@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_render_scaffold.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_update_stmt_has_target_list(ProtobufCMessage *message)
@@ -330,6 +331,7 @@ static sqlparser_status_t sqlparser_parse_update_assignment_nodes_sql(
 	PgQuery__UpdateStmt *stmt;
 	PgQuery__Node **nodes;
 	size_t index;
+	size_t owned_count = 0U;
 	sqlparser_status_t status;
 
 	if (sql_text == NULL || sql_text[0] == '\0' || out_nodes == NULL || out_count == NULL) {
@@ -372,46 +374,31 @@ static sqlparser_status_t sqlparser_parse_update_assignment_nodes_sql(
 		goto done;
 	}
 
-	nodes = sqlparser_update_alloc_node_array(stmt->n_target_list, out_error);
-	if (nodes == NULL) {
-		status = out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
-			out_error->code :
-			SQLPARSER_STATUS_NO_MEMORY;
+	if (stmt->n_target_list > SIZE_MAX / sizeof(*nodes)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"update SET list is too large");
+		status = out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 		goto done;
 	}
 	for (index = 0U; index < stmt->n_target_list; index++) {
-		status = sqlparser_clone_proto_node(stmt->target_list[index], &nodes[index], out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_update_free_node_array(nodes, stmt->n_target_list);
-			nodes = NULL;
-			goto done;
-		}
+		status = sqlparser_validate_owned_wrapper_node(stmt->target_list[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) goto done;
 	}
+	owned_count = stmt->n_target_list;
+	nodes = stmt->target_list;
+	stmt->target_list = NULL;
+	stmt->n_target_list = 0U;
 	status = sqlparser_mark_proto_nodes_generated_with_fragment_source(
-		nodes,
-		stmt->n_target_list,
-		wrapped_sql,
-		strlen(prefix),
-		source,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_update_free_node_array(nodes, stmt->n_target_list);
-		nodes = NULL;
-		goto done;
-	}
+		nodes, owned_count, wrapped_sql, strlen(prefix), source, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto done;
 
 	*out_nodes = nodes;
-	*out_count = stmt->n_target_list;
+	*out_count = owned_count;
 	nodes = NULL;
 	status = SQLPARSER_STATUS_OK;
 
 done:
-	sqlparser_update_free_node_array(nodes, ast != NULL && ast->n_stmts == 1U && ast->stmts != NULL &&
-			ast->stmts[0] != NULL && ast->stmts[0]->stmt != NULL &&
-			ast->stmts[0]->stmt->node_case == PG_QUERY__NODE__NODE_UPDATE_STMT &&
-			ast->stmts[0]->stmt->update_stmt != NULL ?
-		ast->stmts[0]->stmt->update_stmt->n_target_list :
-		0U);
+	sqlparser_update_free_node_array(nodes, owned_count);
 	if (ast != NULL) {
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
@@ -1554,7 +1541,7 @@ static sqlparser_status_t sqlparser_render_update_assignment_nodes_sql(
 	PgQuery__UpdateStmt *stmt;
 	PgQuery__Node **replacement;
 	PgQuery__List list;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	size_t index;
 	sqlparser_status_t status;
@@ -1562,16 +1549,11 @@ static sqlparser_status_t sqlparser_render_update_assignment_nodes_sql(
 	*out_sql = NULL;
 	ast = NULL;
 	replacement = NULL;
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
-	status = sqlparser_build_wrapped_sql(
-		prefix,
-		"__sqlparser_column__ = NULL",
-		NULL,
-		&wrapped_sql,
-		out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_UPDATE_ASSIGNMENT, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK &&
 	    (ast->n_stmts != 1U ||
@@ -1616,12 +1598,8 @@ static sqlparser_status_t sqlparser_render_update_assignment_nodes_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		statement = ast->stmts[0]->stmt;
 		stmt = statement->update_stmt;
-		sqlparser_update_free_node_array(
-			stmt->target_list,
-			stmt->n_target_list);
 		stmt->target_list = replacement;
 		stmt->n_target_list = count;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -1638,10 +1616,6 @@ static sqlparser_status_t sqlparser_render_update_assignment_nodes_sql(
 	}
 
 	sqlparser_update_free_node_array(replacement, count);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }

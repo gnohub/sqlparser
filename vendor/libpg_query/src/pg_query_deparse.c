@@ -1,14 +1,92 @@
 #include "pg_query.h"
 #include "pg_query_internal.h"
 #include "pg_query_readfuncs.h"
+#include "pg_query_deparse_ast.h"
 
 #include "postgres_deparse.h"
 
 #include "postgres.h"
 #include "lib/stringinfo.h"
 #include "nodes/parsenodes.h"
+#include "utils/memutils.h"
 
 #include "protobuf/pg_query.pb-c.h"
+
+static PgQueryDeparseResult
+pg_query_deparse_tree(
+	const PgQuery__ParseResult *parse_tree,
+	const PgQueryProtobuf *wire_tree,
+	PostgresDeparseOpts opts,
+	PgQueryASTStringReader string_reader,
+	void *string_reader_context)
+{
+	PgQueryDeparseResult result = {0};
+	StringInfoData str;
+	MemoryContext ctx;
+	MemoryContext previous_context;
+	List *stmts;
+	ListCell *lc;
+
+	pg_query_init();
+	previous_context = CurrentMemoryContext;
+	if (previous_context == TopMemoryContext)
+		ctx = pg_query_enter_memory_context();
+	else
+	{
+		/* A private string-reader callback may nest another deparse. */
+		ctx = AllocSetContextCreate(previous_context, "pg_query_deparse",
+								ALLOCSET_DEFAULT_SIZES);
+		MemoryContextSwitchTo(ctx);
+	}
+
+	PG_TRY();
+	{
+		stmts = wire_tree != NULL ?
+			pg_query_protobuf_to_nodes_opts(*wire_tree, &opts) :
+			pg_query_ast_to_nodes_opts(parse_tree, &opts,
+				string_reader, string_reader_context);
+
+		initStringInfo(&str);
+		foreach(lc, stmts)
+		{
+			deparseRawStmtOpts(&str, castNode(RawStmt, lfirst(lc)), opts);
+			if (lnext(stmts, lc))
+				appendStringInfoString(&str, "; ");
+		}
+		result.query = strdup(str.data);
+	}
+	PG_CATCH();
+	{
+		ErrorData *error_data;
+		PgQueryError *error;
+
+		/* Readers restore their own TLS frames, including during longjmp. */
+		MemoryContextSwitchTo(ctx);
+		error_data = CopyErrorData();
+		/* The returned error outlives the PostgreSQL memory context. */
+		error = calloc(1, sizeof(PgQueryError));
+		if (error != NULL)
+		{
+			error->message = error_data->message != NULL ? strdup(error_data->message) : NULL;
+			error->filename = error_data->filename != NULL ? strdup(error_data->filename) : NULL;
+			error->funcname = error_data->funcname != NULL ? strdup(error_data->funcname) : NULL;
+			error->lineno = error_data->lineno;
+			error->cursorpos = error_data->cursorpos;
+		}
+		result.error = error;
+		FlushErrorState();
+	}
+	PG_END_TRY();
+
+	if (previous_context == TopMemoryContext)
+		pg_query_exit_memory_context(ctx);
+	else
+	{
+		MemoryContextSwitchTo(previous_context);
+		MemoryContextDelete(ctx);
+	}
+	return result;
+}
 
 PgQueryDeparseResult
 pg_query_deparse_protobuf(PgQueryProtobuf parse_tree)
@@ -22,57 +100,33 @@ pg_query_deparse_protobuf(PgQueryProtobuf parse_tree)
 PgQueryDeparseResult
 pg_query_deparse_protobuf_opts(PgQueryProtobuf parse_tree, PostgresDeparseOpts opts)
 {
-	PgQueryDeparseResult result = {0};
-	StringInfoData str;
-	MemoryContext ctx;
-	List	   *stmts;
-	ListCell   *lc;
+	return pg_query_deparse_tree(NULL, &parse_tree, opts, NULL, NULL);
+}
 
-	ctx = pg_query_enter_memory_context();
+PgQueryDeparseResult
+pg_query_deparse_ast(const PgQuery__ParseResult *parse_tree)
+{
+	PostgresDeparseOpts opts;
 
-	PG_TRY();
-	{
-		stmts = pg_query_protobuf_to_nodes_opts(parse_tree, &opts);
+	MemSet(&opts, 0, sizeof(opts));
+	return pg_query_deparse_ast_opts(parse_tree, opts);
+}
 
-		initStringInfo(&str);
+PgQueryDeparseResult
+pg_query_deparse_ast_opts(const PgQuery__ParseResult *parse_tree, PostgresDeparseOpts opts)
+{
+	return pg_query_deparse_tree(parse_tree, NULL, opts, NULL, NULL);
+}
 
-		foreach(lc, stmts)
-		{
-			deparseRawStmtOpts(&str, castNode(RawStmt, lfirst(lc)), opts);
-			if (lnext(stmts, lc))
-				appendStringInfoString(&str, "; ");
-		}
-		result.query = strdup(str.data);
-	}
-	PG_CATCH();
-	{
-		ErrorData  *error_data;
-		PgQueryError *error;
-
-		pg_query_readfuncs_reset_options();
-		MemoryContextSwitchTo(ctx);
-		error_data = CopyErrorData();
-
-		/*
-		 * Note: This is intentionally malloc so exiting the memory context
-		 * doesn't free this
-		 */
-		error = malloc(sizeof(PgQueryError));
-		error->message = strdup(error_data->message);
-		error->filename = strdup(error_data->filename);
-		error->funcname = strdup(error_data->funcname);
-		error->context = NULL;
-		error->lineno = error_data->lineno;
-		error->cursorpos = error_data->cursorpos;
-
-		result.error = error;
-		FlushErrorState();
-	}
-	PG_END_TRY();
-
-	pg_query_exit_memory_context(ctx);
-
-	return result;
+PgQueryDeparseResult
+pg_query_deparse_ast_opts_with_reader(
+	const PgQuery__ParseResult *parse_tree,
+	PostgresDeparseOpts opts,
+	PgQueryASTStringReader string_reader,
+	void *string_reader_context)
+{
+	return pg_query_deparse_tree(parse_tree, NULL, opts,
+		string_reader, string_reader_context);
 }
 
 void

@@ -12,6 +12,7 @@
 #include <string.h>
 #include "sqlparser_internal.h"
 #include "sqlparser_wire_insert_internal.h"
+#include "sqlparser_test_tree_parity.h"
 #include "sqlparser_dialect_internal.h"
 #include "sqlparser_dialect_national_literal_internal.h"
 #include "sqlparser_ast_internal.h"
@@ -244,8 +245,7 @@ static void native_wire(sqlparser_handle_t *h, const char *expected)
     PgQueryProtobufParseResult native = pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         expected, PG_QUERY_PARSE_DEFAULT, native_observer, &calls);
     CHECK(native.error == NULL && calls == 1U && native.parse_tree.data != NULL);
-    CHECK(h->parse_tree.len == native.parse_tree.len);
-    CHECK(memcmp(h->parse_tree.data, native.parse_tree.data, h->parse_tree.len) == 0);
+    CHECK(sqlparser_test_matches_wire(h, native.parse_tree));
     pg_query_free_protobuf_parse_result(native);
 }
 static sqlparser_handle_t *reference(const char *sql, sqlparser_query_graph_view_t *graph)
@@ -577,8 +577,7 @@ static void lifecycle(size_t rows, size_t columns, int typed, size_t padding, in
 
 static void same_wire(sqlparser_handle_t *a, sqlparser_handle_t *b)
 {
-    CHECK(a->parse_tree.len == b->parse_tree.len);
-    CHECK(memcmp(a->parse_tree.data, b->parse_tree.data, a->parse_tree.len) == 0);
+    CHECK(sqlparser_test_same_tree(a, b));
 }
 static void fallback_sources(void)
 {
@@ -713,10 +712,11 @@ static void allocation_boundaries(void)
 #ifdef SQLPARSER_FAMILY_SCALAR_WRAPPERS
     enum { ROWS = 65, COLS = 10 };
     const char *values[ROWS];
-    char *sql = scalar_source(ROWS, COLS, NULL, 0U, 0), *expected;
+    size_t padding = dialect == SQLPARSER_DIALECT_MYSQL ? 128U : 0U;
+    char *sql = scalar_source(ROWS, COLS, NULL, padding, 0), *expected;
     size_t op, r;
     for (r = 0U; r < ROWS; ++r) values[r] = r % 3U == 0U ? "" : r % 3U == 1U ? "x" : "expanded-abcdefghijklmnopqrstuvwxyz";
-    expected = scalar_source(ROWS, COLS, values, 0U, 0);
+    expected = scalar_source(ROWS, COLS, values, padding, 0);
     for (op = 0U; op < 5U; ++op) {
         size_t boundaries = 0U;
         for (failure_index = 0U; failure_index <= boundaries; ++failure_index) {
@@ -814,7 +814,7 @@ static void certificate_equal(const sqlparser_wire_scalar_insert_t *a,
 
 static void provenance_guards(void)
 {
-    char *sql = scalar_source(65U, 13U, NULL, 0U, 0);
+    char *sql = scalar_source(65U, 13U, NULL, dialect == SQLPARSER_DIALECT_MYSQL ? 128U : 0U, 0);
     size_t mode;
     stage = "unproven handles and stale source/wire/generation never reuse native proof";
     for (mode = 0U; mode < 7U; ++mode) {
@@ -956,7 +956,7 @@ static const state_field pg_fields[] = { NATIONAL(pg_state_layout) };
 
 static void state_predicate_guards(void)
 {
-    char *sql = scalar_source(65U, 13U, NULL, 0U, 0);
+    char *sql = scalar_source(65U, 13U, NULL, dialect == SQLPARSER_DIALECT_MYSQL ? 128U : 0U, 0);
     sqlparser_handle_t *h;
 #ifdef SQLPARSER_FAMILY_SCALAR_WRAPPERS
     record_calloc = 1; recorded_count = 0U;

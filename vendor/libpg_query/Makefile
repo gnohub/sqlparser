@@ -341,6 +341,11 @@ test/parse_opts: test/parse_opts.c test/parse_opts_tests.c $(ARLIB)
 test/parse_plpgsql: test/parse_plpgsql.c test/parse_tests.c $(ARLIB)
 	$(CC) $(TEST_CFLAGS) -o $@ test/parse_plpgsql.c $(ARLIB) $(TEST_LDFLAGS)
 
+# Full-grammar owned-AST differential and cross-thread lifetime regression.
+# An explicit target keeps it independent from downstream core test builds.
+test/owned_ast: test/owned_ast.c test/parse_tests.c test/parse_opts_tests.c test/deparse_tests.c $(ARLIB)
+	$(CC) $(TEST_CFLAGS) -o $@ test/owned_ast.c $(ARLIB) $(TEST_LDFLAGS)
+
 test/parse_protobuf: test/parse_protobuf.c test/parse_tests.c $(ARLIB)
 	$(CC) $(TEST_CFLAGS) -o $@ test/parse_protobuf.c $(ARLIB) $(TEST_LDFLAGS)
 

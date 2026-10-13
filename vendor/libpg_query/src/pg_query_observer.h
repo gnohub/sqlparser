@@ -87,6 +87,47 @@ int pg_query_prove_mysql_owned_scalar_insert(
     const char *owned_input, size_t input_length,
     PgQueryMysqlOwnedScalarInsertPlan *plan, size_t *string_count);
 
+/* Compact canonical scalar INSERT, built without a PostgreSQL memory context
+ * or native/protobuf tree. Text spans borrow the same immutable owned SQL that
+ * minted the plan; the caller must retain it for the compact object's lifetime.
+ * Names are catalog, schema, relation, then columns. Absent catalog/schema
+ * entries have length zero. Cells are row-major; string spans omit quotes and
+ * value-function spans retain the original source spelling. text_bytes counts
+ * the NUL-terminated names and noninteger cell texts needed by a graph consumer.
+ * The object, names and cells are one allocation, released by ordinary free(). */
+typedef enum PgQueryCompactScalarKind
+{
+    PG_QUERY_COMPACT_SCALAR_INTEGER = 1,
+    PG_QUERY_COMPACT_SCALAR_STRING = 2,
+    PG_QUERY_COMPACT_SCALAR_FLOAT = 3,
+    PG_QUERY_COMPACT_SCALAR_VALUE_FUNCTION = 4
+} PgQueryCompactScalarKind;
+typedef struct PgQueryCompactScalarCell
+{
+    uint32_t text_offset, text_length;
+    int32_t location, integer;
+    uint32_t kind;
+} PgQueryCompactScalarCell;
+typedef struct PgQueryCompactScalarName
+{
+    uint32_t offset, length;
+} PgQueryCompactScalarName;
+typedef struct PgQueryCompactScalarInsert
+{
+    const char *sql;
+    size_t sql_length, row_count, column_count, string_count, text_bytes;
+    uint32_t raw_length;
+    PgQueryCompactScalarName *names;
+    PgQueryCompactScalarCell *cells;
+} PgQueryCompactScalarInsert;
+
+/* Only the default-options, initial owned MySQL route may call this. A match
+ * returns 1 and consumes/zeros the bound plan. An eligibility or defensive
+ * reconstruction miss returns 0; allocation failure returns -1. Both failures
+ * leave the plan intact for the existing native route and set *out to NULL. */
+int pg_query_take_mysql_compact_insert(const char *owned_input, size_t input_length,
+    PgQueryMysqlOwnedScalarInsertPlan *plan, PgQueryCompactScalarInsert **out);
+
 /* Private native-constructor attestation for the narrower initial scalar
  * graph subset. Published only after the exact constructed tree has been
  * successfully serialized by the canonical certified writer. No parse-context

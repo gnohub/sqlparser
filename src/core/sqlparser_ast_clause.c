@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_render_scaffold.h"
 
 static int sqlparser_clause_field_name_is(const ProtobufCFieldDescriptor *field, const char *name)
 {
@@ -189,6 +190,8 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 	sqlparser_clause_search_t *search)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	PgQuery__SelectStmt *select_stmt;
 	uint8_t *base;
 	unsigned index;
@@ -217,10 +220,11 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 	}
 
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	fields = sqlparser_proto_traversal_fields(message, &field_count);
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
 			const int case_value = *(const int *)(base + field->quantifier_offset);
 
@@ -462,6 +466,7 @@ static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 	PgQuery__Node **nodes;
 	sqlparser_status_t status;
 	size_t index;
+	size_t owned_count = 0U;
 
 	if (sql_text == NULL || out_nodes == NULL || out_count == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "ORDER BY SQL outputs must not be NULL");
@@ -489,37 +494,33 @@ static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "wrapped ORDER BY parse tree does not contain sort clause");
 		status = SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
-	if (status == SQLPARSER_STATUS_OK) {
-		nodes = sqlparser_clause_alloc_node_array(stmt->n_sort_clause, out_error);
-		if (nodes == NULL) {
-			status = out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
-		}
+	if (status == SQLPARSER_STATUS_OK &&
+	    stmt->n_sort_clause > SIZE_MAX / sizeof(*nodes)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"clause node array is too large");
+		status = out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		for (index = 0U; index < stmt->n_sort_clause; index++) {
-			status = sqlparser_clone_proto_node(stmt->sort_clause[index], &nodes[index], out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				break;
-			}
+			status = sqlparser_validate_owned_wrapper_node(stmt->sort_clause[index], out_error);
+			if (status != SQLPARSER_STATUS_OK) break;
 		}
 		if (status == SQLPARSER_STATUS_OK) {
-			status =
-				sqlparser_mark_proto_nodes_generated_with_fragment_source(
-					nodes,
-					stmt->n_sort_clause,
-					wrapped_sql,
-					strlen(prefix),
-					source,
-					out_error);
+			owned_count = stmt->n_sort_clause;
+			nodes = stmt->sort_clause;
+			stmt->sort_clause = NULL;
+			stmt->n_sort_clause = 0U;
+			status = sqlparser_mark_proto_nodes_generated_with_fragment_source(
+				nodes, owned_count, wrapped_sql, strlen(prefix), source, out_error);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		*out_nodes = nodes;
-		*out_count = stmt->n_sort_clause;
+		*out_count = owned_count;
 		nodes = NULL;
 	}
 
-	sqlparser_clause_free_node_array(nodes, stmt != NULL ? stmt->n_sort_clause : 0U);
+	sqlparser_clause_free_node_array(nodes, owned_count);
 	if (ast != NULL) {
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
@@ -535,7 +536,7 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 	sqlparser_error_t *out_error)
 {
 	const char *prefix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__SelectStmt *stmt;
@@ -554,14 +555,14 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 	}
 
 	prefix = "SELECT 1 FROM __sqlparser_source__ ORDER BY ";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	stmt = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "1", NULL, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_ORDER_BY, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_order_by_stmt(ast, &stmt, out_error);
@@ -590,10 +591,8 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_clause_free_node_array(stmt->sort_clause, stmt->n_sort_clause);
 		stmt->sort_clause = replacement;
 		stmt->n_sort_clause = count;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -605,10 +604,6 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 	}
 
 	sqlparser_clause_free_node_array(replacement, count);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }

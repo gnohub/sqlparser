@@ -15,6 +15,7 @@
 #endif
 #include "sqlparser_internal.h"
 #include "../../src/internal/sqlparser_wire_insert_internal.h"
+#include "sqlparser_test_tree_parity.h"
 
 static sqlparser_error_t error;
 static size_t cases, unpacks;
@@ -82,6 +83,7 @@ static sqlparser_handle_t *parse(const char *sql, int dialect)
     sqlparser_parse_options_default(&options);
     options.dialect = (sqlparser_dialect_t)dialect;
     CHECK(sqlparser_parse_with_options(sql, &options, &h, &error) == SQLPARSER_STATUS_OK);
+    CHECK(sqlparser_test_force_wire(h));
     CHECK(h != NULL && h->ast == NULL);
     return h;
 }

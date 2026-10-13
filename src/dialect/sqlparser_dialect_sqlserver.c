@@ -8021,6 +8021,20 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 				core_sql, &index, &out, out_error);
 		} else if (core_sql[index] == '"' && core_sql[index + 1U] == '#') {
 			status = sqlparser_sqlserver_append_public_temp_identifier(core_sql, &index, &out, out_error);
+		} else if (core_sql[index] == '"' || core_sql[index] == '[') {
+			size_t identifier_end;
+
+			/* The special generated system/temp names above keep their existing
+			 * conversion. All other identifier contents are one protected token. */
+			status = sqlparser_sqlserver_quoted_or_comment_span(
+				core_sql, index, &identifier_end, out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_sqlserver_buffer_append_mem(
+					&out, core_sql + index, identifier_end - index, out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				index = identifier_end;
+			}
 		} else if (core_sql[index] == '$') {
 			status = sqlparser_sqlserver_param_to_public(core_sql, &index, state, &out, out_error);
 		} else if (sqlparser_sqlserver_ascii_word_equal(core_sql, index, "pg_catalog") &&

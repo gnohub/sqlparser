@@ -219,7 +219,13 @@ int main(void) {
      * unqualified INSERT lifetime remains covered above and by the certified
      * commit unit/allocation sweeps; that path intentionally skips these hooks. */
     char *reparse_sql=make_sql("`s`.`t`");
-    parse_failures(sql);patch_failures(reparse_sql);syntax_precedence(sql);
+    /* Keep serializer coverage valid in both PostgreSQL and MySQL. */
+    char *wire_sql=make_sql("s.t");
+    /* Leading padding retains the legacy native serializer in MySQL. */
+    char *padded=malloc(strlen(wire_sql)+129U);CHECK(padded);
+    memset(padded,' ',128U);strcpy(padded+128U,wire_sql);
+    parse_failures(padded);patch_failures(reparse_sql);syntax_precedence(sql);
+    free(padded);free(wire_sql);
     free(reparse_sql);
 #else
     puts("SKIP: direct-wire allocation failure sweeps need GNU linker wrappers");

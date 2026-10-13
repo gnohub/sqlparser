@@ -4927,63 +4927,8 @@ static void sqlparser_view_bind_position_set_marker_numbers(
 	}
 }
 
-static sqlparser_status_t sqlparser_view_bind_position_pack_markers(
-	sqlparser_handle_t *handle,
-	sqlparser_view_bind_position_cache_t *cache,
-	PgQueryProtobuf *out_tree,
-	sqlparser_error_t *out_error)
-{
-	size_t packed_len;
-	size_t packed_size;
-	uint8_t *packed;
-
-	if (out_tree == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"bind marker tree output must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	memset(out_tree, 0, sizeof(*out_tree));
-	sqlparser_view_bind_position_set_marker_numbers(cache, 1);
-
-	packed_size =
-		pg_query__parse_result__get_packed_size(handle->ast);
-	if (packed_size == 0U) {
-		sqlparser_view_bind_position_set_marker_numbers(cache, 0);
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to size bind marker tree");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	packed = (uint8_t *)malloc(packed_size);
-	if (packed == NULL) {
-		sqlparser_view_bind_position_set_marker_numbers(cache, 0);
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_NO_MEMORY,
-			"out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	packed_len = pg_query__parse_result__pack(handle->ast, packed);
-	sqlparser_view_bind_position_set_marker_numbers(cache, 0);
-	if (packed_len != packed_size) {
-		free(packed);
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to pack bind marker tree");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	out_tree->data = (char *)packed;
-	out_tree->len = packed_len;
-	return SQLPARSER_STATUS_OK;
-}
-
 static sqlparser_status_t sqlparser_view_bind_position_deparse_markers(
 	const sqlparser_handle_t *handle,
-	PgQueryProtobuf tree,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -5001,11 +4946,11 @@ static sqlparser_status_t sqlparser_view_bind_position_deparse_markers(
 	*out_sql = NULL;
 	sqlparser_pg_query_prepare();
 	if (handle->surface_source_complete) {
-		result = pg_query_deparse_protobuf(tree);
+		result = pg_query_deparse_ast(handle->ast);
 	} else {
-		result = sqlparser_deparse_protobuf_for_handle(
+		result = sqlparser_deparse_ast_for_handle(
 			handle,
-			tree,
+			handle->ast,
 			0U,
 			0U,
 			handle->parser_sql_len);
@@ -5381,7 +5326,6 @@ static sqlparser_status_t sqlparser_view_bind_position_cache_build(
 	sqlparser_view_bind_position_cache_t *cache,
 	sqlparser_error_t *out_error)
 {
-	PgQueryProtobuf tree;
 	char *marker_sql;
 	sqlparser_status_t status;
 
@@ -5478,22 +5422,9 @@ static sqlparser_status_t sqlparser_view_bind_position_cache_build(
 		cache->built = 1;
 		return SQLPARSER_STATUS_OK;
 	}
-	memset(&tree, 0, sizeof(tree));
-	status = sqlparser_view_bind_position_pack_markers(
-		handle,
-		cache,
-		&tree,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_view_bind_position_cache_release(cache);
-		return status;
-	}
-	status = sqlparser_view_bind_position_deparse_markers(
-		handle,
-		tree,
-		&marker_sql,
-		out_error);
-	free(tree.data);
+    sqlparser_view_bind_position_set_marker_numbers(cache, 1);
+    status = sqlparser_view_bind_position_deparse_markers(handle, &marker_sql, out_error);
+    sqlparser_view_bind_position_set_marker_numbers(cache, 0);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_view_bind_position_assign(
 			handle,
@@ -6580,10 +6511,54 @@ static int sqlparser_graph_selector_cache_record_name(
 		out_error);
 }
 
+/* Only these Node kinds can reach the value-selector lookup. Keep the
+ * predicate separate from payload validity: incomplete scalar nodes still
+ * occupy their original ordinal, just as in the general node walker. */
+static int sqlparser_graph_node_uses_value_selector(const PgQuery__Node *node)
+{
+	return node != NULL &&
+		(node->node_case == PG_QUERY__NODE__NODE_A_CONST ||
+		 node->node_case == PG_QUERY__NODE__NODE_PARAM_REF ||
+		 node->node_case == PG_QUERY__NODE__NODE_SET_TO_DEFAULT);
+}
+
+static int sqlparser_graph_selector_cache_record_value_node(
+	sqlparser_graph_build_t *build,
+	PgQuery__Node *node,
+	size_t *node_ordinal,
+	sqlparser_error_t *out_error)
+{
+	size_t ordinal;
+
+	/* Count every eligible Node, including non-scalar Nodes omitted from
+	 * the sparse index. This is the public selector's traversal ordinal. */
+	ordinal = *node_ordinal;
+	if (ordinal == (size_t)-1) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"query graph selector ordinal is too large");
+		return -1;
+	}
+	(*node_ordinal)++;
+	if (!sqlparser_graph_node_uses_value_selector(node)) {
+		return 0;
+	}
+	if (sqlparser_graph_selector_cache_append(
+		    &build->node_indices,
+		    &build->node_index_count,
+		    &build->node_index_capacity,
+		    node,
+		    out_error) != 0) {
+		return -1;
+	}
+	build->node_indices[build->node_index_count - 1U].index = ordinal;
+	return 0;
+}
+
 static int sqlparser_graph_selector_cache_collect(
 	sqlparser_graph_build_t *build,
 	ProtobufCMessage *message,
 	const sqlparser_name_context_t *context,
+	size_t *node_ordinal,
 	sqlparser_error_t *out_error)
 {
 	const ProtobufCMessageDescriptor *descriptor;
@@ -6703,15 +6678,14 @@ static int sqlparser_graph_selector_cache_collect(
 					    !sqlparser_node_is_mysql_dml_tail_wrapper(
 						    (PgQuery__Node *)child,
 						    build->dml_tail_select) &&
-					    sqlparser_graph_selector_cache_append(
-						    &build->node_indices,
-						    &build->node_index_count,
-						    &build->node_index_capacity,
-						    child,
+					    sqlparser_graph_selector_cache_record_value_node(
+						    build,
+						    (PgQuery__Node *)child,
+						    node_ordinal,
 						    out_error) != 0) {
 						return -1;
 					}
-					if (sqlparser_graph_selector_cache_collect(build, child, &next_context, out_error) != 0) {
+					if (sqlparser_graph_selector_cache_collect(build, child, &next_context, node_ordinal, out_error) != 0) {
 						return -1;
 					}
 				}
@@ -6728,15 +6702,14 @@ static int sqlparser_graph_selector_cache_collect(
 				    !sqlparser_node_is_mysql_dml_tail_wrapper(
 					    (PgQuery__Node *)child,
 					    build->dml_tail_select) &&
-				    sqlparser_graph_selector_cache_append(
-					    &build->node_indices,
-					    &build->node_index_count,
-					    &build->node_index_capacity,
-					    child,
+				    sqlparser_graph_selector_cache_record_value_node(
+					    build,
+					    (PgQuery__Node *)child,
+					    node_ordinal,
 					    out_error) != 0) {
 					return -1;
 				}
-				if (sqlparser_graph_selector_cache_collect(build, child, &next_context, out_error) != 0) {
+				if (sqlparser_graph_selector_cache_collect(build, child, &next_context, node_ordinal, out_error) != 0) {
 					return -1;
 				}
 			}
@@ -6749,6 +6722,8 @@ static int sqlparser_graph_ensure_selector_cache(
 	sqlparser_graph_build_t *build,
 	sqlparser_error_t *out_error)
 {
+	size_t node_ordinal;
+
 	if (build == NULL || build->statement_node == NULL) {
 		return -1;
 	}
@@ -6756,7 +6731,8 @@ static int sqlparser_graph_ensure_selector_cache(
 		return build->selector_cache_failed ? -1 : 0;
 	}
 	build->selector_cache_built = 1;
-	if (sqlparser_graph_selector_cache_collect(build, (ProtobufCMessage *)build->statement_node, NULL, out_error) != 0) {
+	node_ordinal = 0U;
+	if (sqlparser_graph_selector_cache_collect(build, (ProtobufCMessage *)build->statement_node, NULL, &node_ordinal, out_error) != 0) {
 		sqlparser_graph_selector_cache_clear(build);
 		build->selector_cache_built = 1;
 		build->selector_cache_failed = 1;
@@ -6774,7 +6750,9 @@ static size_t sqlparser_graph_find_cached_value_index(
 	if (node == NULL) {
 		return (size_t)-1;
 	}
-	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
+	/* Future non-scalar callers retain the complete general-walker path. */
+	if (sqlparser_graph_node_uses_value_selector(node) &&
+	    sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
 		if (!build->node_index_sorted) {
 			if (build->node_index_count > 1U) qsort(build->node_indices,
 				build->node_index_count, sizeof(*build->node_indices),
@@ -25130,6 +25108,11 @@ const sqlparser_wire_scalar_insert_t *sqlparser_query_graph_wire_scalar_insert(c
     if (handle == NULL || handle->failed || (cache = handle->query_graph) == NULL ||
         cache->statement_count != 1U || cache->generation != handle->generation ||
         handle->query_graph_generation != handle->generation) return NULL;
+    /* A legacy read may have promoted and retired the compact authority.
+     * Existing graph strings remain valid, but its fast mutation adapter must
+     * never dereference the retired cells. */
+    if (cache->wire_scalar_insert != NULL && cache->wire_scalar_insert->compact != NULL &&
+        cache->wire_scalar_insert->compact != handle->compact_insert) return NULL;
     return cache->wire_scalar_insert;
 }
 
@@ -25209,7 +25192,9 @@ static sqlparser_status_t sqlparser_query_graph_try_wire_scalar_insert(
     (void)handle; (void)out_error;
     return SQLPARSER_STATUS_OK;
 #endif
-    insert = sqlparser_wire_scalar_insert_from_native(handle);
+    insert = sqlparser_compact_insert_projection(handle);
+    if (insert == NULL && handle->compact_insert != NULL) goto no_memory;
+    if (insert == NULL) insert = sqlparser_wire_scalar_insert_from_native(handle);
     native_source = insert != NULL && handle->dialect == SQLPARSER_DIALECT_MYSQL &&
         handle->dialect_ops == sqlparser_dialect_mysql_ops();
     if (insert == NULL) {
@@ -28953,7 +28938,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		json_decref(root);
 		json_decref(statements);
 		if (!ast_was_loaded) {
-			sqlparser_handle_clear_ast(mutable_handle);
+			sqlparser_handle_discard_ast_adapter(mutable_handle);
 		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -28973,7 +28958,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_query_graph(mutable_handle);
-				sqlparser_handle_clear_ast(mutable_handle);
+				sqlparser_handle_discard_ast_adapter(mutable_handle);
 			}
 			return status;
 		}
@@ -28986,7 +28971,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_query_graph(mutable_handle);
-				sqlparser_handle_clear_ast(mutable_handle);
+				sqlparser_handle_discard_ast_adapter(mutable_handle);
 			}
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
@@ -28999,7 +28984,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_query_graph(mutable_handle);
-				sqlparser_handle_clear_ast(mutable_handle);
+				sqlparser_handle_discard_ast_adapter(mutable_handle);
 			}
 			return status;
 		}
@@ -29011,7 +28996,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_query_graph(mutable_handle);
-				sqlparser_handle_clear_ast(mutable_handle);
+				sqlparser_handle_discard_ast_adapter(mutable_handle);
 			}
 			if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -29024,7 +29009,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_query_graph(mutable_handle);
-				sqlparser_handle_clear_ast(mutable_handle);
+				sqlparser_handle_discard_ast_adapter(mutable_handle);
 			}
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
@@ -29038,7 +29023,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		json_decref(root);
 		if (!ast_was_loaded) {
 			sqlparser_handle_clear_query_graph(mutable_handle);
-			sqlparser_handle_clear_ast(mutable_handle);
+			sqlparser_handle_discard_ast_adapter(mutable_handle);
 		}
 		if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -29051,7 +29036,7 @@ sqlparser_status_t sqlparser_export_view_json(
 	if (json_text == NULL) {
 		if (!ast_was_loaded) {
 			sqlparser_handle_clear_query_graph(mutable_handle);
-			sqlparser_handle_clear_ast(mutable_handle);
+			sqlparser_handle_discard_ast_adapter(mutable_handle);
 		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
@@ -29061,7 +29046,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		free(json_text);
 		if (!ast_was_loaded) {
 			sqlparser_handle_clear_query_graph(mutable_handle);
-			sqlparser_handle_clear_ast(mutable_handle);
+			sqlparser_handle_discard_ast_adapter(mutable_handle);
 		}
 		return status;
 	}
@@ -29069,7 +29054,7 @@ sqlparser_status_t sqlparser_export_view_json(
 	*out_json = json_text;
 	if (!ast_was_loaded) {
 		sqlparser_handle_clear_query_graph(mutable_handle);
-		sqlparser_handle_clear_ast(mutable_handle);
+		sqlparser_handle_discard_ast_adapter(mutable_handle);
 	}
 	return SQLPARSER_STATUS_OK;
 }

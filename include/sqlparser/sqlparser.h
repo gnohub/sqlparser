@@ -955,6 +955,28 @@ sqlparser_status_t sqlparser_statement_name(
 	sqlparser_name_view_t *out_name,
 	sqlparser_error_t *out_error);
 
+/* Bulk name enumeration in the same order as statement_name(index).
+ * out_count is required and is zeroed before other argument validation.
+ * capacity==0 is a successful count query; caller_views may then be NULL.
+ * Positive capacity requires caller_views and a representable array byte size.
+ * Success returns the total and writes only that many borrowed views. A short
+ * positive buffer receives its valid prefix and RESOURCE_LIMIT with the full
+ * required total; the handle remains usable. Slots beyond the written prefix
+ * are untouched. Argument/handle/statement errors leave the buffer untouched
+ * and count zero. An internal traversal error may leave a partial prefix, but
+ * count stays zero and callers must discard it; no total is then promised.
+ * The caller owns only the array. Its strings follow ordinary name-view
+ * lifetimes (handle mutation/destruction invalidates them). No caller buffer or
+ * iterator state is retained. This may materialize the AST like existing name
+ * getters, but allocates no internal storage for the returned view array. */
+sqlparser_status_t sqlparser_statement_names(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_name_view_t *caller_views,
+	size_t capacity,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_statement_set_name(
 	sqlparser_handle_t *handle,
 	size_t statement_index,

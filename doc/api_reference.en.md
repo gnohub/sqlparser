@@ -3,9 +3,10 @@
 This document describes the public C API types, lifecycle rules, structured
 read APIs, and rewrite APIs exposed by `sqlparser`.
 
-This reference describes the 2.17.3 API. A handle cannot be reused after
-patch/deparse failure, unlike the rollback behavior in 2.16.x. Public ABI remains
-unchanged; see the [Release notes](../RELEASE_NOTES.en.md).
+This reference describes the 2.17.4 API. A handle cannot be reused after
+patch/deparse failure, unlike the rollback behavior in 2.16.x. Existing interfaces
+and public structure layouts are unchanged; an optional bulk name reader is added.
+See the [Release notes](../RELEASE_NOTES.en.md).
 
 ## Overview
 
@@ -517,7 +518,15 @@ For a relation without an explicit alias, a name rewrite also updates qualified 
 | --- | --- |
 | `sqlparser_statement_name_count()` | returns the number of name atoms |
 | `sqlparser_statement_name()` | reads one name atom |
+| `sqlparser_statement_names()` | reads name atoms in the same order in one call |
 | `sqlparser_statement_set_name()` | rewrites one name atom |
+
+`sqlparser_statement_names()` writes borrowed views into a caller-owned array.
+`out_count` is required. A zero capacity queries the total without an array;
+an insufficient positive capacity returns `SQLPARSER_STATUS_RESOURCE_LIMIT`,
+writes the valid prefix and reports the full required count. The handle remains
+usable. View strings must not be freed and become invalid after mutation or
+handle destruction, as with the scalar name reader.
 
 For an unquoted identifier derived from an input identifier token, the AST
 name value retains the token text and case, so `abc` and `DDD` remain `abc`

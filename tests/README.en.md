@@ -11,6 +11,9 @@ outside the timer and reports cleanup separately. See
 
 Key regression programs cover:
 
+- `test_compact_authority`, `test_owned_authority`, and `test_owned_fragment_detach`: compact INSERT and AST ownership, fragment transfer, fallback, cloning and borrowed-view lifetimes.
+- `test_literal_rebase`, `test_ast_rebase_plan`, and `test_render_scaffold_public`: literal source-location updates and fragment-rendering parity.
+- `test_bulk_name_reader`, `test_schema_name_policy`, `test_where_public`, and `test_where_schema`: bulk name reads, name classification and WHERE traversal order; dedicated suites cover delimited names and national character literals.
 - `test_protobuf_node` and `test_protobuf_fastpath`: exact descriptor invariants,
   generic/fast byte parity, unknown and duplicate wire fields, malformed input,
   buffer packing, allocation failures, and deterministic wire fuzzing

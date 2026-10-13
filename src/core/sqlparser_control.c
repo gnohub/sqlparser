@@ -771,35 +771,6 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 		handle, candidate_state, out_error);
 }
 
-static sqlparser_status_t sqlparser_control_scratch_reserve(
-	sqlparser_control_scratch_t *scratch,
-	size_t required,
-	sqlparser_error_t *out_error)
-{
-	uint8_t *next;
-	size_t capacity;
-
-	if (required <= scratch->capacity) {
-		return SQLPARSER_STATUS_OK;
-	}
-	capacity = scratch->capacity > 0U ? scratch->capacity : 256U;
-	while (capacity < required) {
-		if (capacity > SIZE_MAX / 2U) {
-			capacity = required;
-			break;
-		}
-		capacity *= 2U;
-	}
-	next = (uint8_t *)realloc(scratch->data, capacity);
-	if (next == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	scratch->data = next;
-	scratch->capacity = capacity;
-	return SQLPARSER_STATUS_OK;
-}
-
 static sqlparser_status_t sqlparser_control_render_statement_core(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -810,11 +781,8 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	PgQuery__ParseResult single = PG_QUERY__PARSE_RESULT__INIT;
 	PgQuery__RawStmt *raw_statement;
 	PgQuery__RawStmt *statements[1];
-	PgQueryProtobuf protobuf;
 	PgQueryDeparseResult result;
 	size_t ast_index;
-	size_t packed_size;
-	size_t packed_len;
 	size_t source_end;
 	size_t source_start;
 	sqlparser_status_t status;
@@ -861,24 +829,11 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	single.version = handle->ast->version;
 	single.n_stmts = 1U;
 	single.stmts = statements;
-	packed_size = pg_query__parse_result__get_packed_size(&single);
-	if (packed_size == 0U) {
-		return sqlparser_control_invalid_state(out_error, "failed to pack control statement");
-	}
-	status = sqlparser_control_scratch_reserve(scratch, packed_size, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	packed_len = pg_query__parse_result__pack(&single, scratch->data);
-	if (packed_len != packed_size) {
-		return sqlparser_control_invalid_state(out_error, "failed to serialize control statement");
-	}
-	protobuf.data = (char *)scratch->data;
-	protobuf.len = packed_len;
+	(void)scratch;
 	sqlparser_pg_query_prepare();
-	result = sqlparser_deparse_protobuf_for_handle(
+	result = sqlparser_deparse_ast_for_handle(
 		handle,
-		protobuf,
+		&single,
 		ast_index,
 		source_start,
 		source_end);

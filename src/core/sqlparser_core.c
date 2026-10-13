@@ -30,6 +30,7 @@
 #include "sqlparser_control_internal.h"
 #include "sqlparser_internal.h"
 #include "sqlparser_wire_insert_internal.h"
+#include "sqlparser_proto_clone.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
 #define SQLPARSER_VERSION_TEXT "2.16.0"
@@ -545,6 +546,8 @@ static void sqlparser_mark_identifier_spelling_groups(
 	size_t group_count)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	const uint8_t *base;
 	unsigned index;
 
@@ -552,11 +555,21 @@ static void sqlparser_mark_identifier_spelling_groups(
 		return;
 	}
 	descriptor = message->descriptor;
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	/* The canonical Node contains only mutually exclusive message fields.
+	 * Lookup by field ID preserves zero/unknown cases and does not assume
+	 * enum density. Copied/custom descriptors retain the complete walk. */
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (const uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
 		    *(const int *)(base + field->quantifier_offset) !=
 			    (int)field->id) {
@@ -645,6 +658,27 @@ static void sqlparser_handle_sweep_identifier_spellings_for_message(
 		message,
 		used,
 		handle->identifier_spelling_count);
+	/* A generated alias can be renamed back to its original quoted spelling.
+	 * These immutable groups are referenced by the mutation, not the live AST. */
+	for (group_index = 0U;
+	     group_index < handle->identifier_mutation_count;
+	     group_index++) {
+		int32_t location;
+		uint32_t payload;
+		size_t original_group;
+
+		location = handle->identifier_mutations[group_index].original_alias_location;
+		if (!sqlparser_proto_location_is_identifier_spelling(location)) {
+			continue;
+		}
+		payload = (uint32_t)((int64_t)location -
+			(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE);
+		original_group = payload >> SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS;
+		if (original_group < handle->identifier_spelling_count) {
+			used[original_group >> 3U] |=
+				(unsigned char)(1U << (original_group & 7U));
+		}
+	}
 	first_free = handle->identifier_spelling_count;
 	for (group_index = 0U;
 	     group_index < handle->identifier_spelling_count;
@@ -988,13 +1022,41 @@ void sqlparser_handle_clear_native_batch_provenance(sqlparser_handle_t *handle)
     handle->native_batch_provenance = NULL;
 }
 
+/* Promotion is a one-way compatibility boundary for this generation. Graph
+ * borrows own their strings and remain valid; their compact adapter is retired
+ * by identity checks, without invalidating public read-only Views. */
+sqlparser_status_t sqlparser_handle_promote_compact(sqlparser_handle_t *handle,
+    sqlparser_error_t *out_error)
+{
+    PgQueryOwnedParseResult parsed;
+    if (handle == NULL || handle->compact_insert == NULL) return SQLPARSER_STATUS_OK;
+    if (!sqlparser_handle_has_representation(handle)) return SQLPARSER_STATUS_INVALID_ARGUMENT;
+    sqlparser_pg_query_prepare();
+    parsed = sqlparser_parse_owned_preserving_identifier_spelling(handle->parser_sql);
+    if (parsed.error != NULL || parsed.parse_tree == NULL) {
+        sqlparser_status_t status = parsed.error != NULL ? SQLPARSER_STATUS_PARSE_ERROR : SQLPARSER_STATUS_NO_MEMORY;
+        if (parsed.error != NULL) sqlparser_error_from_pg(out_error, status, handle->parser_sql, parsed.error);
+        else sqlparser_error_set_message(out_error, status, "out of memory");
+        pg_query_free_owned_parse_result(parsed);
+        return status;
+    }
+    handle->ast = parsed.parse_tree;
+    parsed.parse_tree = NULL;
+    free(handle->compact_insert);
+    handle->compact_insert = NULL;
+    handle->representation = SQLPARSER_REPRESENTATION_OWNED_AST;
+    handle->ast_state_bound = 0;
+    pg_query_free_owned_parse_result(parsed);
+    return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_status_t status;
 
-	if (handle == NULL || handle->parse_tree.data == NULL) {
+	if (!sqlparser_handle_has_representation(handle)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1002,26 +1064,22 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	if (handle->ast != NULL) {
-		sqlparser_handle_clear_native_scalar_provenance(handle);
-		sqlparser_handle_clear_native_batch_provenance(handle);
-		return SQLPARSER_STATUS_OK;
-	}
+    status = sqlparser_handle_promote_compact(handle, out_error);
+    if (status != SQLPARSER_STATUS_OK) return status;
 
-	sqlparser_handle_clear_native_scalar_provenance(handle);
-	sqlparser_handle_clear_native_batch_provenance(handle);
-	handle->ast = pg_query__parse_result__unpack(
-		NULL,
-		handle->parse_tree.len,
-		(const uint8_t *)handle->parse_tree.data);
-	if (handle->ast == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to unpack parse tree protobuf");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-
+    sqlparser_handle_clear_native_scalar_provenance(handle);
+    sqlparser_handle_clear_native_batch_provenance(handle);
+    if (handle->ast != NULL && handle->ast_state_bound) return SQLPARSER_STATUS_OK;
+    if (handle->ast == NULL) {
+        handle->ast = pg_query__parse_result__unpack(NULL, handle->parse_tree.len,
+            (const uint8_t *)handle->parse_tree.data);
+        if (handle->ast == NULL) {
+            sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+                "failed to unpack parse tree protobuf");
+            return SQLPARSER_STATUS_INTERNAL_ERROR;
+        }
+        handle->representation = SQLPARSER_REPRESENTATION_LEGACY_AST;
+    }
 	status = sqlparser_handle_rebind_identifier_mutations(
 		handle,
 		out_error);
@@ -1033,10 +1091,26 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 			handle->ast,
 			out_error);
 	}
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_clear_ast(handle);
-	}
-	return status;
+    if (status == SQLPARSER_STATUS_OK) {
+        handle->ast_state_bound = 1;
+    } else if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        /* A read-side bind failure must retire partial dialect borrows without
+         * discarding the sole semantic authority or poisoning the handle. */
+        if (handle->dialect_ops != NULL && handle->dialect_ops->bind_ast_state != NULL)
+            (void)handle->dialect_ops->bind_ast_state(handle->dialect_state, NULL, NULL);
+        handle->ast_state_bound = 0;
+    } else {
+        sqlparser_handle_discard_ast_adapter(handle);
+    }
+    return status;
+}
+
+/* Only the wire-backed adapter may be discarded after a read. Owned AST is
+ * semantic authority and is released solely by destruction or replacement. */
+void sqlparser_handle_discard_ast_adapter(sqlparser_handle_t *handle)
+{
+    if (handle != NULL && handle->representation != SQLPARSER_REPRESENTATION_OWNED_AST)
+        sqlparser_handle_clear_ast(handle);
 }
 
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
@@ -1059,12 +1133,17 @@ void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
 			NULL,
 			NULL);
 	}
+    handle->ast_state_bound = 0;
 	if (handle->ast == NULL) {
 		return;
 	}
 
 	pg_query__parse_result__free_unpacked(handle->ast, NULL);
 	handle->ast = NULL;
+    if (handle->representation == SQLPARSER_REPRESENTATION_LEGACY_AST)
+        handle->representation = SQLPARSER_REPRESENTATION_LEGACY_WIRE;
+    else if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST)
+        handle->representation = SQLPARSER_REPRESENTATION_EMPTY;
 }
 
 static void sqlparser_handle_discard_ast_changes(
@@ -1176,8 +1255,7 @@ sqlparser_status_t sqlparser_handle_ensure_bind_occurrences(
 	char *text;
 	sqlparser_status_t status;
 
-	if (handle == NULL || handle->sql == NULL ||
-	    handle->parse_tree.data == NULL) {
+	if (!sqlparser_handle_has_representation(handle) || handle->sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1407,6 +1485,10 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 		&handle->surface_source_edits);
 	handle->surface_source_complete = 0;
 	sqlparser_protobuf_release(&handle->parse_tree);
+    free(handle->compact_insert);
+    handle->compact_insert = NULL;
+    handle->representation = SQLPARSER_REPRESENTATION_EMPTY;
+    handle->compact_generation = 0UL;
 	if (handle->control != NULL) {
 		sqlparser_control_state_release(handle->control);
 		handle->control = NULL;
@@ -1502,13 +1584,15 @@ sqlparser_status_t sqlparser_handle_clone(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_handle = NULL;
-	if (source == NULL || source->sql == NULL || source->parser_sql == NULL || source->parse_tree.data == NULL) {
+	if (!sqlparser_handle_has_representation(source) || source->sql == NULL || source->parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"source handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+    status = sqlparser_handle_promote_compact((sqlparser_handle_t *)source, out_error);
+    if (status != SQLPARSER_STATUS_OK) return status;
 	status = sqlparser_handle_flush_ast((sqlparser_handle_t *)source, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1520,6 +1604,7 @@ sqlparser_status_t sqlparser_handle_clone(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	/* Initial native proofs are intentionally not copied from the owner. */
+    clone->representation = SQLPARSER_REPRESENTATION_LEGACY_WIRE;
 	clone->dialect = source->dialect;
 	clone->dialect_ops = source->dialect_ops;
 	clone->limits = source->limits;
@@ -1561,7 +1646,15 @@ sqlparser_status_t sqlparser_handle_clone(
 		}
 	}
 
-	status = sqlparser_protobuf_copy(&clone->parse_tree, &source->parse_tree, out_error);
+    if (source->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        clone->ast = (PgQuery__ParseResult *)sqlparser_clone_proto_message(&source->ast->base);
+        clone->representation = SQLPARSER_REPRESENTATION_OWNED_AST;
+        status = clone->ast != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+        if (status != SQLPARSER_STATUS_OK)
+            sqlparser_error_set_message(out_error, status, "out of memory");
+    } else {
+        status = sqlparser_protobuf_copy(&clone->parse_tree, &source->parse_tree, out_error);
+    }
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_destroy(clone);
 		return status;
@@ -1778,6 +1871,10 @@ sqlparser_status_t sqlparser_handle_flush_ast(
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+    if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        handle->patch_batch_flags &= ~SQLPARSER_PATCH_BATCH_AST_DIRTY;
+        return SQLPARSER_STATUS_OK;
+    }
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
 	if (packed_size == 0U) {
 		sqlparser_handle_discard_ast_changes(handle);
@@ -1844,8 +1941,132 @@ static sqlparser_status_t sqlparser_handle_commit_certified_insert_wire_count(
     handle->parser_sql = handle->sql;
     handle->sql_len = handle->parser_sql_len = strlen(handle->sql);
     handle->parse_tree = *owned_wire;
+    handle->representation = SQLPARSER_REPRESENTATION_LEGACY_WIRE;
     owned_wire->data = NULL;
     owned_wire->len = 0U;
+    handle->surface_source_complete = 1;
+    sqlparser_error_clear(out_error);
+    return SQLPARSER_STATUS_OK;
+}
+
+/* Derive the next canonical authority from the already validated ordered
+ * string edits. No parser, wire, source tokenization, or deferred rebuild is
+ * involved. The staged owner is private until all cells and arithmetic pass. */
+static sqlparser_status_t sqlparser_compact_insert_apply_edits(
+    const PgQueryCompactScalarInsert *old, const char *sql, size_t length,
+    const sqlparser_surface_source_edits_t *edits, PgQueryCompactScalarInsert **out)
+{
+    PgQueryCompactScalarInsert *next;
+    size_t names, count, bytes, i, e = 0U;
+    int64_t delta = 0;
+    *out = NULL;
+    if (old == NULL || edits == NULL || edits->count == 0U || edits->items == NULL ||
+        old->column_count == 0U || old->column_count > SIZE_MAX - 3U ||
+        old->row_count > SIZE_MAX / old->column_count || old->sql_length > INT32_MAX ||
+        length > INT32_MAX || old->text_bytes > INT32_MAX)
+        return SQLPARSER_STATUS_UNSUPPORTED;
+    names = old->column_count + 3U;
+    count = old->row_count * old->column_count;
+    if (names > (SIZE_MAX - sizeof(*next)) / sizeof(*next->names))
+        return SQLPARSER_STATUS_UNSUPPORTED;
+    bytes = sizeof(*next) + names * sizeof(*next->names);
+    if (count > (SIZE_MAX - bytes) / sizeof(*next->cells))
+        return SQLPARSER_STATUS_UNSUPPORTED;
+    bytes += count * sizeof(*next->cells);
+    next = malloc(bytes);
+    if (next == NULL) return SQLPARSER_STATUS_NO_MEMORY;
+    *next = *old;
+    next->sql = sql; next->sql_length = length;
+    next->names = (PgQueryCompactScalarName *)(next + 1);
+    next->cells = (PgQueryCompactScalarCell *)(next->names + names);
+    memcpy(next->names, old->names, names * sizeof(*next->names));
+    /* This batch changes VALUES strings only. Header spans stay unchanged. */
+    for (i = 0U; i < names; ++i)
+        if (next->names[i].offset > edits->items[0].source_start ||
+            next->names[i].length > edits->items[0].source_start - next->names[i].offset)
+            goto unsupported;
+    for (i = 0U; i < count; ++i) {
+        const PgQueryCompactScalarCell *before = &old->cells[i];
+        PgQueryCompactScalarCell *after = &next->cells[i];
+        int64_t location = (int64_t)before->location + delta;
+        int64_t offset = (int64_t)before->text_offset + delta;
+        if (before->location < 0 || location < 0 || location > INT32_MAX ||
+            offset < 0 || offset > INT32_MAX) goto unsupported;
+        *after = *before;
+        after->location = (int32_t)location;
+        after->text_offset = (uint32_t)offset;
+        if (e < edits->count) {
+            const sqlparser_surface_source_edit_t *edit = &edits->items[e];
+            if (edit->source_start < (size_t)before->location) goto unsupported;
+            if (edit->source_start == (size_t)before->location) {
+                if (before->kind != PG_QUERY_COMPACT_SCALAR_STRING ||
+                    before->text_offset != (uint32_t)before->location + 1U ||
+                    edit->source_end != (size_t)before->location + before->text_length + 2U ||
+                    edit->replacement_length < 2U || edit->replacement_length > INT32_MAX)
+                    goto unsupported;
+                after->text_length = (uint32_t)(edit->replacement_length - 2U);
+                after->text_offset = (uint32_t)location + 1U;
+                delta += (int64_t)edit->replacement_length -
+                    (int64_t)(edit->source_end - edit->source_start);
+                ++e;
+            }
+        }
+        if (after->text_offset > length || after->text_length > length - after->text_offset)
+            goto unsupported;
+    }
+    if (e != edits->count || (int64_t)old->sql_length + delta != (int64_t)length ||
+        (int64_t)old->text_bytes + delta < 0 || (int64_t)old->text_bytes + delta > INT32_MAX)
+        goto unsupported;
+    next->text_bytes = (size_t)((int64_t)old->text_bytes + delta);
+    if (old->raw_length != 0U) {
+        int64_t raw_length = (int64_t)old->raw_length + delta;
+        if (raw_length <= 0 || raw_length > INT32_MAX) goto unsupported;
+        next->raw_length = (uint32_t)raw_length;
+    }
+    *out = next;
+    return SQLPARSER_STATUS_OK;
+unsupported:
+    free(next);
+    return SQLPARSER_STATUS_UNSUPPORTED;
+}
+
+/* All caller inputs and edits have been validated before this boundary.
+ * Failure leaves old storage intact for the caller's terminal-error cleanup. */
+sqlparser_status_t sqlparser_handle_commit_compact_insert(sqlparser_handle_t *handle,
+    char **owned_sql, const sqlparser_surface_source_edits_t *edits,
+    sqlparser_error_t *out_error)
+{
+    PgQueryCompactScalarInsert *compact = NULL;
+    size_t length = strlen(*owned_sql);
+    sqlparser_status_t status;
+    void *state;
+    const sqlparser_dialect_ops_t *ops;
+    sqlparser_limits_t limits;
+    sqlparser_dialect_t dialect;
+    unsigned long generation;
+    if (handle->representation != SQLPARSER_REPRESENTATION_COMPACT_INSERT ||
+        handle->compact_generation != handle->generation || handle->compact_insert == NULL ||
+        handle->compact_insert->sql != handle->sql || handle->compact_insert->sql_length != handle->sql_len)
+        return SQLPARSER_STATUS_UNSUPPORTED;
+    status = sqlparser_compact_insert_apply_edits(handle->compact_insert, *owned_sql, length, edits, &compact);
+    if (status != SQLPARSER_STATUS_OK) {
+        if (status == SQLPARSER_STATUS_NO_MEMORY)
+            sqlparser_error_set_message(out_error, status, "out of memory");
+        return status;
+    }
+    state = handle->dialect_state; ops = handle->dialect_ops;
+    limits = handle->limits; dialect = handle->dialect;
+    generation = handle->generation + 1UL;
+    handle->dialect_state = NULL;
+    sqlparser_handle_release_contents(handle);
+    handle->dialect_state = state; handle->dialect_ops = ops;
+    handle->limits = limits; handle->dialect = dialect;
+    handle->sql = handle->parser_sql = *owned_sql; *owned_sql = NULL;
+    handle->sql_len = handle->parser_sql_len = length;
+    handle->statement_count = 1U;
+    handle->generation = handle->compact_generation = generation;
+    handle->compact_insert = compact;
+    handle->representation = SQLPARSER_REPRESENTATION_COMPACT_INSERT;
     handle->surface_source_complete = 1;
     sqlparser_error_clear(out_error);
     return SQLPARSER_STATUS_OK;
@@ -1882,6 +2103,7 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
     sqlparser_status_t status = SQLPARSER_STATUS_OK;
     PgQueryProtobuf packed = {0};
     int handled = 0;
+    int retain_owned_ast = handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST;
 
     /* Detach the only survivors; release also resets source/origin/spelling
      * metadata which generic commit_ast deliberately retains. */
@@ -1889,6 +2111,8 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
     handle->dialect_state = NULL;
     sqlparser_handle_release_contents(handle);
     handle->ast = ast;
+    handle->representation = retain_owned_ast ? SQLPARSER_REPRESENTATION_OWNED_AST :
+        SQLPARSER_REPRESENTATION_LEGACY_AST;
     handle->dialect_state = state;
     handle->dialect_ops = ops;
     handle->dialect = dialect;
@@ -1901,6 +2125,11 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
     handle->sql_len = handle->parser_sql_len = strlen(handle->sql);
     handle->surface_source_complete = 1;
     handle->patch_batch_flags = SQLPARSER_PATCH_BATCH_IN_PLACE | SQLPARSER_PATCH_BATCH_AST_DIRTY;
+    if (retain_owned_ast) {
+        handle->patch_batch_flags = 0U;
+        sqlparser_error_clear(out_error);
+        return SQLPARSER_STATUS_OK;
+    }
     /* The schema scan and row cache pay off only for bulk VALUES. Keep the
      * private writer independently testable on tiny trees, but leave small
      * certified commits on the allocation-free generic sizing path. */
@@ -1935,8 +2164,138 @@ sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
     return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_handle_commit_ast(
+/* The caller has already rebased every source location and installed the new
+ * literal values in the owned AST. Both source buffers are independent of all
+ * handle storage (but may alias each other), and state is freshly preprocessed.
+ * Inputs are consumed only on success. A failure is terminal at the enclosing
+ * patch boundary; never discard the AST or its tagged identifier spellings here.
+ */
+sqlparser_status_t sqlparser_handle_commit_rebased_source(
 	sqlparser_handle_t *handle,
+	char **owned_sql,
+	char **owned_parser_sql,
+	void **owned_dialect_state,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_dialect_ops_t *ops;
+	void *state;
+	void *previous_state;
+	char *sql;
+	char *parser_sql;
+	char *previous_sql;
+	char *previous_parser_sql;
+	size_t sql_length;
+	size_t parser_sql_length;
+	sqlparser_status_t status;
+
+	if (!sqlparser_handle_has_representation(handle) || handle->ast == NULL ||
+	    owned_sql == NULL || *owned_sql == NULL ||
+	    owned_parser_sql == NULL || *owned_parser_sql == NULL ||
+	    owned_dialect_state == NULL || *owned_dialect_state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"rebased source inputs must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	ops = handle->dialect_ops;
+	state = *owned_dialect_state;
+	sql = *owned_sql;
+	parser_sql = *owned_parser_sql;
+	if (handle->representation != SQLPARSER_REPRESENTATION_OWNED_AST ||
+	    handle->dialect != SQLPARSER_DIALECT_POSTGRESQL ||
+	    ops != sqlparser_dialect_postgresql_ops() ||
+	    ops != sqlparser_dialect_get_ops(SQLPARSER_DIALECT_POSTGRESQL) ||
+	    handle->control != NULL || handle->identifier_mutation_count != 0U ||
+	    state == handle->dialect_state ||
+	    sql == handle->sql || sql == handle->parser_sql ||
+	    sql == handle->current_sql || sql == handle->current_parser_sql ||
+	    parser_sql == handle->sql || parser_sql == handle->parser_sql ||
+	    parser_sql == handle->current_sql || parser_sql == handle->current_parser_sql) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"rebased source requires independent PostgreSQL owned-AST inputs");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_validate_text_limit(sql, handle->limits.max_sql_bytes,
+		"SQL input", &sql_length, out_error);
+	if (status != SQLPARSER_STATUS_OK) return status;
+	status = sqlparser_validate_text_limit(parser_sql, handle->limits.max_sql_bytes,
+		"parser SQL input", &parser_sql_length, out_error);
+	if (status != SQLPARSER_STATUS_OK) return status;
+	if (sql_length != parser_sql_length ||
+	    (sql != parser_sql && memcmp(sql, parser_sql, sql_length) != 0) ||
+	    handle->statement_count != handle->ast->n_stmts) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+			"rebased source identity or statement count is inconsistent");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	status = sqlparser_validate_dialect_statements(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) return status;
+	status = sqlparser_validate_statement_count_limit(
+		&handle->limits, handle->ast->n_stmts, out_error);
+	if (status != SQLPARSER_STATUS_OK) return status;
+	if (ops->bind_ast_state != NULL) {
+		status = ops->bind_ast_state(state, handle->ast, out_error);
+		if (status != SQLPARSER_STATUS_OK) goto unbind_failed_state;
+	}
+	if (ops->prepare_ast_state != NULL) {
+		status = ops->prepare_ast_state(state, handle->ast, out_error);
+		if (status != SQLPARSER_STATUS_OK) goto unbind_failed_state;
+	}
+	if (ops->reconcile_ast_state != NULL) {
+		ops->reconcile_ast_state(state, handle->ast);
+	}
+
+	/* No fallible work remains. Retire source-derived borrows before their
+	 * storage, preserving the sole AST authority and all spelling groups. */
+	sqlparser_handle_invalidate_derived(handle);
+	sqlparser_surface_source_edits_release(&handle->surface_source_edits);
+	sqlparser_identifier_origin_map_destroy(handle->identifier_origins);
+	handle->identifier_origins = NULL;
+	sqlparser_protobuf_release(&handle->parse_tree);
+	/* The owner proved identity; retain one canonical source allocation. */
+	if (parser_sql != sql) free(parser_sql);
+	parser_sql = sql;
+	previous_sql = handle->sql;
+	previous_parser_sql = handle->parser_sql;
+	previous_state = handle->dialect_state;
+	handle->sql = sql;
+	handle->parser_sql = parser_sql;
+	handle->sql_len = sql_length;
+	handle->parser_sql_len = parser_sql_length;
+	handle->dialect_state = state;
+	handle->ast_state_bound = 1;
+	*owned_sql = NULL;
+	*owned_parser_sql = NULL;
+	*owned_dialect_state = NULL;
+	if (previous_state != NULL && ops->destroy_state != NULL) {
+		ops->destroy_state(previous_state);
+	}
+	free(previous_sql);
+	if (previous_parser_sql != previous_sql) free(previous_parser_sql);
+	handle->generation++;
+	handle->surface_source_complete = 1;
+	if ((handle->patch_batch_flags & SQLPARSER_PATCH_BATCH_ACTIVE) != 0U) {
+		handle->patch_batch_flags |= SQLPARSER_PATCH_BATCH_AST_DIRTY;
+	} else {
+		handle->patch_batch_flags &= ~SQLPARSER_PATCH_BATCH_AST_DIRTY;
+	}
+	sqlparser_error_clear(out_error);
+	return SQLPARSER_STATUS_OK;
+
+unbind_failed_state:
+	/* The caller will destroy its still-owned candidate. Drop partial AST
+	 * borrows first, and do not leave the old state marked current after the
+	 * caller's already-applied AST mutation. Neither cleanup frees the AST. */
+	if (ops->bind_ast_state != NULL) {
+		(void)ops->bind_ast_state(state, NULL, NULL);
+		(void)ops->bind_ast_state(handle->dialect_state, NULL, NULL);
+	}
+	handle->ast_state_bound = 0;
+	return status;
+}
+
+static sqlparser_status_t sqlparser_handle_commit_ast_internal(
+	sqlparser_handle_t *handle,
+	int preserve_identifier_bindings,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_status_t status;
@@ -1980,12 +2339,14 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 			return status;
 		}
 	}
-	status = sqlparser_handle_rebind_identifier_mutations(
-		handle,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_ast_changes(handle);
-		return status;
+	if (!preserve_identifier_bindings) {
+		status = sqlparser_handle_rebind_identifier_mutations(
+			handle,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_handle_discard_ast_changes(handle);
+			return status;
+		}
 	}
 	if (handle->dialect_ops != NULL &&
 	    handle->dialect_ops->reconcile_ast_state != NULL) {
@@ -2002,6 +2363,36 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	sqlparser_handle_sweep_identifier_spellings(handle);
 	sqlparser_handle_invalidate_derived(handle);
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_handle_commit_ast(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_handle_commit_ast_internal(handle, 0, out_error);
+}
+
+sqlparser_status_t sqlparser_handle_commit_scalar_name(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	int preserve_identifier_bindings;
+
+	/* Private caller contract: the scalar-name setter entered with current
+	 * bindings, changed only one string payload/optional location marker,
+	 * and refreshed that record's slot/value. No owner, array, oneof, or
+	 * string-field ordinal changed. Canonical PostgreSQL validation is
+	 * read-only, owned flush preserves this AST, and reconciliation edits
+	 * metadata only. Do not infer this contract from AST identity alone or
+	 * use it for relation/structural mutations. Unknown hooks fall back. */
+	preserve_identifier_bindings =
+		handle != NULL && !handle->failed && handle->ast != NULL &&
+		handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST &&
+		handle->ast_state_bound && handle->control == NULL &&
+		handle->dialect_ops == sqlparser_dialect_postgresql_ops() &&
+		handle->dialect_ops->prepare_ast_state == NULL;
+	return sqlparser_handle_commit_ast_internal(
+		handle, preserve_identifier_bindings, out_error);
 }
 
 sqlparser_status_t sqlparser_handle_commit_ast_with_dialect_state(
@@ -3180,12 +3571,15 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	sqlparser_pg_query_prepare();
-	deparse_result = sqlparser_deparse_protobuf_for_handle(
-		handle,
-		handle->parse_tree,
-		0U,
-		0U,
-		handle->parser_sql_len);
+    if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        status = sqlparser_handle_ensure_ast((sqlparser_handle_t *)handle, out_error);
+        if (status != SQLPARSER_STATUS_OK) return status;
+        deparse_result = sqlparser_deparse_ast_for_handle(handle, handle->ast,
+            0U, 0U, handle->parser_sql_len);
+    } else {
+        deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree,
+            0U, 0U, handle->parser_sql_len);
+    }
 	if (deparse_result.error != NULL || deparse_result.query == NULL) {
 		if (deparse_result.error != NULL) {
 			sqlparser_error_from_pg(
@@ -4612,6 +5006,100 @@ static sqlparser_status_t sqlparser_validate_hierarchy_operator(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* These grammar positions look like literals to generic selectors, but their
+ * native deparsers require a particular scalar category (and, for transaction
+ * modes, a closed set of values). Check them at the normal AST commit boundary
+ * before a malformed private tree can reach a view or the native deparser. */
+static const char *sqlparser_required_string_literal(const PgQuery__Node *node)
+{
+	const PgQuery__AConst *value;
+
+	if (node == NULL || node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    node->a_const == NULL) {
+		return NULL;
+	}
+	value = node->a_const;
+	if (value->isnull || value->val_case != PG_QUERY__A__CONST__VAL_SVAL ||
+	    value->sval == NULL) {
+		return NULL;
+	}
+	return value->sval->sval;
+}
+
+static sqlparser_status_t sqlparser_validate_transaction_modes(
+	PgQuery__Node *const *items,
+	size_t count,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	for (index = 0U; index < count; index++) {
+		const PgQuery__DefElem *option;
+		const PgQuery__AConst *value;
+		const char *isolation;
+
+		if (items == NULL || items[index] == NULL ||
+		    items[index]->node_case != PG_QUERY__NODE__NODE_DEF_ELEM ||
+		    items[index]->def_elem == NULL) {
+			goto invalid;
+		}
+		option = items[index]->def_elem;
+		if (option->defname == NULL || option->arg == NULL ||
+		    option->arg->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+		    option->arg->a_const == NULL) {
+			goto invalid;
+		}
+		value = option->arg->a_const;
+		if (strcmp(option->defname, "transaction_isolation") == 0) {
+			isolation = sqlparser_required_string_literal(option->arg);
+			if (isolation == NULL ||
+			    (strcmp(isolation, "read uncommitted") != 0 &&
+			     strcmp(isolation, "read committed") != 0 &&
+			     strcmp(isolation, "repeatable read") != 0 &&
+			     strcmp(isolation, "serializable") != 0)) {
+				goto invalid;
+			}
+		} else if (strcmp(option->defname, "transaction_read_only") == 0 ||
+		           strcmp(option->defname, "transaction_deferrable") == 0) {
+			if (value->isnull || value->val_case != PG_QUERY__A__CONST__VAL_IVAL ||
+			    value->ival == NULL ||
+			    (value->ival->ival != 0 && value->ival->ival != 1)) {
+				goto invalid;
+			}
+		} else {
+			goto invalid;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+invalid:
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"transaction modes require an isolation level string or an integer 0/1 mode");
+	return SQLPARSER_STATUS_INVALID_ARGUMENT;
+}
+
+static sqlparser_status_t sqlparser_validate_variable_set_literals(
+	const PgQuery__VariableSetStmt *statement,
+	sqlparser_error_t *out_error)
+{
+	if (statement->kind != PG_QUERY__VARIABLE_SET_KIND__VAR_SET_MULTI ||
+	    statement->name == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (strcmp(statement->name, "TRANSACTION") == 0 ||
+	    strcmp(statement->name, "SESSION CHARACTERISTICS") == 0) {
+		return sqlparser_validate_transaction_modes(
+			statement->args, statement->n_args, out_error);
+	}
+	if (strcmp(statement->name, "TRANSACTION SNAPSHOT") == 0 &&
+	    (statement->n_args != 1U || statement->args == NULL ||
+	     sqlparser_required_string_literal(statement->args[0]) == NULL)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"transaction snapshot requires a string literal");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_validate_dialect_message(
 	const ProtobufCMessage *message,
 	const sqlparser_handle_t *handle,
@@ -4645,6 +5133,31 @@ static sqlparser_status_t sqlparser_validate_dialect_message(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
+	}
+	if (message->descriptor == &pg_query__variable_set_stmt__descriptor) {
+		status = sqlparser_validate_variable_set_literals(
+			(const PgQuery__VariableSetStmt *)message, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	} else if (message->descriptor == &pg_query__transaction_stmt__descriptor) {
+		const PgQuery__TransactionStmt *statement;
+
+		statement = (const PgQuery__TransactionStmt *)message;
+		if (statement->kind == PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_BEGIN ||
+		    statement->kind == PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_START) {
+			status = sqlparser_validate_transaction_modes(
+				statement->options, statement->n_options, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+	} else if (message->descriptor == &pg_query__json_table_path_spec__descriptor &&
+	           sqlparser_required_string_literal(
+		           ((const PgQuery__JsonTablePathSpec *)message)->string) == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"JSON_TABLE path requires a string literal");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	if (message->descriptor == &pg_query__select_stmt__descriptor) {
 		const PgQuery__SelectStmt *select_stmt;
@@ -4872,20 +5385,20 @@ static void sqlparser_observe_validation_tree(
 	validation->observed = 1;
 }
 
-/* This is only a cheap opt-in filter for newly enabled dialects, never a
- * syntax certificate. Limit prefix work even for whitespace-heavy non-INSERT
- * input; comments, unfamiliar prefixes and small statements keep the original
- * parser/validation route. The existing native recognizer proves acceptance. */
-static int sqlparser_large_plain_insert_prefix(const char *sql, size_t length)
+/* A routing filter, never a syntax certificate. Native admission can bound
+ * prefix work; representation selection scans the complete whitespace prefix
+ * so existing INSERT adapters remain available. The parser proves acceptance. */
+static int sqlparser_plain_insert_prefix(const char *sql, size_t length,
+    size_t whitespace_limit)
 {
 	static const char keyword[] = "insert";
 	size_t pos = 0U, index;
 	unsigned char c;
 
-	if (length < 4096U) return 0;
-	while (pos < 64U && (sql[pos] == ' ' || sql[pos] == '\t' ||
+	if (length < sizeof(keyword)) return 0;
+	while (pos < whitespace_limit && pos < length && (sql[pos] == ' ' || sql[pos] == '\t' ||
 	    sql[pos] == '\n' || sql[pos] == '\r' || sql[pos] == '\f' || sql[pos] == '\v')) pos++;
-	if (pos == 64U) return 0;
+	if (pos == whitespace_limit || length - pos < sizeof(keyword)) return 0;
 	for (index = 0U; index < sizeof(keyword) - 1U; index++) {
 		c = (unsigned char)sql[pos + index];
 		if (c >= 'A' && c <= 'Z') c = (unsigned char)(c + ('a' - 'A'));
@@ -4904,7 +5417,9 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	int allow_compact,
 	sqlparser_error_t *out_error)
 {
-	PgQueryProtobufParseResult parse_result;
+	PgQueryProtobufParseResult parse_result = {0};
+    PgQueryOwnedParseResult owned_result = {0};
+    int use_owned_parser;
 	sqlparser_handle_t validation_handle;
 	sqlparser_validation_observer_t validation;
 	sqlparser_handle_t *handle;
@@ -5042,11 +5557,57 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		sql = parser_sql;
 	}
 
+    if (allow_compact && mysql_owned_plan_route && parser_sql_len >= 4096U && sql_len == parser_sql_len &&
+        (sql == parser_sql || memcmp(sql, parser_sql, sql_len) == 0)) {
+        PgQueryCompactScalarInsert *compact = NULL;
+        int built = pg_query_take_mysql_compact_insert(parser_sql, parser_sql_len,
+            &mysql_owned_plan, &compact);
+        if (built != 0) {
+            status = built < 0 ? SQLPARSER_STATUS_NO_MEMORY :
+                sqlparser_validate_statement_count_limit(&effective_options.limits, 1U, out_error);
+            handle = status == SQLPARSER_STATUS_OK ? calloc(1U, sizeof(*handle)) : NULL;
+            if (status == SQLPARSER_STATUS_OK && handle == NULL) status = SQLPARSER_STATUS_NO_MEMORY;
+            if (status != SQLPARSER_STATUS_OK) {
+                free(compact);
+                if (dialect_ops->destroy_state != NULL && dialect_state != NULL)
+                    dialect_ops->destroy_state(dialect_state);
+                free(parser_sql);
+                if (status == SQLPARSER_STATUS_NO_MEMORY)
+                    sqlparser_error_set_message(out_error, status, "out of memory");
+                return status;
+            }
+            handle->sql = handle->parser_sql = parser_sql;
+            handle->sql_len = handle->parser_sql_len = parser_sql_len;
+            handle->limits = effective_options.limits;
+            handle->dialect = effective_options.dialect;
+            handle->dialect_ops = dialect_ops; handle->dialect_state = dialect_state;
+            handle->statement_count = 1U;
+            handle->compact_insert = compact;
+            handle->representation = SQLPARSER_REPRESENTATION_COMPACT_INSERT;
+            *out_handle = handle;
+            return SQLPARSER_STATUS_OK;
+        }
+    }
+
 	sqlparser_pg_query_prepare();
 	memset(&validation, 0, sizeof(validation));
-	/* Preserve the original MySQL observer route independently of the
-	 * narrower opt-in used by the newly enabled dialects below. */
-	if (effective_options.dialect == SQLPARSER_DIALECT_MYSQL &&
+    /* Preserve existing INSERT adapters, including small statements and long
+     * leading whitespace. Representation selection is not a syntax proof. */
+    use_owned_parser = !sqlparser_plain_insert_prefix(parser_sql, parser_sql_len,
+        parser_sql_len);
+    if (validation_source_proof.row_count != 0U || validation_batch_proof.statement_count != 0U)
+        use_owned_parser = 0;
+    if ((effective_options.dialect == SQLPARSER_DIALECT_ORACLE && dialect_ops == sqlparser_dialect_oracle_ops()) ||
+        (effective_options.dialect == SQLPARSER_DIALECT_KINGBASE_ORACLE && dialect_ops == sqlparser_dialect_kingbase_oracle_ops()) ||
+        (effective_options.dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE && dialect_ops == sqlparser_dialect_vastbase_oracle_ops())) {
+        if (sqlparser_oracle_state_has_multi_insert(dialect_state)) use_owned_parser = 0;
+    }
+    if (use_owned_parser) {
+        owned_result = sqlparser_parse_owned_preserving_identifier_spelling(parser_sql);
+        /* Common error/cleanup remains shared; only tree ownership differs. */
+        parse_result.error = owned_result.error; owned_result.error = NULL;
+        parse_result.stderr_buffer = owned_result.stderr_buffer; owned_result.stderr_buffer = NULL;
+    } else if (effective_options.dialect == SQLPARSER_DIALECT_MYSQL &&
 	    dialect_ops->take_control_state == NULL) {
 		memset(&validation_handle, 0, sizeof(validation_handle));
 		validation_handle.sql = (char *)sql;
@@ -5089,7 +5650,8 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		}
 	} else if (dialect_ops->plain_scalar_native_validation &&
 	    dialect_ops->take_control_state == NULL &&
-	    sqlparser_large_plain_insert_prefix(parser_sql, parser_sql_len)) {
+	    parser_sql_len >= 4096U &&
+	    sqlparser_plain_insert_prefix(parser_sql, parser_sql_len, 64U)) {
 		size_t certified_statements = 0U;
 		int certified = 0;
 
@@ -5216,6 +5778,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, parser_sql, parse_result.error);
 		pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 			dialect_ops->destroy_state(dialect_state);
 		}
@@ -5223,9 +5786,10 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	if (parse_result.parse_tree.data == NULL) {
+	if (parse_result.parse_tree.data == NULL && owned_result.parse_tree == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 			dialect_ops->destroy_state(dialect_state);
 		}
@@ -5238,6 +5802,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	if (handle == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 			dialect_ops->destroy_state(dialect_state);
 		}
@@ -5257,6 +5822,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		if (handle->sql == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 			if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
 				dialect_ops->destroy_state(dialect_state);
 			}
@@ -5274,6 +5840,13 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	handle->dialect_state = dialect_state;
 	dialect_state = NULL;
 	handle->parse_tree = parse_result.parse_tree;
+    handle->representation = SQLPARSER_REPRESENTATION_LEGACY_WIRE;
+    if (owned_result.parse_tree != NULL) {
+        handle->ast = owned_result.parse_tree;
+        owned_result.parse_tree = NULL;
+        handle->representation = SQLPARSER_REPRESENTATION_OWNED_AST;
+        handle->ast_state_bound = 0;
+    }
 	parse_result.parse_tree.data = NULL;
 	parse_result.parse_tree.len = 0U;
 	/* Adoption binds the constructor/serializer proof to these exact owned
@@ -5298,7 +5871,10 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 
 	/* Small trees fit ordinary allocations more tightly; arena alignment and
 	 * spare block capacity otherwise raise their temporary peak memory. */
-	if (validation.observed) {
+    if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        handle->statement_count = handle->ast->n_stmts;
+        status = sqlparser_validate_dialect_statements(handle, out_error);
+    } else if (validation.observed) {
 		handle->statement_count = validation.statement_count;
 		status = validation.status;
 	} else if (handle->dialect == SQLPARSER_DIALECT_MYSQL &&
@@ -5315,6 +5891,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 				SQLPARSER_STATUS_INTERNAL_ERROR,
 				"failed to unpack parse tree protobuf");
 			pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 			sqlparser_handle_release_contents(handle);
 			if (reuse_handle == NULL) free(handle);
 			return SQLPARSER_STATUS_INTERNAL_ERROR;
@@ -5326,6 +5903,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 		sqlparser_handle_release_contents(handle);
 		if (reuse_handle == NULL) free(handle);
 		return status;
@@ -5333,6 +5911,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	status = sqlparser_validate_statement_count_limit(&handle->limits, handle->statement_count, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 		sqlparser_handle_release_contents(handle);
 		if (reuse_handle == NULL) free(handle);
 		return status;
@@ -5344,6 +5923,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_control_state_release(control_state);
 				pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 				sqlparser_handle_release_contents(handle);
 				if (reuse_handle == NULL) free(handle);
 				return status;
@@ -5354,7 +5934,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 	/* Never adopt an initial proof after this handle has materialized AST. */
 	if (handle->ast != NULL)
 		memset(&native_batch_proof, 0, sizeof(native_batch_proof));
-	sqlparser_handle_clear_ast(handle);
+	sqlparser_handle_discard_ast_adapter(handle);
 
 	/* Final owned source/wire, count, control and dialect state are settled.
 	 * Optional allocation failure cannot change successful parse semantics. */
@@ -5362,6 +5942,7 @@ static sqlparser_status_t sqlparser_parse_with_options_into(
 		sqlparser_handle_adopt_native_batch_provenance(handle, &native_batch_proof);
 	sqlparser_oracle_multi_insert_certify_source(handle);
 	pg_query_free_protobuf_parse_result(parse_result);
+        pg_query_free_owned_parse_result(owned_result);
 	*out_handle = handle;
 	return SQLPARSER_STATUS_OK;
 }
@@ -5495,7 +6076,7 @@ static sqlparser_status_t sqlparser_deparse_current(
 	*out_sql = NULL;
 	sqlparser_error_clear(out_error);
 
-	if (handle == NULL || handle->parse_tree.data == NULL) {
+	if (!sqlparser_handle_has_representation(handle)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -5564,12 +6145,15 @@ static sqlparser_status_t sqlparser_deparse_current(
 	clear_ast_after_deparse = 0;
 	public_sql = NULL;
 	sqlparser_pg_query_prepare();
-	deparse_result = sqlparser_deparse_protobuf_for_handle(
-		handle,
-		handle->parse_tree,
-		0U,
-		0U,
-		handle->parser_sql_len);
+    if (handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+        status = sqlparser_handle_ensure_ast((sqlparser_handle_t *)handle, out_error);
+        if (status != SQLPARSER_STATUS_OK) return status;
+        deparse_result = sqlparser_deparse_ast_for_handle(handle, handle->ast,
+            0U, 0U, handle->parser_sql_len);
+    } else {
+        deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree,
+            0U, 0U, handle->parser_sql_len);
+    }
 	if (deparse_result.error != NULL || deparse_result.query == NULL) {
 		if (deparse_result.error != NULL) {
 			sqlparser_error_from_pg(
@@ -5651,7 +6235,7 @@ cleanup:
 	free(public_sql);
 	pg_query_free_deparse_result(deparse_result);
 	if (clear_ast_after_deparse) {
-		sqlparser_handle_clear_ast(mutable_handle);
+		sqlparser_handle_discard_ast_adapter(mutable_handle);
 	}
 	return status;
 }

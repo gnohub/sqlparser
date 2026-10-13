@@ -5609,6 +5609,7 @@ static sqlparser_status_t sqlparser_oracle_restore_database_links(
 static sqlparser_status_t sqlparser_oracle_postprocess_text(
 	const char *core_sql,
 	const sqlparser_oracle_state_t *state,
+	const sqlparser_dialect_national_literal_view_t *fragment_literals,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -5644,7 +5645,11 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 
 			literal_end = sqlparser_oracle_quoted_literal_end(core_sql, index);
 			if (literal_end > index &&
-			    sqlparser_oracle_national_literal_matches(state, literal_ordinal, core_sql, index, literal_end)) {
+			    (fragment_literals != NULL ?
+				    sqlparser_dialect_national_literal_view_match(
+					    fragment_literals, literal_ordinal, core_sql, index, literal_end) :
+				    sqlparser_oracle_national_literal_matches(
+					    state, literal_ordinal, core_sql, index, literal_end))) {
 				status = sqlparser_oracle_buffer_append_char(&out, 'N', out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_oracle_buffer_release(&out);
@@ -8673,6 +8678,7 @@ static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
 	status = sqlparser_oracle_postprocess_text(
 		core_sql,
 		(const sqlparser_oracle_state_t *)state,
+		NULL,
 		&public_sql,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -8733,13 +8739,13 @@ static sqlparser_status_t sqlparser_oracle_postprocess_fragment(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_dialect_national_literal_view_t literal_view;
+	int project_literals;
 	char *public_sql;
 	sqlparser_status_t status;
 
 	(void)statement_index;
 	(void)fragment_context;
-	(void)roots;
-	(void)root_count;
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -8756,12 +8762,26 @@ static sqlparser_status_t sqlparser_oracle_postprocess_fragment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	project_literals = state != NULL && roots != NULL && root_count > 0U &&
+		((const sqlparser_oracle_state_t *)state)->national_literals.count > 0U;
+	if (project_literals) {
+		status = sqlparser_dialect_national_literals_project_fragment(
+			&((const sqlparser_oracle_state_t *)state)->national_literals,
+			roots, root_count, &literal_view, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
 	public_sql = NULL;
 	status = sqlparser_oracle_postprocess_text(
 		core_sql,
 		(const sqlparser_oracle_state_t *)state,
+		project_literals ? &literal_view : NULL,
 		&public_sql,
 		out_error);
+	if (project_literals) {
+		sqlparser_dialect_national_literal_view_release(&literal_view);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}

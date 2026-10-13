@@ -47,6 +47,7 @@ SQLPARSER_0 {
 		sqlparser_statement_set_relation_name;
 		sqlparser_statement_name_count;
 		sqlparser_statement_name;
+		sqlparser_statement_names;
 		sqlparser_statement_set_name;
 		sqlparser_insert_source_kind;
 		sqlparser_insert_column_count;

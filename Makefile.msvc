@@ -65,11 +65,14 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_clause.obj \
 	$(OBJ_DIR)\sqlparser_ast_dml_result.obj \
 	$(OBJ_DIR)\sqlparser_ast_expr.obj \
+	$(OBJ_DIR)\sqlparser_render_scaffold.obj \
 	$(OBJ_DIR)\sqlparser_ast_identifier.obj \
 	$(OBJ_DIR)\sqlparser_ast_insert.obj \
 	$(OBJ_DIR)\sqlparser_ast_literal.obj \
 	$(OBJ_DIR)\sqlparser_ast_select.obj \
+	$(OBJ_DIR)\sqlparser_ast_rebase.obj \
 	$(OBJ_DIR)\sqlparser_ast_statement.obj \
+	$(OBJ_DIR)\sqlparser_name_bulk.obj \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
 	$(OBJ_DIR)\sqlparser_bind_occurrence.obj \
@@ -345,6 +348,9 @@ $(OBJ_DIR)\sqlparser_ast_clause.obj: src\core\sqlparser_ast_clause.c
 $(OBJ_DIR)\sqlparser_ast_dml_result.obj: src\core\sqlparser_ast_dml_result.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_dml_result.c
 
+$(OBJ_DIR)\sqlparser_render_scaffold.obj: src\core\sqlparser_render_scaffold.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_render_scaffold.c
+
 $(OBJ_DIR)\sqlparser_ast_expr.obj: src\core\sqlparser_ast_expr.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_expr.c
 
@@ -357,11 +363,17 @@ $(OBJ_DIR)\sqlparser_ast_insert.obj: src\core\sqlparser_ast_insert.c
 $(OBJ_DIR)\sqlparser_ast_literal.obj: src\core\sqlparser_ast_literal.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_literal.c
 
+$(OBJ_DIR)\sqlparser_ast_rebase.obj: src\core\sqlparser_ast_rebase.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_rebase.c
+
 $(OBJ_DIR)\sqlparser_ast_select.obj: src\core\sqlparser_ast_select.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_select.c
 
 $(OBJ_DIR)\sqlparser_ast_statement.obj: src\core\sqlparser_ast_statement.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_statement.c
+
+$(OBJ_DIR)\sqlparser_name_bulk.obj: src\core\sqlparser_name_bulk.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_name_bulk.c
 
 $(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_update.c

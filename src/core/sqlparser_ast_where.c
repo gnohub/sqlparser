@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_render_scaffold.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_where_field_is_clause(const ProtobufCFieldDescriptor *field)
@@ -112,6 +113,8 @@ static sqlparser_status_t sqlparser_walk_message_where_slots(
 	sqlparser_where_clause_search_t *search)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	unsigned index;
 
@@ -127,11 +130,20 @@ static sqlparser_status_t sqlparser_walk_message_where_slots(
 		return SQLPARSER_STATUS_OK;
 	}
 
+	fields = descriptor->fields;
+	field_count = descriptor->n_fields;
+	/* Only the exact generated Node has this mutually exclusive schema.
+	 * Preserve custom/copy traversal, field order and target early-stop. */
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, ((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+	}
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
 			const int case_value = *(const int *)(base + field->quantifier_offset);
 
@@ -346,8 +358,12 @@ sqlparser_status_t sqlparser_parse_where_node_sql(
 		status = sqlparser_get_wrapper_where_slot(ast, &slot, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		status = sqlparser_validate_owned_wrapper_node(*slot, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
+			/* Transfer before marking/binding, which may fail. The residual
+			 * wrapper must no longer own this output on any cleanup path. */
+			*out_node = *slot;
+			*slot = NULL;
 			status = sqlparser_mark_proto_generated_with_fragment_source(
 				(ProtobufCMessage *)*out_node,
 				wrapped_sql,
@@ -375,7 +391,7 @@ sqlparser_status_t sqlparser_render_where_node_sql(
 	sqlparser_error_t *out_error)
 {
 	const char *prefix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__Node **slot;
@@ -389,14 +405,14 @@ sqlparser_status_t sqlparser_render_where_node_sql(
 
 	*out_sql = NULL;
 	prefix = "SELECT 1 FROM __sqlparser_source__ WHERE ";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	slot = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "TRUE", NULL, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_WHERE, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_where_slot(ast, &slot, out_error);
@@ -411,9 +427,7 @@ sqlparser_status_t sqlparser_render_where_node_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -424,11 +438,8 @@ sqlparser_status_t sqlparser_render_where_node_sql(
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, NULL, out_sql, out_error);
 	}
 
+	/* The scaffold borrows replacement; never recursively free its stack AST. */
 	sqlparser_free_proto_node(replacement);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }

@@ -6,6 +6,8 @@
 
 #include "pg_query.h"
 #include "src/pg_query_observer.h"
+#include "src/pg_query_owned_ast.h"
+#include "src/pg_query_deparse_ast.h"
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser/sqlparser.h"
 #include "sqlparser_identifier_origin_internal.h"
@@ -26,6 +28,8 @@ typedef struct {
 	char *spelling;
 	int has_source_component;
 	int source_present;
+	/* Original generated alias spelling, retained while an undo is possible. */
+	int32_t original_alias_location;
 } sqlparser_identifier_mutation_t;
 
 #define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
@@ -195,6 +199,17 @@ typedef struct {
     size_t sql_length, parser_sql_length, wire_length;
 } sqlparser_native_batch_provenance_t;
 
+/* Semantic authority is explicit. Compact INSERTs have no protobuf payload;
+ * the legacy representation is materialized only for an unsupported adapter.
+ * A read promotion preserves existing graph/string borrows until mutation. */
+typedef enum {
+    SQLPARSER_REPRESENTATION_EMPTY = 0,
+    SQLPARSER_REPRESENTATION_LEGACY_WIRE,
+    SQLPARSER_REPRESENTATION_LEGACY_AST,
+    SQLPARSER_REPRESENTATION_COMPACT_INSERT,
+    SQLPARSER_REPRESENTATION_OWNED_AST
+} sqlparser_representation_t;
+
 struct sqlparser_handle {
 	char *sql;
 	char *parser_sql;
@@ -204,9 +219,13 @@ struct sqlparser_handle {
 	size_t parser_sql_len;
 	size_t statement_count;
 	PgQueryProtobuf parse_tree;
+    sqlparser_representation_t representation;
+    PgQueryCompactScalarInsert *compact_insert;
+    unsigned long compact_generation;
 	sqlparser_native_scalar_provenance_t *native_scalar_provenance;
 	sqlparser_native_batch_provenance_t *native_batch_provenance;
 	PgQuery__ParseResult *ast;
+    int ast_state_bound;
 	sqlparser_limits_t limits;
 	unsigned long generation;
 	sqlparser_dialect_t dialect;
@@ -233,6 +252,20 @@ struct sqlparser_handle {
 	unsigned int patch_batch_flags;
 	int failed; /* Only destruction is supported after patch/deparse failure. */
 };
+
+static inline int sqlparser_handle_has_representation(const sqlparser_handle_t *handle)
+{
+    return handle != NULL && !handle->failed &&
+        ((handle->representation == SQLPARSER_REPRESENTATION_COMPACT_INSERT &&
+          handle->compact_insert != NULL && handle->compact_generation == handle->generation) ||
+         handle->parse_tree.data != NULL || handle->ast != NULL);
+}
+
+sqlparser_status_t sqlparser_handle_promote_compact(sqlparser_handle_t *handle,
+    sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_handle_commit_compact_insert(sqlparser_handle_t *handle,
+    char **owned_sql, const sqlparser_surface_source_edits_t *edits,
+    sqlparser_error_t *out_error);
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
 void sqlparser_error_set_message(
@@ -272,6 +305,7 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle);
+void sqlparser_handle_discard_ast_adapter(sqlparser_handle_t *handle);
 void sqlparser_handle_clear_native_batch_provenance(sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
 	sqlparser_handle_t *handle,
@@ -383,7 +417,20 @@ sqlparser_status_t sqlparser_pack_certified_insert(
 	const PgQuery__ParseResult *ast, PgQueryProtobuf *out, int *out_handled);
 sqlparser_status_t sqlparser_handle_commit_certified_insert_strings(
 	sqlparser_handle_t *handle, char **owned_sql, sqlparser_error_t *out_error);
+/* Consume staged identity SQL/state only on success; retain owned AST and
+ * tagged identifier spelling metadata. The enclosing patch owns failure. */
+sqlparser_status_t sqlparser_handle_commit_rebased_source(
+	sqlparser_handle_t *handle,
+	char **owned_sql,
+	char **owned_parser_sql,
+	void **owned_dialect_state,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_commit_ast(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+/* Only the scalar-name setter may call this after updating its bound record.
+ * All AST owner/array/oneof topology and raw string ordinals must be unchanged. */
+sqlparser_status_t sqlparser_handle_commit_scalar_name(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_flush_ast(
@@ -409,6 +456,11 @@ PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 	size_t raw_statement_offset,
 	size_t source_start,
 	size_t source_end);
+PgQueryDeparseResult sqlparser_deparse_ast_for_handle(
+    const sqlparser_handle_t *handle, const PgQuery__ParseResult *parse_tree,
+    size_t raw_statement_offset, size_t source_start, size_t source_end);
+PgQueryOwnedParseResult sqlparser_parse_owned_preserving_identifier_spelling(
+    const char *parser_sql);
 PgQueryProtobufParseResult
 sqlparser_parse_protobuf_preserving_identifier_spelling(
 	const char *parser_sql);

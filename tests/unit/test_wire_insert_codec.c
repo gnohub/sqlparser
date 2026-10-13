@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sqlparser_wire_insert_internal.h"
+#include "sqlparser_test_tree_parity.h"
 
 static sqlparser_error_t error;
 static size_t checks;
@@ -29,6 +30,7 @@ static sqlparser_handle_t *parse(const char *sql)
     sqlparser_parse_options_default(&options);
     options.dialect = SQLPARSER_DIALECT_MYSQL;
     CHECK(sqlparser_parse_with_options(sql, &options, &handle, &error) == SQLPARSER_STATUS_OK);
+    CHECK(sqlparser_test_force_wire(handle));
     CHECK(handle != NULL && handle->ast == NULL);
     return handle;
 }

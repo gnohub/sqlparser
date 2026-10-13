@@ -76,6 +76,9 @@ typedef struct {
 } sqlparser_wire_scalar_name_t;
 
 typedef struct sqlparser_wire_scalar_insert {
+    /* A graph projection borrows the canonical compact owner. This adapter
+     * owns only names, never the compact cells or source. */
+    const PgQueryCompactScalarInsert *compact;
     const char *wire, *sql;
     size_t wire_length, sql_length, row_count, column_count;
     size_t text_bytes, string_count;
@@ -84,6 +87,8 @@ typedef struct sqlparser_wire_scalar_insert {
     /* catalog, schema, relation, followed by the explicit target columns */
     sqlparser_wire_scalar_name_t *names;
 } sqlparser_wire_scalar_insert_t;
+
+sqlparser_wire_scalar_insert_t *sqlparser_compact_insert_projection(const sqlparser_handle_t *handle);
 
 sqlparser_wire_scalar_insert_t *sqlparser_wire_scalar_insert_certify(const sqlparser_handle_t *handle);
 /* Only exact immutable initial-native provenance can enter this constructor.

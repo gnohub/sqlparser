@@ -9931,6 +9931,42 @@ static sqlparser_status_t sqlparser_mysql_identifier_to_backtick(
 	return SQLPARSER_STATUS_PARSE_ERROR;
 }
 
+/* Source-spelling resolution can already emit MySQL backtick tokens. Copy
+ * each as one lexical unit: quotes, comments and parameter-looking bytes inside
+ * it must not enter the PostgreSQL-to-MySQL conversion below. */
+static sqlparser_status_t sqlparser_mysql_copy_deparsed_backtick_identifier(
+	const char *sql,
+	size_t *index,
+	sqlparser_mysql_buffer_t *out,
+	sqlparser_error_t *out_error)
+{
+	size_t end;
+	sqlparser_status_t status;
+
+	end = *index + 1U;
+	while (sql[end] != '\0') {
+		if (sql[end] == '`') {
+			if (sql[end + 1U] == '`') {
+				end += 2U;
+				continue;
+			}
+			end++;
+			status = sqlparser_mysql_buffer_append_mem(
+				out, sql + *index, end - *index, out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				*index = end;
+			}
+			return status;
+		}
+		end++;
+	}
+	sqlparser_error_set_message(
+		out_error,
+		SQLPARSER_STATUS_PARSE_ERROR,
+		"unterminated backtick identifier in deparse output");
+	return SQLPARSER_STATUS_PARSE_ERROR;
+}
+
 static sqlparser_status_t sqlparser_mysql_param_to_question(
 	const char *sql,
 	size_t *index,
@@ -10088,7 +10124,10 @@ static sqlparser_status_t sqlparser_mysql_rewrite_pg_quotes_to_backticks(
 			continue;
 		}
 
-		if (sql[index] == '$') {
+		if (sql[index] == '`') {
+			status = sqlparser_mysql_copy_deparsed_backtick_identifier(
+				sql, &index, &out, out_error);
+		} else if (sql[index] == '$') {
 			status = sqlparser_mysql_param_to_question(sql, &index, state, &out, out_error);
 		} else if (sql[index] == '"') {
 			status = sqlparser_mysql_identifier_to_backtick(sql, &index, &out, out_error);

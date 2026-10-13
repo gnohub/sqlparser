@@ -7,6 +7,8 @@
 #include "protobuf/pg_query.pb-c.h"
 
 static __thread const PostgresDeparseOpts *pg_query_readfuncs_options;
+static __thread PgQueryASTStringReader pg_query_readfuncs_string_reader;
+static __thread void *pg_query_readfuncs_string_reader_context;
 
 static const char *
 pg_query_read_string_value(const char *input, size_t *identifier_index)
@@ -48,7 +50,8 @@ pg_query_read_string_value(const char *input, size_t *identifier_index)
 }
 
 static char *
-pg_query_read_string_copy(const char *input, bool empty_is_null)
+pg_query_read_string_copy(
+	const char *input, bool empty_is_null, const void *source_slot)
 {
 	const char *clean;
 	char *result;
@@ -64,10 +67,13 @@ pg_query_read_string_copy(const char *input, bool empty_is_null)
 			pg_query_readfuncs_options->identifier_resolver_context,
 			identifier_index,
 			result);
+	if (pg_query_readfuncs_string_reader != NULL)
+		pg_query_readfuncs_string_reader(
+			pg_query_readfuncs_string_reader_context, source_slot, result);
 	return result;
 }
 
-#define OUT_TYPE(typename, typename_c) PgQuery__##typename_c*
+#define OUT_TYPE(typename, typename_c) const PgQuery__##typename_c*
 
 #define READ_COND(typename, typename_c, typename_underscore, typename_underscore_upcase, typename_cast, outname) \
 	case PG_QUERY__NODE__NODE_##typename_underscore_upcase: \
@@ -89,7 +95,7 @@ pg_query_read_string_copy(const char *input, bool empty_is_null)
 	}
 
 #define READ_STRING_FIELD(outname, outname_json, fldname) \
-	node->fldname = pg_query_read_string_copy(msg->outname, true);
+	node->fldname = pg_query_read_string_copy(msg->outname, true, &msg->outname);
 
 #define READ_ENUM_FIELD(typename, outname, outname_json, fldname) \
 	node->fldname = _intToEnum##typename(msg->outname);
@@ -135,12 +141,12 @@ pg_query_read_string_copy(const char *input, bool empty_is_null)
 		node->fldname = _read##typename(msg->outname); \
 	}
 
-static Node * _readNode(PgQuery__Node *msg);
+static Node * _readNode(const PgQuery__Node *msg);
 
 static String *
-_readString(PgQuery__String* msg)
+_readString(const PgQuery__String* msg)
 {
-	String *node = makeString(pg_query_read_string_copy(msg->sval, false));
+	String *node = makeString(pg_query_read_string_copy(msg->sval, false, &msg->sval));
 	node->location = msg->location;
 	return node;
 }
@@ -148,7 +154,7 @@ _readString(PgQuery__String* msg)
 #include "pg_query_enum_defs.c"
 #include "pg_query_readfuncs_defs.c"
 
-static List * _readList(PgQuery__List *msg)
+static List * _readList(const PgQuery__List *msg)
 {
 	List *node = NULL;
 	if (msg->n_items > 0)
@@ -158,7 +164,7 @@ static List * _readList(PgQuery__List *msg)
 	return node;
 }
 
-static Node * _readNode(PgQuery__Node *msg)
+static Node * _readNode(const PgQuery__Node *msg)
 {
 	switch (msg->node_case)
 	{
@@ -167,13 +173,13 @@ static Node * _readNode(PgQuery__Node *msg)
 		case PG_QUERY__NODE__NODE_INTEGER:
 			return (Node *) makeInteger(msg->integer->ival);
 		case PG_QUERY__NODE__NODE_FLOAT:
-			return (Node *) makeFloat(pg_query_read_string_copy(msg->float_->fval, false));
+			return (Node *) makeFloat(pg_query_read_string_copy(msg->float_->fval, false, &msg->float_->fval));
 		case PG_QUERY__NODE__NODE_BOOLEAN:
 			return (Node *) makeBoolean(msg->boolean->boolval);
 		case PG_QUERY__NODE__NODE_STRING:
 			return (Node *) _readString(msg->string);
 		case PG_QUERY__NODE__NODE_BIT_STRING:
-			return (Node *) makeBitString(pg_query_read_string_copy(msg->bit_string->bsval, false));
+			return (Node *) makeBitString(pg_query_read_string_copy(msg->bit_string->bsval, false, &msg->bit_string->bsval));
 		case PG_QUERY__NODE__NODE_A_CONST: {
 			A_Const *ac = makeNode(A_Const);
 			ac->location = msg->a_const->location;
@@ -186,7 +192,7 @@ static Node * _readNode(PgQuery__Node *msg)
 						ac->val.ival = *makeInteger(msg->a_const->ival->ival);
 						break;
 					case PG_QUERY__A__CONST__VAL_FVAL:
-						ac->val.fval = *makeFloat(pg_query_read_string_copy(msg->a_const->fval->fval, false));
+						ac->val.fval = *makeFloat(pg_query_read_string_copy(msg->a_const->fval->fval, false, &msg->a_const->fval->fval));
 						break;
 					case PG_QUERY__A__CONST__VAL_BOOLVAL:
 						ac->val.boolval = *makeBoolean(msg->a_const->boolval->boolval);
@@ -195,7 +201,7 @@ static Node * _readNode(PgQuery__Node *msg)
 						ac->val.sval = *_readString(msg->a_const->sval);
 						break;
 					case PG_QUERY__A__CONST__VAL_BSVAL:
-						ac->val.bsval = *makeBitString(pg_query_read_string_copy(msg->a_const->bsval->bsval, false));
+						ac->val.bsval = *makeBitString(pg_query_read_string_copy(msg->a_const->bsval->bsval, false, &msg->a_const->bsval->bsval));
 						break;
 					case PG_QUERY__A__CONST__VAL__NOT_SET:
 					case _PG_QUERY__A__CONST__VAL__CASE_IS_INT_SIZE:
@@ -216,38 +222,69 @@ static Node * _readNode(PgQuery__Node *msg)
 	}
 }
 
+List * pg_query_ast_to_nodes_opts(
+	const PgQuery__ParseResult *parse_tree,
+	const PostgresDeparseOpts *opts,
+	PgQueryASTStringReader string_reader,
+	void *string_reader_context)
+{
+	List *list = NULL;
+	size_t i;
+	const PostgresDeparseOpts *previous_options = pg_query_readfuncs_options;
+	PgQueryASTStringReader previous_reader = pg_query_readfuncs_string_reader;
+	void *previous_context = pg_query_readfuncs_string_reader_context;
+
+	pg_query_readfuncs_options = opts;
+	pg_query_readfuncs_string_reader = string_reader;
+	pg_query_readfuncs_string_reader_context = string_reader_context;
+	PG_TRY();
+	{
+		if (parse_tree == NULL)
+			elog(ERROR, "parse result must not be NULL");
+		if (parse_tree->version != PG_VERSION_NUM)
+			elog(ERROR, "unsupported parse result version: %d", parse_tree->version);
+		if (parse_tree->n_stmts > 0 && parse_tree->stmts == NULL)
+			elog(ERROR, "parse result statements must not be NULL");
+		for (i = 0; i < parse_tree->n_stmts; i++)
+		{
+			if (parse_tree->stmts[i] == NULL)
+				elog(ERROR, "parse result statement must not be NULL");
+			list = lappend(list, _readRawStmt(parse_tree->stmts[i]));
+		}
+	}
+	PG_FINALLY();
+	{
+		/* Restore on success and PostgreSQL longjmp, including nested readers. */
+		pg_query_readfuncs_options = previous_options;
+		pg_query_readfuncs_string_reader = previous_reader;
+		pg_query_readfuncs_string_reader_context = previous_context;
+	}
+	PG_END_TRY();
+	return list;
+}
+
 List * pg_query_protobuf_to_nodes_opts(
 	PgQueryProtobuf protobuf,
 	const PostgresDeparseOpts *opts)
 {
-	PgQuery__ParseResult *result = NULL;
-	List * list = NULL;
-	size_t i = 0;
-	const PostgresDeparseOpts *previous_options;
+	PgQuery__ParseResult *result;
+	List *list = NULL;
 
-	previous_options = pg_query_readfuncs_options;
-	pg_query_readfuncs_options = opts;
-	result = pg_query__parse_result__unpack(NULL, protobuf.len, (const uint8_t *) protobuf.data);
-
-	/* Unpack uses malloc rather than the PostgreSQL memory context.
-	 * Propagate allocation failure through the caller's PG_CATCH block. */
+	result = pg_query__parse_result__unpack(
+		NULL, protobuf.len, (const uint8_t *) protobuf.data);
 	if (result == NULL)
-	{
-		pg_query_readfuncs_options = previous_options;
 		elog(ERROR, "could not unpack protobuf parse result");
+
+	PG_TRY();
+	{
+		list = pg_query_ast_to_nodes_opts(result, opts, NULL, NULL);
 	}
-
-	// TODO: Handle this by returning an error instead
-	Assert(result->version == PG_VERSION_NUM);
-
-	if (result->n_stmts > 0)
-		list = list_make1(_readRawStmt(result->stmts[0]));
-    for (i = 1; i < result->n_stmts; i++)
-		list = lappend(list, _readRawStmt(result->stmts[i]));
-
-	pg_query__parse_result__free_unpacked(result, NULL);
-	pg_query_readfuncs_options = previous_options;
-
+	PG_FINALLY();
+	{
+		/* Unpack uses malloc, so PostgreSQL context cleanup is insufficient. */
+		pg_query__parse_result__free_unpacked(result, NULL);
+	}
+	PG_END_TRY();
 	return list;
 }
 
@@ -259,4 +296,6 @@ List * pg_query_protobuf_to_nodes(PgQueryProtobuf protobuf)
 void pg_query_readfuncs_reset_options(void)
 {
 	pg_query_readfuncs_options = NULL;
+	pg_query_readfuncs_string_reader = NULL;
+	pg_query_readfuncs_string_reader_context = NULL;
 }

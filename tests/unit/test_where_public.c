@@ -1,0 +1,52 @@
+/* Regression coverage for where public. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "sqlparser_ast_internal.h"
+#define COUNT(a) (sizeof(a)/sizeof((a)[0]))
+static const char *label="startup",*phase="initial";static int dialect;static size_t checks,cases,mutations,clones,errors;
+#define REQUIRE(x) do{if(!(x)){fprintf(stderr,"FAIL|%s|dialect=%d|%s|line=%d|%s\n",label,dialect,phase,__LINE__,#x);exit(1);}checks++;}while(0)
+static void status(sqlparser_status_t s,sqlparser_error_t*e){if(s)fprintf(stderr,"STATUS|%s|%d|%s|%d|%s\n",label,dialect,phase,s,e->message);REQUIRE(s==SQLPARSER_STATUS_OK);REQUIRE(e->code==s);}
+static sqlparser_handle_t*parse(const char*sql){sqlparser_parse_options_t o;sqlparser_error_t e={0};sqlparser_handle_t*h=NULL;sqlparser_parse_options_default(&o);o.dialect=dialect;status(sqlparser_parse_with_options(sql,&o,&h,&e),&e);REQUIRE(h);return h;}
+static void expected_error(sqlparser_status_t s,sqlparser_status_t want,sqlparser_error_t*e){REQUIRE(s==want&&e->code==s&&e->message[0]);printf("ERROR|%s|%d|%s|%d|%s\n",label,dialect,phase,s,e->message);errors++;}
+static void slots(sqlparser_handle_t*h,size_t stmt,const char*const*want,size_t n){sqlparser_error_t e={0};size_t count=999,i;char*s=NULL;status(sqlparser_statement_where_count(h,stmt,&count,&e),&e);REQUIRE(count==n);printf("COUNT|%s|%d|%s|%zu|%zu\n",label,dialect,phase,stmt,count);
+ for(i=0;i<n;i++){sqlparser_selector_t selector={0};char text[100],*by_selector=NULL;status(sqlparser_statement_where_sql(h,stmt,i,&s,&e),&e);if(want[i])REQUIRE(s&&strstr(s,want[i])==s);else REQUIRE(!s);snprintf(text,sizeof(text),"stmt[%zu].where[%zu]",stmt,i);status(sqlparser_selector_parse(text,&selector,&e),&e);status(sqlparser_selector_where_sql(h,&selector,&by_selector,&e),&e);REQUIRE((!s&&!by_selector)||(s&&by_selector&&!strcmp(s,by_selector)));printf("WHERE|%s|%d|%s|%zu|%zu|%s\n",label,dialect,phase,stmt,i,s?s:"<empty>");sqlparser_string_free(s);sqlparser_string_free(by_selector);s=NULL;}
+ expected_error(sqlparser_statement_where_sql(h,stmt,n,&s,&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);REQUIRE(!s);
+}
+static char*output(sqlparser_handle_t*h){char*s=NULL;sqlparser_error_t e={0};status(sqlparser_deparse(h,&s,&e),&e);REQUIRE(s);printf("SQL|%s|%d|%s|%s\n",label,dialect,phase,s);return s;}
+static void set(sqlparser_handle_t*h,size_t stmt,size_t i,const char*s){sqlparser_error_t e={0};status(sqlparser_statement_set_where_sql(h,stmt,i,s,&e),&e);mutations++;}
+static void patch(sqlparser_handle_t*h,sqlparser_patch_t*p,size_t n){sqlparser_patch_list_t list={p,n};sqlparser_error_t e={0};status(sqlparser_apply_patch(h,&list,&e),&e);mutations++;}
+static void sql_cases(void){static const struct{const char*name,*sql;size_t n;const char*want[8];} tests[]={
+ {"empty-select","SELECT a FROM t",1,{NULL}},
+ {"where-and-having","SELECT a FROM t WHERE outer_mark = 1 GROUP BY a HAVING COUNT(*) > 2",1,{"outer_mark = 1"}},
+ {"having-subquery-empty-where","SELECT a FROM t GROUP BY a HAVING EXISTS (SELECT 1 FROM u WHERE having_mark = 1)",2,{NULL,"having_mark = 1"}},
+ {"nested-cte-target-from-exists","WITH c AS (SELECT a FROM t WHERE cte_mark = 1) SELECT (SELECT b FROM u WHERE target_mark = 2) FROM (SELECT c FROM v WHERE from_mark = 3) q WHERE outer_mark = 4 AND EXISTS (SELECT 1 FROM z WHERE exists_mark = 5) GROUP BY q.c HAVING COUNT(*) > 0",5,{"target_mark = 2","from_mark = 3","outer_mark = 4","exists_mark = 5","cte_mark = 1"}},
+ {"set-operations","SELECT a FROM t WHERE left_mark = 1 UNION ALL SELECT a FROM u WHERE right_mark = 2 INTERSECT SELECT a FROM v WHERE third_mark = 3",3,{"left_mark = 1","right_mark = 2","third_mark = 3"}},
+ {"insert-select","INSERT INTO dst (a) SELECT a FROM src WHERE insert_mark = 1",1,{"insert_mark = 1"}},
+ {"insert-values","INSERT INTO dst (a) VALUES (1)",0,{NULL}},
+ {"update-subqueries","UPDATE t SET a = (SELECT b FROM u WHERE set_mark = 1) WHERE update_mark = 2 AND EXISTS (SELECT 1 FROM v WHERE exists_mark = 3)",3,{"set_mark = 1","update_mark = 2","exists_mark = 3"}},
+ {"delete-subquery","DELETE FROM t WHERE delete_mark = 1 AND EXISTS (SELECT 1 FROM v WHERE exists_mark = 2)",2,{"delete_mark = 1","exists_mark = 2"}},
+ {"merge-source-subquery","MERGE INTO t USING (SELECT id, a FROM s WHERE merge_mark = 1) src ON (t.id = src.id) WHEN MATCHED THEN UPDATE SET a = src.a WHEN NOT MATCHED THEN INSERT (id, a) VALUES (src.id, src.a)",1,{"merge_mark = 1"}}
+ };size_t i;for(i=0;i<COUNT(tests);i++){sqlparser_handle_t*h;char*s;label=tests[i].name;phase="parsed";h=parse(tests[i].sql);slots(h,0,tests[i].want,tests[i].n);s=output(h);REQUIRE(!strcmp(s,tests[i].sql));sqlparser_string_free(s);sqlparser_handle_destroy(h);cases++;}}
+static void tails(void){const char*sql,*want[]={"tail_mark = 1"};sqlparser_handle_t*h;char*s;int mysql=dialect==1||dialect==6||dialect==10;int server=dialect==3||dialect==8||dialect==12;int postgres=dialect==0||dialect==7||dialect==11;
+ label="dialect-tail";phase="parsed";if(mysql)sql="UPDATE t SET a = 2 WHERE tail_mark = 1 ORDER BY a DESC LIMIT 2";else if(server)sql="UPDATE t SET a = 2 OUTPUT inserted.a WHERE tail_mark = 1";else if(postgres)sql="UPDATE t SET a = 2 WHERE tail_mark = 1 RETURNING a";else sql="SELECT a FROM t WHERE tail_mark = 1 ORDER BY a FETCH FIRST 2 ROWS ONLY";
+ h=parse(sql);slots(h,0,want,1);set(h,0,0,"tail_mark = 9");want[0]="tail_mark = 9";phase="edited";slots(h,0,want,1);s=output(h);REQUIRE(strstr(s,"tail_mark = 9"));if(mysql)REQUIRE(strstr(s,"ORDER BY")&&strstr(s,"LIMIT 2"));if(server)REQUIRE(strstr(s,"OUTPUT")&&strstr(s,"inserted.a"));if(postgres)REQUIRE(strstr(s,"RETURNING a"));sqlparser_string_free(s);sqlparser_handle_destroy(h);cases++;
+ if(mysql){label="mysql-delete-tail-empty";phase="parsed";h=parse("DELETE FROM t ORDER BY a DESC LIMIT 2");want[0]=NULL;slots(h,0,want,1);set(h,0,0,"tail_mark = 1");want[0]="tail_mark = 1";phase="edited";slots(h,0,want,1);s=output(h);REQUIRE(strstr(s,"ORDER BY")&&strstr(s,"LIMIT 2"));sqlparser_string_free(s);sqlparser_handle_destroy(h);cases++;}}
+static void lifecycle(void){sqlparser_handle_t*h,*clone=NULL;sqlparser_error_t e={0};sqlparser_patch_t p[2];char*saved,*copy;const char*want[4];sqlparser_query_graph_view_t graph;size_t n,i;sqlparser_name_view_t borrowed={0};
+ label="sequential-slot-lifecycle";phase="empty";h=parse("SELECT borrowed_condition, (SELECT b FROM u) FROM t; DELETE FROM v");want[0]=NULL;want[1]=NULL;slots(h,0,want,2);slots(h,1,want,1);
+ set(h,0,0,"inner_mark = 1");set(h,0,1,"outer_mark = 2 AND EXISTS (SELECT 1 FROM z WHERE nested_mark = 3)");phase="inserted-nested";want[0]="inner_mark = 1";want[1]="outer_mark = 2";want[2]="nested_mark = 3";slots(h,0,want,3);status(sqlparser_statement_where_sql(h,0,1,&saved,&e),&e);copy=strdup(saved);REQUIRE(copy);
+ status(sqlparser_handle_clone(h,&clone,&e),&e);clones++;status(sqlparser_statement_query_graph(h,0,&graph,&e),&e);
+ set(h,0,1,"replacement_mark = 4");phase="deleted-descendant-slot";want[1]="replacement_mark = 4";slots(h,0,want,2);expected_error(sqlparser_query_graph_expression_count(&graph,&n,&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);
+ status(sqlparser_statement_name_count(h,0,&n,&e),&e);for(i=0;i<n;i++){status(sqlparser_statement_name(h,0,i,&borrowed,&e),&e);if(!strcmp(borrowed.value,"borrowed_condition"))break;}REQUIRE(i<n);set(h,0,1,borrowed.value);phase="borrowed-input-copied";want[1]="borrowed_condition";slots(h,0,want,2);
+ p[0]=(sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE,.selector="stmt[0].select_target[0][0]",.source_selector="stmt[0].select_target[0][1]"};patch(h,p,1);phase="source-selector-cloned-subquery";want[0]="inner_mark = 1";want[1]="inner_mark = 1";want[2]="borrowed_condition";slots(h,0,want,3);
+ set(h,0,1,"source_changed = 6");phase="source-edited-copy-independent";want[1]="source_changed = 6";slots(h,0,want,3);
+ p[0]=(sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE,.selector="stmt[0].select_target[0][0]",.sql="a"};p[1]=(sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE,.selector="stmt[0].where[1]",.sql="batch_mark = 7"};patch(h,p,2);phase="sequential-batch-renumber";want[0]="source_changed = 6";want[1]="batch_mark = 7";slots(h,0,want,2);
+ set(h,1,0,"delete_mark = 8");want[0]="delete_mark = 8";slots(h,1,want,1);sqlparser_handle_destroy(h);REQUIRE(!strcmp(saved,copy));sqlparser_string_free(saved);free(copy);
+ phase="clone-after-original-destroyed";want[0]="inner_mark = 1";want[1]="outer_mark = 2";want[2]="nested_mark = 3";slots(clone,0,want,3);set(clone,0,2,"clone_mark = 9");want[2]="clone_mark = 9";slots(clone,0,want,3);saved=output(clone);sqlparser_handle_destroy(clone);REQUIRE(strstr(saved,"clone_mark = 9"));sqlparser_string_free(saved);cases++;}
+static void valid_errors(void){sqlparser_handle_t*h;sqlparser_error_t e={0};sqlparser_parse_options_t o;char*s=NULL;size_t n=999;sqlparser_patch_t p;sqlparser_patch_list_t list={&p,1};
+ label="documented-error-contracts";phase="invalid-index";h=parse("SELECT a FROM t WHERE a = 1");expected_error(sqlparser_statement_where_count(h,1,&n,&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);REQUIRE(n==0);expected_error(sqlparser_statement_where_sql(h,0,99,&s,&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);REQUIRE(!s);sqlparser_handle_destroy(h);
+ phase="empty-replacement";h=parse("SELECT a FROM t WHERE a = 1");expected_error(sqlparser_statement_set_where_sql(h,0,0,"",&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);sqlparser_handle_destroy(h);
+ phase="where-source-selector-not-supported";h=parse("SELECT a FROM t WHERE a = 1");p=(sqlparser_patch_t){.op=SQLPARSER_PATCH_REPLACE,.selector="stmt[0].where[0]",.source_selector="stmt[0].where[0]"};expected_error(sqlparser_apply_patch(h,&list,&e),SQLPARSER_STATUS_INVALID_ARGUMENT,&e);sqlparser_handle_destroy(h);
+ phase="malformed-replacement";h=parse("SELECT a FROM t WHERE a = 1");expected_error(sqlparser_statement_set_where_sql(h,0,0,"a =",&e),SQLPARSER_STATUS_PARSE_ERROR,&e);sqlparser_handle_destroy(h);
+ phase="output-limit";sqlparser_parse_options_default(&o);o.dialect=dialect;o.limits.max_output_bytes=16;h=NULL;status(sqlparser_parse_with_options("SELECT a FROM t WHERE very_long_condition_name = 12345",&o,&h,&e),&e);expected_error(sqlparser_statement_where_sql(h,0,0,&s,&e),SQLPARSER_STATUS_RESOURCE_LIMIT,&e);REQUIRE(!s);sqlparser_handle_destroy(h);cases++;}
+int main(void){for(dialect=0;dialect<13;dialect++){sql_cases();tails();lifecycle();valid_errors();}printf("SUMMARY|where_public|dialects=13|cases=%zu|checks=%zu|mutations=%zu|clones=%zu|errors=%zu\n",cases,checks,mutations,clones,errors);return 0;}

@@ -14,6 +14,7 @@
 typedef struct {
 	const sqlparser_identifier_mutation_t *mutation;
 	const char *identifier;
+	const void *source_slot;
 	const char *resolved;
 	size_t resolved_length;
 	int tagged;
@@ -1644,6 +1645,25 @@ static void sqlparser_read_generated_identifier(
 	resolver->generated_identifiers[identifier_index].registered = 1;
 }
 
+/* Source-field identity survives without modifying, cloning, or tagging the
+ * caller's AST. Equal string values in distinct fields remain distinct. */
+static void sqlparser_read_ast_identifier(
+	void *context,
+	const void *source_slot,
+	const char *identifier)
+{
+	sqlparser_identifier_resolver_t *resolver;
+	size_t index;
+
+	resolver = (sqlparser_identifier_resolver_t *)context;
+	for (index = 0U; index < resolver->generated_identifier_count; index++) {
+		if (resolver->generated_identifiers[index].source_slot == source_slot) {
+			sqlparser_read_generated_identifier(context, index, identifier);
+			return;
+		}
+	}
+}
+
 static bool sqlparser_generated_identifier_probe(
 	void *context,
 	const char *identifier)
@@ -2992,6 +3012,13 @@ sqlparser_parse_protobuf_preserving_identifier_spelling(
 		PG_QUERY_PARSE_DEFAULT);
 }
 
+PgQueryOwnedParseResult
+sqlparser_parse_owned_preserving_identifier_spelling(const char *parser_sql)
+{
+	return pg_query_parse_owned_opts_preserving_identifier_spelling(
+		parser_sql, PG_QUERY_PARSE_DEFAULT);
+}
+
 static void sqlparser_identifier_resolver_init(
 	const sqlparser_handle_t *handle,
 	sqlparser_identifier_resolver_t *resolver)
@@ -3608,51 +3635,21 @@ sqlparser_status_t sqlparser_mark_proto_generated_from_handle(
 	return status;
 }
 
-static int sqlparser_bytes_contain(
-	const char *bytes,
-	size_t byte_count,
-	const char *needle,
-	size_t needle_length)
-{
-	size_t index;
-
-	if (needle_length == 0U || needle_length > byte_count) {
-		return 0;
-	}
-	for (index = 0U;
-	     index <= byte_count - needle_length;
-	     index++) {
-		if (memcmp(bytes + index, needle, needle_length) == 0) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static int sqlparser_prepare_generated_identifier_tree(
+static int sqlparser_prepare_generated_identifier_ast(
 	const sqlparser_handle_t *handle,
-	PgQueryProtobuf parse_tree,
+	const PgQuery__ParseResult *ast,
 	size_t raw_statement_offset,
 	sqlparser_identifier_resolver_t *resolver,
-	PostgresDeparseOpts *options,
-	char *prefix,
-	size_t prefix_capacity,
-	PgQueryProtobuf *out_tree)
+	PostgresDeparseOpts *options)
 {
-	PgQuery__ParseResult *ast;
-	char *packed;
 	size_t applied;
-	size_t counter;
 	size_t mutation_index;
-	size_t packed_len;
-	size_t packed_size;
-	size_t prefix_length;
 
-	*out_tree = parse_tree;
-	if (handle->identifier_mutation_count == 0U) {
+	if (handle->identifier_mutation_count == 0U ||
+	    raw_statement_offset == SIZE_MAX) {
 		return 1;
 	}
-	if (handle->identifier_mutation_count >
+	if (ast == NULL || handle->identifier_mutation_count >
 	    SIZE_MAX / sizeof(*resolver->generated_identifiers)) {
 		return 0;
 	}
@@ -3663,64 +3660,18 @@ static int sqlparser_prepare_generated_identifier_tree(
 	if (resolver->generated_identifiers == NULL) {
 		return 0;
 	}
-	resolver->generated_identifier_count =
-		handle->identifier_mutation_count;
-	for (mutation_index = 0U;
-	     mutation_index < handle->identifier_mutation_count;
-	     mutation_index++) {
-		resolver->generated_identifiers[mutation_index].mutation =
-			&handle->identifier_mutations[mutation_index];
-	}
-
-	prefix_length = 0U;
-	for (counter = 0U;; counter++) {
-		int written;
-
-		written = snprintf(
-			prefix,
-			prefix_capacity,
-			"\001sqlparser_generated_%llu_",
-			(unsigned long long)counter);
-		if (written <= 0 || (size_t)written >= prefix_capacity) {
-			return 0;
-		}
-		prefix_length = (size_t)written;
-		if (!sqlparser_bytes_contain(
-			    parse_tree.data,
-			    parse_tree.len,
-			    prefix,
-			    prefix_length)) {
-			break;
-		}
-		if (counter == SIZE_MAX) {
-			return 0;
-		}
-	}
-
-	ast = pg_query__parse_result__unpack(
-		NULL,
-		parse_tree.len,
-		(const uint8_t *)parse_tree.data);
-	if (ast == NULL) {
-		return 0;
-	}
+	resolver->generated_identifier_count = handle->identifier_mutation_count;
 	applied = 0U;
 	for (mutation_index = 0U;
 	     mutation_index < handle->identifier_mutation_count;
 	     mutation_index++) {
 		const sqlparser_identifier_mutation_t *mutation;
-		char identifier_index[32];
 		char **slot;
-		char *tagged;
-		size_t identifier_index_length;
-		size_t tagged_length;
-		size_t value_length;
 		size_t local_statement_index;
-		int written;
-		sqlparser_error_t error;
 		sqlparser_status_t status;
 
 		mutation = &handle->identifier_mutations[mutation_index];
+		resolver->generated_identifiers[mutation_index].mutation = mutation;
 		if (mutation->raw_statement_index < raw_statement_offset) {
 			continue;
 		}
@@ -3730,124 +3681,52 @@ static int sqlparser_prepare_generated_identifier_tree(
 			continue;
 		}
 		slot = NULL;
+		/* This existing walker only reads fields; the returned slot is used
+		 * as an identity and is never written through by the adapter. */
 		status = sqlparser_get_raw_statement_string_slot_by_index(
-			ast,
+			(PgQuery__ParseResult *)ast,
 			local_statement_index,
 			mutation->string_index,
 			&slot);
 		if (status != SQLPARSER_STATUS_OK || slot == NULL ||
-		    *slot == NULL ||
-		    (*slot)[0] == '\0' ||
+		    *slot == NULL || (*slot)[0] == '\0' ||
 		    (mutation->relation_group == 0U &&
 		     mutation->spelling == NULL &&
 		     strcmp(*slot, mutation->original) == 0)) {
 			continue;
 		}
-		written = snprintf(
-			identifier_index,
-			sizeof(identifier_index),
-			"%llu",
-			(unsigned long long)mutation_index);
-		if (written <= 0 ||
-		    (size_t)written >= sizeof(identifier_index)) {
-			pg_query__parse_result__free_unpacked(ast, NULL);
-			return 0;
-		}
-		identifier_index_length = (size_t)written;
-		value_length = strlen(*slot);
-		if (prefix_length >
-			    SIZE_MAX - identifier_index_length - 2U ||
-		    prefix_length + identifier_index_length + 2U >
-			    SIZE_MAX - value_length) {
-			pg_query__parse_result__free_unpacked(ast, NULL);
-			return 0;
-		}
-		tagged_length =
-			prefix_length + identifier_index_length + 1U +
-			value_length;
-		tagged = (char *)malloc(tagged_length + 1U);
-		if (tagged == NULL) {
-			pg_query__parse_result__free_unpacked(ast, NULL);
-			return 0;
-		}
-		memcpy(tagged, prefix, prefix_length);
-		memcpy(
-			tagged + prefix_length,
-			identifier_index,
-			identifier_index_length);
-		tagged[prefix_length + identifier_index_length] = ':';
-		memcpy(
-			tagged + prefix_length + identifier_index_length + 1U,
-			*slot,
-			value_length + 1U);
-		memset(&error, 0, sizeof(error));
-		status = sqlparser_replace_proto_string(
-			slot,
-			tagged,
-			&error);
-		free(tagged);
-		if (status != SQLPARSER_STATUS_OK) {
-			pg_query__parse_result__free_unpacked(ast, NULL);
-			return 0;
-		}
+		resolver->generated_identifiers[mutation_index].source_slot = slot;
 		resolver->generated_identifiers[mutation_index].tagged = 1;
 		applied++;
 	}
 	if (applied == 0U) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
 		free(resolver->generated_identifiers);
 		resolver->generated_identifiers = NULL;
 		resolver->generated_identifier_count = 0U;
 		return 1;
 	}
-	packed_size = pg_query__parse_result__get_packed_size(ast);
-	if (packed_size == 0U) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-		return 0;
-	}
-	packed = (char *)malloc(packed_size);
-	if (packed == NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-		return 0;
-	}
-	packed_len = pg_query__parse_result__pack(
-		ast,
-		(uint8_t *)packed);
-	pg_query__parse_result__free_unpacked(ast, NULL);
-	if (packed_len != packed_size) {
-		free(packed);
-		return 0;
-	}
-	out_tree->data = packed;
-	out_tree->len = packed_len;
-	options->generated_identifier_prefix = prefix;
-	options->generated_identifier_prefix_length = prefix_length;
-	options->generated_identifier_reader =
-		sqlparser_read_generated_identifier;
-	options->generated_identifier_probe =
-		sqlparser_generated_identifier_probe;
+	options->generated_identifier_probe = sqlparser_generated_identifier_probe;
 	return 1;
 }
 
-sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
+static sqlparser_status_t sqlparser_validate_identifier_ast(
 	const sqlparser_handle_t *handle,
+	const PgQuery__ParseResult *ast,
 	sqlparser_error_t *out_error)
 {
 	const sqlparser_identifier_origin_map_t *origins;
 	PostgresDeparseOpts options;
-	PgQueryProtobuf effective_tree;
-	PgQueryProtobufParseResult reference_parse;
+	PgQueryOwnedParseResult reference_parse;
 	PgQueryDeparseResult result;
 	sqlparser_identifier_resolver_t reference_resolver;
 	sqlparser_identifier_resolver_t resolver;
 	sqlparser_identifier_resolver_t source_resolver;
 	sqlparser_status_t status;
-	char generated_identifier_prefix[64];
 	size_t generated_index;
 	size_t index;
 
 	if (handle == NULL || handle->sql == NULL ||
-	    handle->parser_sql == NULL || handle->parse_tree.data == NULL) {
+	    handle->parser_sql == NULL || ast == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -3921,10 +3800,10 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 			}
 		}
 		reference_parse =
-			sqlparser_parse_protobuf_preserving_identifier_spelling(
+			sqlparser_parse_owned_preserving_identifier_spelling(
 				handle->parser_sql);
 		if (reference_parse.error != NULL ||
-		    reference_parse.parse_tree.data == NULL) {
+		    reference_parse.parse_tree == NULL) {
 			status = reference_parse.error != NULL ?
 				SQLPARSER_STATUS_INTERNAL_ERROR : SQLPARSER_STATUS_NO_MEMORY;
 			if (reference_parse.error != NULL) {
@@ -3939,14 +3818,14 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 					status,
 					"out of memory");
 			}
-			pg_query_free_protobuf_parse_result(reference_parse);
+			pg_query_free_owned_parse_result(reference_parse);
 			free(reference_resolver.consumed);
 			free(resolver.consumed);
 			return status;
 		}
 		options.identifier_resolver_context =
 			&reference_resolver;
-		result = pg_query_deparse_protobuf_opts(
+		result = pg_query_deparse_ast_opts(
 			reference_parse.parse_tree,
 			options);
 		if (result.error != NULL || result.query == NULL ||
@@ -3964,7 +3843,7 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 					"failed to audit reference AST identifiers");
 			}
 			pg_query_free_deparse_result(result);
-			pg_query_free_protobuf_parse_result(reference_parse);
+			pg_query_free_owned_parse_result(reference_parse);
 			free(reference_resolver.consumed);
 			free(resolver.consumed);
 			return SQLPARSER_STATUS_INTERNAL_ERROR;
@@ -3974,17 +3853,10 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 		memset(&reference_resolver, 0, sizeof(reference_resolver));
 	}
 	options.identifier_resolver_context = &resolver;
-	if (!sqlparser_prepare_generated_identifier_tree(
-		    handle,
-		    handle->parse_tree,
-		    0U,
-		    &resolver,
-		    &options,
-		    generated_identifier_prefix,
-		    sizeof(generated_identifier_prefix),
-		    &effective_tree)) {
+	if (!sqlparser_prepare_generated_identifier_ast(
+		    handle, ast, 0U, &resolver, &options)) {
 		free(resolver.generated_identifiers);
-		pg_query_free_protobuf_parse_result(reference_parse);
+		pg_query_free_owned_parse_result(reference_parse);
 		free(reference_resolver.consumed);
 		free(resolver.consumed);
 		sqlparser_error_set_message(
@@ -3993,10 +3865,10 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 			"failed to prepare identifier audit AST");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
-	result = pg_query_deparse_protobuf_opts(effective_tree, options);
-	if (effective_tree.data != handle->parse_tree.data) {
-		free(effective_tree.data);
-	}
+	result = pg_query_deparse_ast_opts_with_reader(
+		ast, options,
+		resolver.generated_identifier_count != 0U ? sqlparser_read_ast_identifier : NULL,
+		&resolver);
 	if (result.error != NULL || result.query == NULL) {
 		if (result.error != NULL) {
 			sqlparser_error_from_pg(
@@ -4011,19 +3883,11 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 				"failed to deparse identifier audit AST");
 		}
 		pg_query_free_deparse_result(result);
-		pg_query_free_protobuf_parse_result(reference_parse);
+		pg_query_free_owned_parse_result(reference_parse);
 		free(reference_resolver.consumed);
 		free(resolver.consumed);
 		free(resolver.generated_identifiers);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	if (options.generated_identifier_prefix_length > 0U &&
-	    sqlparser_bytes_contain(
-		    result.query,
-		    strlen(result.query),
-		    generated_identifier_prefix,
-		    options.generated_identifier_prefix_length)) {
-		resolver.generated_identifier_error = 1;
 	}
 	for (generated_index = 0U;
 	     generated_index < resolver.generated_identifier_count;
@@ -4048,7 +3912,7 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 			}
 		}
 	}
-	pg_query_free_protobuf_parse_result(reference_parse);
+	pg_query_free_owned_parse_result(reference_parse);
 	free(reference_resolver.consumed);
 	free(resolver.consumed);
 	free(resolver.generated_identifiers);
@@ -4061,6 +3925,34 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 	}
 	sqlparser_error_clear(out_error);
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
+	const sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__ParseResult *legacy_ast;
+	sqlparser_status_t status;
+
+	if (handle == NULL || handle->ast != NULL) {
+		return sqlparser_validate_identifier_ast(
+			handle, handle != NULL ? handle->ast : NULL, out_error);
+	}
+	/* Legacy lazy handles may have only wire authority. This cold adapter
+	 * does not bind state or replace the caller's retained representation. */
+	if (handle->parse_tree.data == NULL) {
+		return sqlparser_validate_identifier_ast(handle, NULL, out_error);
+	}
+	legacy_ast = pg_query__parse_result__unpack(
+		NULL, handle->parse_tree.len, (const uint8_t *)handle->parse_tree.data);
+	if (legacy_ast == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to unpack identifier audit AST");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	status = sqlparser_validate_identifier_ast(handle, legacy_ast, out_error);
+	pg_query__parse_result__free_unpacked(legacy_ast, NULL);
+	return status;
 }
 
 /* Only for generated deparser output: its E strings double backslashes and quotes. */
@@ -4109,27 +4001,25 @@ static void sqlparser_deparse_restore_standard_strings(sqlparser_dialect_t diale
 	sql[write_position] = '\0';
 }
 
-PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
+PgQueryDeparseResult sqlparser_deparse_ast_for_handle(
 	const sqlparser_handle_t *handle,
-	PgQueryProtobuf parse_tree,
+	const PgQuery__ParseResult *parse_tree,
 	size_t raw_statement_offset,
 	size_t source_start,
 	size_t source_end)
 {
 	const sqlparser_identifier_origin_map_t *origins;
 	PostgresDeparseOpts options;
-	PgQueryProtobuf effective_tree;
 	PgQueryDeparseResult result;
 	sqlparser_identifier_resolver_t resolver;
 	sqlparser_identifier_resolver_t source_resolver;
 	sqlparser_error_t error;
-	char generated_identifier_prefix[64];
 	size_t generated_index;
 	int audit_identifiers;
 
 	memset(&options, 0, sizeof(options));
 	if (handle == NULL || handle->parser_sql == NULL) {
-		return pg_query_deparse_protobuf_opts(parse_tree, options);
+		return pg_query_deparse_ast_opts(parse_tree, options);
 	}
 	if (source_start > source_end ||
 	    source_end > handle->parser_sql_len) {
@@ -4173,32 +4063,16 @@ PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 		sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
 		sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
 	options.identifier_resolver_context = &resolver;
-	if (!sqlparser_prepare_generated_identifier_tree(
-		    handle,
-		    parse_tree,
-		    raw_statement_offset,
-		    &resolver,
-		    &options,
-		    generated_identifier_prefix,
-		    sizeof(generated_identifier_prefix),
-		    &effective_tree)) {
+	if (!sqlparser_prepare_generated_identifier_ast(
+		    handle, parse_tree, raw_statement_offset, &resolver, &options)) {
 		free(resolver.generated_identifiers);
 		memset(&result, 0, sizeof(result));
 		return result;
 	}
-	result = pg_query_deparse_protobuf_opts(effective_tree, options);
-	if (effective_tree.data != parse_tree.data) {
-		free(effective_tree.data);
-	}
-	if (result.query != NULL &&
-	    options.generated_identifier_prefix_length > 0U &&
-	    sqlparser_bytes_contain(
-		    result.query,
-		    strlen(result.query),
-		    generated_identifier_prefix,
-		    options.generated_identifier_prefix_length)) {
-		resolver.generated_identifier_error = 1;
-	}
+	result = pg_query_deparse_ast_opts_with_reader(
+		parse_tree, options,
+		resolver.generated_identifier_count != 0U ? sqlparser_read_ast_identifier : NULL,
+		&resolver);
 	for (generated_index = 0U;
 	     generated_index < resolver.generated_identifier_count;
 	     generated_index++) {
@@ -4223,5 +4097,33 @@ PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 	     sqlparser_dialect_is_sqlserver_compatible(handle->dialect))) {
 		sqlparser_deparse_restore_standard_strings(handle->dialect, result.query);
 	}
+	return result;
+}
+
+/* Compatibility entry for cold callers that still own a protobuf wire image. */
+PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
+	const sqlparser_handle_t *handle,
+	PgQueryProtobuf parse_tree,
+	size_t raw_statement_offset,
+	size_t source_start,
+	size_t source_end)
+{
+	PgQuery__ParseResult *ast;
+	PgQueryDeparseResult result;
+
+	if (parse_tree.data == NULL && handle != NULL &&
+	    handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) {
+		return sqlparser_deparse_ast_for_handle(
+			handle, handle->ast, raw_statement_offset, source_start, source_end);
+	}
+	ast = pg_query__parse_result__unpack(
+		NULL, parse_tree.len, (const uint8_t *)parse_tree.data);
+	if (ast == NULL) {
+		memset(&result, 0, sizeof(result));
+		return result;
+	}
+	result = sqlparser_deparse_ast_for_handle(
+		handle, ast, raw_statement_offset, source_start, source_end);
+	pg_query__parse_result__free_unpacked(ast, NULL);
 	return result;
 }

@@ -38,7 +38,7 @@ static void initial_parse(void) {
             for (int optional_error = 0; optional_error < 2; optional_error++) {
                 sqlparser_handle_t *handle = NULL;
                 arm(1, persistent);
-                CHECK(sqlparser_parse_with_options("SELECT 1", &options, &handle,
+                CHECK(sqlparser_parse_with_options("INSERT INTO t(v) VALUES (1)", &options, &handle,
                     optional_error ? NULL : &error) == SQLPARSER_STATUS_NO_MEMORY);
                 CHECK(handle == NULL && failures == 1);
                 if (!optional_error) CHECK(error.code == SQLPARSER_STATUS_NO_MEMORY);
@@ -46,7 +46,7 @@ static void initial_parse(void) {
                 /* Existing syntax errors still take precedence over the
                  * subsequent attempted serialization of their empty tree. */
                 arm(1, persistent);
-                CHECK(sqlparser_parse_with_options("SELECT )", &options, &handle,
+                CHECK(sqlparser_parse_with_options("INSERT INTO t(v) VALUES (1 +)", &options, &handle,
                     optional_error ? NULL : &error) == SQLPARSER_STATUS_PARSE_ERROR);
                 CHECK(handle == NULL && failures == 1);
                 if (!optional_error) CHECK(error.code == SQLPARSER_STATUS_PARSE_ERROR);
@@ -100,7 +100,10 @@ static void followup_paths(void) {
             if (failure == 0) {
                 CHECK(status == SQLPARSER_STATUS_OK);
                 count = attempts;
-                CHECK(count > 0);
+                /* Owned fragment parsing/deparsing bypasses serialized output;
+                 * the quoted INSERT still exercises the wire reparse hook. */
+                if (test_case == 1) CHECK(count > 0);
+                else CHECK(count == 0);
             } else {
                 CHECK(failures == 1);
                 if (status != SQLPARSER_STATUS_NO_MEMORY)

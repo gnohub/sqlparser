@@ -549,6 +549,149 @@ static sqlparser_status_t sqlparser_dialect_national_clone_visit(
 	return status;
 }
 
+/* Ordinals in an isolated fragment start at zero and count all of its string
+ * literals, including ordinary ones. Identity, not text equality, selects the
+ * national records that belong to the supplied live roots. */
+typedef struct {
+	const sqlparser_dialect_national_literals_t *literals;
+	sqlparser_dialect_national_literal_view_t *view;
+	size_t capacity;
+	size_t seen;
+	sqlparser_status_t status;
+	sqlparser_error_t *error;
+} sqlparser_dialect_national_projection_t;
+
+static void sqlparser_dialect_national_projection_visit(
+	PgQuery__AConst *literal,
+	size_t statement_index,
+	void *context)
+{
+	sqlparser_dialect_national_projection_t *projection;
+	const sqlparser_dialect_national_literal_t *record;
+
+	(void)statement_index;
+	projection = (sqlparser_dialect_national_projection_t *)context;
+	if (projection->status != SQLPARSER_STATUS_OK) {
+		return;
+	}
+	if (projection->seen == SIZE_MAX) {
+		projection->status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+		sqlparser_error_set_message(projection->error, projection->status,
+			"fragment literal count is too large");
+		return;
+	}
+	record = sqlparser_dialect_national_literals_find_owner(
+		projection->literals, literal);
+	if (record != NULL) {
+		if (projection->view->count == projection->capacity) {
+			sqlparser_dialect_national_literal_view_entry_t *items;
+			size_t capacity;
+
+			capacity = projection->capacity == 0U ? 4U : projection->capacity * 2U;
+			if (capacity < projection->capacity ||
+			    capacity > SIZE_MAX / sizeof(*items)) {
+				projection->status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(projection->error, projection->status,
+					"out of memory");
+				return;
+			}
+			items = (sqlparser_dialect_national_literal_view_entry_t *)realloc(
+				projection->view->items, capacity * sizeof(*items));
+			if (items == NULL) {
+				projection->status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(projection->error, projection->status,
+					"out of memory");
+				return;
+			}
+			projection->view->items = items;
+			projection->capacity = capacity;
+		}
+		projection->view->items[projection->view->count].literal = record;
+		projection->view->items[projection->view->count].ordinal = projection->seen;
+		projection->view->count++;
+	}
+	projection->seen++;
+}
+
+sqlparser_status_t sqlparser_dialect_national_literals_project_fragment(
+	const sqlparser_dialect_national_literals_t *literals,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_dialect_national_literal_view_t *out_view,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_national_projection_t projection;
+	sqlparser_dialect_ast_surface_visitor_t visitor;
+
+	if (out_view == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"fragment literal view must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_view, 0, sizeof(*out_view));
+	if (literals == NULL || literals->count == 0U ||
+	    roots == NULL || root_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	memset(&projection, 0, sizeof(projection));
+	projection.literals = literals;
+	projection.view = out_view;
+	projection.status = SQLPARSER_STATUS_OK;
+	projection.error = out_error;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &projection;
+	visitor.string_literal = sqlparser_dialect_national_projection_visit;
+	sqlparser_dialect_ast_surface_visit_roots(roots, root_count, 0U, &visitor);
+	if (projection.status != SQLPARSER_STATUS_OK) {
+		sqlparser_dialect_national_literal_view_release(out_view);
+	}
+	return projection.status;
+}
+
+void sqlparser_dialect_national_literal_view_release(
+	sqlparser_dialect_national_literal_view_t *view)
+{
+	if (view != NULL) {
+		free(view->items);
+		memset(view, 0, sizeof(*view));
+	}
+}
+
+int sqlparser_dialect_national_literal_view_match(
+	const sqlparser_dialect_national_literal_view_t *view,
+	size_t ordinal,
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t left;
+	size_t right;
+	const sqlparser_dialect_national_literal_t *literal;
+
+	if (view == NULL || sql == NULL || end <= start) {
+		return 0;
+	}
+	left = 0U;
+	right = view->count;
+	while (left < right) {
+		size_t middle;
+
+		middle = left + (right - left) / 2U;
+		if (view->items[middle].ordinal < ordinal) {
+			left = middle + 1U;
+		} else {
+			right = middle;
+		}
+	}
+	if (left >= view->count || view->items[left].ordinal != ordinal) {
+		return 0;
+	}
+	literal = view->items[left].literal;
+	return literal != NULL && literal->sql != NULL &&
+		strlen(literal->sql) == end - start &&
+		memcmp(literal->sql, sql + start, end - start) == 0;
+}
+
 sqlparser_status_t sqlparser_dialect_national_literals_clone_owners(
 	sqlparser_dialect_national_literals_t *literals,
 	const ProtobufCMessage *source_root,

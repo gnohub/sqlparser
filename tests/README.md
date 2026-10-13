@@ -10,6 +10,9 @@
 
 主要回归程序：
 
+- `test_compact_authority`、`test_owned_authority`、`test_owned_fragment_detach`：紧凑 INSERT、AST 和片段转移的所有权、回退、克隆及借用视图生命周期。
+- `test_literal_rebase`、`test_ast_rebase_plan`、`test_render_scaffold_public`：字面量替换的位置更新和片段反解析一致性。
+- `test_bulk_name_reader`、`test_schema_name_policy`、`test_where_public`、`test_where_schema`：批量名称读取、名称分类与 WHERE 遍历顺序；定界名称和国家字符字面量由相应专项用例覆盖。
 - `test_protobuf_node`、`test_protobuf_fastpath`：精确描述符约束、通用与快速路径
   字节一致性、未知与重复 wire 字段、畸形输入、缓冲区编码、分配失败及确定性模糊测试
 - `test_mysql_validation_observer`：存活树校验与解包回退一致性、解析上下文生命周期、

@@ -33,7 +33,10 @@ static char *source(size_t rows)
     char *sql = malloc(rows * 100U + 4200U);
     size_t row, used;
     CHECK(sql != NULL);
-    used = (size_t)sprintf(sql, "INSERT INTO target_test(a,b,c,d,e) VALUES ");
+    /* Keep the native wire fallback beyond the compact plan's bounded prefix
+     * probe. Compact-owner coverage lives in test_compact_authority. */
+    memset(sql, ' ', 128U);
+    used = 128U + (size_t)sprintf(sql + 128U, "INSERT INTO target_test(a,b,c,d,e) VALUES ");
     for (row = 0U; row < rows; ++row)
         used += (size_t)sprintf(sql + used, "%s(%zu,'alpha','原始',12.5,CURRENT_TIMESTAMP)", row ? "," : "", row);
     sql[used++] = ';';

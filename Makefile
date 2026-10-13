@@ -333,6 +333,7 @@ dist:
 		--exclude='*.orig' \
 		--exclude='*.so' \
 		--exclude='.DS_Store' \
+		--exclude='._*' \
 		--exclude='./bench/results' \
 		--exclude='./vendor/libpg_query/.deps' \
 		--exclude='./vendor/libpg_query/tmp' \
@@ -534,11 +535,11 @@ $(JANSSON_OBJ_PATH)/%.o: $(JANSSON_SRC_DIR)/%.c $(BUILD_SIGNATURE_FILE) $(VENDOR
 
 $(CASE_MATRIX_BINS): $(CASE_RUNNER_HEADER)
 
-$(UNIT_TEST_BINS): tests/unit/sqlparser_test_failure.h
+$(UNIT_TEST_BINS): tests/unit/sqlparser_test_failure.h tests/unit/sqlparser_test_tree_parity.h
 
 $(BIN_PATH)/%: tests/unit/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
+	@$(CC) $(CPPFLAGS) -I./src/core $(CFLAGS) $< $(STATIC_LIB_PATH) $(LDFLAGS) $(LDLIBS) -o $@
 
 # Compile the generic reference walker in a separate translation unit.
 # An immutable pre-optimization source can also be supplied for external audits.

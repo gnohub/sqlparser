@@ -2,8 +2,8 @@
 
 本文档说明 `sqlparser` 公共 C API 的主要类型、生命周期规则、结构化读取接口和改写接口。
 
-本手册描述 2.17.3 的 API。patch/deparse 失败后 handle 不可复用，
-与 2.16.x 的回滚规则不同；公开 ABI 不变，详见[发布说明](../RELEASE_NOTES.md)。
+本手册描述 2.17.4 的 API。patch/deparse 失败后 handle 不可复用，
+与 2.16.x 的回滚规则不同；现有接口和公开结构体布局不变，新增可选的批量名称读取接口，详见[发布说明](../RELEASE_NOTES.md)。
 
 ## 概述
 
@@ -442,7 +442,10 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | --- | --- |
 | `sqlparser_statement_name_count()` | 返回名称原子数量 |
 | `sqlparser_statement_name()` | 读取指定名称原子 |
+| `sqlparser_statement_names()` | 按相同顺序批量读取名称原子 |
 | `sqlparser_statement_set_name()` | 改写指定名称原子 |
+
+`sqlparser_statement_names()` 将借用视图写入调用方提供的数组，`out_count` 必须非空。容量为 0 时可不提供数组，只查询总数；正容量不足时写入可容纳的前缀，返回 `SQLPARSER_STATUS_RESOURCE_LIMIT` 并报告完整所需数量，handle 仍可使用。视图中的字符串不可单独释放，其生命周期与逐项名称读取一致，在修改或销毁 handle 后失效。
 
 对于源自输入 identifier token 的未加引号标识符，AST 名称值保留 token 文本及其大小写，因此 `abc`、`DDD` 分别仍为 `abc`、`DDD`。带引号标识符的 `value` 保留解码后的名称文本及其大小写，不包含双引号、反引号或方括号定界符。仅 generation 为 `0` 的 deparse 保证保留定界符和转义字节。Name API 只暴露明确支持读取和改写的标识符原子；关键字、操作符、结构控制值、字面量、payload 等其他 AST 字符串字段不作为 name 暴露。
 

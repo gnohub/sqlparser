@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sqlparser_internal.h"
+#include "sqlparser_test_tree_parity.h"
 #ifdef SQLPARSER_CERTIFIED_PACK_WRAPPERS
 #include "sqlparser_test_failure.h"
 #endif
@@ -546,8 +547,7 @@ static void compare_pair(sqlparser_handle_t *actual, sqlparser_handle_t *referen
     sqlparser_graph_dml_t ad, rd;
     sqlparser_bind_occurrence_view_t ab, rb;
     char *a = NULL, *b = NULL;
-    if (actual->parse_tree.len != reference->parse_tree.len) fprintf(stderr, "wire lengths actual=%zu reference=%zu SQL-length=%zu\n", actual->parse_tree.len, reference->parse_tree.len, strlen(sqlparser_original_sql(actual)));
-    same(&actual->parse_tree, &reference->parse_tree);
+    CHECK(sqlparser_test_same_tree(actual, reference));
     CHECK(sqlparser_deparse(actual, &a, &error) == SQLPARSER_STATUS_OK);
     CHECK(sqlparser_deparse(reference, &b, &error) == SQLPARSER_STATUS_OK);
     CHECK(strcmp(a, b) == 0); sqlparser_string_free(a); sqlparser_string_free(b);

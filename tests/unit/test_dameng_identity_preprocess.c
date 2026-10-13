@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "sqlparser_internal.h"
+#include "sqlparser_test_tree_parity.h"
 #include "sqlparser_dialect_dml_result_internal.h"
 #include "src/pg_query_observer.h"
 
@@ -367,8 +368,7 @@ static void handle_equal(sqlparser_handle_t *a,sqlparser_handle_t *b)
         CHECK(a->native_scalar_provenance->proof.row_count >= 32U);
     }
     CHECK(!a->dialect_ops->plain_scalar_native_validation&&!b->dialect_ops->plain_scalar_native_validation);
-    CHECK(a->parse_tree.len==b->parse_tree.len);
-    CHECK(memcmp(a->parse_tree.data,b->parse_tree.data,a->parse_tree.len)==0);
+    CHECK(sqlparser_test_same_tree(a,b));
     CHECK(a->statement_count==b->statement_count);
     {
         sqlparser_status_t ar=sqlparser_deparse(a,&as,&ae);
@@ -400,7 +400,12 @@ static void public_one(const char *sql,int patch,const sqlparser_parse_options_t
     CHECK(anative<=native_entries-native0&&aparse<=parser_calls-parser0);
     CHECK(aunpack<=unpack_calls-unpack0&&afree<=unpack_frees-free0);
     if(ar==SQLPARSER_STATUS_OK){
-        CHECK(anative>=1U&&parser_calls-parser0>=1U&&unpack_calls-unpack0>=1U);
+        if (a->representation == SQLPARSER_REPRESENTATION_OWNED_AST)
+            CHECK(anative>=1U&&aparse==0U&&aunpack==0U&&afree==0U);
+        else CHECK(anative>=1U);
+        if (b->representation == SQLPARSER_REPRESENTATION_OWNED_AST)
+            CHECK(parser_calls-parser0==0U&&unpack_calls-unpack0==0U);
+        else CHECK(parser_calls-parser0>=1U&&unpack_calls-unpack0>=1U);
         if(a->native_scalar_provenance)CHECK(aparse==0U&&aunpack==0U&&afree==0U);
     }
 #endif

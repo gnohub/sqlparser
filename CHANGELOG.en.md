@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.4
+
+- Optimize MySQL batch INSERT storage and string replacement, AST construction, fragment parsing and deparsing, reducing repeated parsing, serialization and allocations.
+- Reuse the AST and update source locations for eligible PostgreSQL literal replacements while retaining required validation.
+- Optimize name, WHERE and identifier traversal; add the optional `sqlparser_statement_names()` bulk reader.
+- Fix rewriting fidelity for certain delimited identifiers, generated aliases and national character literals.
+- Preserve existing fast-parser admission, function signatures, public structure layouts and calling rules.
+
 ## 2.17.3
 
 - Optimize value storage, query graph construction and batched string replacement for Oracle-family multi-table inserts, reducing repeated scans, copying and allocations.

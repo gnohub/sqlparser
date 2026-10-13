@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_render_scaffold.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_select_stmt_has_target_list(ProtobufCMessage *message)
@@ -223,6 +224,7 @@ static sqlparser_status_t sqlparser_parse_select_target_nodes_sql_internal(
 	PgQuery__Node **nodes;
 	sqlparser_status_t status;
 	size_t index;
+	size_t owned_count = 0U;
 
 	if (sql_text == NULL || sql_text[0] == '\0' || out_nodes == NULL || out_count == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "select target SQL must not be NULL or empty");
@@ -244,37 +246,33 @@ static sqlparser_status_t sqlparser_parse_select_target_nodes_sql_internal(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_select_stmt(ast, &stmt, out_error);
 	}
-	if (status == SQLPARSER_STATUS_OK) {
-		nodes = sqlparser_select_alloc_node_array(stmt->n_target_list, out_error);
-		if (nodes == NULL) {
-			status = out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
-		}
+	if (status == SQLPARSER_STATUS_OK &&
+	    stmt->n_target_list > SIZE_MAX / sizeof(*nodes)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"select target array is too large");
+		status = out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		for (index = 0U; index < stmt->n_target_list; index++) {
-			status = sqlparser_clone_proto_node(stmt->target_list[index], &nodes[index], out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				break;
-			}
+			status = sqlparser_validate_owned_wrapper_node(stmt->target_list[index], out_error);
+			if (status != SQLPARSER_STATUS_OK) break;
 		}
 		if (status == SQLPARSER_STATUS_OK) {
-			status =
-				sqlparser_mark_proto_nodes_generated_with_fragment_source(
-					nodes,
-					stmt->n_target_list,
-					wrapped_sql,
-					strlen(prefix),
-					source,
-					out_error);
+			owned_count = stmt->n_target_list;
+			nodes = stmt->target_list;
+			stmt->target_list = NULL;
+			stmt->n_target_list = 0U;
+			status = sqlparser_mark_proto_nodes_generated_with_fragment_source(
+				nodes, owned_count, wrapped_sql, strlen(prefix), source, out_error);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		*out_nodes = nodes;
-		*out_count = stmt->n_target_list;
+		*out_count = owned_count;
 		nodes = NULL;
 	}
 
-	sqlparser_select_free_node_array(nodes, stmt != NULL ? stmt->n_target_list : 0U);
+	sqlparser_select_free_node_array(nodes, owned_count);
 	if (ast != NULL) {
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
@@ -331,7 +329,7 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 {
 	const char *prefix;
 	const char *suffix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__SelectStmt *stmt;
@@ -345,14 +343,14 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 	*out_sql = NULL;
 	prefix = "SELECT ";
 	suffix = " FROM __sqlparser_source__";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	stmt = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "NULL", suffix, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_SELECT_TARGET, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_select_stmt(ast, &stmt, out_error);
@@ -367,9 +365,7 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(stmt->target_list[0]);
 		stmt->target_list[0] = replacement;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -380,11 +376,8 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, suffix, out_sql, out_error);
 	}
 
+	/* The scaffold borrows replacement; never recursively free its stack AST. */
 	sqlparser_free_proto_node(replacement);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }

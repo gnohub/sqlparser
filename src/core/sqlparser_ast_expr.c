@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_render_scaffold.h"
 
 sqlparser_status_t sqlparser_build_wrapped_sql(
 	const char *prefix,
@@ -51,7 +52,7 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 	PgQuery__ParseResult **out_ast,
 	sqlparser_error_t *out_error)
 {
-	PgQueryProtobufParseResult parse_result;
+	PgQueryOwnedParseResult parse_result;
 	PgQuery__ParseResult *ast;
 
 	if (wrapped_sql == NULL || out_ast == NULL) {
@@ -65,7 +66,7 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 	*out_ast = NULL;
 	sqlparser_pg_query_prepare();
 	parse_result =
-		sqlparser_parse_protobuf_preserving_identifier_spelling(
+		sqlparser_parse_owned_preserving_identifier_spelling(
 			wrapped_sql);
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(
@@ -73,28 +74,19 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 			SQLPARSER_STATUS_PARSE_ERROR,
 			wrapped_sql,
 			parse_result.error);
-		pg_query_free_protobuf_parse_result(parse_result);
+		pg_query_free_owned_parse_result(parse_result);
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
-	if (parse_result.parse_tree.data == NULL) {
-		pg_query_free_protobuf_parse_result(parse_result);
+	if (parse_result.parse_tree == NULL) {
+		pg_query_free_owned_parse_result(parse_result);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	ast = pg_query__parse_result__unpack(
-		NULL,
-		parse_result.parse_tree.len,
-		(const uint8_t *)parse_result.parse_tree.data);
-	pg_query_free_protobuf_parse_result(parse_result);
-	if (ast == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to unpack wrapped parse tree");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
+	ast = parse_result.parse_tree;
+	parse_result.parse_tree = NULL;
+	pg_query_free_owned_parse_result(parse_result);
 
 	*out_ast = ast;
 	return SQLPARSER_STATUS_OK;
@@ -106,10 +98,6 @@ sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
-	size_t packed_size;
-	size_t packed_len;
-	uint8_t *buffer;
-	PgQueryProtobuf parse_tree;
 	PgQueryDeparseResult deparse_result;
 
 	if (ast == NULL || out_sql == NULL) {
@@ -121,43 +109,15 @@ sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	}
 
 	*out_sql = NULL;
-	packed_size = pg_query__parse_result__get_packed_size((PgQuery__ParseResult *)ast);
-	if (packed_size == 0U) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to pack wrapped parse tree");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-
-	buffer = (uint8_t *)malloc(packed_size);
-	if (buffer == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-
-	packed_len = pg_query__parse_result__pack((PgQuery__ParseResult *)ast, buffer);
-	if (packed_len != packed_size) {
-		free(buffer);
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to serialize wrapped parse tree");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-
-	parse_tree.len = packed_size;
-	parse_tree.data = (char *)buffer;
 	sqlparser_pg_query_prepare();
 	deparse_result = handle != NULL ?
-		sqlparser_deparse_protobuf_for_handle(
+		sqlparser_deparse_ast_for_handle(
 			handle,
-			parse_tree,
+			ast,
 			SIZE_MAX,
 			0U,
 			0U) :
-		pg_query_deparse_protobuf(parse_tree);
-	free(buffer);
+		pg_query_deparse_ast(ast);
 	if (deparse_result.error != NULL || deparse_result.query == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -177,6 +137,33 @@ sqlparser_status_t sqlparser_deparse_wrapper_ast(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
+	return SQLPARSER_STATUS_OK;
+}
+
+/* Only callers holding an exclusively owned parse_wrapper_ast tree may use
+ * this admission check before transferring a subtree. It does not itself prove
+ * ownership. Preserve clone_proto_node's nonempty-root diagnostics without
+ * allocating another copy of the fresh parser-owned tree. */
+sqlparser_status_t sqlparser_validate_owned_wrapper_node(
+	const PgQuery__Node *node, sqlparser_error_t *out_error)
+{
+	const ProtobufCFieldDescriptor *selected;
+	const ProtobufCMessage *child = NULL;
+	if (node == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"node clone requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	selected = protobuf_c_message_descriptor_get_field(
+		&pg_query__node__descriptor, (uint32_t)node->node_case);
+	if (selected != NULL)
+		memcpy(&child, (const uint8_t *)node + selected->offset, sizeof(child));
+	if (node->base.n_unknown_fields == 0U &&
+	    (selected == NULL || child == NULL || child == selected->default_value)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+			"cannot clone an empty node");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -508,8 +495,12 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 		status = sqlparser_get_wrapper_update_assignment_slot(ast, &slot, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		status = sqlparser_validate_owned_wrapper_node(*slot, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
+			/* Transfer before marking/binding, which may fail. The residual
+			 * wrapper must no longer own this output on any cleanup path. */
+			*out_node = *slot;
+			*slot = NULL;
 			status = sqlparser_mark_proto_generated_with_fragment_source(
 				(ProtobufCMessage *)*out_node,
 				wrapped_sql,
@@ -563,8 +554,12 @@ sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 		status = sqlparser_get_wrapper_variable_set_arg_slot(ast, &slot, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		status = sqlparser_validate_owned_wrapper_node(*slot, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
+			/* Transfer before marking/binding, which may fail. The residual
+			 * wrapper must no longer own this output on any cleanup path. */
+			*out_node = *slot;
+			*slot = NULL;
 			status = sqlparser_mark_proto_generated_with_fragment_source(
 				(ProtobufCMessage *)*out_node,
 				wrapped_sql,
@@ -593,7 +588,7 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 {
 	const char *prefix;
 	const char *suffix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__Node **slot;
@@ -611,14 +606,14 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 	*out_sql = NULL;
 	prefix = "INSERT INTO __sqlparser_target__ VALUES (";
 	suffix = ")";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	slot = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "NULL", suffix, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_INSERT_CELL, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_insert_cell_slot(ast, &slot, out_error);
@@ -633,9 +628,7 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -646,11 +639,8 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, suffix, out_sql, out_error);
 	}
 
+	/* The scaffold borrows replacement; never recursively free its stack AST. */
 	sqlparser_free_proto_node(replacement);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }
@@ -661,9 +651,8 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
-	const char *prefix;
 	const char *deparse_prefix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__Node **slot;
@@ -679,16 +668,15 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 	}
 
 	*out_sql = NULL;
-	prefix = "SET __sqlparser_session_parameter__ = ";
 	deparse_prefix = "SET __sqlparser_session_parameter__ TO ";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	slot = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "__sqlparser_placeholder__", NULL, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_VARIABLE_SET_ARG, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_variable_set_arg_slot(ast, &slot, out_error);
@@ -703,9 +691,7 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -716,11 +702,8 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, deparse_prefix, NULL, out_sql, out_error);
 	}
 
+	/* The scaffold borrows replacement; never recursively free its stack AST. */
 	sqlparser_free_proto_node(replacement);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }
@@ -732,7 +715,7 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 	sqlparser_error_t *out_error)
 {
 	const char *prefix;
-	char *wrapped_sql;
+	sqlparser_render_scaffold_t scaffold;
 	char *deparsed_sql;
 	PgQuery__ParseResult *ast;
 	PgQuery__Node **slot;
@@ -749,14 +732,14 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 
 	*out_sql = NULL;
 	prefix = "UPDATE __sqlparser_target__ SET __sqlparser_column__ = ";
-	wrapped_sql = NULL;
 	deparsed_sql = NULL;
 	ast = NULL;
 	slot = NULL;
 	replacement = NULL;
-	status = sqlparser_build_wrapped_sql(prefix, "NULL", NULL, &wrapped_sql, out_error);
+	status = sqlparser_render_scaffold_init(
+		&scaffold, SQLPARSER_RENDER_SCAFFOLD_UPDATE_ASSIGNMENT, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+		ast = &scaffold.ast;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_get_wrapper_update_assignment_slot(ast, &slot, out_error);
@@ -771,9 +754,7 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
-		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
 			handle,
 			ast,
@@ -784,11 +765,8 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, NULL, out_sql, out_error);
 	}
 
+	/* The scaffold borrows replacement; never recursively free its stack AST. */
 	sqlparser_free_proto_node(replacement);
-	if (ast != NULL) {
-		pg_query__parse_result__free_unpacked(ast, NULL);
-	}
-	free(wrapped_sql);
 	free(deparsed_sql);
 	return status;
 }

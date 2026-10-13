@@ -7,6 +7,7 @@
 #endif
 
 #include "protobuf/pg_query.pb-c.h"
+#include "protobuf/sqlparser_name_schema.h"
 void   pg_query__parse_result__init
                      (PgQuery__ParseResult         *message)
 {
@@ -12328,7 +12329,7 @@ static const ProtobufCFieldDescriptor pg_query__parse_result__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stmts",
@@ -12340,7 +12341,7 @@ static const ProtobufCFieldDescriptor pg_query__parse_result__field_descriptors[
     &pg_query__raw_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__parse_result__field_indices_by_name[] = {
@@ -12365,7 +12366,7 @@ const ProtobufCMessageDescriptor pg_query__parse_result__descriptor =
   pg_query__parse_result__field_indices_by_name,
   1,  pg_query__parse_result__number_ranges,
   (ProtobufCMessageInit) pg_query__parse_result__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[0],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__scan_result__field_descriptors[2] =
 {
@@ -12379,7 +12380,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_result__field_descriptors[2
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tokens",
@@ -12391,7 +12392,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_result__field_descriptors[2
     &pg_query__scan_token__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__scan_result__field_indices_by_name[] = {
@@ -12416,7 +12417,7 @@ const ProtobufCMessageDescriptor pg_query__scan_result__descriptor =
   pg_query__scan_result__field_indices_by_name,
   1,  pg_query__scan_result__number_ranges,
   (ProtobufCMessageInit) pg_query__scan_result__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[1],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
 {
@@ -12430,7 +12431,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alias__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_var",
@@ -12442,7 +12443,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_var__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_func",
@@ -12454,7 +12455,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__table_func__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "into_clause",
@@ -12466,7 +12467,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__into_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "var",
@@ -12478,7 +12479,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__var__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "param",
@@ -12490,7 +12491,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__param__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggref",
@@ -12502,7 +12503,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__aggref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grouping_func",
@@ -12514,7 +12515,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__grouping_func__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_func",
@@ -12526,7 +12527,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__window_func__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_func_run_condition",
@@ -12538,7 +12539,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__window_func_run_condition__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_support_func",
@@ -12550,7 +12551,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__merge_support_func__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subscripting_ref",
@@ -12562,7 +12563,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__subscripting_ref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_expr",
@@ -12574,7 +12575,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__func_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "named_arg_expr",
@@ -12586,7 +12587,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__named_arg_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op_expr",
@@ -12598,7 +12599,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__op_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "distinct_expr",
@@ -12610,7 +12611,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__distinct_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "null_if_expr",
@@ -12622,7 +12623,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__null_if_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "scalar_array_op_expr",
@@ -12634,7 +12635,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__scalar_array_op_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "bool_expr",
@@ -12646,7 +12647,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__bool_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sub_link",
@@ -12658,7 +12659,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sub_link__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sub_plan",
@@ -12670,7 +12671,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sub_plan__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alternative_sub_plan",
@@ -12682,7 +12683,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alternative_sub_plan__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "field_select",
@@ -12694,7 +12695,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__field_select__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "field_store",
@@ -12706,7 +12707,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__field_store__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5889U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relabel_type",
@@ -12718,7 +12719,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__relabel_type__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6145U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerce_via_io",
@@ -12730,7 +12731,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__coerce_via_io__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6401U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "array_coerce_expr",
@@ -12742,7 +12743,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__array_coerce_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6657U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "convert_rowtype_expr",
@@ -12754,7 +12755,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__convert_rowtype_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6913U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collate_expr",
@@ -12766,7 +12767,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__collate_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7169U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "case_expr",
@@ -12778,7 +12779,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__case_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7425U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "case_when",
@@ -12790,7 +12791,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__case_when__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7681U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "case_test_expr",
@@ -12802,7 +12803,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__case_test_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7937U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "array_expr",
@@ -12814,7 +12815,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__array_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8193U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_expr",
@@ -12826,7 +12827,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__row_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8449U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_compare_expr",
@@ -12838,7 +12839,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__row_compare_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8705U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coalesce_expr",
@@ -12850,7 +12851,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__coalesce_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8961U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "min_max_expr",
@@ -12862,7 +12863,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__min_max_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9217U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sqlvalue_function",
@@ -12874,7 +12875,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sqlvalue_function__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9473U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "xml_expr",
@@ -12886,7 +12887,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__xml_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9729U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_format",
@@ -12898,7 +12899,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_format__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9985U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_returning",
@@ -12910,7 +12911,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_returning__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    10241U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_value_expr",
@@ -12922,7 +12923,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_value_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    10497U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_constructor_expr",
@@ -12934,7 +12935,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_constructor_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    10753U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_is_predicate",
@@ -12946,7 +12947,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_is_predicate__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    11009U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_behavior",
@@ -12958,7 +12959,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_behavior__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    11265U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_expr",
@@ -12970,7 +12971,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    11521U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table_path",
@@ -12982,7 +12983,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table_path__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    11777U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table_path_scan",
@@ -12994,7 +12995,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table_path_scan__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    12033U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table_sibling_join",
@@ -13006,7 +13007,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table_sibling_join__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    12289U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "null_test",
@@ -13018,7 +13019,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__null_test__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    12545U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "boolean_test",
@@ -13030,7 +13031,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__boolean_test__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    12801U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_action",
@@ -13042,7 +13043,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__merge_action__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    13057U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerce_to_domain",
@@ -13054,7 +13055,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__coerce_to_domain__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    13313U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerce_to_domain_value",
@@ -13066,7 +13067,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__coerce_to_domain_value__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    13569U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "set_to_default",
@@ -13078,7 +13079,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__set_to_default__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    13825U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "current_of_expr",
@@ -13090,7 +13091,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__current_of_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    14081U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "next_value_expr",
@@ -13102,7 +13103,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__next_value_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    14337U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inference_elem",
@@ -13114,7 +13115,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__inference_elem__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    14593U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_entry",
@@ -13126,7 +13127,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__target_entry__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    14849U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_tbl_ref",
@@ -13138,7 +13139,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_tbl_ref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    15105U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "join_expr",
@@ -13150,7 +13151,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__join_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    15361U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "from_expr",
@@ -13162,7 +13163,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__from_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    15617U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict_expr",
@@ -13174,7 +13175,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__on_conflict_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    15873U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query",
@@ -13186,7 +13187,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__query__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    16129U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -13198,7 +13199,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__type_name__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    16385U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "column_ref",
@@ -13210,7 +13211,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__column_ref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    16641U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "param_ref",
@@ -13222,7 +13223,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__param_ref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    16897U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_expr",
@@ -13234,7 +13235,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    17153U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_cast",
@@ -13246,7 +13247,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__type_cast__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    17409U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collate_clause",
@@ -13258,7 +13259,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__collate_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    17665U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "role_spec",
@@ -13270,7 +13271,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__role_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    17921U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_call",
@@ -13282,7 +13283,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__func_call__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    18177U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_star",
@@ -13294,7 +13295,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__star__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    18433U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_indices",
@@ -13306,7 +13307,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__indices__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    18689U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_indirection",
@@ -13318,7 +13319,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__indirection__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    18945U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_array_expr",
@@ -13330,7 +13331,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__array_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    19201U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "res_target",
@@ -13342,7 +13343,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__res_target__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    19457U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "multi_assign_ref",
@@ -13354,7 +13355,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__multi_assign_ref__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    19713U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sort_by",
@@ -13366,7 +13367,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sort_by__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    19969U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_def",
@@ -13378,7 +13379,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__window_def__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    20225U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_subselect",
@@ -13390,7 +13391,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_subselect__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    20481U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_function",
@@ -13402,7 +13403,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_function__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    20737U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_table_func",
@@ -13414,7 +13415,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_table_func__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    20993U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_table_func_col",
@@ -13426,7 +13427,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_table_func_col__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    21249U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_table_sample",
@@ -13438,7 +13439,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_table_sample__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    21505U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "column_def",
@@ -13450,7 +13451,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__column_def__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    21761U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_like_clause",
@@ -13462,7 +13463,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__table_like_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    22017U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "index_elem",
@@ -13474,7 +13475,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__index_elem__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    22273U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "def_elem",
@@ -13486,7 +13487,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__def_elem__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    22529U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "locking_clause",
@@ -13498,7 +13499,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__locking_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    22785U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "xml_serialize",
@@ -13510,7 +13511,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__xml_serialize__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    23041U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_elem",
@@ -13522,7 +13523,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__partition_elem__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    23297U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_spec",
@@ -13534,7 +13535,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__partition_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    23553U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_bound_spec",
@@ -13546,7 +13547,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__partition_bound_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    23809U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_range_datum",
@@ -13558,7 +13559,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__partition_range_datum__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    24065U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "single_partition_spec",
@@ -13570,7 +13571,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__single_partition_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    24321U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_cmd",
@@ -13582,7 +13583,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__partition_cmd__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    24577U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_tbl_entry",
@@ -13594,7 +13595,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_tbl_entry__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    24833U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rtepermission_info",
@@ -13606,7 +13607,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__rtepermission_info__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    25089U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "range_tbl_function",
@@ -13618,7 +13619,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__range_tbl_function__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    25345U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_sample_clause",
@@ -13630,7 +13631,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__table_sample_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    25601U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_check_option",
@@ -13642,7 +13643,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__with_check_option__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    25857U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sort_group_clause",
@@ -13654,7 +13655,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sort_group_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    26113U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grouping_set",
@@ -13666,7 +13667,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__grouping_set__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    26369U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_clause",
@@ -13678,7 +13679,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__window_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    26625U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_mark_clause",
@@ -13690,7 +13691,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__row_mark_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    26881U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -13702,7 +13703,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__with_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    27137U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "infer_clause",
@@ -13714,7 +13715,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__infer_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    27393U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict_clause",
@@ -13726,7 +13727,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__on_conflict_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    27649U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctesearch_clause",
@@ -13738,7 +13739,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__ctesearch_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    27905U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctecycle_clause",
@@ -13750,7 +13751,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__ctecycle_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    28161U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "common_table_expr",
@@ -13762,7 +13763,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__common_table_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    28417U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_when_clause",
@@ -13774,7 +13775,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__merge_when_clause__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    28673U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "trigger_transition",
@@ -13786,7 +13787,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__trigger_transition__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    28929U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_output",
@@ -13798,7 +13799,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_output__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    29185U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_argument",
@@ -13810,7 +13811,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_argument__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    29441U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_func_expr",
@@ -13822,7 +13823,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_func_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    29697U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table_path_spec",
@@ -13834,7 +13835,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table_path_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    29953U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table",
@@ -13846,7 +13847,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    30209U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_table_column",
@@ -13858,7 +13859,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_table_column__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    30465U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_key_value",
@@ -13870,7 +13871,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_key_value__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    30721U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_parse_expr",
@@ -13882,7 +13883,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_parse_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    30977U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_scalar_expr",
@@ -13894,7 +13895,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_scalar_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    31233U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_serialize_expr",
@@ -13906,7 +13907,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_serialize_expr__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    31489U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_object_constructor",
@@ -13918,7 +13919,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_object_constructor__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    31745U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_array_constructor",
@@ -13930,7 +13931,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_array_constructor__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    32001U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_array_query_constructor",
@@ -13942,7 +13943,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_array_query_constructor__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    32257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_agg_constructor",
@@ -13954,7 +13955,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_agg_constructor__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    32513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_object_agg",
@@ -13966,7 +13967,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_object_agg__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    32769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "json_array_agg",
@@ -13978,7 +13979,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__json_array_agg__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    33025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "raw_stmt",
@@ -13990,7 +13991,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__raw_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    33281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "insert_stmt",
@@ -14002,7 +14003,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__insert_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    33537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "delete_stmt",
@@ -14014,7 +14015,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__delete_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    33793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "update_stmt",
@@ -14026,7 +14027,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__update_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    34049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_stmt",
@@ -14038,7 +14039,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__merge_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    34305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "select_stmt",
@@ -14050,7 +14051,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__select_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    34561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "set_operation_stmt",
@@ -14062,7 +14063,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__set_operation_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    34817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "return_stmt",
@@ -14074,7 +14075,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__return_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    35073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plassign_stmt",
@@ -14086,7 +14087,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__plassign_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    35329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_schema_stmt",
@@ -14098,7 +14099,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_schema_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    35585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_table_stmt",
@@ -14110,7 +14111,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_table_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    35841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replica_identity_stmt",
@@ -14122,7 +14123,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__replica_identity_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    36097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_table_cmd",
@@ -14134,7 +14135,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_table_cmd__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    36353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_collation_stmt",
@@ -14146,7 +14147,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_collation_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    36609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_domain_stmt",
@@ -14158,7 +14159,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_domain_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    36865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grant_stmt",
@@ -14170,7 +14171,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__grant_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    37121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object_with_args",
@@ -14182,7 +14183,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__object_with_args__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    37377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "access_priv",
@@ -14194,7 +14195,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__access_priv__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    37633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grant_role_stmt",
@@ -14206,7 +14207,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__grant_role_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    37889U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_default_privileges_stmt",
@@ -14218,7 +14219,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_default_privileges_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    38145U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "copy_stmt",
@@ -14230,7 +14231,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__copy_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    38401U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "variable_set_stmt",
@@ -14242,7 +14243,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__variable_set_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    38657U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "variable_show_stmt",
@@ -14254,7 +14255,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__variable_show_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    38913U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_stmt",
@@ -14266,7 +14267,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    39169U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraint",
@@ -14278,7 +14279,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__constraint__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    39425U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_table_space_stmt",
@@ -14290,7 +14291,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_table_space_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    39681U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_table_space_stmt",
@@ -14302,7 +14303,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_table_space_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    39937U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_table_space_options_stmt",
@@ -14314,7 +14315,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_table_space_options_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    40193U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_table_move_all_stmt",
@@ -14326,7 +14327,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_table_move_all_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    40449U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_extension_stmt",
@@ -14338,7 +14339,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_extension_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    40705U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_extension_stmt",
@@ -14350,7 +14351,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_extension_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    40961U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_extension_contents_stmt",
@@ -14362,7 +14363,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_extension_contents_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    41217U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_fdw_stmt",
@@ -14374,7 +14375,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_fdw_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    41473U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_fdw_stmt",
@@ -14386,7 +14387,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_fdw_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    41729U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_foreign_server_stmt",
@@ -14398,7 +14399,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_foreign_server_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    41985U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_foreign_server_stmt",
@@ -14410,7 +14411,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_foreign_server_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    42241U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_foreign_table_stmt",
@@ -14422,7 +14423,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_foreign_table_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    42497U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_user_mapping_stmt",
@@ -14434,7 +14435,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_user_mapping_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    42753U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_user_mapping_stmt",
@@ -14446,7 +14447,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_user_mapping_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    43009U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_user_mapping_stmt",
@@ -14458,7 +14459,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_user_mapping_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    43265U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "import_foreign_schema_stmt",
@@ -14470,7 +14471,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__import_foreign_schema_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    43521U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_policy_stmt",
@@ -14482,7 +14483,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_policy_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    43777U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_policy_stmt",
@@ -14494,7 +14495,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_policy_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    44033U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_am_stmt",
@@ -14506,7 +14507,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_am_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    44289U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_trig_stmt",
@@ -14518,7 +14519,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_trig_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    44545U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_event_trig_stmt",
@@ -14530,7 +14531,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_event_trig_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    44801U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_event_trig_stmt",
@@ -14542,7 +14543,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_event_trig_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    45057U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_plang_stmt",
@@ -14554,7 +14555,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_plang_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    45313U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_role_stmt",
@@ -14566,7 +14567,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_role_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    45569U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_role_stmt",
@@ -14578,7 +14579,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_role_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    45825U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_role_set_stmt",
@@ -14590,7 +14591,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_role_set_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    46081U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_role_stmt",
@@ -14602,7 +14603,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_role_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    46337U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_seq_stmt",
@@ -14614,7 +14615,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_seq_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    46593U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_seq_stmt",
@@ -14626,7 +14627,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_seq_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    46849U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "define_stmt",
@@ -14638,7 +14639,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__define_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    47105U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_domain_stmt",
@@ -14650,7 +14651,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_domain_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    47361U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_op_class_stmt",
@@ -14662,7 +14663,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_op_class_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    47617U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_op_class_item",
@@ -14674,7 +14675,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_op_class_item__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    47873U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_op_family_stmt",
@@ -14686,7 +14687,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_op_family_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    48129U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_op_family_stmt",
@@ -14698,7 +14699,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_op_family_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    48385U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_stmt",
@@ -14710,7 +14711,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    48641U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "truncate_stmt",
@@ -14722,7 +14723,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__truncate_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    48897U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "comment_stmt",
@@ -14734,7 +14735,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__comment_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    49153U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sec_label_stmt",
@@ -14746,7 +14747,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__sec_label_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    49409U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "declare_cursor_stmt",
@@ -14758,7 +14759,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__declare_cursor_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    49665U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "close_portal_stmt",
@@ -14770,7 +14771,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__close_portal_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    49921U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fetch_stmt",
@@ -14782,7 +14783,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__fetch_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    50177U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "index_stmt",
@@ -14794,7 +14795,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__index_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    50433U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_stats_stmt",
@@ -14806,7 +14807,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_stats_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    50689U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stats_elem",
@@ -14818,7 +14819,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__stats_elem__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    50945U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_stats_stmt",
@@ -14830,7 +14831,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_stats_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    51201U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_function_stmt",
@@ -14842,7 +14843,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_function_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    51457U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "function_parameter",
@@ -14854,7 +14855,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__function_parameter__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    51713U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_function_stmt",
@@ -14866,7 +14867,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_function_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    51969U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "do_stmt",
@@ -14878,7 +14879,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__do_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    52225U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inline_code_block",
@@ -14890,7 +14891,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__inline_code_block__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    52481U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "call_stmt",
@@ -14902,7 +14903,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__call_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    52737U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "call_context",
@@ -14914,7 +14915,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__call_context__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    52993U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rename_stmt",
@@ -14926,7 +14927,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__rename_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    53249U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_object_depends_stmt",
@@ -14938,7 +14939,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_object_depends_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    53505U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_object_schema_stmt",
@@ -14950,7 +14951,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_object_schema_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    53761U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_owner_stmt",
@@ -14962,7 +14963,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_owner_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    54017U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_operator_stmt",
@@ -14974,7 +14975,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_operator_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    54273U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_type_stmt",
@@ -14986,7 +14987,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_type_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    54529U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rule_stmt",
@@ -14998,7 +14999,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__rule_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    54785U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "notify_stmt",
@@ -15010,7 +15011,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__notify_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    55041U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "listen_stmt",
@@ -15022,7 +15023,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__listen_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    55297U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unlisten_stmt",
@@ -15034,7 +15035,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__unlisten_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    55553U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "transaction_stmt",
@@ -15046,7 +15047,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__transaction_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    55809U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "composite_type_stmt",
@@ -15058,7 +15059,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__composite_type_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    56065U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_enum_stmt",
@@ -15070,7 +15071,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_enum_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    56321U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_range_stmt",
@@ -15082,7 +15083,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_range_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    56577U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_enum_stmt",
@@ -15094,7 +15095,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_enum_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    56833U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "view_stmt",
@@ -15106,7 +15107,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__view_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    57089U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "load_stmt",
@@ -15118,7 +15119,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__load_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    57345U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "createdb_stmt",
@@ -15130,7 +15131,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__createdb_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    57601U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_database_stmt",
@@ -15142,7 +15143,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_database_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    57857U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_database_refresh_coll_stmt",
@@ -15154,7 +15155,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_database_refresh_coll_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    58113U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_database_set_stmt",
@@ -15166,7 +15167,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_database_set_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    58369U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "dropdb_stmt",
@@ -15178,7 +15179,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__dropdb_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    58625U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_system_stmt",
@@ -15190,7 +15191,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_system_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    58881U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cluster_stmt",
@@ -15202,7 +15203,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__cluster_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    59137U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "vacuum_stmt",
@@ -15214,7 +15215,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__vacuum_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    59393U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "vacuum_relation",
@@ -15226,7 +15227,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__vacuum_relation__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    59649U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "explain_stmt",
@@ -15238,7 +15239,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__explain_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    59905U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_table_as_stmt",
@@ -15250,7 +15251,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_table_as_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    60161U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refresh_mat_view_stmt",
@@ -15262,7 +15263,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__refresh_mat_view_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    60417U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "check_point_stmt",
@@ -15274,7 +15275,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__check_point_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    60673U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "discard_stmt",
@@ -15286,7 +15287,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__discard_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    60929U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lock_stmt",
@@ -15298,7 +15299,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__lock_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    61185U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraints_set_stmt",
@@ -15310,7 +15311,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__constraints_set_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    61441U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reindex_stmt",
@@ -15322,7 +15323,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__reindex_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    61697U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_conversion_stmt",
@@ -15334,7 +15335,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_conversion_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    61953U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_cast_stmt",
@@ -15346,7 +15347,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_cast_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    62209U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_transform_stmt",
@@ -15358,7 +15359,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_transform_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    62465U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "prepare_stmt",
@@ -15370,7 +15371,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__prepare_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    62721U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "execute_stmt",
@@ -15382,7 +15383,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__execute_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    62977U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "deallocate_stmt",
@@ -15394,7 +15395,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__deallocate_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    63233U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_owned_stmt",
@@ -15406,7 +15407,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_owned_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    63489U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reassign_owned_stmt",
@@ -15418,7 +15419,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__reassign_owned_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    63745U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_tsdictionary_stmt",
@@ -15430,7 +15431,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_tsdictionary_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    64001U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_tsconfiguration_stmt",
@@ -15442,7 +15443,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_tsconfiguration_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    64257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "publication_table",
@@ -15454,7 +15455,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__publication_table__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    64513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "publication_obj_spec",
@@ -15466,7 +15467,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__publication_obj_spec__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    64769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_publication_stmt",
@@ -15478,7 +15479,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_publication_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    65025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_publication_stmt",
@@ -15490,7 +15491,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_publication_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    65281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "create_subscription_stmt",
@@ -15502,7 +15503,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__create_subscription_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    65537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alter_subscription_stmt",
@@ -15514,7 +15515,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__alter_subscription_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    65793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "drop_subscription_stmt",
@@ -15526,7 +15527,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__drop_subscription_stmt__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    66049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "integer",
@@ -15538,7 +15539,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__integer__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    66305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "float",
@@ -15550,7 +15551,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__float__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    66561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "boolean",
@@ -15562,7 +15563,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__boolean__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    66817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "string",
@@ -15574,7 +15575,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__string__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    67073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "bit_string",
@@ -15586,7 +15587,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__bit_string__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    67329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "list",
@@ -15598,7 +15599,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__list__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    67585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "int_list",
@@ -15610,7 +15611,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__int_list__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    67841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "oid_list",
@@ -15622,7 +15623,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__oid_list__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    68097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "a_const",
@@ -15634,7 +15635,7 @@ static const ProtobufCFieldDescriptor pg_query__node__field_descriptors[268] =
     &pg_query__a__const__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    68353U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__node__field_indices_by_name[] = {
@@ -15925,7 +15926,7 @@ const ProtobufCMessageDescriptor pg_query__node__descriptor =
   pg_query__node__field_indices_by_name,
   1,  pg_query__node__number_ranges,
   (ProtobufCMessageInit) pg_query__node__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[2],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__integer__field_descriptors[1] =
 {
@@ -15939,7 +15940,7 @@ static const ProtobufCFieldDescriptor pg_query__integer__field_descriptors[1] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__integer__field_indices_by_name[] = {
@@ -15963,7 +15964,7 @@ const ProtobufCMessageDescriptor pg_query__integer__descriptor =
   pg_query__integer__field_indices_by_name,
   1,  pg_query__integer__number_ranges,
   (ProtobufCMessageInit) pg_query__integer__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[3],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__float__field_descriptors[1] =
 {
@@ -15977,7 +15978,7 @@ static const ProtobufCFieldDescriptor pg_query__float__field_descriptors[1] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__float__field_indices_by_name[] = {
@@ -16001,7 +16002,7 @@ const ProtobufCMessageDescriptor pg_query__float__descriptor =
   pg_query__float__field_indices_by_name,
   1,  pg_query__float__number_ranges,
   (ProtobufCMessageInit) pg_query__float__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[4],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__boolean__field_descriptors[1] =
 {
@@ -16015,7 +16016,7 @@ static const ProtobufCFieldDescriptor pg_query__boolean__field_descriptors[1] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__boolean__field_indices_by_name[] = {
@@ -16039,7 +16040,7 @@ const ProtobufCMessageDescriptor pg_query__boolean__descriptor =
   pg_query__boolean__field_indices_by_name,
   1,  pg_query__boolean__number_ranges,
   (ProtobufCMessageInit) pg_query__boolean__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[5],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__string__field_descriptors[2] =
 {
@@ -16053,7 +16054,7 @@ static const ProtobufCFieldDescriptor pg_query__string__field_descriptors[2] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -16065,7 +16066,7 @@ static const ProtobufCFieldDescriptor pg_query__string__field_descriptors[2] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__string__field_indices_by_name[] = {
@@ -16090,7 +16091,7 @@ const ProtobufCMessageDescriptor pg_query__string__descriptor =
   pg_query__string__field_indices_by_name,
   1,  pg_query__string__number_ranges,
   (ProtobufCMessageInit) pg_query__string__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[6],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__bit_string__field_descriptors[1] =
 {
@@ -16104,7 +16105,7 @@ static const ProtobufCFieldDescriptor pg_query__bit_string__field_descriptors[1]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__bit_string__field_indices_by_name[] = {
@@ -16128,7 +16129,7 @@ const ProtobufCMessageDescriptor pg_query__bit_string__descriptor =
   pg_query__bit_string__field_indices_by_name,
   1,  pg_query__bit_string__number_ranges,
   (ProtobufCMessageInit) pg_query__bit_string__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[7],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__list__field_descriptors[1] =
 {
@@ -16142,7 +16143,7 @@ static const ProtobufCFieldDescriptor pg_query__list__field_descriptors[1] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__list__field_indices_by_name[] = {
@@ -16166,7 +16167,7 @@ const ProtobufCMessageDescriptor pg_query__list__descriptor =
   pg_query__list__field_indices_by_name,
   1,  pg_query__list__number_ranges,
   (ProtobufCMessageInit) pg_query__list__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[8],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__oid_list__field_descriptors[1] =
 {
@@ -16180,7 +16181,7 @@ static const ProtobufCFieldDescriptor pg_query__oid_list__field_descriptors[1] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__oid_list__field_indices_by_name[] = {
@@ -16204,7 +16205,7 @@ const ProtobufCMessageDescriptor pg_query__oid_list__descriptor =
   pg_query__oid_list__field_indices_by_name,
   1,  pg_query__oid_list__number_ranges,
   (ProtobufCMessageInit) pg_query__oid_list__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[9],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__int_list__field_descriptors[1] =
 {
@@ -16218,7 +16219,7 @@ static const ProtobufCFieldDescriptor pg_query__int_list__field_descriptors[1] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__int_list__field_indices_by_name[] = {
@@ -16242,7 +16243,7 @@ const ProtobufCMessageDescriptor pg_query__int_list__descriptor =
   pg_query__int_list__field_indices_by_name,
   1,  pg_query__int_list__number_ranges,
   (ProtobufCMessageInit) pg_query__int_list__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[10],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
 {
@@ -16256,7 +16257,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     &pg_query__integer__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fval",
@@ -16268,7 +16269,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     &pg_query__float__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "boolval",
@@ -16280,7 +16281,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     &pg_query__boolean__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sval",
@@ -16292,7 +16293,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     &pg_query__string__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "bsval",
@@ -16304,7 +16305,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     &pg_query__bit_string__descriptor,
     NULL,
     PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "isnull",
@@ -16316,7 +16317,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -16328,7 +16329,7 @@ static const ProtobufCFieldDescriptor pg_query__a__const__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__a__const__field_indices_by_name[] = {
@@ -16359,7 +16360,7 @@ const ProtobufCMessageDescriptor pg_query__a__const__descriptor =
   pg_query__a__const__field_indices_by_name,
   2,  pg_query__a__const__number_ranges,
   (ProtobufCMessageInit) pg_query__a__const__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[11],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alias__field_descriptors[3] =
 {
@@ -16373,7 +16374,7 @@ static const ProtobufCFieldDescriptor pg_query__alias__field_descriptors[3] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colnames",
@@ -16385,7 +16386,7 @@ static const ProtobufCFieldDescriptor pg_query__alias__field_descriptors[3] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -16397,7 +16398,7 @@ static const ProtobufCFieldDescriptor pg_query__alias__field_descriptors[3] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alias__field_indices_by_name[] = {
@@ -16423,7 +16424,7 @@ const ProtobufCMessageDescriptor pg_query__alias__descriptor =
   pg_query__alias__field_indices_by_name,
   1,  pg_query__alias__number_ranges,
   (ProtobufCMessageInit) pg_query__alias__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[12],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] =
 {
@@ -16437,7 +16438,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "schemaname",
@@ -16449,7 +16450,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relname",
@@ -16461,7 +16462,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inh",
@@ -16473,7 +16474,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relpersistence",
@@ -16485,7 +16486,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -16497,7 +16498,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -16509,7 +16510,7 @@ static const ProtobufCFieldDescriptor pg_query__range_var__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_var__field_indices_by_name[] = {
@@ -16539,7 +16540,7 @@ const ProtobufCMessageDescriptor pg_query__range_var__descriptor =
   pg_query__range_var__field_indices_by_name,
   1,  pg_query__range_var__number_ranges,
   (ProtobufCMessageInit) pg_query__range_var__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[13],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17] =
 {
@@ -16553,7 +16554,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__table_func_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ns_uris",
@@ -16565,7 +16566,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ns_names",
@@ -16577,7 +16578,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "docexpr",
@@ -16589,7 +16590,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rowexpr",
@@ -16601,7 +16602,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colnames",
@@ -16613,7 +16614,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coltypes",
@@ -16625,7 +16626,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coltypmods",
@@ -16637,7 +16638,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colcollations",
@@ -16649,7 +16650,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colexprs",
@@ -16661,7 +16662,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coldefexprs",
@@ -16673,7 +16674,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colvalexprs",
@@ -16685,7 +16686,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "passingvalexprs",
@@ -16697,7 +16698,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "notnulls",
@@ -16709,7 +16710,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plan",
@@ -16721,7 +16722,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ordinalitycol",
@@ -16733,7 +16734,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -16745,7 +16746,7 @@ static const ProtobufCFieldDescriptor pg_query__table_func__field_descriptors[17
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__table_func__field_indices_by_name[] = {
@@ -16785,7 +16786,7 @@ const ProtobufCMessageDescriptor pg_query__table_func__descriptor =
   pg_query__table_func__field_indices_by_name,
   1,  pg_query__table_func__number_ranges,
   (ProtobufCMessageInit) pg_query__table_func__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[14],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8] =
 {
@@ -16799,7 +16800,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_names",
@@ -16811,7 +16812,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "access_method",
@@ -16823,7 +16824,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -16835,7 +16836,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_commit",
@@ -16847,7 +16848,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     &pg_query__on_commit_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_space_name",
@@ -16859,7 +16860,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1282U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "view_query",
@@ -16871,7 +16872,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "skip_data",
@@ -16883,7 +16884,7 @@ static const ProtobufCFieldDescriptor pg_query__into_clause__field_descriptors[8
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__into_clause__field_indices_by_name[] = {
@@ -16914,7 +16915,7 @@ const ProtobufCMessageDescriptor pg_query__into_clause__descriptor =
   pg_query__into_clause__field_indices_by_name,
   1,  pg_query__into_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__into_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[15],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
 {
@@ -16928,7 +16929,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "varno",
@@ -16940,7 +16941,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "varattno",
@@ -16952,7 +16953,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "vartype",
@@ -16964,7 +16965,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "vartypmod",
@@ -16976,7 +16977,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "varcollid",
@@ -16988,7 +16989,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "varnullingrels",
@@ -17000,7 +17001,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "varlevelsup",
@@ -17012,7 +17013,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17024,7 +17025,7 @@ static const ProtobufCFieldDescriptor pg_query__var__field_descriptors[9] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__var__field_indices_by_name[] = {
@@ -17056,7 +17057,7 @@ const ProtobufCMessageDescriptor pg_query__var__descriptor =
   pg_query__var__field_indices_by_name,
   1,  pg_query__var__number_ranges,
   (ProtobufCMessageInit) pg_query__var__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[16],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
 {
@@ -17070,7 +17071,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "paramkind",
@@ -17082,7 +17083,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     &pg_query__param_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "paramid",
@@ -17094,7 +17095,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "paramtype",
@@ -17106,7 +17107,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "paramtypmod",
@@ -17118,7 +17119,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "paramcollid",
@@ -17130,7 +17131,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17142,7 +17143,7 @@ static const ProtobufCFieldDescriptor pg_query__param__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__param__field_indices_by_name[] = {
@@ -17172,7 +17173,7 @@ const ProtobufCMessageDescriptor pg_query__param__descriptor =
   pg_query__param__field_indices_by_name,
   1,  pg_query__param__number_ranges,
   (ProtobufCMessageInit) pg_query__param__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[17],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
 {
@@ -17186,7 +17187,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggfnoid",
@@ -17198,7 +17199,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggtype",
@@ -17210,7 +17211,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggcollid",
@@ -17222,7 +17223,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -17234,7 +17235,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggargtypes",
@@ -17246,7 +17247,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggdirectargs",
@@ -17258,7 +17259,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -17270,7 +17271,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggorder",
@@ -17282,7 +17283,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggdistinct",
@@ -17294,7 +17295,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggfilter",
@@ -17306,7 +17307,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggstar",
@@ -17318,7 +17319,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggvariadic",
@@ -17330,7 +17331,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggkind",
@@ -17342,7 +17343,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agglevelsup",
@@ -17354,7 +17355,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggsplit",
@@ -17366,7 +17367,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     &pg_query__agg_split__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggno",
@@ -17378,7 +17379,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggtransno",
@@ -17390,7 +17391,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17402,7 +17403,7 @@ static const ProtobufCFieldDescriptor pg_query__aggref__field_descriptors[19] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__aggref__field_indices_by_name[] = {
@@ -17444,7 +17445,7 @@ const ProtobufCMessageDescriptor pg_query__aggref__descriptor =
   pg_query__aggref__field_indices_by_name,
   1,  pg_query__aggref__number_ranges,
   (ProtobufCMessageInit) pg_query__aggref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[18],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors[5] =
 {
@@ -17458,7 +17459,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -17470,7 +17471,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refs",
@@ -17482,7 +17483,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agglevelsup",
@@ -17494,7 +17495,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17506,7 +17507,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_func__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__grouping_func__field_indices_by_name[] = {
@@ -17534,7 +17535,7 @@ const ProtobufCMessageDescriptor pg_query__grouping_func__descriptor =
   pg_query__grouping_func__field_indices_by_name,
   1,  pg_query__grouping_func__number_ranges,
   (ProtobufCMessageInit) pg_query__grouping_func__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[19],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[12] =
 {
@@ -17548,7 +17549,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "winfnoid",
@@ -17560,7 +17561,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wintype",
@@ -17572,7 +17573,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wincollid",
@@ -17584,7 +17585,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -17596,7 +17597,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -17608,7 +17609,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aggfilter",
@@ -17620,7 +17621,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "run_condition",
@@ -17632,7 +17633,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "winref",
@@ -17644,7 +17645,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "winstar",
@@ -17656,7 +17657,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "winagg",
@@ -17668,7 +17669,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17680,7 +17681,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__window_func__field_indices_by_name[] = {
@@ -17715,7 +17716,7 @@ const ProtobufCMessageDescriptor pg_query__window_func__descriptor =
   pg_query__window_func__field_indices_by_name,
   1,  pg_query__window_func__number_ranges,
   (ProtobufCMessageInit) pg_query__window_func__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[20],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field_descriptors[5] =
 {
@@ -17729,7 +17730,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opno",
@@ -17741,7 +17742,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -17753,7 +17754,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wfunc_left",
@@ -17765,7 +17766,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -17777,7 +17778,7 @@ static const ProtobufCFieldDescriptor pg_query__window_func_run_condition__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__window_func_run_condition__field_indices_by_name[] = {
@@ -17805,7 +17806,7 @@ const ProtobufCMessageDescriptor pg_query__window_func_run_condition__descriptor
   pg_query__window_func_run_condition__field_indices_by_name,
   1,  pg_query__window_func_run_condition__number_ranges,
   (ProtobufCMessageInit) pg_query__window_func_run_condition__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[21],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__merge_support_func__field_descriptors[4] =
 {
@@ -17819,7 +17820,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_support_func__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "msftype",
@@ -17831,7 +17832,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_support_func__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "msfcollid",
@@ -17843,7 +17844,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_support_func__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -17855,7 +17856,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_support_func__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__merge_support_func__field_indices_by_name[] = {
@@ -17882,7 +17883,7 @@ const ProtobufCMessageDescriptor pg_query__merge_support_func__descriptor =
   pg_query__merge_support_func__field_indices_by_name,
   1,  pg_query__merge_support_func__number_ranges,
   (ProtobufCMessageInit) pg_query__merge_support_func__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[22],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descriptors[10] =
 {
@@ -17896,7 +17897,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refcontainertype",
@@ -17908,7 +17909,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refelemtype",
@@ -17920,7 +17921,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refrestype",
@@ -17932,7 +17933,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reftypmod",
@@ -17944,7 +17945,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refcollid",
@@ -17956,7 +17957,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refupperindexpr",
@@ -17968,7 +17969,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reflowerindexpr",
@@ -17980,7 +17981,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refexpr",
@@ -17992,7 +17993,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refassgnexpr",
@@ -18004,7 +18005,7 @@ static const ProtobufCFieldDescriptor pg_query__subscripting_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__subscripting_ref__field_indices_by_name[] = {
@@ -18037,7 +18038,7 @@ const ProtobufCMessageDescriptor pg_query__subscripting_ref__descriptor =
   pg_query__subscripting_ref__field_indices_by_name,
   1,  pg_query__subscripting_ref__number_ranges,
   (ProtobufCMessageInit) pg_query__subscripting_ref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[23],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10] =
 {
@@ -18051,7 +18052,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcid",
@@ -18063,7 +18064,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcresulttype",
@@ -18075,7 +18076,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcretset",
@@ -18087,7 +18088,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcvariadic",
@@ -18099,7 +18100,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcformat",
@@ -18111,7 +18112,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccollid",
@@ -18123,7 +18124,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -18135,7 +18136,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18147,7 +18148,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18159,7 +18160,7 @@ static const ProtobufCFieldDescriptor pg_query__func_expr__field_descriptors[10]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__func_expr__field_indices_by_name[] = {
@@ -18192,7 +18193,7 @@ const ProtobufCMessageDescriptor pg_query__func_expr__descriptor =
   pg_query__func_expr__field_indices_by_name,
   1,  pg_query__func_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__func_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[24],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptors[5] =
 {
@@ -18206,7 +18207,7 @@ static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -18218,7 +18219,7 @@ static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -18230,7 +18231,7 @@ static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "argnumber",
@@ -18242,7 +18243,7 @@ static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18254,7 +18255,7 @@ static const ProtobufCFieldDescriptor pg_query__named_arg_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__named_arg_expr__field_indices_by_name[] = {
@@ -18282,7 +18283,7 @@ const ProtobufCMessageDescriptor pg_query__named_arg_expr__descriptor =
   pg_query__named_arg_expr__field_indices_by_name,
   1,  pg_query__named_arg_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__named_arg_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[25],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
 {
@@ -18296,7 +18297,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opno",
@@ -18308,7 +18309,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opresulttype",
@@ -18320,7 +18321,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opretset",
@@ -18332,7 +18333,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opcollid",
@@ -18344,7 +18345,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -18356,7 +18357,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18368,7 +18369,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18380,7 +18381,7 @@ static const ProtobufCFieldDescriptor pg_query__op_expr__field_descriptors[8] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__op_expr__field_indices_by_name[] = {
@@ -18411,7 +18412,7 @@ const ProtobufCMessageDescriptor pg_query__op_expr__descriptor =
   pg_query__op_expr__field_indices_by_name,
   1,  pg_query__op_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__op_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[26],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors[8] =
 {
@@ -18425,7 +18426,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opno",
@@ -18437,7 +18438,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opresulttype",
@@ -18449,7 +18450,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opretset",
@@ -18461,7 +18462,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opcollid",
@@ -18473,7 +18474,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -18485,7 +18486,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18497,7 +18498,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18509,7 +18510,7 @@ static const ProtobufCFieldDescriptor pg_query__distinct_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__distinct_expr__field_indices_by_name[] = {
@@ -18540,7 +18541,7 @@ const ProtobufCMessageDescriptor pg_query__distinct_expr__descriptor =
   pg_query__distinct_expr__field_indices_by_name,
   1,  pg_query__distinct_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__distinct_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[27],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[8] =
 {
@@ -18554,7 +18555,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opno",
@@ -18566,7 +18567,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opresulttype",
@@ -18578,7 +18579,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opretset",
@@ -18590,7 +18591,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opcollid",
@@ -18602,7 +18603,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -18614,7 +18615,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18626,7 +18627,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18638,7 +18639,7 @@ static const ProtobufCFieldDescriptor pg_query__null_if_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__null_if_expr__field_indices_by_name[] = {
@@ -18669,7 +18670,7 @@ const ProtobufCMessageDescriptor pg_query__null_if_expr__descriptor =
   pg_query__null_if_expr__field_indices_by_name,
   1,  pg_query__null_if_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__null_if_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[28],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_descriptors[6] =
 {
@@ -18683,7 +18684,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opno",
@@ -18695,7 +18696,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "use_or",
@@ -18707,7 +18708,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -18719,7 +18720,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18731,7 +18732,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18743,7 +18744,7 @@ static const ProtobufCFieldDescriptor pg_query__scalar_array_op_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__scalar_array_op_expr__field_indices_by_name[] = {
@@ -18772,7 +18773,7 @@ const ProtobufCMessageDescriptor pg_query__scalar_array_op_expr__descriptor =
   pg_query__scalar_array_op_expr__field_indices_by_name,
   1,  pg_query__scalar_array_op_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__scalar_array_op_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[29],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__bool_expr__field_descriptors[4] =
 {
@@ -18786,7 +18787,7 @@ static const ProtobufCFieldDescriptor pg_query__bool_expr__field_descriptors[4] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "boolop",
@@ -18798,7 +18799,7 @@ static const ProtobufCFieldDescriptor pg_query__bool_expr__field_descriptors[4] 
     &pg_query__bool_expr_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -18810,7 +18811,7 @@ static const ProtobufCFieldDescriptor pg_query__bool_expr__field_descriptors[4] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18822,7 +18823,7 @@ static const ProtobufCFieldDescriptor pg_query__bool_expr__field_descriptors[4] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__bool_expr__field_indices_by_name[] = {
@@ -18849,7 +18850,7 @@ const ProtobufCMessageDescriptor pg_query__bool_expr__descriptor =
   pg_query__bool_expr__field_indices_by_name,
   1,  pg_query__bool_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__bool_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[30],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
 {
@@ -18863,7 +18864,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sub_link_type",
@@ -18875,7 +18876,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     &pg_query__sub_link_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sub_link_id",
@@ -18887,7 +18888,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "testexpr",
@@ -18899,7 +18900,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "oper_name",
@@ -18911,7 +18912,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subselect",
@@ -18923,7 +18924,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -18935,7 +18936,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_link__field_descriptors[7] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sub_link__field_indices_by_name[] = {
@@ -18965,7 +18966,7 @@ const ProtobufCMessageDescriptor pg_query__sub_link__descriptor =
   pg_query__sub_link__field_indices_by_name,
   1,  pg_query__sub_link__number_ranges,
   (ProtobufCMessageInit) pg_query__sub_link__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[31],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] =
 {
@@ -18979,7 +18980,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sub_link_type",
@@ -18991,7 +18992,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__sub_link_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "testexpr",
@@ -19003,7 +19004,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "param_ids",
@@ -19015,7 +19016,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plan_id",
@@ -19027,7 +19028,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plan_name",
@@ -19039,7 +19040,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "first_col_type",
@@ -19051,7 +19052,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "first_col_typmod",
@@ -19063,7 +19064,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "first_col_collation",
@@ -19075,7 +19076,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "use_hash_table",
@@ -19087,7 +19088,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unknown_eq_false",
@@ -19099,7 +19100,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "parallel_safe",
@@ -19111,7 +19112,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "set_param",
@@ -19123,7 +19124,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "par_param",
@@ -19135,7 +19136,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -19147,7 +19148,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "startup_cost",
@@ -19159,7 +19160,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "per_call_cost",
@@ -19171,7 +19172,7 @@ static const ProtobufCFieldDescriptor pg_query__sub_plan__field_descriptors[17] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sub_plan__field_indices_by_name[] = {
@@ -19211,7 +19212,7 @@ const ProtobufCMessageDescriptor pg_query__sub_plan__descriptor =
   pg_query__sub_plan__field_indices_by_name,
   1,  pg_query__sub_plan__number_ranges,
   (ProtobufCMessageInit) pg_query__sub_plan__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[32],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alternative_sub_plan__field_descriptors[2] =
 {
@@ -19225,7 +19226,7 @@ static const ProtobufCFieldDescriptor pg_query__alternative_sub_plan__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subplans",
@@ -19237,7 +19238,7 @@ static const ProtobufCFieldDescriptor pg_query__alternative_sub_plan__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alternative_sub_plan__field_indices_by_name[] = {
@@ -19262,7 +19263,7 @@ const ProtobufCMessageDescriptor pg_query__alternative_sub_plan__descriptor =
   pg_query__alternative_sub_plan__field_indices_by_name,
   1,  pg_query__alternative_sub_plan__number_ranges,
   (ProtobufCMessageInit) pg_query__alternative_sub_plan__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[33],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[6] =
 {
@@ -19276,7 +19277,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19288,7 +19289,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fieldnum",
@@ -19300,7 +19301,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19312,7 +19313,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttypmod",
@@ -19324,7 +19325,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resultcollid",
@@ -19336,7 +19337,7 @@ static const ProtobufCFieldDescriptor pg_query__field_select__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__field_select__field_indices_by_name[] = {
@@ -19365,7 +19366,7 @@ const ProtobufCMessageDescriptor pg_query__field_select__descriptor =
   pg_query__field_select__field_indices_by_name,
   1,  pg_query__field_select__number_ranges,
   (ProtobufCMessageInit) pg_query__field_select__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[34],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5] =
 {
@@ -19379,7 +19380,7 @@ static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19391,7 +19392,7 @@ static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newvals",
@@ -19403,7 +19404,7 @@ static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fieldnums",
@@ -19415,7 +19416,7 @@ static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19427,7 +19428,7 @@ static const ProtobufCFieldDescriptor pg_query__field_store__field_descriptors[5
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__field_store__field_indices_by_name[] = {
@@ -19455,7 +19456,7 @@ const ProtobufCMessageDescriptor pg_query__field_store__descriptor =
   pg_query__field_store__field_indices_by_name,
   1,  pg_query__field_store__number_ranges,
   (ProtobufCMessageInit) pg_query__field_store__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[35],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[7] =
 {
@@ -19469,7 +19470,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19481,7 +19482,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19493,7 +19494,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttypmod",
@@ -19505,7 +19506,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resultcollid",
@@ -19517,7 +19518,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relabelformat",
@@ -19529,7 +19530,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -19541,7 +19542,7 @@ static const ProtobufCFieldDescriptor pg_query__relabel_type__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__relabel_type__field_indices_by_name[] = {
@@ -19571,7 +19572,7 @@ const ProtobufCMessageDescriptor pg_query__relabel_type__descriptor =
   pg_query__relabel_type__field_indices_by_name,
   1,  pg_query__relabel_type__number_ranges,
   (ProtobufCMessageInit) pg_query__relabel_type__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[36],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors[6] =
 {
@@ -19585,7 +19586,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19597,7 +19598,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19609,7 +19610,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resultcollid",
@@ -19621,7 +19622,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerceformat",
@@ -19633,7 +19634,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -19645,7 +19646,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_via_io__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__coerce_via_io__field_indices_by_name[] = {
@@ -19674,7 +19675,7 @@ const ProtobufCMessageDescriptor pg_query__coerce_via_io__descriptor =
   pg_query__coerce_via_io__field_indices_by_name,
   1,  pg_query__coerce_via_io__number_ranges,
   (ProtobufCMessageInit) pg_query__coerce_via_io__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[37],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descriptors[8] =
 {
@@ -19688,7 +19689,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19700,7 +19701,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "elemexpr",
@@ -19712,7 +19713,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19724,7 +19725,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttypmod",
@@ -19736,7 +19737,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resultcollid",
@@ -19748,7 +19749,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerceformat",
@@ -19760,7 +19761,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -19772,7 +19773,7 @@ static const ProtobufCFieldDescriptor pg_query__array_coerce_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__array_coerce_expr__field_indices_by_name[] = {
@@ -19803,7 +19804,7 @@ const ProtobufCMessageDescriptor pg_query__array_coerce_expr__descriptor =
   pg_query__array_coerce_expr__field_indices_by_name,
   1,  pg_query__array_coerce_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__array_coerce_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[38],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_descriptors[5] =
 {
@@ -19817,7 +19818,7 @@ static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19829,7 +19830,7 @@ static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -19841,7 +19842,7 @@ static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "convertformat",
@@ -19853,7 +19854,7 @@ static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_desc
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -19865,7 +19866,7 @@ static const ProtobufCFieldDescriptor pg_query__convert_rowtype_expr__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__convert_rowtype_expr__field_indices_by_name[] = {
@@ -19893,7 +19894,7 @@ const ProtobufCMessageDescriptor pg_query__convert_rowtype_expr__descriptor =
   pg_query__convert_rowtype_expr__field_indices_by_name,
   1,  pg_query__convert_rowtype_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__convert_rowtype_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[39],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__collate_expr__field_descriptors[4] =
 {
@@ -19907,7 +19908,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -19919,7 +19920,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coll_oid",
@@ -19931,7 +19932,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -19943,7 +19944,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__collate_expr__field_indices_by_name[] = {
@@ -19970,7 +19971,7 @@ const ProtobufCMessageDescriptor pg_query__collate_expr__descriptor =
   pg_query__collate_expr__field_indices_by_name,
   1,  pg_query__collate_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__collate_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[40],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] =
 {
@@ -19984,7 +19985,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "casetype",
@@ -19996,7 +19997,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "casecollid",
@@ -20008,7 +20009,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -20020,7 +20021,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -20032,7 +20033,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "defresult",
@@ -20044,7 +20045,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20056,7 +20057,7 @@ static const ProtobufCFieldDescriptor pg_query__case_expr__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__case_expr__field_indices_by_name[] = {
@@ -20086,7 +20087,7 @@ const ProtobufCMessageDescriptor pg_query__case_expr__descriptor =
   pg_query__case_expr__field_indices_by_name,
   1,  pg_query__case_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__case_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[41],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__case_when__field_descriptors[4] =
 {
@@ -20100,7 +20101,7 @@ static const ProtobufCFieldDescriptor pg_query__case_when__field_descriptors[4] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -20112,7 +20113,7 @@ static const ProtobufCFieldDescriptor pg_query__case_when__field_descriptors[4] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "result",
@@ -20124,7 +20125,7 @@ static const ProtobufCFieldDescriptor pg_query__case_when__field_descriptors[4] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20136,7 +20137,7 @@ static const ProtobufCFieldDescriptor pg_query__case_when__field_descriptors[4] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__case_when__field_indices_by_name[] = {
@@ -20163,7 +20164,7 @@ const ProtobufCMessageDescriptor pg_query__case_when__descriptor =
   pg_query__case_when__field_indices_by_name,
   1,  pg_query__case_when__number_ranges,
   (ProtobufCMessageInit) pg_query__case_when__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[42],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__case_test_expr__field_descriptors[4] =
 {
@@ -20177,7 +20178,7 @@ static const ProtobufCFieldDescriptor pg_query__case_test_expr__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_id",
@@ -20189,7 +20190,7 @@ static const ProtobufCFieldDescriptor pg_query__case_test_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_mod",
@@ -20201,7 +20202,7 @@ static const ProtobufCFieldDescriptor pg_query__case_test_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -20213,7 +20214,7 @@ static const ProtobufCFieldDescriptor pg_query__case_test_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__case_test_expr__field_indices_by_name[] = {
@@ -20240,7 +20241,7 @@ const ProtobufCMessageDescriptor pg_query__case_test_expr__descriptor =
   pg_query__case_test_expr__field_indices_by_name,
   1,  pg_query__case_test_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__case_test_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[43],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7] =
 {
@@ -20254,7 +20255,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "array_typeid",
@@ -20266,7 +20267,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "array_collid",
@@ -20278,7 +20279,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "element_typeid",
@@ -20290,7 +20291,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "elements",
@@ -20302,7 +20303,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "multidims",
@@ -20314,7 +20315,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20326,7 +20327,7 @@ static const ProtobufCFieldDescriptor pg_query__array_expr__field_descriptors[7]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__array_expr__field_indices_by_name[] = {
@@ -20356,7 +20357,7 @@ const ProtobufCMessageDescriptor pg_query__array_expr__descriptor =
   pg_query__array_expr__field_indices_by_name,
   1,  pg_query__array_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__array_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[44],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
 {
@@ -20370,7 +20371,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -20382,7 +20383,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_typeid",
@@ -20394,7 +20395,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_format",
@@ -20406,7 +20407,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colnames",
@@ -20418,7 +20419,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20430,7 +20431,7 @@ static const ProtobufCFieldDescriptor pg_query__row_expr__field_descriptors[6] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__row_expr__field_indices_by_name[] = {
@@ -20459,7 +20460,7 @@ const ProtobufCMessageDescriptor pg_query__row_expr__descriptor =
   pg_query__row_expr__field_indices_by_name,
   1,  pg_query__row_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__row_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[45],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descriptors[7] =
 {
@@ -20473,7 +20474,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rctype",
@@ -20485,7 +20486,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__row_compare_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opnos",
@@ -20497,7 +20498,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opfamilies",
@@ -20509,7 +20510,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollids",
@@ -20521,7 +20522,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "largs",
@@ -20533,7 +20534,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rargs",
@@ -20545,7 +20546,7 @@ static const ProtobufCFieldDescriptor pg_query__row_compare_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__row_compare_expr__field_indices_by_name[] = {
@@ -20575,7 +20576,7 @@ const ProtobufCMessageDescriptor pg_query__row_compare_expr__descriptor =
   pg_query__row_compare_expr__field_indices_by_name,
   1,  pg_query__row_compare_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__row_compare_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[46],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors[5] =
 {
@@ -20589,7 +20590,7 @@ static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coalescetype",
@@ -20601,7 +20602,7 @@ static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coalescecollid",
@@ -20613,7 +20614,7 @@ static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -20625,7 +20626,7 @@ static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20637,7 +20638,7 @@ static const ProtobufCFieldDescriptor pg_query__coalesce_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__coalesce_expr__field_indices_by_name[] = {
@@ -20665,7 +20666,7 @@ const ProtobufCMessageDescriptor pg_query__coalesce_expr__descriptor =
   pg_query__coalesce_expr__field_indices_by_name,
   1,  pg_query__coalesce_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__coalesce_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[47],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[7] =
 {
@@ -20679,7 +20680,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "minmaxtype",
@@ -20691,7 +20692,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "minmaxcollid",
@@ -20703,7 +20704,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inputcollid",
@@ -20715,7 +20716,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op",
@@ -20727,7 +20728,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     &pg_query__min_max_op__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -20739,7 +20740,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20751,7 +20752,7 @@ static const ProtobufCFieldDescriptor pg_query__min_max_expr__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__min_max_expr__field_indices_by_name[] = {
@@ -20781,7 +20782,7 @@ const ProtobufCMessageDescriptor pg_query__min_max_expr__descriptor =
   pg_query__min_max_expr__field_indices_by_name,
   1,  pg_query__min_max_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__min_max_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[48],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descriptors[5] =
 {
@@ -20795,7 +20796,7 @@ static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op",
@@ -20807,7 +20808,7 @@ static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descrip
     &pg_query__sqlvalue_function_op__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type",
@@ -20819,7 +20820,7 @@ static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typmod",
@@ -20831,7 +20832,7 @@ static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -20843,7 +20844,7 @@ static const ProtobufCFieldDescriptor pg_query__sqlvalue_function__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sqlvalue_function__field_indices_by_name[] = {
@@ -20871,7 +20872,7 @@ const ProtobufCMessageDescriptor pg_query__sqlvalue_function__descriptor =
   pg_query__sqlvalue_function__field_indices_by_name,
   1,  pg_query__sqlvalue_function__number_ranges,
   (ProtobufCMessageInit) pg_query__sqlvalue_function__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[49],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] =
 {
@@ -20885,7 +20886,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op",
@@ -20897,7 +20898,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__xml_expr_op__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -20909,7 +20910,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "named_args",
@@ -20921,7 +20922,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg_names",
@@ -20933,7 +20934,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -20945,7 +20946,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "xmloption",
@@ -20957,7 +20958,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     &pg_query__xml_option_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indent",
@@ -20969,7 +20970,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type",
@@ -20981,7 +20982,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typmod",
@@ -20993,7 +20994,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21005,7 +21006,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_expr__field_descriptors[11] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__xml_expr__field_indices_by_name[] = {
@@ -21039,7 +21040,7 @@ const ProtobufCMessageDescriptor pg_query__xml_expr__descriptor =
   pg_query__xml_expr__field_indices_by_name,
   1,  pg_query__xml_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__xml_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[50],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_format__field_descriptors[3] =
 {
@@ -21053,7 +21054,7 @@ static const ProtobufCFieldDescriptor pg_query__json_format__field_descriptors[3
     &pg_query__json_format_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "encoding",
@@ -21065,7 +21066,7 @@ static const ProtobufCFieldDescriptor pg_query__json_format__field_descriptors[3
     &pg_query__json_encoding__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21077,7 +21078,7 @@ static const ProtobufCFieldDescriptor pg_query__json_format__field_descriptors[3
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_format__field_indices_by_name[] = {
@@ -21103,7 +21104,7 @@ const ProtobufCMessageDescriptor pg_query__json_format__descriptor =
   pg_query__json_format__field_indices_by_name,
   1,  pg_query__json_format__number_ranges,
   (ProtobufCMessageInit) pg_query__json_format__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[51],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_returning__field_descriptors[3] =
 {
@@ -21117,7 +21118,7 @@ static const ProtobufCFieldDescriptor pg_query__json_returning__field_descriptor
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typid",
@@ -21129,7 +21130,7 @@ static const ProtobufCFieldDescriptor pg_query__json_returning__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typmod",
@@ -21141,7 +21142,7 @@ static const ProtobufCFieldDescriptor pg_query__json_returning__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_returning__field_indices_by_name[] = {
@@ -21167,7 +21168,7 @@ const ProtobufCMessageDescriptor pg_query__json_returning__descriptor =
   pg_query__json_returning__field_indices_by_name,
   1,  pg_query__json_returning__number_ranges,
   (ProtobufCMessageInit) pg_query__json_returning__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[52],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_value_expr__field_descriptors[3] =
 {
@@ -21181,7 +21182,7 @@ static const ProtobufCFieldDescriptor pg_query__json_value_expr__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "formatted_expr",
@@ -21193,7 +21194,7 @@ static const ProtobufCFieldDescriptor pg_query__json_value_expr__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "format",
@@ -21205,7 +21206,7 @@ static const ProtobufCFieldDescriptor pg_query__json_value_expr__field_descripto
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_value_expr__field_indices_by_name[] = {
@@ -21231,7 +21232,7 @@ const ProtobufCMessageDescriptor pg_query__json_value_expr__descriptor =
   pg_query__json_value_expr__field_indices_by_name,
   1,  pg_query__json_value_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_value_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[53],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_descriptors[9] =
 {
@@ -21245,7 +21246,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type",
@@ -21257,7 +21258,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__json_constructor_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -21269,7 +21270,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func",
@@ -21281,7 +21282,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coercion",
@@ -21293,7 +21294,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning",
@@ -21305,7 +21306,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     &pg_query__json_returning__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -21317,7 +21318,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique",
@@ -21329,7 +21330,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21341,7 +21342,7 @@ static const ProtobufCFieldDescriptor pg_query__json_constructor_expr__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_constructor_expr__field_indices_by_name[] = {
@@ -21373,7 +21374,7 @@ const ProtobufCMessageDescriptor pg_query__json_constructor_expr__descriptor =
   pg_query__json_constructor_expr__field_indices_by_name,
   1,  pg_query__json_constructor_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_constructor_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[54],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descriptors[5] =
 {
@@ -21387,7 +21388,7 @@ static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "format",
@@ -21399,7 +21400,7 @@ static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descrip
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "item_type",
@@ -21411,7 +21412,7 @@ static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descrip
     &pg_query__json_value_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique_keys",
@@ -21423,7 +21424,7 @@ static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21435,7 +21436,7 @@ static const ProtobufCFieldDescriptor pg_query__json_is_predicate__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_is_predicate__field_indices_by_name[] = {
@@ -21463,7 +21464,7 @@ const ProtobufCMessageDescriptor pg_query__json_is_predicate__descriptor =
   pg_query__json_is_predicate__field_indices_by_name,
   1,  pg_query__json_is_predicate__number_ranges,
   (ProtobufCMessageInit) pg_query__json_is_predicate__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[55],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_behavior__field_descriptors[4] =
 {
@@ -21477,7 +21478,7 @@ static const ProtobufCFieldDescriptor pg_query__json_behavior__field_descriptors
     &pg_query__json_behavior_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -21489,7 +21490,7 @@ static const ProtobufCFieldDescriptor pg_query__json_behavior__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coerce",
@@ -21501,7 +21502,7 @@ static const ProtobufCFieldDescriptor pg_query__json_behavior__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21513,7 +21514,7 @@ static const ProtobufCFieldDescriptor pg_query__json_behavior__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_behavior__field_indices_by_name[] = {
@@ -21540,7 +21541,7 @@ const ProtobufCMessageDescriptor pg_query__json_behavior__descriptor =
   pg_query__json_behavior__field_indices_by_name,
   1,  pg_query__json_behavior__number_ranges,
   (ProtobufCMessageInit) pg_query__json_behavior__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[56],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17] =
 {
@@ -21554,7 +21555,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op",
@@ -21566,7 +21567,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_expr_op__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "column_name",
@@ -21578,7 +21579,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "formatted_expr",
@@ -21590,7 +21591,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "format",
@@ -21602,7 +21603,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "path_spec",
@@ -21614,7 +21615,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning",
@@ -21626,7 +21627,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_returning__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "passing_names",
@@ -21638,7 +21639,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "passing_values",
@@ -21650,7 +21651,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_empty",
@@ -21662,7 +21663,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_error",
@@ -21674,7 +21675,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "use_io_coercion",
@@ -21686,7 +21687,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "use_json_coercion",
@@ -21698,7 +21699,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wrapper",
@@ -21710,7 +21711,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     &pg_query__json_wrapper__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "omit_quotes",
@@ -21722,7 +21723,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -21734,7 +21735,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -21746,7 +21747,7 @@ static const ProtobufCFieldDescriptor pg_query__json_expr__field_descriptors[17]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_expr__field_indices_by_name[] = {
@@ -21786,7 +21787,7 @@ const ProtobufCMessageDescriptor pg_query__json_expr__descriptor =
   pg_query__json_expr__field_indices_by_name,
   1,  pg_query__json_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[57],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table_path__field_descriptors[1] =
 {
@@ -21800,7 +21801,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table_path__field_indices_by_name[] = {
@@ -21824,7 +21825,7 @@ const ProtobufCMessageDescriptor pg_query__json_table_path__descriptor =
   pg_query__json_table_path__field_indices_by_name,
   1,  pg_query__json_table_path__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table_path__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[58],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_descriptors[6] =
 {
@@ -21838,7 +21839,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "path",
@@ -21850,7 +21851,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     &pg_query__json_table_path__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "error_on_error",
@@ -21862,7 +21863,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "child",
@@ -21874,7 +21875,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_min",
@@ -21886,7 +21887,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_max",
@@ -21898,7 +21899,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_scan__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table_path_scan__field_indices_by_name[] = {
@@ -21927,7 +21928,7 @@ const ProtobufCMessageDescriptor pg_query__json_table_path_scan__descriptor =
   pg_query__json_table_path_scan__field_indices_by_name,
   1,  pg_query__json_table_path_scan__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table_path_scan__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[59],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table_sibling_join__field_descriptors[3] =
 {
@@ -21941,7 +21942,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_sibling_join__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lplan",
@@ -21953,7 +21954,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_sibling_join__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rplan",
@@ -21965,7 +21966,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_sibling_join__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table_sibling_join__field_indices_by_name[] = {
@@ -21991,7 +21992,7 @@ const ProtobufCMessageDescriptor pg_query__json_table_sibling_join__descriptor =
   pg_query__json_table_sibling_join__field_indices_by_name,
   1,  pg_query__json_table_sibling_join__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table_sibling_join__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[60],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] =
 {
@@ -22005,7 +22006,7 @@ static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -22017,7 +22018,7 @@ static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nulltesttype",
@@ -22029,7 +22030,7 @@ static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] 
     &pg_query__null_test_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "argisrow",
@@ -22041,7 +22042,7 @@ static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -22053,7 +22054,7 @@ static const ProtobufCFieldDescriptor pg_query__null_test__field_descriptors[5] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__null_test__field_indices_by_name[] = {
@@ -22081,7 +22082,7 @@ const ProtobufCMessageDescriptor pg_query__null_test__descriptor =
   pg_query__null_test__field_indices_by_name,
   1,  pg_query__null_test__number_ranges,
   (ProtobufCMessageInit) pg_query__null_test__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[61],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__boolean_test__field_descriptors[4] =
 {
@@ -22095,7 +22096,7 @@ static const ProtobufCFieldDescriptor pg_query__boolean_test__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -22107,7 +22108,7 @@ static const ProtobufCFieldDescriptor pg_query__boolean_test__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "booltesttype",
@@ -22119,7 +22120,7 @@ static const ProtobufCFieldDescriptor pg_query__boolean_test__field_descriptors[
     &pg_query__bool_test_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -22131,7 +22132,7 @@ static const ProtobufCFieldDescriptor pg_query__boolean_test__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__boolean_test__field_indices_by_name[] = {
@@ -22158,7 +22159,7 @@ const ProtobufCMessageDescriptor pg_query__boolean_test__descriptor =
   pg_query__boolean_test__field_indices_by_name,
   1,  pg_query__boolean_test__number_ranges,
   (ProtobufCMessageInit) pg_query__boolean_test__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[62],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[6] =
 {
@@ -22172,7 +22173,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__merge_match_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "command_type",
@@ -22184,7 +22185,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__cmd_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "override",
@@ -22196,7 +22197,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__overriding_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "qual",
@@ -22208,7 +22209,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -22220,7 +22221,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "update_colnos",
@@ -22232,7 +22233,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_action__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__merge_action__field_indices_by_name[] = {
@@ -22261,7 +22262,7 @@ const ProtobufCMessageDescriptor pg_query__merge_action__descriptor =
   pg_query__merge_action__field_indices_by_name,
   1,  pg_query__merge_action__number_ranges,
   (ProtobufCMessageInit) pg_query__merge_action__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[63],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descriptors[7] =
 {
@@ -22275,7 +22276,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -22287,7 +22288,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttype",
@@ -22299,7 +22300,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resulttypmod",
@@ -22311,7 +22312,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resultcollid",
@@ -22323,7 +22324,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coercionformat",
@@ -22335,7 +22336,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -22347,7 +22348,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__coerce_to_domain__field_indices_by_name[] = {
@@ -22377,7 +22378,7 @@ const ProtobufCMessageDescriptor pg_query__coerce_to_domain__descriptor =
   pg_query__coerce_to_domain__field_indices_by_name,
   1,  pg_query__coerce_to_domain__number_ranges,
   (ProtobufCMessageInit) pg_query__coerce_to_domain__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[64],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_descriptors[5] =
 {
@@ -22391,7 +22392,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_id",
@@ -22403,7 +22404,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_mod",
@@ -22415,7 +22416,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -22427,7 +22428,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -22439,7 +22440,7 @@ static const ProtobufCFieldDescriptor pg_query__coerce_to_domain_value__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__coerce_to_domain_value__field_indices_by_name[] = {
@@ -22467,7 +22468,7 @@ const ProtobufCMessageDescriptor pg_query__coerce_to_domain_value__descriptor =
   pg_query__coerce_to_domain_value__field_indices_by_name,
   1,  pg_query__coerce_to_domain_value__number_ranges,
   (ProtobufCMessageInit) pg_query__coerce_to_domain_value__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[65],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptors[5] =
 {
@@ -22481,7 +22482,7 @@ static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_id",
@@ -22493,7 +22494,7 @@ static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_mod",
@@ -22505,7 +22506,7 @@ static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -22517,7 +22518,7 @@ static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -22529,7 +22530,7 @@ static const ProtobufCFieldDescriptor pg_query__set_to_default__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__set_to_default__field_indices_by_name[] = {
@@ -22557,7 +22558,7 @@ const ProtobufCMessageDescriptor pg_query__set_to_default__descriptor =
   pg_query__set_to_default__field_indices_by_name,
   1,  pg_query__set_to_default__number_ranges,
   (ProtobufCMessageInit) pg_query__set_to_default__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[66],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__current_of_expr__field_descriptors[4] =
 {
@@ -22571,7 +22572,7 @@ static const ProtobufCFieldDescriptor pg_query__current_of_expr__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cvarno",
@@ -22583,7 +22584,7 @@ static const ProtobufCFieldDescriptor pg_query__current_of_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cursor_name",
@@ -22595,7 +22596,7 @@ static const ProtobufCFieldDescriptor pg_query__current_of_expr__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cursor_param",
@@ -22607,7 +22608,7 @@ static const ProtobufCFieldDescriptor pg_query__current_of_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__current_of_expr__field_indices_by_name[] = {
@@ -22634,7 +22635,7 @@ const ProtobufCMessageDescriptor pg_query__current_of_expr__descriptor =
   pg_query__current_of_expr__field_indices_by_name,
   1,  pg_query__current_of_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__current_of_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[67],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__next_value_expr__field_descriptors[3] =
 {
@@ -22648,7 +22649,7 @@ static const ProtobufCFieldDescriptor pg_query__next_value_expr__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "seqid",
@@ -22660,7 +22661,7 @@ static const ProtobufCFieldDescriptor pg_query__next_value_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_id",
@@ -22672,7 +22673,7 @@ static const ProtobufCFieldDescriptor pg_query__next_value_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__next_value_expr__field_indices_by_name[] = {
@@ -22698,7 +22699,7 @@ const ProtobufCMessageDescriptor pg_query__next_value_expr__descriptor =
   pg_query__next_value_expr__field_indices_by_name,
   1,  pg_query__next_value_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__next_value_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[68],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__inference_elem__field_descriptors[4] =
 {
@@ -22712,7 +22713,7 @@ static const ProtobufCFieldDescriptor pg_query__inference_elem__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -22724,7 +22725,7 @@ static const ProtobufCFieldDescriptor pg_query__inference_elem__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "infercollid",
@@ -22736,7 +22737,7 @@ static const ProtobufCFieldDescriptor pg_query__inference_elem__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inferopclass",
@@ -22748,7 +22749,7 @@ static const ProtobufCFieldDescriptor pg_query__inference_elem__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__inference_elem__field_indices_by_name[] = {
@@ -22775,7 +22776,7 @@ const ProtobufCMessageDescriptor pg_query__inference_elem__descriptor =
   pg_query__inference_elem__field_indices_by_name,
   1,  pg_query__inference_elem__number_ranges,
   (ProtobufCMessageInit) pg_query__inference_elem__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[69],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[8] =
 {
@@ -22789,7 +22790,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -22801,7 +22802,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resno",
@@ -22813,7 +22814,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resname",
@@ -22825,7 +22826,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ressortgroupref",
@@ -22837,7 +22838,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resorigtbl",
@@ -22849,7 +22850,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resorigcol",
@@ -22861,7 +22862,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "resjunk",
@@ -22873,7 +22874,7 @@ static const ProtobufCFieldDescriptor pg_query__target_entry__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__target_entry__field_indices_by_name[] = {
@@ -22904,7 +22905,7 @@ const ProtobufCMessageDescriptor pg_query__target_entry__descriptor =
   pg_query__target_entry__field_indices_by_name,
   1,  pg_query__target_entry__number_ranges,
   (ProtobufCMessageInit) pg_query__target_entry__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[70],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_tbl_ref__field_descriptors[1] =
 {
@@ -22918,7 +22919,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_ref__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_tbl_ref__field_indices_by_name[] = {
@@ -22942,7 +22943,7 @@ const ProtobufCMessageDescriptor pg_query__range_tbl_ref__descriptor =
   pg_query__range_tbl_ref__field_indices_by_name,
   1,  pg_query__range_tbl_ref__number_ranges,
   (ProtobufCMessageInit) pg_query__range_tbl_ref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[71],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] =
 {
@@ -22956,7 +22957,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__join_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_natural",
@@ -22968,7 +22969,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "larg",
@@ -22980,7 +22981,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rarg",
@@ -22992,7 +22993,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "using_clause",
@@ -23004,7 +23005,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "join_using_alias",
@@ -23016,7 +23017,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "quals",
@@ -23028,7 +23029,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -23040,7 +23041,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rtindex",
@@ -23052,7 +23053,7 @@ static const ProtobufCFieldDescriptor pg_query__join_expr__field_descriptors[9] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__join_expr__field_indices_by_name[] = {
@@ -23084,7 +23085,7 @@ const ProtobufCMessageDescriptor pg_query__join_expr__descriptor =
   pg_query__join_expr__field_indices_by_name,
   1,  pg_query__join_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__join_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[72],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__from_expr__field_descriptors[2] =
 {
@@ -23098,7 +23099,7 @@ static const ProtobufCFieldDescriptor pg_query__from_expr__field_descriptors[2] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "quals",
@@ -23110,7 +23111,7 @@ static const ProtobufCFieldDescriptor pg_query__from_expr__field_descriptors[2] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__from_expr__field_indices_by_name[] = {
@@ -23135,7 +23136,7 @@ const ProtobufCMessageDescriptor pg_query__from_expr__descriptor =
   pg_query__from_expr__field_indices_by_name,
   1,  pg_query__from_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__from_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[73],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descriptors[8] =
 {
@@ -23149,7 +23150,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__on_conflict_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arbiter_elems",
@@ -23161,7 +23162,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arbiter_where",
@@ -23173,7 +23174,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraint",
@@ -23185,7 +23186,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict_set",
@@ -23197,7 +23198,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict_where",
@@ -23209,7 +23210,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "excl_rel_index",
@@ -23221,7 +23222,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "excl_rel_tlist",
@@ -23233,7 +23234,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__on_conflict_expr__field_indices_by_name[] = {
@@ -23264,7 +23265,7 @@ const ProtobufCMessageDescriptor pg_query__on_conflict_expr__descriptor =
   pg_query__on_conflict_expr__field_indices_by_name,
   1,  pg_query__on_conflict_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__on_conflict_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[74],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
 {
@@ -23278,7 +23279,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__cmd_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query_source",
@@ -23290,7 +23291,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__query_source__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "can_set_tag",
@@ -23302,7 +23303,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "utility_stmt",
@@ -23314,7 +23315,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "result_relation",
@@ -23326,7 +23327,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_aggs",
@@ -23338,7 +23339,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_window_funcs",
@@ -23350,7 +23351,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_target_srfs",
@@ -23362,7 +23363,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_sub_links",
@@ -23374,7 +23375,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_distinct_on",
@@ -23386,7 +23387,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_recursive",
@@ -23398,7 +23399,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_modifying_cte",
@@ -23410,7 +23411,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_for_update",
@@ -23422,7 +23423,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_row_security",
@@ -23434,7 +23435,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_return",
@@ -23446,7 +23447,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cte_list",
@@ -23458,7 +23459,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rtable",
@@ -23470,7 +23471,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rteperminfos",
@@ -23482,7 +23483,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "jointree",
@@ -23494,7 +23495,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__from_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_action_list",
@@ -23506,7 +23507,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_target_relation",
@@ -23518,7 +23519,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_join_condition",
@@ -23530,7 +23531,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -23542,7 +23543,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "override",
@@ -23554,7 +23555,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__overriding_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5889U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict",
@@ -23566,7 +23567,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__on_conflict_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6145U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning_list",
@@ -23578,7 +23579,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6401U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "group_clause",
@@ -23590,7 +23591,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6657U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "group_distinct",
@@ -23602,7 +23603,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6913U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grouping_sets",
@@ -23614,7 +23615,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7169U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "having_qual",
@@ -23626,7 +23627,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7425U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_clause",
@@ -23638,7 +23639,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7681U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "distinct_clause",
@@ -23650,7 +23651,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7937U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sort_clause",
@@ -23662,7 +23663,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8193U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_offset",
@@ -23674,7 +23675,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8449U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_count",
@@ -23686,7 +23687,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8705U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_option",
@@ -23698,7 +23699,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__limit_option__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    8961U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row_marks",
@@ -23710,7 +23711,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9217U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "set_operations",
@@ -23722,7 +23723,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9473U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraint_deps",
@@ -23734,7 +23735,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9729U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_check_options",
@@ -23746,7 +23747,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    9985U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stmt_location",
@@ -23758,7 +23759,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    10241U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stmt_len",
@@ -23770,7 +23771,7 @@ static const ProtobufCFieldDescriptor pg_query__query__field_descriptors[42] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    10497U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__query__field_indices_by_name[] = {
@@ -23835,7 +23836,7 @@ const ProtobufCMessageDescriptor pg_query__query__descriptor =
   pg_query__query__field_indices_by_name,
   1,  pg_query__query__number_ranges,
   (ProtobufCMessageInit) pg_query__query__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[75],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] =
 {
@@ -23849,7 +23850,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_oid",
@@ -23861,7 +23862,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "setof",
@@ -23873,7 +23874,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pct_type",
@@ -23885,7 +23886,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typmods",
@@ -23897,7 +23898,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "typemod",
@@ -23909,7 +23910,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "array_bounds",
@@ -23921,7 +23922,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -23933,7 +23934,7 @@ static const ProtobufCFieldDescriptor pg_query__type_name__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__type_name__field_indices_by_name[] = {
@@ -23964,7 +23965,7 @@ const ProtobufCMessageDescriptor pg_query__type_name__descriptor =
   pg_query__type_name__field_indices_by_name,
   1,  pg_query__type_name__number_ranges,
   (ProtobufCMessageInit) pg_query__type_name__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[76],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__column_ref__field_descriptors[2] =
 {
@@ -23978,7 +23979,7 @@ static const ProtobufCFieldDescriptor pg_query__column_ref__field_descriptors[2]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -23990,7 +23991,7 @@ static const ProtobufCFieldDescriptor pg_query__column_ref__field_descriptors[2]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__column_ref__field_indices_by_name[] = {
@@ -24015,7 +24016,7 @@ const ProtobufCMessageDescriptor pg_query__column_ref__descriptor =
   pg_query__column_ref__field_indices_by_name,
   1,  pg_query__column_ref__number_ranges,
   (ProtobufCMessageInit) pg_query__column_ref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[77],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__param_ref__field_descriptors[2] =
 {
@@ -24029,7 +24030,7 @@ static const ProtobufCFieldDescriptor pg_query__param_ref__field_descriptors[2] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24041,7 +24042,7 @@ static const ProtobufCFieldDescriptor pg_query__param_ref__field_descriptors[2] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__param_ref__field_indices_by_name[] = {
@@ -24066,7 +24067,7 @@ const ProtobufCMessageDescriptor pg_query__param_ref__descriptor =
   pg_query__param_ref__field_indices_by_name,
   1,  pg_query__param_ref__number_ranges,
   (ProtobufCMessageInit) pg_query__param_ref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[78],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
 {
@@ -24080,7 +24081,7 @@ static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
     &pg_query__a__expr__kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -24092,7 +24093,7 @@ static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lexpr",
@@ -24104,7 +24105,7 @@ static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rexpr",
@@ -24116,7 +24117,7 @@ static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24128,7 +24129,7 @@ static const ProtobufCFieldDescriptor pg_query__a__expr__field_descriptors[5] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__a__expr__field_indices_by_name[] = {
@@ -24156,7 +24157,7 @@ const ProtobufCMessageDescriptor pg_query__a__expr__descriptor =
   pg_query__a__expr__field_indices_by_name,
   1,  pg_query__a__expr__number_ranges,
   (ProtobufCMessageInit) pg_query__a__expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[79],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__type_cast__field_descriptors[3] =
 {
@@ -24170,7 +24171,7 @@ static const ProtobufCFieldDescriptor pg_query__type_cast__field_descriptors[3] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -24182,7 +24183,7 @@ static const ProtobufCFieldDescriptor pg_query__type_cast__field_descriptors[3] 
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24194,7 +24195,7 @@ static const ProtobufCFieldDescriptor pg_query__type_cast__field_descriptors[3] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__type_cast__field_indices_by_name[] = {
@@ -24220,7 +24221,7 @@ const ProtobufCMessageDescriptor pg_query__type_cast__descriptor =
   pg_query__type_cast__field_indices_by_name,
   1,  pg_query__type_cast__number_ranges,
   (ProtobufCMessageInit) pg_query__type_cast__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[80],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__collate_clause__field_descriptors[3] =
 {
@@ -24234,7 +24235,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_clause__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collname",
@@ -24246,7 +24247,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_clause__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24258,7 +24259,7 @@ static const ProtobufCFieldDescriptor pg_query__collate_clause__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__collate_clause__field_indices_by_name[] = {
@@ -24284,7 +24285,7 @@ const ProtobufCMessageDescriptor pg_query__collate_clause__descriptor =
   pg_query__collate_clause__field_indices_by_name,
   1,  pg_query__collate_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__collate_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[81],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__role_spec__field_descriptors[3] =
 {
@@ -24298,7 +24299,7 @@ static const ProtobufCFieldDescriptor pg_query__role_spec__field_descriptors[3] 
     &pg_query__role_spec_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rolename",
@@ -24310,7 +24311,7 @@ static const ProtobufCFieldDescriptor pg_query__role_spec__field_descriptors[3] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24322,7 +24323,7 @@ static const ProtobufCFieldDescriptor pg_query__role_spec__field_descriptors[3] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__role_spec__field_indices_by_name[] = {
@@ -24348,7 +24349,7 @@ const ProtobufCMessageDescriptor pg_query__role_spec__descriptor =
   pg_query__role_spec__field_indices_by_name,
   1,  pg_query__role_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__role_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[82],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11] =
 {
@@ -24362,7 +24363,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -24374,7 +24375,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_order",
@@ -24386,7 +24387,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_filter",
@@ -24398,7 +24399,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "over",
@@ -24410,7 +24411,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__window_def__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_within_group",
@@ -24422,7 +24423,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_star",
@@ -24434,7 +24435,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_distinct",
@@ -24446,7 +24447,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_variadic",
@@ -24458,7 +24459,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcformat",
@@ -24470,7 +24471,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     &pg_query__coercion_form__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24482,7 +24483,7 @@ static const ProtobufCFieldDescriptor pg_query__func_call__field_descriptors[11]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__func_call__field_indices_by_name[] = {
@@ -24516,7 +24517,7 @@ const ProtobufCMessageDescriptor pg_query__func_call__descriptor =
   pg_query__func_call__field_indices_by_name,
   1,  pg_query__func_call__number_ranges,
   (ProtobufCMessageInit) pg_query__func_call__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[83],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 #define pg_query__a__star__field_descriptors NULL
 #define pg_query__a__star__field_indices_by_name NULL
@@ -24534,7 +24535,7 @@ const ProtobufCMessageDescriptor pg_query__a__star__descriptor =
   pg_query__a__star__field_indices_by_name,
   0,  pg_query__a__star__number_ranges,
   (ProtobufCMessageInit) pg_query__a__star__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[84],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__a__indices__field_descriptors[3] =
 {
@@ -24548,7 +24549,7 @@ static const ProtobufCFieldDescriptor pg_query__a__indices__field_descriptors[3]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lidx",
@@ -24560,7 +24561,7 @@ static const ProtobufCFieldDescriptor pg_query__a__indices__field_descriptors[3]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "uidx",
@@ -24572,7 +24573,7 @@ static const ProtobufCFieldDescriptor pg_query__a__indices__field_descriptors[3]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__a__indices__field_indices_by_name[] = {
@@ -24598,7 +24599,7 @@ const ProtobufCMessageDescriptor pg_query__a__indices__descriptor =
   pg_query__a__indices__field_indices_by_name,
   1,  pg_query__a__indices__number_ranges,
   (ProtobufCMessageInit) pg_query__a__indices__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[85],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__a__indirection__field_descriptors[2] =
 {
@@ -24612,7 +24613,7 @@ static const ProtobufCFieldDescriptor pg_query__a__indirection__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indirection",
@@ -24624,7 +24625,7 @@ static const ProtobufCFieldDescriptor pg_query__a__indirection__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__a__indirection__field_indices_by_name[] = {
@@ -24649,7 +24650,7 @@ const ProtobufCMessageDescriptor pg_query__a__indirection__descriptor =
   pg_query__a__indirection__field_indices_by_name,
   1,  pg_query__a__indirection__number_ranges,
   (ProtobufCMessageInit) pg_query__a__indirection__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[86],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__a__array_expr__field_descriptors[2] =
 {
@@ -24663,7 +24664,7 @@ static const ProtobufCFieldDescriptor pg_query__a__array_expr__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24675,7 +24676,7 @@ static const ProtobufCFieldDescriptor pg_query__a__array_expr__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__a__array_expr__field_indices_by_name[] = {
@@ -24700,7 +24701,7 @@ const ProtobufCMessageDescriptor pg_query__a__array_expr__descriptor =
   pg_query__a__array_expr__field_indices_by_name,
   1,  pg_query__a__array_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__a__array_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[87],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__res_target__field_descriptors[4] =
 {
@@ -24714,7 +24715,7 @@ static const ProtobufCFieldDescriptor pg_query__res_target__field_descriptors[4]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indirection",
@@ -24726,7 +24727,7 @@ static const ProtobufCFieldDescriptor pg_query__res_target__field_descriptors[4]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "val",
@@ -24738,7 +24739,7 @@ static const ProtobufCFieldDescriptor pg_query__res_target__field_descriptors[4]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24750,7 +24751,7 @@ static const ProtobufCFieldDescriptor pg_query__res_target__field_descriptors[4]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__res_target__field_indices_by_name[] = {
@@ -24777,7 +24778,7 @@ const ProtobufCMessageDescriptor pg_query__res_target__descriptor =
   pg_query__res_target__field_indices_by_name,
   1,  pg_query__res_target__number_ranges,
   (ProtobufCMessageInit) pg_query__res_target__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[88],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__multi_assign_ref__field_descriptors[3] =
 {
@@ -24791,7 +24792,7 @@ static const ProtobufCFieldDescriptor pg_query__multi_assign_ref__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colno",
@@ -24803,7 +24804,7 @@ static const ProtobufCFieldDescriptor pg_query__multi_assign_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ncolumns",
@@ -24815,7 +24816,7 @@ static const ProtobufCFieldDescriptor pg_query__multi_assign_ref__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__multi_assign_ref__field_indices_by_name[] = {
@@ -24841,7 +24842,7 @@ const ProtobufCMessageDescriptor pg_query__multi_assign_ref__descriptor =
   pg_query__multi_assign_ref__field_indices_by_name,
   1,  pg_query__multi_assign_ref__number_ranges,
   (ProtobufCMessageInit) pg_query__multi_assign_ref__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[89],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
 {
@@ -24855,7 +24856,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sortby_dir",
@@ -24867,7 +24868,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
     &pg_query__sort_by_dir__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sortby_nulls",
@@ -24879,7 +24880,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
     &pg_query__sort_by_nulls__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "use_op",
@@ -24891,7 +24892,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -24903,7 +24904,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_by__field_descriptors[5] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sort_by__field_indices_by_name[] = {
@@ -24931,7 +24932,7 @@ const ProtobufCMessageDescriptor pg_query__sort_by__descriptor =
   pg_query__sort_by__field_indices_by_name,
   1,  pg_query__sort_by__number_ranges,
   (ProtobufCMessageInit) pg_query__sort_by__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[90],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8] =
 {
@@ -24945,7 +24946,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refname",
@@ -24957,7 +24958,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_clause",
@@ -24969,7 +24970,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "order_clause",
@@ -24981,7 +24982,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "frame_options",
@@ -24993,7 +24994,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "start_offset",
@@ -25005,7 +25006,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "end_offset",
@@ -25017,7 +25018,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -25029,7 +25030,7 @@ static const ProtobufCFieldDescriptor pg_query__window_def__field_descriptors[8]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__window_def__field_indices_by_name[] = {
@@ -25060,7 +25061,7 @@ const ProtobufCMessageDescriptor pg_query__window_def__descriptor =
   pg_query__window_def__field_indices_by_name,
   1,  pg_query__window_def__number_ranges,
   (ProtobufCMessageInit) pg_query__window_def__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[91],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_subselect__field_descriptors[3] =
 {
@@ -25074,7 +25075,7 @@ static const ProtobufCFieldDescriptor pg_query__range_subselect__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subquery",
@@ -25086,7 +25087,7 @@ static const ProtobufCFieldDescriptor pg_query__range_subselect__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -25098,7 +25099,7 @@ static const ProtobufCFieldDescriptor pg_query__range_subselect__field_descripto
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_subselect__field_indices_by_name[] = {
@@ -25124,7 +25125,7 @@ const ProtobufCMessageDescriptor pg_query__range_subselect__descriptor =
   pg_query__range_subselect__field_indices_by_name,
   1,  pg_query__range_subselect__number_ranges,
   (ProtobufCMessageInit) pg_query__range_subselect__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[92],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptors[6] =
 {
@@ -25138,7 +25139,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ordinality",
@@ -25150,7 +25151,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_rowsfrom",
@@ -25162,7 +25163,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "functions",
@@ -25174,7 +25175,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -25186,7 +25187,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coldeflist",
@@ -25198,7 +25199,7 @@ static const ProtobufCFieldDescriptor pg_query__range_function__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_function__field_indices_by_name[] = {
@@ -25227,7 +25228,7 @@ const ProtobufCMessageDescriptor pg_query__range_function__descriptor =
   pg_query__range_function__field_indices_by_name,
   1,  pg_query__range_function__number_ranges,
   (ProtobufCMessageInit) pg_query__range_function__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[93],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descriptors[7] =
 {
@@ -25241,7 +25242,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "docexpr",
@@ -25253,7 +25254,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rowexpr",
@@ -25265,7 +25266,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "namespaces",
@@ -25277,7 +25278,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "columns",
@@ -25289,7 +25290,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -25301,7 +25302,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -25313,7 +25314,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_table_func__field_indices_by_name[] = {
@@ -25343,7 +25344,7 @@ const ProtobufCMessageDescriptor pg_query__range_table_func__descriptor =
   pg_query__range_table_func__field_indices_by_name,
   1,  pg_query__range_table_func__number_ranges,
   (ProtobufCMessageInit) pg_query__range_table_func__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[94],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_descriptors[7] =
 {
@@ -25357,7 +25358,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -25369,7 +25370,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_ordinality",
@@ -25381,7 +25382,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_not_null",
@@ -25393,7 +25394,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colexpr",
@@ -25405,7 +25406,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coldefexpr",
@@ -25417,7 +25418,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -25429,7 +25430,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_func_col__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_table_func_col__field_indices_by_name[] = {
@@ -25459,7 +25460,7 @@ const ProtobufCMessageDescriptor pg_query__range_table_func_col__descriptor =
   pg_query__range_table_func_col__field_indices_by_name,
   1,  pg_query__range_table_func_col__number_ranges,
   (ProtobufCMessageInit) pg_query__range_table_func_col__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[95],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descriptors[5] =
 {
@@ -25473,7 +25474,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "method",
@@ -25485,7 +25486,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -25497,7 +25498,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "repeatable",
@@ -25509,7 +25510,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -25521,7 +25522,7 @@ static const ProtobufCFieldDescriptor pg_query__range_table_sample__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_table_sample__field_indices_by_name[] = {
@@ -25549,7 +25550,7 @@ const ProtobufCMessageDescriptor pg_query__range_table_sample__descriptor =
   pg_query__range_table_sample__field_indices_by_name,
   1,  pg_query__range_table_sample__number_ranges,
   (ProtobufCMessageInit) pg_query__range_table_sample__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[96],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19] =
 {
@@ -25563,7 +25564,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -25575,7 +25576,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "compression",
@@ -25587,7 +25588,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inhcount",
@@ -25599,7 +25600,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_local",
@@ -25611,7 +25612,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_not_null",
@@ -25623,7 +25624,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_from_type",
@@ -25635,7 +25636,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "storage",
@@ -25647,7 +25648,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "storage_name",
@@ -25659,7 +25660,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2050U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "raw_default",
@@ -25671,7 +25672,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cooked_default",
@@ -25683,7 +25684,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "identity",
@@ -25695,7 +25696,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "identity_sequence",
@@ -25707,7 +25708,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "generated",
@@ -25719,7 +25720,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coll_clause",
@@ -25731,7 +25732,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__collate_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coll_oid",
@@ -25743,7 +25744,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraints",
@@ -25755,7 +25756,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fdwoptions",
@@ -25767,7 +25768,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -25779,7 +25780,7 @@ static const ProtobufCFieldDescriptor pg_query__column_def__field_descriptors[19
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__column_def__field_indices_by_name[] = {
@@ -25821,7 +25822,7 @@ const ProtobufCMessageDescriptor pg_query__column_def__descriptor =
   pg_query__column_def__field_indices_by_name,
   1,  pg_query__column_def__number_ranges,
   (ProtobufCMessageInit) pg_query__column_def__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[97],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__table_like_clause__field_descriptors[3] =
 {
@@ -25835,7 +25836,7 @@ static const ProtobufCFieldDescriptor pg_query__table_like_clause__field_descrip
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -25847,7 +25848,7 @@ static const ProtobufCFieldDescriptor pg_query__table_like_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation_oid",
@@ -25859,7 +25860,7 @@ static const ProtobufCFieldDescriptor pg_query__table_like_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__table_like_clause__field_indices_by_name[] = {
@@ -25885,7 +25886,7 @@ const ProtobufCMessageDescriptor pg_query__table_like_clause__descriptor =
   pg_query__table_like_clause__field_indices_by_name,
   1,  pg_query__table_like_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__table_like_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[98],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8] =
 {
@@ -25899,7 +25900,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -25911,7 +25912,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indexcolname",
@@ -25923,7 +25924,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -25935,7 +25936,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opclass",
@@ -25947,7 +25948,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opclassopts",
@@ -25959,7 +25960,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ordering",
@@ -25971,7 +25972,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__sort_by_dir__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nulls_ordering",
@@ -25983,7 +25984,7 @@ static const ProtobufCFieldDescriptor pg_query__index_elem__field_descriptors[8]
     &pg_query__sort_by_nulls__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__index_elem__field_indices_by_name[] = {
@@ -26014,7 +26015,7 @@ const ProtobufCMessageDescriptor pg_query__index_elem__descriptor =
   pg_query__index_elem__field_indices_by_name,
   1,  pg_query__index_elem__number_ranges,
   (ProtobufCMessageInit) pg_query__index_elem__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[99],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
 {
@@ -26028,7 +26029,7 @@ static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "defname",
@@ -26040,7 +26041,7 @@ static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    262U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -26052,7 +26053,7 @@ static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "defaction",
@@ -26064,7 +26065,7 @@ static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
     &pg_query__def_elem_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26076,7 +26077,7 @@ static const ProtobufCFieldDescriptor pg_query__def_elem__field_descriptors[5] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__def_elem__field_indices_by_name[] = {
@@ -26104,7 +26105,7 @@ const ProtobufCMessageDescriptor pg_query__def_elem__descriptor =
   pg_query__def_elem__field_indices_by_name,
   1,  pg_query__def_elem__number_ranges,
   (ProtobufCMessageInit) pg_query__def_elem__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[100],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__locking_clause__field_descriptors[3] =
 {
@@ -26118,7 +26119,7 @@ static const ProtobufCFieldDescriptor pg_query__locking_clause__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "strength",
@@ -26130,7 +26131,7 @@ static const ProtobufCFieldDescriptor pg_query__locking_clause__field_descriptor
     &pg_query__lock_clause_strength__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wait_policy",
@@ -26142,7 +26143,7 @@ static const ProtobufCFieldDescriptor pg_query__locking_clause__field_descriptor
     &pg_query__lock_wait_policy__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__locking_clause__field_indices_by_name[] = {
@@ -26168,7 +26169,7 @@ const ProtobufCMessageDescriptor pg_query__locking_clause__descriptor =
   pg_query__locking_clause__field_indices_by_name,
   1,  pg_query__locking_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__locking_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[101],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors[5] =
 {
@@ -26182,7 +26183,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors
     &pg_query__xml_option_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -26194,7 +26195,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -26206,7 +26207,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indent",
@@ -26218,7 +26219,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26230,7 +26231,7 @@ static const ProtobufCFieldDescriptor pg_query__xml_serialize__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__xml_serialize__field_indices_by_name[] = {
@@ -26258,7 +26259,7 @@ const ProtobufCMessageDescriptor pg_query__xml_serialize__descriptor =
   pg_query__xml_serialize__field_indices_by_name,
   1,  pg_query__xml_serialize__number_ranges,
   (ProtobufCMessageInit) pg_query__xml_serialize__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[102],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptors[5] =
 {
@@ -26272,7 +26273,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -26284,7 +26285,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "collation",
@@ -26296,7 +26297,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opclass",
@@ -26308,7 +26309,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26320,7 +26321,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_elem__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__partition_elem__field_indices_by_name[] = {
@@ -26348,7 +26349,7 @@ const ProtobufCMessageDescriptor pg_query__partition_elem__descriptor =
   pg_query__partition_elem__field_indices_by_name,
   1,  pg_query__partition_elem__number_ranges,
   (ProtobufCMessageInit) pg_query__partition_elem__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[103],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__partition_spec__field_descriptors[3] =
 {
@@ -26362,7 +26363,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_spec__field_descriptor
     &pg_query__partition_strategy__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "part_params",
@@ -26374,7 +26375,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_spec__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26386,7 +26387,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_spec__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__partition_spec__field_indices_by_name[] = {
@@ -26412,7 +26413,7 @@ const ProtobufCMessageDescriptor pg_query__partition_spec__descriptor =
   pg_query__partition_spec__field_indices_by_name,
   1,  pg_query__partition_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__partition_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[104],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_descriptors[8] =
 {
@@ -26426,7 +26427,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_default",
@@ -26438,7 +26439,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "modulus",
@@ -26450,7 +26451,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "remainder",
@@ -26462,7 +26463,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "listdatums",
@@ -26474,7 +26475,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lowerdatums",
@@ -26486,7 +26487,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "upperdatums",
@@ -26498,7 +26499,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26510,7 +26511,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_bound_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__partition_bound_spec__field_indices_by_name[] = {
@@ -26541,7 +26542,7 @@ const ProtobufCMessageDescriptor pg_query__partition_bound_spec__descriptor =
   pg_query__partition_bound_spec__field_indices_by_name,
   1,  pg_query__partition_bound_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__partition_bound_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[105],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__partition_range_datum__field_descriptors[3] =
 {
@@ -26555,7 +26556,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_range_datum__field_des
     &pg_query__partition_range_datum_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "value",
@@ -26567,7 +26568,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_range_datum__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -26579,7 +26580,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_range_datum__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__partition_range_datum__field_indices_by_name[] = {
@@ -26605,7 +26606,7 @@ const ProtobufCMessageDescriptor pg_query__partition_range_datum__descriptor =
   pg_query__partition_range_datum__field_indices_by_name,
   1,  pg_query__partition_range_datum__number_ranges,
   (ProtobufCMessageInit) pg_query__partition_range_datum__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[106],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 #define pg_query__single_partition_spec__field_descriptors NULL
 #define pg_query__single_partition_spec__field_indices_by_name NULL
@@ -26623,7 +26624,7 @@ const ProtobufCMessageDescriptor pg_query__single_partition_spec__descriptor =
   pg_query__single_partition_spec__field_indices_by_name,
   0,  pg_query__single_partition_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__single_partition_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[107],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__partition_cmd__field_descriptors[3] =
 {
@@ -26637,7 +26638,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_cmd__field_descriptors
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "bound",
@@ -26649,7 +26650,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_cmd__field_descriptors
     &pg_query__partition_bound_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "concurrent",
@@ -26661,7 +26662,7 @@ static const ProtobufCFieldDescriptor pg_query__partition_cmd__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__partition_cmd__field_indices_by_name[] = {
@@ -26687,7 +26688,7 @@ const ProtobufCMessageDescriptor pg_query__partition_cmd__descriptor =
   pg_query__partition_cmd__field_indices_by_name,
   1,  pg_query__partition_cmd__number_ranges,
   (ProtobufCMessageInit) pg_query__partition_cmd__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[108],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descriptors[32] =
 {
@@ -26701,7 +26702,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "eref",
@@ -26713,7 +26714,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rtekind",
@@ -26725,7 +26726,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__rtekind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relid",
@@ -26737,7 +26738,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inh",
@@ -26749,7 +26750,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relkind",
@@ -26761,7 +26762,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rellockmode",
@@ -26773,7 +26774,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "perminfoindex",
@@ -26785,7 +26786,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tablesample",
@@ -26797,7 +26798,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__table_sample_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subquery",
@@ -26809,7 +26810,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__query__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "security_barrier",
@@ -26821,7 +26822,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "jointype",
@@ -26833,7 +26834,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__join_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "joinmergedcols",
@@ -26845,7 +26846,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "joinaliasvars",
@@ -26857,7 +26858,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "joinleftcols",
@@ -26869,7 +26870,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "joinrightcols",
@@ -26881,7 +26882,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "join_using_alias",
@@ -26893,7 +26894,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "functions",
@@ -26905,7 +26906,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcordinality",
@@ -26917,7 +26918,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tablefunc",
@@ -26929,7 +26930,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__table_func__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "values_lists",
@@ -26941,7 +26942,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctename",
@@ -26953,7 +26954,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5378U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctelevelsup",
@@ -26965,7 +26966,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "self_reference",
@@ -26977,7 +26978,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5889U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coltypes",
@@ -26989,7 +26990,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6145U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coltypmods",
@@ -27001,7 +27002,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6401U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "colcollations",
@@ -27013,7 +27014,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6657U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "enrname",
@@ -27025,7 +27026,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6914U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "enrtuples",
@@ -27037,7 +27038,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7169U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lateral",
@@ -27049,7 +27050,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7425U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "in_from_cl",
@@ -27061,7 +27062,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7681U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "security_quals",
@@ -27073,7 +27074,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_entry__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7937U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_tbl_entry__field_indices_by_name[] = {
@@ -27128,7 +27129,7 @@ const ProtobufCMessageDescriptor pg_query__range_tbl_entry__descriptor =
   pg_query__range_tbl_entry__field_indices_by_name,
   1,  pg_query__range_tbl_entry__number_ranges,
   (ProtobufCMessageInit) pg_query__range_tbl_entry__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[109],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descriptors[7] =
 {
@@ -27142,7 +27143,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inh",
@@ -27154,7 +27155,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "required_perms",
@@ -27166,7 +27167,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "check_as_user",
@@ -27178,7 +27179,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "selected_cols",
@@ -27190,7 +27191,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inserted_cols",
@@ -27202,7 +27203,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "updated_cols",
@@ -27214,7 +27215,7 @@ static const ProtobufCFieldDescriptor pg_query__rtepermission_info__field_descri
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__rtepermission_info__field_indices_by_name[] = {
@@ -27244,7 +27245,7 @@ const ProtobufCMessageDescriptor pg_query__rtepermission_info__descriptor =
   pg_query__rtepermission_info__field_indices_by_name,
   1,  pg_query__rtepermission_info__number_ranges,
   (ProtobufCMessageInit) pg_query__rtepermission_info__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[110],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descriptors[7] =
 {
@@ -27258,7 +27259,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccolcount",
@@ -27270,7 +27271,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccolnames",
@@ -27282,7 +27283,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccoltypes",
@@ -27294,7 +27295,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccoltypmods",
@@ -27306,7 +27307,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funccolcollations",
@@ -27318,7 +27319,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcparams",
@@ -27330,7 +27331,7 @@ static const ProtobufCFieldDescriptor pg_query__range_tbl_function__field_descri
     NULL,
     NULL,
     PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__range_tbl_function__field_indices_by_name[] = {
@@ -27360,7 +27361,7 @@ const ProtobufCMessageDescriptor pg_query__range_tbl_function__descriptor =
   pg_query__range_tbl_function__field_indices_by_name,
   1,  pg_query__range_tbl_function__number_ranges,
   (ProtobufCMessageInit) pg_query__range_tbl_function__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[111],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__table_sample_clause__field_descriptors[3] =
 {
@@ -27374,7 +27375,7 @@ static const ProtobufCFieldDescriptor pg_query__table_sample_clause__field_descr
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -27386,7 +27387,7 @@ static const ProtobufCFieldDescriptor pg_query__table_sample_clause__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "repeatable",
@@ -27398,7 +27399,7 @@ static const ProtobufCFieldDescriptor pg_query__table_sample_clause__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__table_sample_clause__field_indices_by_name[] = {
@@ -27424,7 +27425,7 @@ const ProtobufCMessageDescriptor pg_query__table_sample_clause__descriptor =
   pg_query__table_sample_clause__field_indices_by_name,
   1,  pg_query__table_sample_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__table_sample_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[112],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descriptors[5] =
 {
@@ -27438,7 +27439,7 @@ static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descrip
     &pg_query__wcokind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relname",
@@ -27450,7 +27451,7 @@ static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "polname",
@@ -27462,7 +27463,7 @@ static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "qual",
@@ -27474,7 +27475,7 @@ static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cascaded",
@@ -27486,7 +27487,7 @@ static const ProtobufCFieldDescriptor pg_query__with_check_option__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__with_check_option__field_indices_by_name[] = {
@@ -27514,7 +27515,7 @@ const ProtobufCMessageDescriptor pg_query__with_check_option__descriptor =
   pg_query__with_check_option__field_indices_by_name,
   1,  pg_query__with_check_option__number_ranges,
   (ProtobufCMessageInit) pg_query__with_check_option__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[113],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descriptors[5] =
 {
@@ -27528,7 +27529,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "eqop",
@@ -27540,7 +27541,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sortop",
@@ -27552,7 +27553,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nulls_first",
@@ -27564,7 +27565,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "hashable",
@@ -27576,7 +27577,7 @@ static const ProtobufCFieldDescriptor pg_query__sort_group_clause__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sort_group_clause__field_indices_by_name[] = {
@@ -27604,7 +27605,7 @@ const ProtobufCMessageDescriptor pg_query__sort_group_clause__descriptor =
   pg_query__sort_group_clause__field_indices_by_name,
   1,  pg_query__sort_group_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__sort_group_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[114],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__grouping_set__field_descriptors[3] =
 {
@@ -27618,7 +27619,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_set__field_descriptors[
     &pg_query__grouping_set_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "content",
@@ -27630,7 +27631,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_set__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -27642,7 +27643,7 @@ static const ProtobufCFieldDescriptor pg_query__grouping_set__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__grouping_set__field_indices_by_name[] = {
@@ -27668,7 +27669,7 @@ const ProtobufCMessageDescriptor pg_query__grouping_set__descriptor =
   pg_query__grouping_set__field_indices_by_name,
   1,  pg_query__grouping_set__number_ranges,
   (ProtobufCMessageInit) pg_query__grouping_set__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[115],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors[14] =
 {
@@ -27682,7 +27683,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "refname",
@@ -27694,7 +27695,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partition_clause",
@@ -27706,7 +27707,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "order_clause",
@@ -27718,7 +27719,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "frame_options",
@@ -27730,7 +27731,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "start_offset",
@@ -27742,7 +27743,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "end_offset",
@@ -27754,7 +27755,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "start_in_range_func",
@@ -27766,7 +27767,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "end_in_range_func",
@@ -27778,7 +27779,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "in_range_coll",
@@ -27790,7 +27791,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "in_range_asc",
@@ -27802,7 +27803,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "in_range_nulls_first",
@@ -27814,7 +27815,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "winref",
@@ -27826,7 +27827,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "copied_order",
@@ -27838,7 +27839,7 @@ static const ProtobufCFieldDescriptor pg_query__window_clause__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__window_clause__field_indices_by_name[] = {
@@ -27875,7 +27876,7 @@ const ProtobufCMessageDescriptor pg_query__window_clause__descriptor =
   pg_query__window_clause__field_indices_by_name,
   1,  pg_query__window_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__window_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[116],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__row_mark_clause__field_descriptors[4] =
 {
@@ -27889,7 +27890,7 @@ static const ProtobufCFieldDescriptor pg_query__row_mark_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "strength",
@@ -27901,7 +27902,7 @@ static const ProtobufCFieldDescriptor pg_query__row_mark_clause__field_descripto
     &pg_query__lock_clause_strength__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wait_policy",
@@ -27913,7 +27914,7 @@ static const ProtobufCFieldDescriptor pg_query__row_mark_clause__field_descripto
     &pg_query__lock_wait_policy__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pushed_down",
@@ -27925,7 +27926,7 @@ static const ProtobufCFieldDescriptor pg_query__row_mark_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__row_mark_clause__field_indices_by_name[] = {
@@ -27952,7 +27953,7 @@ const ProtobufCMessageDescriptor pg_query__row_mark_clause__descriptor =
   pg_query__row_mark_clause__field_indices_by_name,
   1,  pg_query__row_mark_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__row_mark_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[117],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__with_clause__field_descriptors[3] =
 {
@@ -27966,7 +27967,7 @@ static const ProtobufCFieldDescriptor pg_query__with_clause__field_descriptors[3
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "recursive",
@@ -27978,7 +27979,7 @@ static const ProtobufCFieldDescriptor pg_query__with_clause__field_descriptors[3
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -27990,7 +27991,7 @@ static const ProtobufCFieldDescriptor pg_query__with_clause__field_descriptors[3
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__with_clause__field_indices_by_name[] = {
@@ -28016,7 +28017,7 @@ const ProtobufCMessageDescriptor pg_query__with_clause__descriptor =
   pg_query__with_clause__field_indices_by_name,
   1,  pg_query__with_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__with_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[118],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__infer_clause__field_descriptors[4] =
 {
@@ -28030,7 +28031,7 @@ static const ProtobufCFieldDescriptor pg_query__infer_clause__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -28042,7 +28043,7 @@ static const ProtobufCFieldDescriptor pg_query__infer_clause__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "conname",
@@ -28054,7 +28055,7 @@ static const ProtobufCFieldDescriptor pg_query__infer_clause__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -28066,7 +28067,7 @@ static const ProtobufCFieldDescriptor pg_query__infer_clause__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__infer_clause__field_indices_by_name[] = {
@@ -28093,7 +28094,7 @@ const ProtobufCMessageDescriptor pg_query__infer_clause__descriptor =
   pg_query__infer_clause__field_indices_by_name,
   1,  pg_query__infer_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__infer_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[119],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descriptors[5] =
 {
@@ -28107,7 +28108,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descri
     &pg_query__on_conflict_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "infer",
@@ -28119,7 +28120,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descri
     &pg_query__infer_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -28131,7 +28132,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -28143,7 +28144,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -28155,7 +28156,7 @@ static const ProtobufCFieldDescriptor pg_query__on_conflict_clause__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__on_conflict_clause__field_indices_by_name[] = {
@@ -28183,7 +28184,7 @@ const ProtobufCMessageDescriptor pg_query__on_conflict_clause__descriptor =
   pg_query__on_conflict_clause__field_indices_by_name,
   1,  pg_query__on_conflict_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__on_conflict_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[120],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__ctesearch_clause__field_descriptors[4] =
 {
@@ -28197,7 +28198,7 @@ static const ProtobufCFieldDescriptor pg_query__ctesearch_clause__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "search_breadth_first",
@@ -28209,7 +28210,7 @@ static const ProtobufCFieldDescriptor pg_query__ctesearch_clause__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "search_seq_column",
@@ -28221,7 +28222,7 @@ static const ProtobufCFieldDescriptor pg_query__ctesearch_clause__field_descript
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -28233,7 +28234,7 @@ static const ProtobufCFieldDescriptor pg_query__ctesearch_clause__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__ctesearch_clause__field_indices_by_name[] = {
@@ -28260,7 +28261,7 @@ const ProtobufCMessageDescriptor pg_query__ctesearch_clause__descriptor =
   pg_query__ctesearch_clause__field_indices_by_name,
   1,  pg_query__ctesearch_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__ctesearch_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[121],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descriptors[10] =
 {
@@ -28274,7 +28275,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_column",
@@ -28286,7 +28287,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_value",
@@ -28298,7 +28299,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_default",
@@ -28310,7 +28311,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_path_column",
@@ -28322,7 +28323,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -28334,7 +28335,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_type",
@@ -28346,7 +28347,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_typmod",
@@ -28358,7 +28359,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_collation",
@@ -28370,7 +28371,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_mark_neop",
@@ -28382,7 +28383,7 @@ static const ProtobufCFieldDescriptor pg_query__ctecycle_clause__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__ctecycle_clause__field_indices_by_name[] = {
@@ -28415,7 +28416,7 @@ const ProtobufCMessageDescriptor pg_query__ctecycle_clause__descriptor =
   pg_query__ctecycle_clause__field_indices_by_name,
   1,  pg_query__ctecycle_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__ctecycle_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[122],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descriptors[13] =
 {
@@ -28429,7 +28430,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aliascolnames",
@@ -28441,7 +28442,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctematerialized",
@@ -28453,7 +28454,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__ctematerialize__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctequery",
@@ -28465,7 +28466,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "search_clause",
@@ -28477,7 +28478,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__ctesearch_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cycle_clause",
@@ -28489,7 +28490,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__ctecycle_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -28501,7 +28502,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cterecursive",
@@ -28513,7 +28514,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cterefcount",
@@ -28525,7 +28526,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctecolnames",
@@ -28537,7 +28538,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2306U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctecoltypes",
@@ -28549,7 +28550,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctecoltypmods",
@@ -28561,7 +28562,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ctecolcollations",
@@ -28573,7 +28574,7 @@ static const ProtobufCFieldDescriptor pg_query__common_table_expr__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__common_table_expr__field_indices_by_name[] = {
@@ -28609,7 +28610,7 @@ const ProtobufCMessageDescriptor pg_query__common_table_expr__descriptor =
   pg_query__common_table_expr__field_indices_by_name,
   1,  pg_query__common_table_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__common_table_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[123],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descriptors[7] =
 {
@@ -28623,7 +28624,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__merge_match_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "command_type",
@@ -28635,7 +28636,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__cmd_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "override",
@@ -28647,7 +28648,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__overriding_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "condition",
@@ -28659,7 +28660,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -28671,7 +28672,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "values",
@@ -28683,7 +28684,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "delete_condition",
@@ -28695,7 +28696,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__merge_when_clause__field_indices_by_name[] = {
@@ -28725,7 +28726,7 @@ const ProtobufCMessageDescriptor pg_query__merge_when_clause__descriptor =
   pg_query__merge_when_clause__field_indices_by_name,
   1,  pg_query__merge_when_clause__number_ranges,
   (ProtobufCMessageInit) pg_query__merge_when_clause__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[124],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__trigger_transition__field_descriptors[3] =
 {
@@ -28739,7 +28740,7 @@ static const ProtobufCFieldDescriptor pg_query__trigger_transition__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_new",
@@ -28751,7 +28752,7 @@ static const ProtobufCFieldDescriptor pg_query__trigger_transition__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_table",
@@ -28763,7 +28764,7 @@ static const ProtobufCFieldDescriptor pg_query__trigger_transition__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__trigger_transition__field_indices_by_name[] = {
@@ -28789,7 +28790,7 @@ const ProtobufCMessageDescriptor pg_query__trigger_transition__descriptor =
   pg_query__trigger_transition__field_indices_by_name,
   1,  pg_query__trigger_transition__number_ranges,
   (ProtobufCMessageInit) pg_query__trigger_transition__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[125],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_output__field_descriptors[2] =
 {
@@ -28803,7 +28804,7 @@ static const ProtobufCFieldDescriptor pg_query__json_output__field_descriptors[2
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning",
@@ -28815,7 +28816,7 @@ static const ProtobufCFieldDescriptor pg_query__json_output__field_descriptors[2
     &pg_query__json_returning__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_output__field_indices_by_name[] = {
@@ -28840,7 +28841,7 @@ const ProtobufCMessageDescriptor pg_query__json_output__descriptor =
   pg_query__json_output__field_indices_by_name,
   1,  pg_query__json_output__number_ranges,
   (ProtobufCMessageInit) pg_query__json_output__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[126],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_argument__field_descriptors[2] =
 {
@@ -28854,7 +28855,7 @@ static const ProtobufCFieldDescriptor pg_query__json_argument__field_descriptors
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -28866,7 +28867,7 @@ static const ProtobufCFieldDescriptor pg_query__json_argument__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_argument__field_indices_by_name[] = {
@@ -28891,7 +28892,7 @@ const ProtobufCMessageDescriptor pg_query__json_argument__descriptor =
   pg_query__json_argument__field_indices_by_name,
   1,  pg_query__json_argument__number_ranges,
   (ProtobufCMessageInit) pg_query__json_argument__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[127],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptors[11] =
 {
@@ -28905,7 +28906,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_expr_op__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "column_name",
@@ -28917,7 +28918,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "context_item",
@@ -28929,7 +28930,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pathspec",
@@ -28941,7 +28942,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "passing",
@@ -28953,7 +28954,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -28965,7 +28966,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_empty",
@@ -28977,7 +28978,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_error",
@@ -28989,7 +28990,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wrapper",
@@ -29001,7 +29002,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_wrapper__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "quotes",
@@ -29013,7 +29014,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     &pg_query__json_quotes__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29025,7 +29026,7 @@ static const ProtobufCFieldDescriptor pg_query__json_func_expr__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_func_expr__field_indices_by_name[] = {
@@ -29059,7 +29060,7 @@ const ProtobufCMessageDescriptor pg_query__json_func_expr__descriptor =
   pg_query__json_func_expr__field_indices_by_name,
   1,  pg_query__json_func_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_func_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[128],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table_path_spec__field_descriptors[4] =
 {
@@ -29073,7 +29074,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_spec__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -29085,7 +29086,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_spec__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name_location",
@@ -29097,7 +29098,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29109,7 +29110,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_path_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table_path_spec__field_indices_by_name[] = {
@@ -29136,7 +29137,7 @@ const ProtobufCMessageDescriptor pg_query__json_table_path_spec__descriptor =
   pg_query__json_table_path_spec__field_indices_by_name,
   1,  pg_query__json_table_path_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table_path_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[129],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8] =
 {
@@ -29150,7 +29151,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pathspec",
@@ -29162,7 +29163,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__json_table_path_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "passing",
@@ -29174,7 +29175,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "columns",
@@ -29186,7 +29187,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_error",
@@ -29198,7 +29199,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "alias",
@@ -29210,7 +29211,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     &pg_query__alias__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lateral",
@@ -29222,7 +29223,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29234,7 +29235,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table__field_descriptors[8]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table__field_indices_by_name[] = {
@@ -29265,7 +29266,7 @@ const ProtobufCMessageDescriptor pg_query__json_table__descriptor =
   pg_query__json_table__field_indices_by_name,
   1,  pg_query__json_table__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[130],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descriptors[11] =
 {
@@ -29279,7 +29280,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_table_column_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -29291,7 +29292,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -29303,7 +29304,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pathspec",
@@ -29315,7 +29316,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_table_path_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "format",
@@ -29327,7 +29328,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "wrapper",
@@ -29339,7 +29340,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_wrapper__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "quotes",
@@ -29351,7 +29352,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_quotes__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "columns",
@@ -29363,7 +29364,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_empty",
@@ -29375,7 +29376,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_error",
@@ -29387,7 +29388,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     &pg_query__json_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29399,7 +29400,7 @@ static const ProtobufCFieldDescriptor pg_query__json_table_column__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_table_column__field_indices_by_name[] = {
@@ -29433,7 +29434,7 @@ const ProtobufCMessageDescriptor pg_query__json_table_column__descriptor =
   pg_query__json_table_column__field_indices_by_name,
   1,  pg_query__json_table_column__number_ranges,
   (ProtobufCMessageInit) pg_query__json_table_column__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[131],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_key_value__field_descriptors[2] =
 {
@@ -29447,7 +29448,7 @@ static const ProtobufCFieldDescriptor pg_query__json_key_value__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "value",
@@ -29459,7 +29460,7 @@ static const ProtobufCFieldDescriptor pg_query__json_key_value__field_descriptor
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_key_value__field_indices_by_name[] = {
@@ -29484,7 +29485,7 @@ const ProtobufCMessageDescriptor pg_query__json_key_value__descriptor =
   pg_query__json_key_value__field_indices_by_name,
   1,  pg_query__json_key_value__number_ranges,
   (ProtobufCMessageInit) pg_query__json_key_value__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[132],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_parse_expr__field_descriptors[4] =
 {
@@ -29498,7 +29499,7 @@ static const ProtobufCFieldDescriptor pg_query__json_parse_expr__field_descripto
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29510,7 +29511,7 @@ static const ProtobufCFieldDescriptor pg_query__json_parse_expr__field_descripto
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique_keys",
@@ -29522,7 +29523,7 @@ static const ProtobufCFieldDescriptor pg_query__json_parse_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29534,7 +29535,7 @@ static const ProtobufCFieldDescriptor pg_query__json_parse_expr__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_parse_expr__field_indices_by_name[] = {
@@ -29561,7 +29562,7 @@ const ProtobufCMessageDescriptor pg_query__json_parse_expr__descriptor =
   pg_query__json_parse_expr__field_indices_by_name,
   1,  pg_query__json_parse_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_parse_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[133],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_scalar_expr__field_descriptors[3] =
 {
@@ -29575,7 +29576,7 @@ static const ProtobufCFieldDescriptor pg_query__json_scalar_expr__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29587,7 +29588,7 @@ static const ProtobufCFieldDescriptor pg_query__json_scalar_expr__field_descript
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29599,7 +29600,7 @@ static const ProtobufCFieldDescriptor pg_query__json_scalar_expr__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_scalar_expr__field_indices_by_name[] = {
@@ -29625,7 +29626,7 @@ const ProtobufCMessageDescriptor pg_query__json_scalar_expr__descriptor =
   pg_query__json_scalar_expr__field_indices_by_name,
   1,  pg_query__json_scalar_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_scalar_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[134],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_serialize_expr__field_descriptors[3] =
 {
@@ -29639,7 +29640,7 @@ static const ProtobufCFieldDescriptor pg_query__json_serialize_expr__field_descr
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29651,7 +29652,7 @@ static const ProtobufCFieldDescriptor pg_query__json_serialize_expr__field_descr
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29663,7 +29664,7 @@ static const ProtobufCFieldDescriptor pg_query__json_serialize_expr__field_descr
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_serialize_expr__field_indices_by_name[] = {
@@ -29689,7 +29690,7 @@ const ProtobufCMessageDescriptor pg_query__json_serialize_expr__descriptor =
   pg_query__json_serialize_expr__field_indices_by_name,
   1,  pg_query__json_serialize_expr__number_ranges,
   (ProtobufCMessageInit) pg_query__json_serialize_expr__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[135],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_descriptors[5] =
 {
@@ -29703,7 +29704,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29715,7 +29716,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_d
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -29727,7 +29728,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_d
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique",
@@ -29739,7 +29740,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_d
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29751,7 +29752,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_constructor__field_d
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_object_constructor__field_indices_by_name[] = {
@@ -29779,7 +29780,7 @@ const ProtobufCMessageDescriptor pg_query__json_object_constructor__descriptor =
   pg_query__json_object_constructor__field_indices_by_name,
   1,  pg_query__json_object_constructor__number_ranges,
   (ProtobufCMessageInit) pg_query__json_object_constructor__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[136],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_array_constructor__field_descriptors[4] =
 {
@@ -29793,7 +29794,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_constructor__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29805,7 +29806,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_constructor__field_de
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -29817,7 +29818,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_constructor__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29829,7 +29830,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_constructor__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_array_constructor__field_indices_by_name[] = {
@@ -29856,7 +29857,7 @@ const ProtobufCMessageDescriptor pg_query__json_array_constructor__descriptor =
   pg_query__json_array_constructor__field_indices_by_name,
   1,  pg_query__json_array_constructor__number_ranges,
   (ProtobufCMessageInit) pg_query__json_array_constructor__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[137],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__field_descriptors[5] =
 {
@@ -29870,7 +29871,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__fi
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "output",
@@ -29882,7 +29883,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__fi
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "format",
@@ -29894,7 +29895,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__fi
     &pg_query__json_format__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -29906,7 +29907,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__fi
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -29918,7 +29919,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_query_constructor__fi
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_array_query_constructor__field_indices_by_name[] = {
@@ -29946,7 +29947,7 @@ const ProtobufCMessageDescriptor pg_query__json_array_query_constructor__descrip
   pg_query__json_array_query_constructor__field_indices_by_name,
   1,  pg_query__json_array_query_constructor__number_ranges,
   (ProtobufCMessageInit) pg_query__json_array_query_constructor__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[138],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_descriptors[5] =
 {
@@ -29960,7 +29961,7 @@ static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_desc
     &pg_query__json_output__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_filter",
@@ -29972,7 +29973,7 @@ static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "agg_order",
@@ -29984,7 +29985,7 @@ static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "over",
@@ -29996,7 +29997,7 @@ static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_desc
     &pg_query__window_def__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -30008,7 +30009,7 @@ static const ProtobufCFieldDescriptor pg_query__json_agg_constructor__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_agg_constructor__field_indices_by_name[] = {
@@ -30036,7 +30037,7 @@ const ProtobufCMessageDescriptor pg_query__json_agg_constructor__descriptor =
   pg_query__json_agg_constructor__field_indices_by_name,
   1,  pg_query__json_agg_constructor__number_ranges,
   (ProtobufCMessageInit) pg_query__json_agg_constructor__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[139],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_object_agg__field_descriptors[4] =
 {
@@ -30050,7 +30051,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_agg__field_descripto
     &pg_query__json_agg_constructor__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -30062,7 +30063,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_agg__field_descripto
     &pg_query__json_key_value__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -30074,7 +30075,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_agg__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique",
@@ -30086,7 +30087,7 @@ static const ProtobufCFieldDescriptor pg_query__json_object_agg__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_object_agg__field_indices_by_name[] = {
@@ -30113,7 +30114,7 @@ const ProtobufCMessageDescriptor pg_query__json_object_agg__descriptor =
   pg_query__json_object_agg__field_indices_by_name,
   1,  pg_query__json_object_agg__number_ranges,
   (ProtobufCMessageInit) pg_query__json_object_agg__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[140],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__json_array_agg__field_descriptors[3] =
 {
@@ -30127,7 +30128,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_agg__field_descriptor
     &pg_query__json_agg_constructor__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg",
@@ -30139,7 +30140,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_agg__field_descriptor
     &pg_query__json_value_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "absent_on_null",
@@ -30151,7 +30152,7 @@ static const ProtobufCFieldDescriptor pg_query__json_array_agg__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__json_array_agg__field_indices_by_name[] = {
@@ -30177,7 +30178,7 @@ const ProtobufCMessageDescriptor pg_query__json_array_agg__descriptor =
   pg_query__json_array_agg__field_indices_by_name,
   1,  pg_query__json_array_agg__number_ranges,
   (ProtobufCMessageInit) pg_query__json_array_agg__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[141],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__raw_stmt__field_descriptors[3] =
 {
@@ -30191,7 +30192,7 @@ static const ProtobufCFieldDescriptor pg_query__raw_stmt__field_descriptors[3] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stmt_location",
@@ -30203,7 +30204,7 @@ static const ProtobufCFieldDescriptor pg_query__raw_stmt__field_descriptors[3] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stmt_len",
@@ -30215,7 +30216,7 @@ static const ProtobufCFieldDescriptor pg_query__raw_stmt__field_descriptors[3] =
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__raw_stmt__field_indices_by_name[] = {
@@ -30241,7 +30242,7 @@ const ProtobufCMessageDescriptor pg_query__raw_stmt__descriptor =
   pg_query__raw_stmt__field_indices_by_name,
   1,  pg_query__raw_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__raw_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[142],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7] =
 {
@@ -30255,7 +30256,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cols",
@@ -30267,7 +30268,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "select_stmt",
@@ -30279,7 +30280,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "on_conflict_clause",
@@ -30291,7 +30292,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__on_conflict_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning_list",
@@ -30303,7 +30304,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -30315,7 +30316,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__with_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "override",
@@ -30327,7 +30328,7 @@ static const ProtobufCFieldDescriptor pg_query__insert_stmt__field_descriptors[7
     &pg_query__overriding_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__insert_stmt__field_indices_by_name[] = {
@@ -30357,7 +30358,7 @@ const ProtobufCMessageDescriptor pg_query__insert_stmt__descriptor =
   pg_query__insert_stmt__field_indices_by_name,
   1,  pg_query__insert_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__insert_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[143],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5] =
 {
@@ -30371,7 +30372,7 @@ static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "using_clause",
@@ -30383,7 +30384,7 @@ static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -30395,7 +30396,7 @@ static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning_list",
@@ -30407,7 +30408,7 @@ static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -30419,7 +30420,7 @@ static const ProtobufCFieldDescriptor pg_query__delete_stmt__field_descriptors[5
     &pg_query__with_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__delete_stmt__field_indices_by_name[] = {
@@ -30447,7 +30448,7 @@ const ProtobufCMessageDescriptor pg_query__delete_stmt__descriptor =
   pg_query__delete_stmt__field_indices_by_name,
   1,  pg_query__delete_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__delete_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[144],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6] =
 {
@@ -30461,7 +30462,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -30473,7 +30474,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -30485,7 +30486,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "from_clause",
@@ -30497,7 +30498,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning_list",
@@ -30509,7 +30510,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -30521,7 +30522,7 @@ static const ProtobufCFieldDescriptor pg_query__update_stmt__field_descriptors[6
     &pg_query__with_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__update_stmt__field_indices_by_name[] = {
@@ -30550,7 +30551,7 @@ const ProtobufCMessageDescriptor pg_query__update_stmt__descriptor =
   pg_query__update_stmt__field_indices_by_name,
   1,  pg_query__update_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__update_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[145],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6] =
 {
@@ -30564,7 +30565,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "source_relation",
@@ -30576,7 +30577,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "join_condition",
@@ -30588,7 +30589,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "merge_when_clauses",
@@ -30600,7 +30601,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "returning_list",
@@ -30612,7 +30613,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -30624,7 +30625,7 @@ static const ProtobufCFieldDescriptor pg_query__merge_stmt__field_descriptors[6]
     &pg_query__with_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__merge_stmt__field_indices_by_name[] = {
@@ -30653,7 +30654,7 @@ const ProtobufCMessageDescriptor pg_query__merge_stmt__descriptor =
   pg_query__merge_stmt__field_indices_by_name,
   1,  pg_query__merge_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__merge_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[146],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[25] =
 {
@@ -30667,7 +30668,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "into_clause",
@@ -30679,7 +30680,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__into_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "target_list",
@@ -30691,7 +30692,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "from_clause",
@@ -30703,7 +30704,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -30715,7 +30716,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "group_clause",
@@ -30727,7 +30728,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "group_distinct",
@@ -30739,7 +30740,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "having_clause",
@@ -30751,7 +30752,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "window_clause",
@@ -30763,7 +30764,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "values_lists",
@@ -30775,7 +30776,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sort_clause",
@@ -30787,7 +30788,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_offset",
@@ -30799,7 +30800,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_count",
@@ -30811,7 +30812,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_option",
@@ -30823,7 +30824,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__limit_option__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "locking_clause",
@@ -30835,7 +30836,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_clause",
@@ -30847,7 +30848,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__with_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "op",
@@ -30859,7 +30860,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__set_operation__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "all",
@@ -30871,7 +30872,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "larg",
@@ -30883,7 +30884,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__select_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rarg",
@@ -30895,7 +30896,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__select_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "start_with_clause",
@@ -30907,7 +30908,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "connect_by_clause",
@@ -30919,7 +30920,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "connect_by_no_cycle",
@@ -30931,7 +30932,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "connect_by_first",
@@ -30943,7 +30944,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5889U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "limit_clause_style",
@@ -30955,7 +30956,7 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     &pg_query__limit_clause_style__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6145U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__select_stmt__field_indices_by_name[] = {
@@ -31003,7 +31004,7 @@ const ProtobufCMessageDescriptor pg_query__select_stmt__descriptor =
   pg_query__select_stmt__field_indices_by_name,
   1,  pg_query__select_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__select_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[147],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descriptors[8] =
 {
@@ -31017,7 +31018,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__set_operation__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "all",
@@ -31029,7 +31030,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "larg",
@@ -31041,7 +31042,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rarg",
@@ -31053,7 +31054,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_types",
@@ -31065,7 +31066,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_typmods",
@@ -31077,7 +31078,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "col_collations",
@@ -31089,7 +31090,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "group_clauses",
@@ -31101,7 +31102,7 @@ static const ProtobufCFieldDescriptor pg_query__set_operation_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__set_operation_stmt__field_indices_by_name[] = {
@@ -31132,7 +31133,7 @@ const ProtobufCMessageDescriptor pg_query__set_operation_stmt__descriptor =
   pg_query__set_operation_stmt__field_indices_by_name,
   1,  pg_query__set_operation_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__set_operation_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[148],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__return_stmt__field_descriptors[1] =
 {
@@ -31146,7 +31147,7 @@ static const ProtobufCFieldDescriptor pg_query__return_stmt__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__return_stmt__field_indices_by_name[] = {
@@ -31170,7 +31171,7 @@ const ProtobufCMessageDescriptor pg_query__return_stmt__descriptor =
   pg_query__return_stmt__field_indices_by_name,
   1,  pg_query__return_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__return_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[149],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors[5] =
 {
@@ -31184,7 +31185,7 @@ static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indirection",
@@ -31196,7 +31197,7 @@ static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nnames",
@@ -31208,7 +31209,7 @@ static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "val",
@@ -31220,7 +31221,7 @@ static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors
     &pg_query__select_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -31232,7 +31233,7 @@ static const ProtobufCFieldDescriptor pg_query__plassign_stmt__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__plassign_stmt__field_indices_by_name[] = {
@@ -31260,7 +31261,7 @@ const ProtobufCMessageDescriptor pg_query__plassign_stmt__descriptor =
   pg_query__plassign_stmt__field_indices_by_name,
   1,  pg_query__plassign_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__plassign_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[150],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_schema_stmt__field_descriptors[4] =
 {
@@ -31274,7 +31275,7 @@ static const ProtobufCFieldDescriptor pg_query__create_schema_stmt__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "authrole",
@@ -31286,7 +31287,7 @@ static const ProtobufCFieldDescriptor pg_query__create_schema_stmt__field_descri
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "schema_elts",
@@ -31298,7 +31299,7 @@ static const ProtobufCFieldDescriptor pg_query__create_schema_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -31310,7 +31311,7 @@ static const ProtobufCFieldDescriptor pg_query__create_schema_stmt__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_schema_stmt__field_indices_by_name[] = {
@@ -31337,7 +31338,7 @@ const ProtobufCMessageDescriptor pg_query__create_schema_stmt__descriptor =
   pg_query__create_schema_stmt__field_indices_by_name,
   1,  pg_query__create_schema_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_schema_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[151],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_table_stmt__field_descriptors[4] =
 {
@@ -31351,7 +31352,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_stmt__field_descript
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cmds",
@@ -31363,7 +31364,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objtype",
@@ -31375,7 +31376,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_stmt__field_descript
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -31387,7 +31388,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_table_stmt__field_indices_by_name[] = {
@@ -31414,7 +31415,7 @@ const ProtobufCMessageDescriptor pg_query__alter_table_stmt__descriptor =
   pg_query__alter_table_stmt__field_indices_by_name,
   1,  pg_query__alter_table_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_table_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[152],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__replica_identity_stmt__field_descriptors[2] =
 {
@@ -31428,7 +31429,7 @@ static const ProtobufCFieldDescriptor pg_query__replica_identity_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -31440,7 +31441,7 @@ static const ProtobufCFieldDescriptor pg_query__replica_identity_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__replica_identity_stmt__field_indices_by_name[] = {
@@ -31465,7 +31466,7 @@ const ProtobufCMessageDescriptor pg_query__replica_identity_stmt__descriptor =
   pg_query__replica_identity_stmt__field_indices_by_name,
   1,  pg_query__replica_identity_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__replica_identity_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[153],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descriptors[8] =
 {
@@ -31479,7 +31480,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     &pg_query__alter_table_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -31491,7 +31492,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "num",
@@ -31503,7 +31504,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newowner",
@@ -31515,7 +31516,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "def",
@@ -31527,7 +31528,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -31539,7 +31540,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -31551,7 +31552,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "recurse",
@@ -31563,7 +31564,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_cmd__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_table_cmd__field_indices_by_name[] = {
@@ -31594,7 +31595,7 @@ const ProtobufCMessageDescriptor pg_query__alter_table_cmd__descriptor =
   pg_query__alter_table_cmd__field_indices_by_name,
   1,  pg_query__alter_table_cmd__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_table_cmd__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[154],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_collation_stmt__field_descriptors[1] =
 {
@@ -31608,7 +31609,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_collation_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_collation_stmt__field_indices_by_name[] = {
@@ -31632,7 +31633,7 @@ const ProtobufCMessageDescriptor pg_query__alter_collation_stmt__descriptor =
   pg_query__alter_collation_stmt__field_indices_by_name,
   1,  pg_query__alter_collation_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_collation_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[155],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descriptors[6] =
 {
@@ -31646,7 +31647,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -31658,7 +31659,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -31670,7 +31671,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "def",
@@ -31682,7 +31683,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -31694,7 +31695,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -31706,7 +31707,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_domain_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_domain_stmt__field_indices_by_name[] = {
@@ -31735,7 +31736,7 @@ const ProtobufCMessageDescriptor pg_query__alter_domain_stmt__descriptor =
   pg_query__alter_domain_stmt__field_indices_by_name,
   1,  pg_query__alter_domain_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_domain_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[156],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9] =
 {
@@ -31749,7 +31750,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "targtype",
@@ -31761,7 +31762,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__grant_target_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objtype",
@@ -31773,7 +31774,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objects",
@@ -31785,7 +31786,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "privileges",
@@ -31797,7 +31798,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grantees",
@@ -31809,7 +31810,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grant_option",
@@ -31821,7 +31822,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grantor",
@@ -31833,7 +31834,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -31845,7 +31846,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_stmt__field_descriptors[9]
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__grant_stmt__field_indices_by_name[] = {
@@ -31877,7 +31878,7 @@ const ProtobufCMessageDescriptor pg_query__grant_stmt__descriptor =
   pg_query__grant_stmt__field_indices_by_name,
   1,  pg_query__grant_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__grant_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[157],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__object_with_args__field_descriptors[4] =
 {
@@ -31891,7 +31892,7 @@ static const ProtobufCFieldDescriptor pg_query__object_with_args__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objargs",
@@ -31903,7 +31904,7 @@ static const ProtobufCFieldDescriptor pg_query__object_with_args__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objfuncargs",
@@ -31915,7 +31916,7 @@ static const ProtobufCFieldDescriptor pg_query__object_with_args__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args_unspecified",
@@ -31927,7 +31928,7 @@ static const ProtobufCFieldDescriptor pg_query__object_with_args__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__object_with_args__field_indices_by_name[] = {
@@ -31954,7 +31955,7 @@ const ProtobufCMessageDescriptor pg_query__object_with_args__descriptor =
   pg_query__object_with_args__field_indices_by_name,
   1,  pg_query__object_with_args__number_ranges,
   (ProtobufCMessageInit) pg_query__object_with_args__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[158],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__access_priv__field_descriptors[2] =
 {
@@ -31968,7 +31969,7 @@ static const ProtobufCFieldDescriptor pg_query__access_priv__field_descriptors[2
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cols",
@@ -31980,7 +31981,7 @@ static const ProtobufCFieldDescriptor pg_query__access_priv__field_descriptors[2
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__access_priv__field_indices_by_name[] = {
@@ -32005,7 +32006,7 @@ const ProtobufCMessageDescriptor pg_query__access_priv__descriptor =
   pg_query__access_priv__field_indices_by_name,
   1,  pg_query__access_priv__number_ranges,
   (ProtobufCMessageInit) pg_query__access_priv__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[159],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descriptors[6] =
 {
@@ -32019,7 +32020,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grantee_roles",
@@ -32031,7 +32032,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_grant",
@@ -32043,7 +32044,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opt",
@@ -32055,7 +32056,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "grantor",
@@ -32067,7 +32068,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -32079,7 +32080,7 @@ static const ProtobufCFieldDescriptor pg_query__grant_role_stmt__field_descripto
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__grant_role_stmt__field_indices_by_name[] = {
@@ -32108,7 +32109,7 @@ const ProtobufCMessageDescriptor pg_query__grant_role_stmt__descriptor =
   pg_query__grant_role_stmt__field_indices_by_name,
   1,  pg_query__grant_role_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__grant_role_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[160],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_default_privileges_stmt__field_descriptors[2] =
 {
@@ -32122,7 +32123,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_default_privileges_stmt__f
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "action",
@@ -32134,7 +32135,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_default_privileges_stmt__f
     &pg_query__grant_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_default_privileges_stmt__field_indices_by_name[] = {
@@ -32159,7 +32160,7 @@ const ProtobufCMessageDescriptor pg_query__alter_default_privileges_stmt__descri
   pg_query__alter_default_privileges_stmt__field_indices_by_name,
   1,  pg_query__alter_default_privileges_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_default_privileges_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[161],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] =
 {
@@ -32173,7 +32174,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query",
@@ -32185,7 +32186,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "attlist",
@@ -32197,7 +32198,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_from",
@@ -32209,7 +32210,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_program",
@@ -32221,7 +32222,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "filename",
@@ -32233,7 +32234,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -32245,7 +32246,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -32257,7 +32258,7 @@ static const ProtobufCFieldDescriptor pg_query__copy_stmt__field_descriptors[8] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__copy_stmt__field_indices_by_name[] = {
@@ -32288,7 +32289,7 @@ const ProtobufCMessageDescriptor pg_query__copy_stmt__descriptor =
   pg_query__copy_stmt__field_indices_by_name,
   1,  pg_query__copy_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__copy_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[162],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__variable_set_stmt__field_descriptors[4] =
 {
@@ -32302,7 +32303,7 @@ static const ProtobufCFieldDescriptor pg_query__variable_set_stmt__field_descrip
     &pg_query__variable_set_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -32314,7 +32315,7 @@ static const ProtobufCFieldDescriptor pg_query__variable_set_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    259U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -32326,7 +32327,7 @@ static const ProtobufCFieldDescriptor pg_query__variable_set_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_local",
@@ -32338,7 +32339,7 @@ static const ProtobufCFieldDescriptor pg_query__variable_set_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__variable_set_stmt__field_indices_by_name[] = {
@@ -32365,7 +32366,7 @@ const ProtobufCMessageDescriptor pg_query__variable_set_stmt__descriptor =
   pg_query__variable_set_stmt__field_indices_by_name,
   1,  pg_query__variable_set_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__variable_set_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[163],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__variable_show_stmt__field_descriptors[1] =
 {
@@ -32379,7 +32380,7 @@ static const ProtobufCFieldDescriptor pg_query__variable_show_stmt__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__variable_show_stmt__field_indices_by_name[] = {
@@ -32403,7 +32404,7 @@ const ProtobufCMessageDescriptor pg_query__variable_show_stmt__descriptor =
   pg_query__variable_show_stmt__field_indices_by_name,
   1,  pg_query__variable_show_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__variable_show_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[164],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[12] =
 {
@@ -32417,7 +32418,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_elts",
@@ -32429,7 +32430,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inh_relations",
@@ -32441,7 +32442,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partbound",
@@ -32453,7 +32454,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__partition_bound_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "partspec",
@@ -32465,7 +32466,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__partition_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "of_typename",
@@ -32477,7 +32478,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraints",
@@ -32489,7 +32490,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -32501,7 +32502,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "oncommit",
@@ -32513,7 +32514,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     &pg_query__on_commit_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tablespacename",
@@ -32525,7 +32526,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2306U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "access_method",
@@ -32537,7 +32538,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2562U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -32549,7 +32550,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stmt__field_descriptors[1
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_stmt__field_indices_by_name[] = {
@@ -32584,7 +32585,7 @@ const ProtobufCMessageDescriptor pg_query__create_stmt__descriptor =
   pg_query__create_stmt__field_indices_by_name,
   1,  pg_query__create_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[165],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31] =
 {
@@ -32598,7 +32599,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__constr_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "conname",
@@ -32610,7 +32611,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "deferrable",
@@ -32622,7 +32623,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "initdeferred",
@@ -32634,7 +32635,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "skip_validation",
@@ -32646,7 +32647,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "initially_valid",
@@ -32658,7 +32659,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_no_inherit",
@@ -32670,7 +32671,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "raw_expr",
@@ -32682,7 +32683,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cooked_expr",
@@ -32694,7 +32695,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "generated_when",
@@ -32706,7 +32707,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inhcount",
@@ -32718,7 +32719,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nulls_not_distinct",
@@ -32730,7 +32731,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "keys",
@@ -32742,7 +32743,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3077U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "including",
@@ -32754,7 +32755,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3330U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "exclusions",
@@ -32766,7 +32767,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -32778,7 +32779,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indexname",
@@ -32790,7 +32791,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4098U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indexspace",
@@ -32802,7 +32803,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4354U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reset_default_tblspc",
@@ -32814,7 +32815,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "access_method",
@@ -32826,7 +32827,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4866U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -32838,7 +32839,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pktable",
@@ -32850,7 +32851,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fk_attrs",
@@ -32862,7 +32863,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5634U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pk_attrs",
@@ -32874,7 +32875,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5890U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fk_matchtype",
@@ -32886,7 +32887,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6145U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fk_upd_action",
@@ -32898,7 +32899,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6401U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fk_del_action",
@@ -32910,7 +32911,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6657U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fk_del_set_cols",
@@ -32922,7 +32923,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    6914U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_conpfeqop",
@@ -32934,7 +32935,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7169U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_pktable_oid",
@@ -32946,7 +32947,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7425U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -32958,7 +32959,7 @@ static const ProtobufCFieldDescriptor pg_query__constraint__field_descriptors[31
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    7681U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__constraint__field_indices_by_name[] = {
@@ -33012,7 +33013,7 @@ const ProtobufCMessageDescriptor pg_query__constraint__descriptor =
   pg_query__constraint__field_indices_by_name,
   1,  pg_query__constraint__number_ranges,
   (ProtobufCMessageInit) pg_query__constraint__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[166],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_table_space_stmt__field_descriptors[4] =
 {
@@ -33026,7 +33027,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_space_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "owner",
@@ -33038,7 +33039,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_space_stmt__field_d
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -33050,7 +33051,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_space_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33062,7 +33063,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_space_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_table_space_stmt__field_indices_by_name[] = {
@@ -33089,7 +33090,7 @@ const ProtobufCMessageDescriptor pg_query__create_table_space_stmt__descriptor =
   pg_query__create_table_space_stmt__field_indices_by_name,
   1,  pg_query__create_table_space_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_table_space_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[167],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_table_space_stmt__field_descriptors[2] =
 {
@@ -33103,7 +33104,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_table_space_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -33115,7 +33116,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_table_space_stmt__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_table_space_stmt__field_indices_by_name[] = {
@@ -33140,7 +33141,7 @@ const ProtobufCMessageDescriptor pg_query__drop_table_space_stmt__descriptor =
   pg_query__drop_table_space_stmt__field_indices_by_name,
   1,  pg_query__drop_table_space_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_table_space_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[168],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_table_space_options_stmt__field_descriptors[3] =
 {
@@ -33154,7 +33155,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_space_options_stmt__
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33166,7 +33167,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_space_options_stmt__
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_reset",
@@ -33178,7 +33179,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_space_options_stmt__
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_table_space_options_stmt__field_indices_by_name[] = {
@@ -33204,7 +33205,7 @@ const ProtobufCMessageDescriptor pg_query__alter_table_space_options_stmt__descr
   pg_query__alter_table_space_options_stmt__field_indices_by_name,
   1,  pg_query__alter_table_space_options_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_table_space_options_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[169],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field_descriptors[5] =
 {
@@ -33218,7 +33219,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objtype",
@@ -33230,7 +33231,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "roles",
@@ -33242,7 +33243,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "new_tablespacename",
@@ -33254,7 +33255,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nowait",
@@ -33266,7 +33267,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_table_move_all_stmt__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_table_move_all_stmt__field_indices_by_name[] = {
@@ -33294,7 +33295,7 @@ const ProtobufCMessageDescriptor pg_query__alter_table_move_all_stmt__descriptor
   pg_query__alter_table_move_all_stmt__field_indices_by_name,
   1,  pg_query__alter_table_move_all_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_table_move_all_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[170],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_extension_stmt__field_descriptors[3] =
 {
@@ -33308,7 +33309,7 @@ static const ProtobufCFieldDescriptor pg_query__create_extension_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -33320,7 +33321,7 @@ static const ProtobufCFieldDescriptor pg_query__create_extension_stmt__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33332,7 +33333,7 @@ static const ProtobufCFieldDescriptor pg_query__create_extension_stmt__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_extension_stmt__field_indices_by_name[] = {
@@ -33358,7 +33359,7 @@ const ProtobufCMessageDescriptor pg_query__create_extension_stmt__descriptor =
   pg_query__create_extension_stmt__field_indices_by_name,
   1,  pg_query__create_extension_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_extension_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[171],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_extension_stmt__field_descriptors[2] =
 {
@@ -33372,7 +33373,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_stmt__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33384,7 +33385,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_extension_stmt__field_indices_by_name[] = {
@@ -33409,7 +33410,7 @@ const ProtobufCMessageDescriptor pg_query__alter_extension_stmt__descriptor =
   pg_query__alter_extension_stmt__field_indices_by_name,
   1,  pg_query__alter_extension_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_extension_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[172],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_extension_contents_stmt__field_descriptors[4] =
 {
@@ -33423,7 +33424,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_contents_stmt__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "action",
@@ -33435,7 +33436,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_contents_stmt__f
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objtype",
@@ -33447,7 +33448,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_contents_stmt__f
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -33459,7 +33460,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_extension_contents_stmt__f
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_extension_contents_stmt__field_indices_by_name[] = {
@@ -33486,7 +33487,7 @@ const ProtobufCMessageDescriptor pg_query__alter_extension_contents_stmt__descri
   pg_query__alter_extension_contents_stmt__field_indices_by_name,
   1,  pg_query__alter_extension_contents_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_extension_contents_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[173],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_fdw_stmt__field_descriptors[3] =
 {
@@ -33500,7 +33501,7 @@ static const ProtobufCFieldDescriptor pg_query__create_fdw_stmt__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_options",
@@ -33512,7 +33513,7 @@ static const ProtobufCFieldDescriptor pg_query__create_fdw_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33524,7 +33525,7 @@ static const ProtobufCFieldDescriptor pg_query__create_fdw_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_fdw_stmt__field_indices_by_name[] = {
@@ -33550,7 +33551,7 @@ const ProtobufCMessageDescriptor pg_query__create_fdw_stmt__descriptor =
   pg_query__create_fdw_stmt__field_indices_by_name,
   1,  pg_query__create_fdw_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_fdw_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[174],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_fdw_stmt__field_descriptors[3] =
 {
@@ -33564,7 +33565,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_fdw_stmt__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_options",
@@ -33576,7 +33577,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_fdw_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33588,7 +33589,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_fdw_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_fdw_stmt__field_indices_by_name[] = {
@@ -33614,7 +33615,7 @@ const ProtobufCMessageDescriptor pg_query__alter_fdw_stmt__descriptor =
   pg_query__alter_fdw_stmt__field_indices_by_name,
   1,  pg_query__alter_fdw_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_fdw_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[175],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__field_descriptors[6] =
 {
@@ -33628,7 +33629,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "servertype",
@@ -33640,7 +33641,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "version",
@@ -33652,7 +33653,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fdwname",
@@ -33664,7 +33665,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -33676,7 +33677,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33688,7 +33689,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_server_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_foreign_server_stmt__field_indices_by_name[] = {
@@ -33717,7 +33718,7 @@ const ProtobufCMessageDescriptor pg_query__create_foreign_server_stmt__descripto
   pg_query__create_foreign_server_stmt__field_indices_by_name,
   1,  pg_query__create_foreign_server_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_foreign_server_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[176],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_foreign_server_stmt__field_descriptors[4] =
 {
@@ -33731,7 +33732,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_foreign_server_stmt__field
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "version",
@@ -33743,7 +33744,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_foreign_server_stmt__field
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33755,7 +33756,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_foreign_server_stmt__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "has_version",
@@ -33767,7 +33768,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_foreign_server_stmt__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_foreign_server_stmt__field_indices_by_name[] = {
@@ -33794,7 +33795,7 @@ const ProtobufCMessageDescriptor pg_query__alter_foreign_server_stmt__descriptor
   pg_query__alter_foreign_server_stmt__field_indices_by_name,
   1,  pg_query__alter_foreign_server_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_foreign_server_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[177],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_foreign_table_stmt__field_descriptors[3] =
 {
@@ -33808,7 +33809,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_table_stmt__field
     &pg_query__create_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "servername",
@@ -33820,7 +33821,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_table_stmt__field
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33832,7 +33833,7 @@ static const ProtobufCFieldDescriptor pg_query__create_foreign_table_stmt__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_foreign_table_stmt__field_indices_by_name[] = {
@@ -33858,7 +33859,7 @@ const ProtobufCMessageDescriptor pg_query__create_foreign_table_stmt__descriptor
   pg_query__create_foreign_table_stmt__field_indices_by_name,
   1,  pg_query__create_foreign_table_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_foreign_table_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[178],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_user_mapping_stmt__field_descriptors[4] =
 {
@@ -33872,7 +33873,7 @@ static const ProtobufCFieldDescriptor pg_query__create_user_mapping_stmt__field_
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "servername",
@@ -33884,7 +33885,7 @@ static const ProtobufCFieldDescriptor pg_query__create_user_mapping_stmt__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -33896,7 +33897,7 @@ static const ProtobufCFieldDescriptor pg_query__create_user_mapping_stmt__field_
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33908,7 +33909,7 @@ static const ProtobufCFieldDescriptor pg_query__create_user_mapping_stmt__field_
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_user_mapping_stmt__field_indices_by_name[] = {
@@ -33935,7 +33936,7 @@ const ProtobufCMessageDescriptor pg_query__create_user_mapping_stmt__descriptor 
   pg_query__create_user_mapping_stmt__field_indices_by_name,
   1,  pg_query__create_user_mapping_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_user_mapping_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[179],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_user_mapping_stmt__field_descriptors[3] =
 {
@@ -33949,7 +33950,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_user_mapping_stmt__field_d
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "servername",
@@ -33961,7 +33962,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_user_mapping_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -33973,7 +33974,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_user_mapping_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_user_mapping_stmt__field_indices_by_name[] = {
@@ -33999,7 +34000,7 @@ const ProtobufCMessageDescriptor pg_query__alter_user_mapping_stmt__descriptor =
   pg_query__alter_user_mapping_stmt__field_indices_by_name,
   1,  pg_query__alter_user_mapping_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_user_mapping_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[180],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_user_mapping_stmt__field_descriptors[3] =
 {
@@ -34013,7 +34014,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_user_mapping_stmt__field_de
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "servername",
@@ -34025,7 +34026,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_user_mapping_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -34037,7 +34038,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_user_mapping_stmt__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_user_mapping_stmt__field_indices_by_name[] = {
@@ -34063,7 +34064,7 @@ const ProtobufCMessageDescriptor pg_query__drop_user_mapping_stmt__descriptor =
   pg_query__drop_user_mapping_stmt__field_indices_by_name,
   1,  pg_query__drop_user_mapping_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_user_mapping_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[181],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__field_descriptors[6] =
 {
@@ -34077,7 +34078,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "remote_schema",
@@ -34089,7 +34090,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "local_schema",
@@ -34101,7 +34102,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "list_type",
@@ -34113,7 +34114,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     &pg_query__import_foreign_schema_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_list",
@@ -34125,7 +34126,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -34137,7 +34138,7 @@ static const ProtobufCFieldDescriptor pg_query__import_foreign_schema_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__import_foreign_schema_stmt__field_indices_by_name[] = {
@@ -34166,7 +34167,7 @@ const ProtobufCMessageDescriptor pg_query__import_foreign_schema_stmt__descripto
   pg_query__import_foreign_schema_stmt__field_indices_by_name,
   1,  pg_query__import_foreign_schema_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__import_foreign_schema_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[182],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descriptors[7] =
 {
@@ -34180,7 +34181,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table",
@@ -34192,7 +34193,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cmd_name",
@@ -34204,7 +34205,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "permissive",
@@ -34216,7 +34217,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "roles",
@@ -34228,7 +34229,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "qual",
@@ -34240,7 +34241,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_check",
@@ -34252,7 +34253,7 @@ static const ProtobufCFieldDescriptor pg_query__create_policy_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_policy_stmt__field_indices_by_name[] = {
@@ -34282,7 +34283,7 @@ const ProtobufCMessageDescriptor pg_query__create_policy_stmt__descriptor =
   pg_query__create_policy_stmt__field_indices_by_name,
   1,  pg_query__create_policy_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_policy_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[183],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descriptors[5] =
 {
@@ -34296,7 +34297,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table",
@@ -34308,7 +34309,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descrip
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "roles",
@@ -34320,7 +34321,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "qual",
@@ -34332,7 +34333,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_check",
@@ -34344,7 +34345,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_policy_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_policy_stmt__field_indices_by_name[] = {
@@ -34372,7 +34373,7 @@ const ProtobufCMessageDescriptor pg_query__alter_policy_stmt__descriptor =
   pg_query__alter_policy_stmt__field_indices_by_name,
   1,  pg_query__alter_policy_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_policy_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[184],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_am_stmt__field_descriptors[3] =
 {
@@ -34386,7 +34387,7 @@ static const ProtobufCFieldDescriptor pg_query__create_am_stmt__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "handler_name",
@@ -34398,7 +34399,7 @@ static const ProtobufCFieldDescriptor pg_query__create_am_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "amtype",
@@ -34410,7 +34411,7 @@ static const ProtobufCFieldDescriptor pg_query__create_am_stmt__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_am_stmt__field_indices_by_name[] = {
@@ -34436,7 +34437,7 @@ const ProtobufCMessageDescriptor pg_query__create_am_stmt__descriptor =
   pg_query__create_am_stmt__field_indices_by_name,
   1,  pg_query__create_am_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_am_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[185],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descriptors[15] =
 {
@@ -34450,7 +34451,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "isconstraint",
@@ -34462,7 +34463,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "trigname",
@@ -34474,7 +34475,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -34486,7 +34487,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcname",
@@ -34498,7 +34499,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -34510,7 +34511,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "row",
@@ -34522,7 +34523,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "timing",
@@ -34534,7 +34535,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "events",
@@ -34546,7 +34547,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "columns",
@@ -34558,7 +34559,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2306U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "when_clause",
@@ -34570,7 +34571,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "transition_rels",
@@ -34582,7 +34583,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "deferrable",
@@ -34594,7 +34595,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "initdeferred",
@@ -34606,7 +34607,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constrrel",
@@ -34618,7 +34619,7 @@ static const ProtobufCFieldDescriptor pg_query__create_trig_stmt__field_descript
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_trig_stmt__field_indices_by_name[] = {
@@ -34656,7 +34657,7 @@ const ProtobufCMessageDescriptor pg_query__create_trig_stmt__descriptor =
   pg_query__create_trig_stmt__field_indices_by_name,
   1,  pg_query__create_trig_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_trig_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[186],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_event_trig_stmt__field_descriptors[4] =
 {
@@ -34670,7 +34671,7 @@ static const ProtobufCFieldDescriptor pg_query__create_event_trig_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "eventname",
@@ -34682,7 +34683,7 @@ static const ProtobufCFieldDescriptor pg_query__create_event_trig_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "whenclause",
@@ -34694,7 +34695,7 @@ static const ProtobufCFieldDescriptor pg_query__create_event_trig_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcname",
@@ -34706,7 +34707,7 @@ static const ProtobufCFieldDescriptor pg_query__create_event_trig_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_event_trig_stmt__field_indices_by_name[] = {
@@ -34733,7 +34734,7 @@ const ProtobufCMessageDescriptor pg_query__create_event_trig_stmt__descriptor =
   pg_query__create_event_trig_stmt__field_indices_by_name,
   1,  pg_query__create_event_trig_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_event_trig_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[187],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_event_trig_stmt__field_descriptors[2] =
 {
@@ -34747,7 +34748,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_event_trig_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tgenabled",
@@ -34759,7 +34760,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_event_trig_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_event_trig_stmt__field_indices_by_name[] = {
@@ -34784,7 +34785,7 @@ const ProtobufCMessageDescriptor pg_query__alter_event_trig_stmt__descriptor =
   pg_query__alter_event_trig_stmt__field_indices_by_name,
   1,  pg_query__alter_event_trig_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_event_trig_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[188],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descriptors[6] =
 {
@@ -34798,7 +34799,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plname",
@@ -34810,7 +34811,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plhandler",
@@ -34822,7 +34823,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plinline",
@@ -34834,7 +34835,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "plvalidator",
@@ -34846,7 +34847,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pltrusted",
@@ -34858,7 +34859,7 @@ static const ProtobufCFieldDescriptor pg_query__create_plang_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_plang_stmt__field_indices_by_name[] = {
@@ -34887,7 +34888,7 @@ const ProtobufCMessageDescriptor pg_query__create_plang_stmt__descriptor =
   pg_query__create_plang_stmt__field_indices_by_name,
   1,  pg_query__create_plang_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_plang_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[189],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_role_stmt__field_descriptors[3] =
 {
@@ -34901,7 +34902,7 @@ static const ProtobufCFieldDescriptor pg_query__create_role_stmt__field_descript
     &pg_query__role_stmt_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "role",
@@ -34913,7 +34914,7 @@ static const ProtobufCFieldDescriptor pg_query__create_role_stmt__field_descript
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -34925,7 +34926,7 @@ static const ProtobufCFieldDescriptor pg_query__create_role_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_role_stmt__field_indices_by_name[] = {
@@ -34951,7 +34952,7 @@ const ProtobufCMessageDescriptor pg_query__create_role_stmt__descriptor =
   pg_query__create_role_stmt__field_indices_by_name,
   1,  pg_query__create_role_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_role_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[190],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_role_stmt__field_descriptors[3] =
 {
@@ -34965,7 +34966,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_stmt__field_descripto
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -34977,7 +34978,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "action",
@@ -34989,7 +34990,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_role_stmt__field_indices_by_name[] = {
@@ -35015,7 +35016,7 @@ const ProtobufCMessageDescriptor pg_query__alter_role_stmt__descriptor =
   pg_query__alter_role_stmt__field_indices_by_name,
   1,  pg_query__alter_role_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_role_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[191],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_role_set_stmt__field_descriptors[3] =
 {
@@ -35029,7 +35030,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_set_stmt__field_descr
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "database",
@@ -35041,7 +35042,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_set_stmt__field_descr
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "setstmt",
@@ -35053,7 +35054,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_role_set_stmt__field_descr
     &pg_query__variable_set_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_role_set_stmt__field_indices_by_name[] = {
@@ -35079,7 +35080,7 @@ const ProtobufCMessageDescriptor pg_query__alter_role_set_stmt__descriptor =
   pg_query__alter_role_set_stmt__field_indices_by_name,
   1,  pg_query__alter_role_set_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_role_set_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[192],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_role_stmt__field_descriptors[2] =
 {
@@ -35093,7 +35094,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_role_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -35105,7 +35106,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_role_stmt__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_role_stmt__field_indices_by_name[] = {
@@ -35130,7 +35131,7 @@ const ProtobufCMessageDescriptor pg_query__drop_role_stmt__descriptor =
   pg_query__drop_role_stmt__field_indices_by_name,
   1,  pg_query__drop_role_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_role_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[193],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descriptors[5] =
 {
@@ -35144,7 +35145,7 @@ static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descripto
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -35156,7 +35157,7 @@ static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "owner_id",
@@ -35168,7 +35169,7 @@ static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_identity",
@@ -35180,7 +35181,7 @@ static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -35192,7 +35193,7 @@ static const ProtobufCFieldDescriptor pg_query__create_seq_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_seq_stmt__field_indices_by_name[] = {
@@ -35220,7 +35221,7 @@ const ProtobufCMessageDescriptor pg_query__create_seq_stmt__descriptor =
   pg_query__create_seq_stmt__field_indices_by_name,
   1,  pg_query__create_seq_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_seq_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[194],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_seq_stmt__field_descriptors[4] =
 {
@@ -35234,7 +35235,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_seq_stmt__field_descriptor
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -35246,7 +35247,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_seq_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_identity",
@@ -35258,7 +35259,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_seq_stmt__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -35270,7 +35271,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_seq_stmt__field_descriptor
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_seq_stmt__field_indices_by_name[] = {
@@ -35297,7 +35298,7 @@ const ProtobufCMessageDescriptor pg_query__alter_seq_stmt__descriptor =
   pg_query__alter_seq_stmt__field_indices_by_name,
   1,  pg_query__alter_seq_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_seq_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[195],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7] =
 {
@@ -35311,7 +35312,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "oldstyle",
@@ -35323,7 +35324,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "defnames",
@@ -35335,7 +35336,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "args",
@@ -35347,7 +35348,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "definition",
@@ -35359,7 +35360,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -35371,7 +35372,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replace",
@@ -35383,7 +35384,7 @@ static const ProtobufCFieldDescriptor pg_query__define_stmt__field_descriptors[7
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__define_stmt__field_indices_by_name[] = {
@@ -35413,7 +35414,7 @@ const ProtobufCMessageDescriptor pg_query__define_stmt__descriptor =
   pg_query__define_stmt__field_indices_by_name,
   1,  pg_query__define_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__define_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[196],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_domain_stmt__field_descriptors[4] =
 {
@@ -35427,7 +35428,7 @@ static const ProtobufCFieldDescriptor pg_query__create_domain_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -35439,7 +35440,7 @@ static const ProtobufCFieldDescriptor pg_query__create_domain_stmt__field_descri
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coll_clause",
@@ -35451,7 +35452,7 @@ static const ProtobufCFieldDescriptor pg_query__create_domain_stmt__field_descri
     &pg_query__collate_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "constraints",
@@ -35463,7 +35464,7 @@ static const ProtobufCFieldDescriptor pg_query__create_domain_stmt__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_domain_stmt__field_indices_by_name[] = {
@@ -35490,7 +35491,7 @@ const ProtobufCMessageDescriptor pg_query__create_domain_stmt__descriptor =
   pg_query__create_domain_stmt__field_indices_by_name,
   1,  pg_query__create_domain_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_domain_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[197],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_descriptors[6] =
 {
@@ -35504,7 +35505,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "opfamilyname",
@@ -35516,7 +35517,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "amname",
@@ -35528,7 +35529,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "datatype",
@@ -35540,7 +35541,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "items",
@@ -35552,7 +35553,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_default",
@@ -35564,7 +35565,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_op_class_stmt__field_indices_by_name[] = {
@@ -35593,7 +35594,7 @@ const ProtobufCMessageDescriptor pg_query__create_op_class_stmt__descriptor =
   pg_query__create_op_class_stmt__field_indices_by_name,
   1,  pg_query__create_op_class_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_op_class_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[198],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_descriptors[6] =
 {
@@ -35607,7 +35608,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -35619,7 +35620,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "number",
@@ -35631,7 +35632,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "order_family",
@@ -35643,7 +35644,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "class_args",
@@ -35655,7 +35656,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "storedtype",
@@ -35667,7 +35668,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_class_item__field_desc
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_op_class_item__field_indices_by_name[] = {
@@ -35696,7 +35697,7 @@ const ProtobufCMessageDescriptor pg_query__create_op_class_item__descriptor =
   pg_query__create_op_class_item__field_indices_by_name,
   1,  pg_query__create_op_class_item__number_ranges,
   (ProtobufCMessageInit) pg_query__create_op_class_item__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[199],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_op_family_stmt__field_descriptors[2] =
 {
@@ -35710,7 +35711,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_family_stmt__field_des
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "amname",
@@ -35722,7 +35723,7 @@ static const ProtobufCFieldDescriptor pg_query__create_op_family_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_op_family_stmt__field_indices_by_name[] = {
@@ -35747,7 +35748,7 @@ const ProtobufCMessageDescriptor pg_query__create_op_family_stmt__descriptor =
   pg_query__create_op_family_stmt__field_indices_by_name,
   1,  pg_query__create_op_family_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_op_family_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[200],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_op_family_stmt__field_descriptors[4] =
 {
@@ -35761,7 +35762,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_op_family_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "amname",
@@ -35773,7 +35774,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_op_family_stmt__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_drop",
@@ -35785,7 +35786,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_op_family_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "items",
@@ -35797,7 +35798,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_op_family_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_op_family_stmt__field_indices_by_name[] = {
@@ -35824,7 +35825,7 @@ const ProtobufCMessageDescriptor pg_query__alter_op_family_stmt__descriptor =
   pg_query__alter_op_family_stmt__field_indices_by_name,
   1,  pg_query__alter_op_family_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_op_family_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[201],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] =
 {
@@ -35838,7 +35839,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "remove_type",
@@ -35850,7 +35851,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] 
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -35862,7 +35863,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] 
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -35874,7 +35875,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "concurrent",
@@ -35886,7 +35887,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_stmt__field_descriptors[5] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_stmt__field_indices_by_name[] = {
@@ -35914,7 +35915,7 @@ const ProtobufCMessageDescriptor pg_query__drop_stmt__descriptor =
   pg_query__drop_stmt__field_indices_by_name,
   1,  pg_query__drop_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[202],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__truncate_stmt__field_descriptors[3] =
 {
@@ -35928,7 +35929,7 @@ static const ProtobufCFieldDescriptor pg_query__truncate_stmt__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "restart_seqs",
@@ -35940,7 +35941,7 @@ static const ProtobufCFieldDescriptor pg_query__truncate_stmt__field_descriptors
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -35952,7 +35953,7 @@ static const ProtobufCFieldDescriptor pg_query__truncate_stmt__field_descriptors
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__truncate_stmt__field_indices_by_name[] = {
@@ -35978,7 +35979,7 @@ const ProtobufCMessageDescriptor pg_query__truncate_stmt__descriptor =
   pg_query__truncate_stmt__field_indices_by_name,
   1,  pg_query__truncate_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__truncate_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[203],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__comment_stmt__field_descriptors[3] =
 {
@@ -35992,7 +35993,7 @@ static const ProtobufCFieldDescriptor pg_query__comment_stmt__field_descriptors[
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -36004,7 +36005,7 @@ static const ProtobufCFieldDescriptor pg_query__comment_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "comment",
@@ -36016,7 +36017,7 @@ static const ProtobufCFieldDescriptor pg_query__comment_stmt__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__comment_stmt__field_indices_by_name[] = {
@@ -36042,7 +36043,7 @@ const ProtobufCMessageDescriptor pg_query__comment_stmt__descriptor =
   pg_query__comment_stmt__field_indices_by_name,
   1,  pg_query__comment_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__comment_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[204],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__sec_label_stmt__field_descriptors[4] =
 {
@@ -36056,7 +36057,7 @@ static const ProtobufCFieldDescriptor pg_query__sec_label_stmt__field_descriptor
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -36068,7 +36069,7 @@ static const ProtobufCFieldDescriptor pg_query__sec_label_stmt__field_descriptor
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "provider",
@@ -36080,7 +36081,7 @@ static const ProtobufCFieldDescriptor pg_query__sec_label_stmt__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "label",
@@ -36092,7 +36093,7 @@ static const ProtobufCFieldDescriptor pg_query__sec_label_stmt__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__sec_label_stmt__field_indices_by_name[] = {
@@ -36119,7 +36120,7 @@ const ProtobufCMessageDescriptor pg_query__sec_label_stmt__descriptor =
   pg_query__sec_label_stmt__field_indices_by_name,
   1,  pg_query__sec_label_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__sec_label_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[205],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__declare_cursor_stmt__field_descriptors[3] =
 {
@@ -36133,7 +36134,7 @@ static const ProtobufCFieldDescriptor pg_query__declare_cursor_stmt__field_descr
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -36145,7 +36146,7 @@ static const ProtobufCFieldDescriptor pg_query__declare_cursor_stmt__field_descr
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query",
@@ -36157,7 +36158,7 @@ static const ProtobufCFieldDescriptor pg_query__declare_cursor_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__declare_cursor_stmt__field_indices_by_name[] = {
@@ -36183,7 +36184,7 @@ const ProtobufCMessageDescriptor pg_query__declare_cursor_stmt__descriptor =
   pg_query__declare_cursor_stmt__field_indices_by_name,
   1,  pg_query__declare_cursor_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__declare_cursor_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[206],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__close_portal_stmt__field_descriptors[1] =
 {
@@ -36197,7 +36198,7 @@ static const ProtobufCFieldDescriptor pg_query__close_portal_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__close_portal_stmt__field_indices_by_name[] = {
@@ -36221,7 +36222,7 @@ const ProtobufCMessageDescriptor pg_query__close_portal_stmt__descriptor =
   pg_query__close_portal_stmt__field_indices_by_name,
   1,  pg_query__close_portal_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__close_portal_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[207],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__fetch_stmt__field_descriptors[4] =
 {
@@ -36235,7 +36236,7 @@ static const ProtobufCFieldDescriptor pg_query__fetch_stmt__field_descriptors[4]
     &pg_query__fetch_direction__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "how_many",
@@ -36247,7 +36248,7 @@ static const ProtobufCFieldDescriptor pg_query__fetch_stmt__field_descriptors[4]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "portalname",
@@ -36259,7 +36260,7 @@ static const ProtobufCFieldDescriptor pg_query__fetch_stmt__field_descriptors[4]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "ismove",
@@ -36271,7 +36272,7 @@ static const ProtobufCFieldDescriptor pg_query__fetch_stmt__field_descriptors[4]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__fetch_stmt__field_indices_by_name[] = {
@@ -36298,7 +36299,7 @@ const ProtobufCMessageDescriptor pg_query__fetch_stmt__descriptor =
   pg_query__fetch_stmt__field_indices_by_name,
   1,  pg_query__fetch_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__fetch_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[208],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24] =
 {
@@ -36312,7 +36313,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -36324,7 +36325,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "access_method",
@@ -36336,7 +36337,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_space",
@@ -36348,7 +36349,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "index_params",
@@ -36360,7 +36361,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "index_including_params",
@@ -36372,7 +36373,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -36384,7 +36385,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -36396,7 +36397,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "exclude_op_names",
@@ -36408,7 +36409,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2049U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "idxcomment",
@@ -36420,7 +36421,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2305U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "index_oid",
@@ -36432,7 +36433,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2561U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_number",
@@ -36444,7 +36445,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2817U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_create_subid",
@@ -36456,7 +36457,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3073U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_first_relfilelocator_subid",
@@ -36468,7 +36469,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3329U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "unique",
@@ -36480,7 +36481,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3585U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nulls_not_distinct",
@@ -36492,7 +36493,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    3841U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "primary",
@@ -36504,7 +36505,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4097U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "isconstraint",
@@ -36516,7 +36517,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4353U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "deferrable",
@@ -36528,7 +36529,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4609U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "initdeferred",
@@ -36540,7 +36541,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    4865U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "transformed",
@@ -36552,7 +36553,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5121U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "concurrent",
@@ -36564,7 +36565,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5377U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -36576,7 +36577,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5633U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "reset_default_tblspc",
@@ -36588,7 +36589,7 @@ static const ProtobufCFieldDescriptor pg_query__index_stmt__field_descriptors[24
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    5889U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__index_stmt__field_indices_by_name[] = {
@@ -36635,7 +36636,7 @@ const ProtobufCMessageDescriptor pg_query__index_stmt__descriptor =
   pg_query__index_stmt__field_indices_by_name,
   1,  pg_query__index_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__index_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[209],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descriptors[7] =
 {
@@ -36649,7 +36650,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stat_types",
@@ -36661,7 +36662,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "exprs",
@@ -36673,7 +36674,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relations",
@@ -36685,7 +36686,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stxcomment",
@@ -36697,7 +36698,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "transformed",
@@ -36709,7 +36710,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -36721,7 +36722,7 @@ static const ProtobufCFieldDescriptor pg_query__create_stats_stmt__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_stats_stmt__field_indices_by_name[] = {
@@ -36751,7 +36752,7 @@ const ProtobufCMessageDescriptor pg_query__create_stats_stmt__descriptor =
   pg_query__create_stats_stmt__field_indices_by_name,
   1,  pg_query__create_stats_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_stats_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[210],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__stats_elem__field_descriptors[2] =
 {
@@ -36765,7 +36766,7 @@ static const ProtobufCFieldDescriptor pg_query__stats_elem__field_descriptors[2]
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "expr",
@@ -36777,7 +36778,7 @@ static const ProtobufCFieldDescriptor pg_query__stats_elem__field_descriptors[2]
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__stats_elem__field_indices_by_name[] = {
@@ -36802,7 +36803,7 @@ const ProtobufCMessageDescriptor pg_query__stats_elem__descriptor =
   pg_query__stats_elem__field_indices_by_name,
   1,  pg_query__stats_elem__number_ranges,
   (ProtobufCMessageInit) pg_query__stats_elem__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[211],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_stats_stmt__field_descriptors[3] =
 {
@@ -36816,7 +36817,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_stats_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "stxstattarget",
@@ -36828,7 +36829,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_stats_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -36840,7 +36841,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_stats_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_stats_stmt__field_indices_by_name[] = {
@@ -36866,7 +36867,7 @@ const ProtobufCMessageDescriptor pg_query__alter_stats_stmt__descriptor =
   pg_query__alter_stats_stmt__field_indices_by_name,
   1,  pg_query__alter_stats_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_stats_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[212],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_descriptors[7] =
 {
@@ -36880,7 +36881,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replace",
@@ -36892,7 +36893,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcname",
@@ -36904,7 +36905,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "parameters",
@@ -36916,7 +36917,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "return_type",
@@ -36928,7 +36929,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -36940,7 +36941,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "sql_body",
@@ -36952,7 +36953,7 @@ static const ProtobufCFieldDescriptor pg_query__create_function_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_function_stmt__field_indices_by_name[] = {
@@ -36982,7 +36983,7 @@ const ProtobufCMessageDescriptor pg_query__create_function_stmt__descriptor =
   pg_query__create_function_stmt__field_indices_by_name,
   1,  pg_query__create_function_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_function_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[213],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__function_parameter__field_descriptors[4] =
 {
@@ -36996,7 +36997,7 @@ static const ProtobufCFieldDescriptor pg_query__function_parameter__field_descri
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "arg_type",
@@ -37008,7 +37009,7 @@ static const ProtobufCFieldDescriptor pg_query__function_parameter__field_descri
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "mode",
@@ -37020,7 +37021,7 @@ static const ProtobufCFieldDescriptor pg_query__function_parameter__field_descri
     &pg_query__function_parameter_mode__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "defexpr",
@@ -37032,7 +37033,7 @@ static const ProtobufCFieldDescriptor pg_query__function_parameter__field_descri
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__function_parameter__field_indices_by_name[] = {
@@ -37059,7 +37060,7 @@ const ProtobufCMessageDescriptor pg_query__function_parameter__descriptor =
   pg_query__function_parameter__field_indices_by_name,
   1,  pg_query__function_parameter__number_ranges,
   (ProtobufCMessageInit) pg_query__function_parameter__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[214],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_function_stmt__field_descriptors[3] =
 {
@@ -37073,7 +37074,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_function_stmt__field_descr
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func",
@@ -37085,7 +37086,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_function_stmt__field_descr
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "actions",
@@ -37097,7 +37098,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_function_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_function_stmt__field_indices_by_name[] = {
@@ -37123,7 +37124,7 @@ const ProtobufCMessageDescriptor pg_query__alter_function_stmt__descriptor =
   pg_query__alter_function_stmt__field_indices_by_name,
   1,  pg_query__alter_function_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_function_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[215],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__do_stmt__field_descriptors[1] =
 {
@@ -37137,7 +37138,7 @@ static const ProtobufCFieldDescriptor pg_query__do_stmt__field_descriptors[1] =
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__do_stmt__field_indices_by_name[] = {
@@ -37161,7 +37162,7 @@ const ProtobufCMessageDescriptor pg_query__do_stmt__descriptor =
   pg_query__do_stmt__field_indices_by_name,
   1,  pg_query__do_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__do_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[216],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__inline_code_block__field_descriptors[4] =
 {
@@ -37175,7 +37176,7 @@ static const ProtobufCFieldDescriptor pg_query__inline_code_block__field_descrip
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lang_oid",
@@ -37187,7 +37188,7 @@ static const ProtobufCFieldDescriptor pg_query__inline_code_block__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lang_is_trusted",
@@ -37199,7 +37200,7 @@ static const ProtobufCFieldDescriptor pg_query__inline_code_block__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "atomic",
@@ -37211,7 +37212,7 @@ static const ProtobufCFieldDescriptor pg_query__inline_code_block__field_descrip
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__inline_code_block__field_indices_by_name[] = {
@@ -37238,7 +37239,7 @@ const ProtobufCMessageDescriptor pg_query__inline_code_block__descriptor =
   pg_query__inline_code_block__field_indices_by_name,
   1,  pg_query__inline_code_block__number_ranges,
   (ProtobufCMessageInit) pg_query__inline_code_block__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[217],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__call_stmt__field_descriptors[3] =
 {
@@ -37252,7 +37253,7 @@ static const ProtobufCFieldDescriptor pg_query__call_stmt__field_descriptors[3] 
     &pg_query__func_call__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "funcexpr",
@@ -37264,7 +37265,7 @@ static const ProtobufCFieldDescriptor pg_query__call_stmt__field_descriptors[3] 
     &pg_query__func_expr__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "outargs",
@@ -37276,7 +37277,7 @@ static const ProtobufCFieldDescriptor pg_query__call_stmt__field_descriptors[3] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__call_stmt__field_indices_by_name[] = {
@@ -37302,7 +37303,7 @@ const ProtobufCMessageDescriptor pg_query__call_stmt__descriptor =
   pg_query__call_stmt__field_indices_by_name,
   1,  pg_query__call_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__call_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[218],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__call_context__field_descriptors[1] =
 {
@@ -37316,7 +37317,7 @@ static const ProtobufCFieldDescriptor pg_query__call_context__field_descriptors[
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__call_context__field_indices_by_name[] = {
@@ -37340,7 +37341,7 @@ const ProtobufCMessageDescriptor pg_query__call_context__descriptor =
   pg_query__call_context__field_indices_by_name,
   1,  pg_query__call_context__number_ranges,
   (ProtobufCMessageInit) pg_query__call_context__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[219],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8] =
 {
@@ -37354,7 +37355,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation_type",
@@ -37366,7 +37367,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -37378,7 +37379,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -37390,7 +37391,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subname",
@@ -37402,7 +37403,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1026U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newname",
@@ -37414,7 +37415,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1282U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -37426,7 +37427,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -37438,7 +37439,7 @@ static const ProtobufCFieldDescriptor pg_query__rename_stmt__field_descriptors[8
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1793U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__rename_stmt__field_indices_by_name[] = {
@@ -37469,7 +37470,7 @@ const ProtobufCMessageDescriptor pg_query__rename_stmt__descriptor =
   pg_query__rename_stmt__field_indices_by_name,
   1,  pg_query__rename_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__rename_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[220],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field_descriptors[5] =
 {
@@ -37483,7 +37484,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -37495,7 +37496,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -37507,7 +37508,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "extname",
@@ -37519,7 +37520,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field
     &pg_query__string__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "remove",
@@ -37531,7 +37532,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_depends_stmt__field
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_object_depends_stmt__field_indices_by_name[] = {
@@ -37559,7 +37560,7 @@ const ProtobufCMessageDescriptor pg_query__alter_object_depends_stmt__descriptor
   pg_query__alter_object_depends_stmt__field_indices_by_name,
   1,  pg_query__alter_object_depends_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_object_depends_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[221],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_descriptors[5] =
 {
@@ -37573,7 +37574,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -37585,7 +37586,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -37597,7 +37598,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newschema",
@@ -37609,7 +37610,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -37621,7 +37622,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_object_schema_stmt__field_
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_object_schema_stmt__field_indices_by_name[] = {
@@ -37649,7 +37650,7 @@ const ProtobufCMessageDescriptor pg_query__alter_object_schema_stmt__descriptor 
   pg_query__alter_object_schema_stmt__field_indices_by_name,
   1,  pg_query__alter_object_schema_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_object_schema_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[222],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_owner_stmt__field_descriptors[4] =
 {
@@ -37663,7 +37664,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_owner_stmt__field_descript
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -37675,7 +37676,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_owner_stmt__field_descript
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "object",
@@ -37687,7 +37688,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_owner_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newowner",
@@ -37699,7 +37700,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_owner_stmt__field_descript
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_owner_stmt__field_indices_by_name[] = {
@@ -37726,7 +37727,7 @@ const ProtobufCMessageDescriptor pg_query__alter_owner_stmt__descriptor =
   pg_query__alter_owner_stmt__field_indices_by_name,
   1,  pg_query__alter_owner_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_owner_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[223],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_operator_stmt__field_descriptors[2] =
 {
@@ -37740,7 +37741,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_operator_stmt__field_descr
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -37752,7 +37753,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_operator_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_operator_stmt__field_indices_by_name[] = {
@@ -37777,7 +37778,7 @@ const ProtobufCMessageDescriptor pg_query__alter_operator_stmt__descriptor =
   pg_query__alter_operator_stmt__field_indices_by_name,
   1,  pg_query__alter_operator_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_operator_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[224],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_type_stmt__field_descriptors[2] =
 {
@@ -37791,7 +37792,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_type_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -37803,7 +37804,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_type_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_type_stmt__field_indices_by_name[] = {
@@ -37828,7 +37829,7 @@ const ProtobufCMessageDescriptor pg_query__alter_type_stmt__descriptor =
   pg_query__alter_type_stmt__field_indices_by_name,
   1,  pg_query__alter_type_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_type_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[225],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] =
 {
@@ -37842,7 +37843,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rulename",
@@ -37854,7 +37855,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -37866,7 +37867,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "event",
@@ -37878,7 +37879,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     &pg_query__cmd_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "instead",
@@ -37890,7 +37891,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "actions",
@@ -37902,7 +37903,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replace",
@@ -37914,7 +37915,7 @@ static const ProtobufCFieldDescriptor pg_query__rule_stmt__field_descriptors[7] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__rule_stmt__field_indices_by_name[] = {
@@ -37944,7 +37945,7 @@ const ProtobufCMessageDescriptor pg_query__rule_stmt__descriptor =
   pg_query__rule_stmt__field_indices_by_name,
   1,  pg_query__rule_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__rule_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[226],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__notify_stmt__field_descriptors[2] =
 {
@@ -37958,7 +37959,7 @@ static const ProtobufCFieldDescriptor pg_query__notify_stmt__field_descriptors[2
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "payload",
@@ -37970,7 +37971,7 @@ static const ProtobufCFieldDescriptor pg_query__notify_stmt__field_descriptors[2
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__notify_stmt__field_indices_by_name[] = {
@@ -37995,7 +37996,7 @@ const ProtobufCMessageDescriptor pg_query__notify_stmt__descriptor =
   pg_query__notify_stmt__field_indices_by_name,
   1,  pg_query__notify_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__notify_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[227],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__listen_stmt__field_descriptors[1] =
 {
@@ -38009,7 +38010,7 @@ static const ProtobufCFieldDescriptor pg_query__listen_stmt__field_descriptors[1
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__listen_stmt__field_indices_by_name[] = {
@@ -38033,7 +38034,7 @@ const ProtobufCMessageDescriptor pg_query__listen_stmt__descriptor =
   pg_query__listen_stmt__field_indices_by_name,
   1,  pg_query__listen_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__listen_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[228],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__unlisten_stmt__field_descriptors[1] =
 {
@@ -38047,7 +38048,7 @@ static const ProtobufCFieldDescriptor pg_query__unlisten_stmt__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__unlisten_stmt__field_indices_by_name[] = {
@@ -38071,7 +38072,7 @@ const ProtobufCMessageDescriptor pg_query__unlisten_stmt__descriptor =
   pg_query__unlisten_stmt__field_indices_by_name,
   1,  pg_query__unlisten_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__unlisten_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[229],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descriptors[6] =
 {
@@ -38085,7 +38086,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     &pg_query__transaction_stmt_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -38097,7 +38098,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "savepoint_name",
@@ -38109,7 +38110,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "gid",
@@ -38121,7 +38122,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "chain",
@@ -38133,7 +38134,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -38145,7 +38146,7 @@ static const ProtobufCFieldDescriptor pg_query__transaction_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__transaction_stmt__field_indices_by_name[] = {
@@ -38174,7 +38175,7 @@ const ProtobufCMessageDescriptor pg_query__transaction_stmt__descriptor =
   pg_query__transaction_stmt__field_indices_by_name,
   1,  pg_query__transaction_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__transaction_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[230],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__composite_type_stmt__field_descriptors[2] =
 {
@@ -38188,7 +38189,7 @@ static const ProtobufCFieldDescriptor pg_query__composite_type_stmt__field_descr
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "coldeflist",
@@ -38200,7 +38201,7 @@ static const ProtobufCFieldDescriptor pg_query__composite_type_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__composite_type_stmt__field_indices_by_name[] = {
@@ -38225,7 +38226,7 @@ const ProtobufCMessageDescriptor pg_query__composite_type_stmt__descriptor =
   pg_query__composite_type_stmt__field_indices_by_name,
   1,  pg_query__composite_type_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__composite_type_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[231],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_enum_stmt__field_descriptors[2] =
 {
@@ -38239,7 +38240,7 @@ static const ProtobufCFieldDescriptor pg_query__create_enum_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "vals",
@@ -38251,7 +38252,7 @@ static const ProtobufCFieldDescriptor pg_query__create_enum_stmt__field_descript
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_enum_stmt__field_indices_by_name[] = {
@@ -38276,7 +38277,7 @@ const ProtobufCMessageDescriptor pg_query__create_enum_stmt__descriptor =
   pg_query__create_enum_stmt__field_indices_by_name,
   1,  pg_query__create_enum_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_enum_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[232],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_range_stmt__field_descriptors[2] =
 {
@@ -38290,7 +38291,7 @@ static const ProtobufCFieldDescriptor pg_query__create_range_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "params",
@@ -38302,7 +38303,7 @@ static const ProtobufCFieldDescriptor pg_query__create_range_stmt__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_range_stmt__field_indices_by_name[] = {
@@ -38327,7 +38328,7 @@ const ProtobufCMessageDescriptor pg_query__create_range_stmt__descriptor =
   pg_query__create_range_stmt__field_indices_by_name,
   1,  pg_query__create_range_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_range_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[233],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descriptors[6] =
 {
@@ -38341,7 +38342,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "old_val",
@@ -38353,7 +38354,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "new_val",
@@ -38365,7 +38366,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "new_val_neighbor",
@@ -38377,7 +38378,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "new_val_is_after",
@@ -38389,7 +38390,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "skip_if_new_val_exists",
@@ -38401,7 +38402,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_enum_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_enum_stmt__field_indices_by_name[] = {
@@ -38430,7 +38431,7 @@ const ProtobufCMessageDescriptor pg_query__alter_enum_stmt__descriptor =
   pg_query__alter_enum_stmt__field_indices_by_name,
   1,  pg_query__alter_enum_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_enum_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[234],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] =
 {
@@ -38444,7 +38445,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aliases",
@@ -38456,7 +38457,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query",
@@ -38468,7 +38469,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replace",
@@ -38480,7 +38481,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -38492,7 +38493,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "with_check_option",
@@ -38504,7 +38505,7 @@ static const ProtobufCFieldDescriptor pg_query__view_stmt__field_descriptors[6] 
     &pg_query__view_check_option__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__view_stmt__field_indices_by_name[] = {
@@ -38533,7 +38534,7 @@ const ProtobufCMessageDescriptor pg_query__view_stmt__descriptor =
   pg_query__view_stmt__field_indices_by_name,
   1,  pg_query__view_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__view_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[235],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__load_stmt__field_descriptors[1] =
 {
@@ -38547,7 +38548,7 @@ static const ProtobufCFieldDescriptor pg_query__load_stmt__field_descriptors[1] 
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__load_stmt__field_indices_by_name[] = {
@@ -38571,7 +38572,7 @@ const ProtobufCMessageDescriptor pg_query__load_stmt__descriptor =
   pg_query__load_stmt__field_indices_by_name,
   1,  pg_query__load_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__load_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[236],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__createdb_stmt__field_descriptors[2] =
 {
@@ -38585,7 +38586,7 @@ static const ProtobufCFieldDescriptor pg_query__createdb_stmt__field_descriptors
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -38597,7 +38598,7 @@ static const ProtobufCFieldDescriptor pg_query__createdb_stmt__field_descriptors
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__createdb_stmt__field_indices_by_name[] = {
@@ -38622,7 +38623,7 @@ const ProtobufCMessageDescriptor pg_query__createdb_stmt__descriptor =
   pg_query__createdb_stmt__field_indices_by_name,
   1,  pg_query__createdb_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__createdb_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[237],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_database_stmt__field_descriptors[2] =
 {
@@ -38636,7 +38637,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_database_stmt__field_descr
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -38648,7 +38649,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_database_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_database_stmt__field_indices_by_name[] = {
@@ -38673,7 +38674,7 @@ const ProtobufCMessageDescriptor pg_query__alter_database_stmt__descriptor =
   pg_query__alter_database_stmt__field_indices_by_name,
   1,  pg_query__alter_database_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_database_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[238],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_database_refresh_coll_stmt__field_descriptors[1] =
 {
@@ -38687,7 +38688,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_database_refresh_coll_stmt
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_database_refresh_coll_stmt__field_indices_by_name[] = {
@@ -38711,7 +38712,7 @@ const ProtobufCMessageDescriptor pg_query__alter_database_refresh_coll_stmt__des
   pg_query__alter_database_refresh_coll_stmt__field_indices_by_name,
   1,  pg_query__alter_database_refresh_coll_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_database_refresh_coll_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[239],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_database_set_stmt__field_descriptors[2] =
 {
@@ -38725,7 +38726,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_database_set_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "setstmt",
@@ -38737,7 +38738,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_database_set_stmt__field_d
     &pg_query__variable_set_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_database_set_stmt__field_indices_by_name[] = {
@@ -38762,7 +38763,7 @@ const ProtobufCMessageDescriptor pg_query__alter_database_set_stmt__descriptor =
   pg_query__alter_database_set_stmt__field_indices_by_name,
   1,  pg_query__alter_database_set_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_database_set_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[240],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__dropdb_stmt__field_descriptors[3] =
 {
@@ -38776,7 +38777,7 @@ static const ProtobufCFieldDescriptor pg_query__dropdb_stmt__field_descriptors[3
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -38788,7 +38789,7 @@ static const ProtobufCFieldDescriptor pg_query__dropdb_stmt__field_descriptors[3
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -38800,7 +38801,7 @@ static const ProtobufCFieldDescriptor pg_query__dropdb_stmt__field_descriptors[3
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__dropdb_stmt__field_indices_by_name[] = {
@@ -38826,7 +38827,7 @@ const ProtobufCMessageDescriptor pg_query__dropdb_stmt__descriptor =
   pg_query__dropdb_stmt__field_indices_by_name,
   1,  pg_query__dropdb_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__dropdb_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[241],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_system_stmt__field_descriptors[1] =
 {
@@ -38840,7 +38841,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_system_stmt__field_descrip
     &pg_query__variable_set_stmt__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_system_stmt__field_indices_by_name[] = {
@@ -38864,7 +38865,7 @@ const ProtobufCMessageDescriptor pg_query__alter_system_stmt__descriptor =
   pg_query__alter_system_stmt__field_indices_by_name,
   1,  pg_query__alter_system_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_system_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[242],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__cluster_stmt__field_descriptors[3] =
 {
@@ -38878,7 +38879,7 @@ static const ProtobufCFieldDescriptor pg_query__cluster_stmt__field_descriptors[
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "indexname",
@@ -38890,7 +38891,7 @@ static const ProtobufCFieldDescriptor pg_query__cluster_stmt__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "params",
@@ -38902,7 +38903,7 @@ static const ProtobufCFieldDescriptor pg_query__cluster_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__cluster_stmt__field_indices_by_name[] = {
@@ -38928,7 +38929,7 @@ const ProtobufCMessageDescriptor pg_query__cluster_stmt__descriptor =
   pg_query__cluster_stmt__field_indices_by_name,
   1,  pg_query__cluster_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__cluster_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[243],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__vacuum_stmt__field_descriptors[3] =
 {
@@ -38942,7 +38943,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_stmt__field_descriptors[3
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "rels",
@@ -38954,7 +38955,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_stmt__field_descriptors[3
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_vacuumcmd",
@@ -38966,7 +38967,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_stmt__field_descriptors[3
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__vacuum_stmt__field_indices_by_name[] = {
@@ -38992,7 +38993,7 @@ const ProtobufCMessageDescriptor pg_query__vacuum_stmt__descriptor =
   pg_query__vacuum_stmt__field_indices_by_name,
   1,  pg_query__vacuum_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__vacuum_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[244],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__vacuum_relation__field_descriptors[3] =
 {
@@ -39006,7 +39007,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_relation__field_descripto
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "oid",
@@ -39018,7 +39019,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_relation__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "va_cols",
@@ -39030,7 +39031,7 @@ static const ProtobufCFieldDescriptor pg_query__vacuum_relation__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__vacuum_relation__field_indices_by_name[] = {
@@ -39056,7 +39057,7 @@ const ProtobufCMessageDescriptor pg_query__vacuum_relation__descriptor =
   pg_query__vacuum_relation__field_indices_by_name,
   1,  pg_query__vacuum_relation__number_ranges,
   (ProtobufCMessageInit) pg_query__vacuum_relation__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[245],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__explain_stmt__field_descriptors[2] =
 {
@@ -39070,7 +39071,7 @@ static const ProtobufCFieldDescriptor pg_query__explain_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -39082,7 +39083,7 @@ static const ProtobufCFieldDescriptor pg_query__explain_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__explain_stmt__field_indices_by_name[] = {
@@ -39107,7 +39108,7 @@ const ProtobufCMessageDescriptor pg_query__explain_stmt__descriptor =
   pg_query__explain_stmt__field_indices_by_name,
   1,  pg_query__explain_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__explain_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[246],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_descriptors[5] =
 {
@@ -39121,7 +39122,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "into",
@@ -39133,7 +39134,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_desc
     &pg_query__into_clause__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "objtype",
@@ -39145,7 +39146,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_desc
     &pg_query__object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "is_select_into",
@@ -39157,7 +39158,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "if_not_exists",
@@ -39169,7 +39170,7 @@ static const ProtobufCFieldDescriptor pg_query__create_table_as_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_table_as_stmt__field_indices_by_name[] = {
@@ -39197,7 +39198,7 @@ const ProtobufCMessageDescriptor pg_query__create_table_as_stmt__descriptor =
   pg_query__create_table_as_stmt__field_indices_by_name,
   1,  pg_query__create_table_as_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_table_as_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[247],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__refresh_mat_view_stmt__field_descriptors[3] =
 {
@@ -39211,7 +39212,7 @@ static const ProtobufCFieldDescriptor pg_query__refresh_mat_view_stmt__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "skip_data",
@@ -39223,7 +39224,7 @@ static const ProtobufCFieldDescriptor pg_query__refresh_mat_view_stmt__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -39235,7 +39236,7 @@ static const ProtobufCFieldDescriptor pg_query__refresh_mat_view_stmt__field_des
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__refresh_mat_view_stmt__field_indices_by_name[] = {
@@ -39261,7 +39262,7 @@ const ProtobufCMessageDescriptor pg_query__refresh_mat_view_stmt__descriptor =
   pg_query__refresh_mat_view_stmt__field_indices_by_name,
   1,  pg_query__refresh_mat_view_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__refresh_mat_view_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[248],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 #define pg_query__check_point_stmt__field_descriptors NULL
 #define pg_query__check_point_stmt__field_indices_by_name NULL
@@ -39279,7 +39280,7 @@ const ProtobufCMessageDescriptor pg_query__check_point_stmt__descriptor =
   pg_query__check_point_stmt__field_indices_by_name,
   0,  pg_query__check_point_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__check_point_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[249],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__discard_stmt__field_descriptors[1] =
 {
@@ -39293,7 +39294,7 @@ static const ProtobufCFieldDescriptor pg_query__discard_stmt__field_descriptors[
     &pg_query__discard_mode__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__discard_stmt__field_indices_by_name[] = {
@@ -39317,7 +39318,7 @@ const ProtobufCMessageDescriptor pg_query__discard_stmt__descriptor =
   pg_query__discard_stmt__field_indices_by_name,
   1,  pg_query__discard_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__discard_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[250],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__lock_stmt__field_descriptors[3] =
 {
@@ -39331,7 +39332,7 @@ static const ProtobufCFieldDescriptor pg_query__lock_stmt__field_descriptors[3] 
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "mode",
@@ -39343,7 +39344,7 @@ static const ProtobufCFieldDescriptor pg_query__lock_stmt__field_descriptors[3] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "nowait",
@@ -39355,7 +39356,7 @@ static const ProtobufCFieldDescriptor pg_query__lock_stmt__field_descriptors[3] 
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__lock_stmt__field_indices_by_name[] = {
@@ -39381,7 +39382,7 @@ const ProtobufCMessageDescriptor pg_query__lock_stmt__descriptor =
   pg_query__lock_stmt__field_indices_by_name,
   1,  pg_query__lock_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__lock_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[251],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__constraints_set_stmt__field_descriptors[2] =
 {
@@ -39395,7 +39396,7 @@ static const ProtobufCFieldDescriptor pg_query__constraints_set_stmt__field_desc
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "deferred",
@@ -39407,7 +39408,7 @@ static const ProtobufCFieldDescriptor pg_query__constraints_set_stmt__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__constraints_set_stmt__field_indices_by_name[] = {
@@ -39432,7 +39433,7 @@ const ProtobufCMessageDescriptor pg_query__constraints_set_stmt__descriptor =
   pg_query__constraints_set_stmt__field_indices_by_name,
   1,  pg_query__constraints_set_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__constraints_set_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[252],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__reindex_stmt__field_descriptors[4] =
 {
@@ -39446,7 +39447,7 @@ static const ProtobufCFieldDescriptor pg_query__reindex_stmt__field_descriptors[
     &pg_query__reindex_object_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "relation",
@@ -39458,7 +39459,7 @@ static const ProtobufCFieldDescriptor pg_query__reindex_stmt__field_descriptors[
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -39470,7 +39471,7 @@ static const ProtobufCFieldDescriptor pg_query__reindex_stmt__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "params",
@@ -39482,7 +39483,7 @@ static const ProtobufCFieldDescriptor pg_query__reindex_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__reindex_stmt__field_indices_by_name[] = {
@@ -39509,7 +39510,7 @@ const ProtobufCMessageDescriptor pg_query__reindex_stmt__descriptor =
   pg_query__reindex_stmt__field_indices_by_name,
   1,  pg_query__reindex_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__reindex_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[253],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_descriptors[5] =
 {
@@ -39523,7 +39524,7 @@ static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_encoding_name",
@@ -39535,7 +39536,7 @@ static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "to_encoding_name",
@@ -39547,7 +39548,7 @@ static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func_name",
@@ -39559,7 +39560,7 @@ static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "def",
@@ -39571,7 +39572,7 @@ static const ProtobufCFieldDescriptor pg_query__create_conversion_stmt__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_conversion_stmt__field_indices_by_name[] = {
@@ -39599,7 +39600,7 @@ const ProtobufCMessageDescriptor pg_query__create_conversion_stmt__descriptor =
   pg_query__create_conversion_stmt__field_indices_by_name,
   1,  pg_query__create_conversion_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_conversion_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[254],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descriptors[5] =
 {
@@ -39613,7 +39614,7 @@ static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descript
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "targettype",
@@ -39625,7 +39626,7 @@ static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descript
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "func",
@@ -39637,7 +39638,7 @@ static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descript
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "context",
@@ -39649,7 +39650,7 @@ static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descript
     &pg_query__coercion_context__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "inout",
@@ -39661,7 +39662,7 @@ static const ProtobufCFieldDescriptor pg_query__create_cast_stmt__field_descript
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_cast_stmt__field_indices_by_name[] = {
@@ -39689,7 +39690,7 @@ const ProtobufCMessageDescriptor pg_query__create_cast_stmt__descriptor =
   pg_query__create_cast_stmt__field_indices_by_name,
   1,  pg_query__create_cast_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_cast_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[255],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_descriptors[5] =
 {
@@ -39703,7 +39704,7 @@ static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_des
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "type_name",
@@ -39715,7 +39716,7 @@ static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_des
     &pg_query__type_name__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "lang",
@@ -39727,7 +39728,7 @@ static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "fromsql",
@@ -39739,7 +39740,7 @@ static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_des
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tosql",
@@ -39751,7 +39752,7 @@ static const ProtobufCFieldDescriptor pg_query__create_transform_stmt__field_des
     &pg_query__object_with_args__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_transform_stmt__field_indices_by_name[] = {
@@ -39779,7 +39780,7 @@ const ProtobufCMessageDescriptor pg_query__create_transform_stmt__descriptor =
   pg_query__create_transform_stmt__field_indices_by_name,
   1,  pg_query__create_transform_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_transform_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[256],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__prepare_stmt__field_descriptors[3] =
 {
@@ -39793,7 +39794,7 @@ static const ProtobufCFieldDescriptor pg_query__prepare_stmt__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "argtypes",
@@ -39805,7 +39806,7 @@ static const ProtobufCFieldDescriptor pg_query__prepare_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "query",
@@ -39817,7 +39818,7 @@ static const ProtobufCFieldDescriptor pg_query__prepare_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__prepare_stmt__field_indices_by_name[] = {
@@ -39843,7 +39844,7 @@ const ProtobufCMessageDescriptor pg_query__prepare_stmt__descriptor =
   pg_query__prepare_stmt__field_indices_by_name,
   1,  pg_query__prepare_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__prepare_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[257],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__execute_stmt__field_descriptors[2] =
 {
@@ -39857,7 +39858,7 @@ static const ProtobufCFieldDescriptor pg_query__execute_stmt__field_descriptors[
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "params",
@@ -39869,7 +39870,7 @@ static const ProtobufCFieldDescriptor pg_query__execute_stmt__field_descriptors[
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__execute_stmt__field_indices_by_name[] = {
@@ -39894,7 +39895,7 @@ const ProtobufCMessageDescriptor pg_query__execute_stmt__descriptor =
   pg_query__execute_stmt__field_indices_by_name,
   1,  pg_query__execute_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__execute_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[258],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__deallocate_stmt__field_descriptors[3] =
 {
@@ -39908,7 +39909,7 @@ static const ProtobufCFieldDescriptor pg_query__deallocate_stmt__field_descripto
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "isall",
@@ -39920,7 +39921,7 @@ static const ProtobufCFieldDescriptor pg_query__deallocate_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -39932,7 +39933,7 @@ static const ProtobufCFieldDescriptor pg_query__deallocate_stmt__field_descripto
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__deallocate_stmt__field_indices_by_name[] = {
@@ -39958,7 +39959,7 @@ const ProtobufCMessageDescriptor pg_query__deallocate_stmt__descriptor =
   pg_query__deallocate_stmt__field_indices_by_name,
   1,  pg_query__deallocate_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__deallocate_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[259],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_owned_stmt__field_descriptors[2] =
 {
@@ -39972,7 +39973,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_owned_stmt__field_descripto
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -39984,7 +39985,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_owned_stmt__field_descripto
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_owned_stmt__field_indices_by_name[] = {
@@ -40009,7 +40010,7 @@ const ProtobufCMessageDescriptor pg_query__drop_owned_stmt__descriptor =
   pg_query__drop_owned_stmt__field_indices_by_name,
   1,  pg_query__drop_owned_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_owned_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[260],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__reassign_owned_stmt__field_descriptors[2] =
 {
@@ -40023,7 +40024,7 @@ static const ProtobufCFieldDescriptor pg_query__reassign_owned_stmt__field_descr
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "newrole",
@@ -40035,7 +40036,7 @@ static const ProtobufCFieldDescriptor pg_query__reassign_owned_stmt__field_descr
     &pg_query__role_spec__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__reassign_owned_stmt__field_indices_by_name[] = {
@@ -40060,7 +40061,7 @@ const ProtobufCMessageDescriptor pg_query__reassign_owned_stmt__descriptor =
   pg_query__reassign_owned_stmt__field_indices_by_name,
   1,  pg_query__reassign_owned_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__reassign_owned_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[261],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_tsdictionary_stmt__field_descriptors[2] =
 {
@@ -40074,7 +40075,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsdictionary_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -40086,7 +40087,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsdictionary_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_tsdictionary_stmt__field_indices_by_name[] = {
@@ -40111,7 +40112,7 @@ const ProtobufCMessageDescriptor pg_query__alter_tsdictionary_stmt__descriptor =
   pg_query__alter_tsdictionary_stmt__field_indices_by_name,
   1,  pg_query__alter_tsdictionary_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_tsdictionary_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[262],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__field_descriptors[7] =
 {
@@ -40125,7 +40126,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     &pg_query__alter_tsconfig_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cfgname",
@@ -40137,7 +40138,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "tokentype",
@@ -40149,7 +40150,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "dicts",
@@ -40161,7 +40162,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    770U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "override",
@@ -40173,7 +40174,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "replace",
@@ -40185,7 +40186,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -40197,7 +40198,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_tsconfiguration_stmt__fiel
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_tsconfiguration_stmt__field_indices_by_name[] = {
@@ -40227,7 +40228,7 @@ const ProtobufCMessageDescriptor pg_query__alter_tsconfiguration_stmt__descripto
   pg_query__alter_tsconfiguration_stmt__field_indices_by_name,
   1,  pg_query__alter_tsconfiguration_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_tsconfiguration_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[263],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__publication_table__field_descriptors[3] =
 {
@@ -40241,7 +40242,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_table__field_descrip
     &pg_query__range_var__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "where_clause",
@@ -40253,7 +40254,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_table__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "columns",
@@ -40265,7 +40266,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_table__field_descrip
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__publication_table__field_indices_by_name[] = {
@@ -40291,7 +40292,7 @@ const ProtobufCMessageDescriptor pg_query__publication_table__descriptor =
   pg_query__publication_table__field_indices_by_name,
   1,  pg_query__publication_table__number_ranges,
   (ProtobufCMessageInit) pg_query__publication_table__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[264],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__publication_obj_spec__field_descriptors[4] =
 {
@@ -40305,7 +40306,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_obj_spec__field_desc
     &pg_query__publication_obj_spec_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "name",
@@ -40317,7 +40318,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_obj_spec__field_desc
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pubtable",
@@ -40329,7 +40330,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_obj_spec__field_desc
     &pg_query__publication_table__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "location",
@@ -40341,7 +40342,7 @@ static const ProtobufCFieldDescriptor pg_query__publication_obj_spec__field_desc
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__publication_obj_spec__field_indices_by_name[] = {
@@ -40368,7 +40369,7 @@ const ProtobufCMessageDescriptor pg_query__publication_obj_spec__descriptor =
   pg_query__publication_obj_spec__field_indices_by_name,
   1,  pg_query__publication_obj_spec__number_ranges,
   (ProtobufCMessageInit) pg_query__publication_obj_spec__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[265],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_publication_stmt__field_descriptors[4] =
 {
@@ -40382,7 +40383,7 @@ static const ProtobufCFieldDescriptor pg_query__create_publication_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -40394,7 +40395,7 @@ static const ProtobufCFieldDescriptor pg_query__create_publication_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pubobjects",
@@ -40406,7 +40407,7 @@ static const ProtobufCFieldDescriptor pg_query__create_publication_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_all_tables",
@@ -40418,7 +40419,7 @@ static const ProtobufCFieldDescriptor pg_query__create_publication_stmt__field_d
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_publication_stmt__field_indices_by_name[] = {
@@ -40445,7 +40446,7 @@ const ProtobufCMessageDescriptor pg_query__create_publication_stmt__descriptor =
   pg_query__create_publication_stmt__field_indices_by_name,
   1,  pg_query__create_publication_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_publication_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[266],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_descriptors[5] =
 {
@@ -40459,7 +40460,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -40471,7 +40472,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "pubobjects",
@@ -40483,7 +40484,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_de
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "for_all_tables",
@@ -40495,7 +40496,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "action",
@@ -40507,7 +40508,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_publication_stmt__field_de
     &pg_query__alter_publication_action__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_publication_stmt__field_indices_by_name[] = {
@@ -40535,7 +40536,7 @@ const ProtobufCMessageDescriptor pg_query__alter_publication_stmt__descriptor =
   pg_query__alter_publication_stmt__field_indices_by_name,
   1,  pg_query__alter_publication_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_publication_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[267],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__create_subscription_stmt__field_descriptors[4] =
 {
@@ -40549,7 +40550,7 @@ static const ProtobufCFieldDescriptor pg_query__create_subscription_stmt__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "conninfo",
@@ -40561,7 +40562,7 @@ static const ProtobufCFieldDescriptor pg_query__create_subscription_stmt__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "publication",
@@ -40573,7 +40574,7 @@ static const ProtobufCFieldDescriptor pg_query__create_subscription_stmt__field_
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    514U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -40585,7 +40586,7 @@ static const ProtobufCFieldDescriptor pg_query__create_subscription_stmt__field_
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__create_subscription_stmt__field_indices_by_name[] = {
@@ -40612,7 +40613,7 @@ const ProtobufCMessageDescriptor pg_query__create_subscription_stmt__descriptor 
   pg_query__create_subscription_stmt__field_indices_by_name,
   1,  pg_query__create_subscription_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__create_subscription_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[268],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_descriptors[5] =
 {
@@ -40626,7 +40627,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_d
     &pg_query__alter_subscription_type__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "subname",
@@ -40638,7 +40639,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    258U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "conninfo",
@@ -40650,7 +40651,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_d
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "publication",
@@ -40662,7 +40663,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "options",
@@ -40674,7 +40675,7 @@ static const ProtobufCFieldDescriptor pg_query__alter_subscription_stmt__field_d
     &pg_query__node__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__alter_subscription_stmt__field_indices_by_name[] = {
@@ -40702,7 +40703,7 @@ const ProtobufCMessageDescriptor pg_query__alter_subscription_stmt__descriptor =
   pg_query__alter_subscription_stmt__field_indices_by_name,
   1,  pg_query__alter_subscription_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__alter_subscription_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[269],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__drop_subscription_stmt__field_descriptors[3] =
 {
@@ -40716,7 +40717,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_subscription_stmt__field_de
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    2U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "missing_ok",
@@ -40728,7 +40729,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_subscription_stmt__field_de
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "behavior",
@@ -40740,7 +40741,7 @@ static const ProtobufCFieldDescriptor pg_query__drop_subscription_stmt__field_de
     &pg_query__drop_behavior__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__drop_subscription_stmt__field_indices_by_name[] = {
@@ -40766,7 +40767,7 @@ const ProtobufCMessageDescriptor pg_query__drop_subscription_stmt__descriptor =
   pg_query__drop_subscription_stmt__field_indices_by_name,
   1,  pg_query__drop_subscription_stmt__number_ranges,
   (ProtobufCMessageInit) pg_query__drop_subscription_stmt__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[270],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__scan_token__field_descriptors[4] =
 {
@@ -40780,7 +40781,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_token__field_descriptors[4]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "end",
@@ -40792,7 +40793,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_token__field_descriptors[4]
     NULL,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "token",
@@ -40804,7 +40805,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_token__field_descriptors[4]
     &pg_query__token__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "keyword_kind",
@@ -40816,7 +40817,7 @@ static const ProtobufCFieldDescriptor pg_query__scan_token__field_descriptors[4]
     &pg_query__keyword_kind__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__scan_token__field_indices_by_name[] = {
@@ -40844,7 +40845,7 @@ const ProtobufCMessageDescriptor pg_query__scan_token__descriptor =
   pg_query__scan_token__field_indices_by_name,
   2,  pg_query__scan_token__number_ranges,
   (ProtobufCMessageInit) pg_query__scan_token__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[271],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__summary_result__table__field_descriptors[4] =
 {
@@ -40858,7 +40859,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__table__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "schema_name",
@@ -40870,7 +40871,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__table__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_name",
@@ -40882,7 +40883,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__table__field_des
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "context",
@@ -40894,7 +40895,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__table__field_des
     &pg_query__summary_result__context__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__summary_result__table__field_indices_by_name[] = {
@@ -40921,7 +40922,7 @@ const ProtobufCMessageDescriptor pg_query__summary_result__table__descriptor =
   pg_query__summary_result__table__field_indices_by_name,
   1,  pg_query__summary_result__table__number_ranges,
   (ProtobufCMessageInit) pg_query__summary_result__table__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[272],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__summary_result__aliases_entry__field_descriptors[2] =
 {
@@ -40935,7 +40936,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__aliases_entry__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "value",
@@ -40947,7 +40948,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__aliases_entry__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__summary_result__aliases_entry__field_indices_by_name[] = {
@@ -40972,7 +40973,7 @@ const ProtobufCMessageDescriptor pg_query__summary_result__aliases_entry__descri
   pg_query__summary_result__aliases_entry__field_indices_by_name,
   1,  pg_query__summary_result__aliases_entry__number_ranges,
   (ProtobufCMessageInit) pg_query__summary_result__aliases_entry__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[273],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__summary_result__function__field_descriptors[4] =
 {
@@ -40986,7 +40987,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__function__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "function_name",
@@ -40998,7 +40999,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__function__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "schema_name",
@@ -41010,7 +41011,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__function__field_
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "context",
@@ -41022,7 +41023,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__function__field_
     &pg_query__summary_result__context__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__summary_result__function__field_indices_by_name[] = {
@@ -41049,7 +41050,7 @@ const ProtobufCMessageDescriptor pg_query__summary_result__function__descriptor 
   pg_query__summary_result__function__field_indices_by_name,
   1,  pg_query__summary_result__function__number_ranges,
   (ProtobufCMessageInit) pg_query__summary_result__function__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[274],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCFieldDescriptor pg_query__summary_result__filter_column__field_descriptors[3] =
 {
@@ -41063,7 +41064,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__filter_column__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "table_name",
@@ -41075,7 +41076,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__filter_column__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "column",
@@ -41087,7 +41088,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__filter_column__f
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__summary_result__filter_column__field_indices_by_name[] = {
@@ -41113,7 +41114,7 @@ const ProtobufCMessageDescriptor pg_query__summary_result__filter_column__descri
   pg_query__summary_result__filter_column__field_indices_by_name,
   1,  pg_query__summary_result__filter_column__number_ranges,
   (ProtobufCMessageInit) pg_query__summary_result__filter_column__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[275],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCEnumValue pg_query__summary_result__context__enum_values_by_number[5] =
 {
@@ -41161,7 +41162,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     &pg_query__summary_result__table__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "aliases",
@@ -41173,7 +41174,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     &pg_query__summary_result__aliases_entry__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    257U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "cte_names",
@@ -41185,7 +41186,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    513U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "functions",
@@ -41197,7 +41198,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     &pg_query__summary_result__function__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    769U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "filter_columns",
@@ -41209,7 +41210,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     &pg_query__summary_result__filter_column__descriptor,
     NULL,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1025U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "statement_types",
@@ -41221,7 +41222,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1281U,NULL,NULL    /* sqlparser_name_policy */
   },
   {
     "truncated_query",
@@ -41233,7 +41234,7 @@ static const ProtobufCFieldDescriptor pg_query__summary_result__field_descriptor
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
+    1537U,NULL,NULL    /* sqlparser_name_policy */
   },
 };
 static const unsigned pg_query__summary_result__field_indices_by_name[] = {
@@ -41263,7 +41264,7 @@ const ProtobufCMessageDescriptor pg_query__summary_result__descriptor =
   pg_query__summary_result__field_indices_by_name,
   1,  pg_query__summary_result__number_ranges,
   (ProtobufCMessageInit) pg_query__summary_result__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  (void *)&pg_query__sqlparser_name_registry[276],(void *)&pg_query__sqlparser_name_tag,NULL    /* sqlparser_name_schema */
 };
 static const ProtobufCEnumValue pg_query__query_source__enum_values_by_number[6] =
 {

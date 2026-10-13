@@ -285,6 +285,15 @@ sqlparser_status_t sqlparser_handle_prepare_identifier_mutation(
 		handle->identifier_mutations[mutation_index].original[0] != '\0' &&
 		(location_slot == NULL ||
 		 !sqlparser_proto_location_is_generated(*location_slot));
+	if (location_slot != NULL &&
+	    sqlparser_proto_location_is_identifier_spelling(*location_slot) &&
+	    ((location_owner->descriptor == &pg_query__res_target__descriptor &&
+	      slot == &((PgQuery__ResTarget *)location_owner)->name) ||
+	     (location_owner->descriptor == &pg_query__alias__descriptor &&
+	      slot == &((PgQuery__Alias *)location_owner)->aliasname))) {
+		handle->identifier_mutations[mutation_index].original_alias_location =
+			*location_slot;
+	}
 	handle->identifier_mutation_count++;
 	*out_mutation_index = mutation_index;
 	*out_created = 1;
@@ -2187,6 +2196,7 @@ sqlparser_status_t sqlparser_statement_name_count(
 	}
 
 	memset(&search, 0, sizeof(search));
+	search.omit_location_owner = 1;
 	status = sqlparser_walk_message_names((ProtobufCMessage *)statement, NULL, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -2225,6 +2235,7 @@ sqlparser_status_t sqlparser_statement_name(
 	}
 
 	memset(&search, 0, sizeof(search));
+	search.omit_location_owner = 1;
 	search.want_target = 1;
 	search.target_index = name_index;
 	search.name_view = out_name;
@@ -2243,6 +2254,96 @@ sqlparser_status_t sqlparser_statement_name(
 	return SQLPARSER_STATUS_OK;
 }
 
+/* Generated spelling groups are immutable and may be shared by source clones.
+ * Stage a distinct group for the changed alias; install its location only after
+ * the scalar string write succeeds. This also makes fragment clones, which do
+ * not carry the handle's mutation records, observe the current alias spelling. */
+static sqlparser_status_t sqlparser_stage_generated_alias_spelling(
+	sqlparser_handle_t *handle,
+	ProtobufCMessage *owner,
+	char **slot,
+	int32_t old_location,
+	const char *value,
+	const char *spelling,
+	int32_t *out_location,
+	int *out_staged,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_identifier_spelling_t previous;
+	size_t group_index;
+	size_t component_index;
+	size_t index;
+	uint32_t payload;
+	char *rendered;
+	int32_t location;
+	sqlparser_status_t status;
+
+	*out_location = old_location;
+	*out_staged = 0;
+	if (owner == NULL ||
+	    !((owner->descriptor == &pg_query__res_target__descriptor &&
+	       slot == &((PgQuery__ResTarget *)owner)->name) ||
+	      (owner->descriptor == &pg_query__alias__descriptor &&
+	       slot == &((PgQuery__Alias *)owner)->aliasname))) {
+		return SQLPARSER_STATUS_OK;
+	}
+	payload = (uint32_t)((int64_t)old_location -
+		(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE);
+	group_index = payload >> SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS;
+	component_index = payload & SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_MASK;
+	if (group_index >= handle->identifier_spelling_count ||
+	    handle->identifier_spellings[group_index].part_count >
+		    SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS ||
+	    component_index >= handle->identifier_spellings[group_index].part_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+			"generated alias spelling is unavailable");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	/* Copy the small header before append can relocate the group array. Its
+	 * strings remain owned by the old group throughout this staged copy. */
+	previous = handle->identifier_spellings[group_index];
+	for (index = 0U; index < previous.part_count; index++) {
+		if (previous.parts[index] == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR,
+				"generated alias spelling is unavailable");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+	}
+	rendered = NULL;
+	if (spelling == NULL) {
+		status = sqlparser_render_default_identifier_spelling(
+			value, &rendered, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		spelling = rendered;
+	}
+	sqlparser_handle_begin_identifier_spelling(handle);
+	for (index = 0U; index < previous.part_count; index++) {
+		const char *part;
+
+		part = index == component_index ? spelling : previous.parts[index];
+		location = sqlparser_handle_append_identifier_spelling(
+			handle, part, strlen(part));
+		if (index == component_index) {
+			*out_location = location;
+		}
+	}
+	if (handle->identifier_spelling_status == SQLPARSER_STATUS_OK &&
+	    handle->identifier_spelling_build_group != SIZE_MAX) {
+		handle->identifier_spellings[handle->identifier_spelling_build_group].alias_style =
+			previous.alias_style;
+	}
+	status = sqlparser_handle_finish_identifier_spelling(handle, out_error);
+	free(rendered);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		return status;
+	}
+	*out_staged = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_statement_set_name_spelling(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -2258,6 +2359,8 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 	const char *generated_spelling;
 	int32_t *location_slot;
 	int32_t previous_location;
+	int32_t staged_alias_location;
+	int alias_spelling_staged;
 	size_t relation_group;
 	size_t generated_spelling_length;
 	size_t mutation_index;
@@ -2399,6 +2502,34 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 		}
 		return SQLPARSER_STATUS_OK;
 	}
+	alias_spelling_staged = 0;
+	staged_alias_location = previous_location;
+	if (location_slot != NULL &&
+	    sqlparser_proto_location_is_identifier_spelling(previous_location)) {
+		const sqlparser_identifier_mutation_t *mutation;
+
+		mutation = &handle->identifier_mutations[mutation_index];
+		if (next_spelling == NULL &&
+		    sqlparser_proto_location_is_identifier_spelling(
+			    mutation->original_alias_location) &&
+		    strcmp(value, mutation->original) == 0) {
+			staged_alias_location = mutation->original_alias_location;
+			alias_spelling_staged = 1;
+			status = SQLPARSER_STATUS_OK;
+		} else {
+			status = sqlparser_stage_generated_alias_spelling(
+				handle, search.target_owner, search.target_slot, previous_location,
+				value, next_spelling, &staged_alias_location, &alias_spelling_staged,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			free(next_spelling);
+			if (mutation_created) {
+				sqlparser_handle_remove_identifier_mutation(handle, mutation_index);
+			}
+			return status;
+		}
+	}
 	if (value_changed) {
 		status = sqlparser_replace_proto_string(
 			search.target_slot,
@@ -2408,6 +2539,9 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 			if (location_retagged) {
 				*location_slot = previous_location;
 			}
+			if (alias_spelling_staged) {
+				sqlparser_handle_sweep_identifier_spellings(handle);
+			}
 			free(next_spelling);
 			if (mutation_created) {
 				sqlparser_handle_remove_identifier_mutation(
@@ -2416,6 +2550,9 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 			}
 			return status;
 		}
+	}
+	if (alias_spelling_staged) {
+		*location_slot = staged_alias_location;
 	}
 	handle->identifier_mutations[mutation_index].slot =
 		search.target_slot;
@@ -2434,7 +2571,7 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 			handle->identifier_mutations[mutation_index].original,
 			value) == 0;
 
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_scalar_name(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		handle->identifier_mutations[mutation_index].spelling =
 			previous_spelling;

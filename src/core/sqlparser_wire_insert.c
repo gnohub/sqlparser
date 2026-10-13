@@ -1215,11 +1215,59 @@ static int wsi_read_row(const sqlparser_wire_scalar_insert_t *insert, size_t row
 #endif
 }
 
+/* The public graph is a projection of canonical typed cells. It never owns
+ * another semantic copy in wire form, nor re-decodes protobuf for these cells. */
+static int sqlparser_compact_projection_cell(const sqlparser_wire_scalar_insert_t *insert,
+    size_t row, size_t column, sqlparser_wire_scalar_cell_t *out)
+{
+    const PgQueryCompactScalarCell *cell;
+    if (insert == NULL || insert->compact == NULL || out == NULL ||
+        row >= insert->row_count || column >= insert->column_count) return 0;
+    cell = &insert->compact->cells[row * insert->column_count + column];
+    out->text = insert->sql + cell->text_offset;
+    out->length = cell->text_length;
+    out->location = cell->location;
+    out->integer = cell->integer;
+    out->kind = (sqlparser_wire_scalar_kind_t)cell->kind;
+    return 1;
+}
+
+sqlparser_wire_scalar_insert_t *sqlparser_compact_insert_projection(const sqlparser_handle_t *handle)
+{
+    const PgQueryCompactScalarInsert *compact;
+    sqlparser_wire_scalar_insert_t *insert;
+    size_t i;
+    if (handle == NULL || handle->representation != SQLPARSER_REPRESENTATION_COMPACT_INSERT ||
+        handle->compact_generation != handle->generation || handle->failed ||
+        (compact = handle->compact_insert) == NULL) return NULL;
+    insert = calloc(1U, sizeof(*insert));
+    if (insert == NULL) return NULL;
+    insert->names = calloc(compact->column_count + 3U, sizeof(*insert->names));
+    if (insert->names == NULL) { free(insert); return NULL; }
+    insert->compact = compact;
+    insert->sql = handle->sql; insert->sql_length = handle->sql_len;
+    insert->row_count = compact->row_count; insert->column_count = compact->column_count;
+    insert->string_count = compact->string_count; insert->text_bytes = compact->text_bytes;
+    insert->raw_length = compact->raw_length;
+    for (i = 0U; i < compact->column_count + 3U; ++i) {
+        if (compact->names[i].length == 0U) continue;
+        insert->names[i].text = handle->sql + compact->names[i].offset;
+        insert->names[i].length = compact->names[i].length;
+    }
+    return insert;
+}
+
 int sqlparser_wire_scalar_insert_certified_row(const sqlparser_wire_scalar_insert_t *insert,
     size_t row, sqlparser_wire_scalar_cell_t *cells)
 {
     wi_reader list;
     size_t column;
+    if (insert != NULL && insert->compact != NULL) {
+        if (cells == NULL || row >= insert->row_count) return 0;
+        for (column = 0U; column < insert->column_count; ++column)
+            if (!sqlparser_compact_projection_cell(insert, row, column, &cells[column])) return 0;
+        return 1;
+    }
     if (cells == NULL || !wsi_read_row(insert, row, &list, 1)) return 0;
     for (column = 0U; column < insert->column_count; column++)
         if (!wsi_read_cell(&list, &cells[column], 1) || !wsi_source_text(insert, &cells[column])) return 0;
@@ -1231,6 +1279,8 @@ int sqlparser_wire_scalar_insert_certified_cell(const sqlparser_wire_scalar_inse
 {
     wi_reader list;
     size_t index;
+    if (insert != NULL && insert->compact != NULL)
+        return sqlparser_compact_projection_cell(insert, row, column, cell);
     if (cell == NULL || insert == NULL || column >= insert->column_count ||
         !wsi_read_row(insert, row, &list, 1)) return 0;
     for (index = 0U; index <= column; index++) if (!wsi_read_cell(&list, cell, 1)) return 0;

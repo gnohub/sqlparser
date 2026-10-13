@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sqlparser_wire_insert_internal.h"
+#include "sqlparser_test_tree_parity.h"
 static size_t unpacks;
 #ifdef SQLPARSER_WIRE_GRAPH_WRAPPERS
 PgQuery__ParseResult *__real_pg_query__parse_result__unpack(ProtobufCAllocator *,size_t,const uint8_t *);
@@ -25,7 +26,7 @@ int main(void) {
  OK(sqlparser_parse_with_options(input,&options,&h,&error)==SQLPARSER_STATUS_OK);
  OK(h->ast==NULL && unpacks==0);
  OK(sqlparser_statement_query_graph(h,0,&graph,&error)==SQLPARSER_STATUS_OK);
- OK(sqlparser_query_graph_wire_insert(h)!=NULL && h->ast==NULL && unpacks==0);
+ OK(sqlparser_query_graph_wire_scalar_insert(h)!=NULL && h->compact_insert!=NULL && h->ast==NULL && unpacks==0);
  OK(sqlparser_query_graph_dml(&graph,&dml,&error)==SQLPARSER_STATUS_OK && dml.rows.count==rows*2U);
  for(i=0;i<dml.rows.count;i++) {
   size_t index;sqlparser_graph_dml_cell_t cell;
@@ -42,7 +43,7 @@ int main(void) {
  for(i=0;i<rows;i++){free((char*)patches[i].selector);free((char*)patches[i].sql);}free(patches);free(input);
  OK(sqlparser_deparse(h,&output,&error)==SQLPARSER_STATUS_OK && unpacks==0 && strcmp(output,expected)==0);
  OK(sqlparser_parse_with_options(expected,&options,&reference,&error)==SQLPARSER_STATUS_OK);
- OK(h->parse_tree.len==reference->parse_tree.len && !memcmp(h->parse_tree.data,reference->parse_tree.data,h->parse_tree.len));
- printf("primary 5000 rows: actual QueryGraph selectors, wire/output equality, caller free-before-deparse, %zu full AST unpacks passed\n",unpacks);
+ OK(sqlparser_test_same_tree(h,reference));
+ printf("primary 5000 rows: actual QueryGraph selectors, semantic/output equality and caller free-before-deparse passed\n");
  free(expected);free(output);sqlparser_handle_destroy(reference);sqlparser_handle_destroy(h);pg_query_exit();return 0;
 }

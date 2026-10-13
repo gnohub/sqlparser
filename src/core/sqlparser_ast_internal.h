@@ -6,6 +6,25 @@
 #include "sqlparser_internal.h"
 #include "sqlparser_control_internal.h"
 
+/* Node is a generated message-valued oneof, with exactly one active child.
+ * Resolve its field by protobuf id rather than assuming enum values are dense
+ * or scanning every inactive alternative. Other messages keep schema order.
+ * Empty/unknown cases have no active field, matching the ordinary oneof test.
+ * The returned descriptor pointer is borrowed static schema data. */
+static inline const ProtobufCFieldDescriptor *sqlparser_proto_traversal_fields(
+    const ProtobufCMessage *message, unsigned *out_count)
+{
+    const ProtobufCMessageDescriptor *descriptor = message->descriptor;
+    const ProtobufCFieldDescriptor *fields = descriptor->fields;
+    *out_count = descriptor->n_fields;
+    if (descriptor == &pg_query__node__descriptor) {
+        fields = protobuf_c_message_descriptor_get_field(descriptor,
+            (uint32_t)((const PgQuery__Node *)message)->node_case);
+        *out_count = fields != NULL ? 1U : 0U;
+    }
+    return fields;
+}
+
 /* Never builds/binds or clears a graph. Both generations and statement
  * coverage must already match before a read-only patch batch can use it. */
 int sqlparser_query_graph_is_current_readonly(const sqlparser_handle_t *handle);
@@ -53,6 +72,9 @@ typedef struct {
 	ProtobufCMessage *field_owner;
 	ProtobufCMessage *location_owner;
 	int identifier_forbidden;
+	/* Private immutable-schema classification; zero requests the text fallback.
+	 * Fits existing 64-bit padding; adds four stack bytes on 32-bit targets. */
+	unsigned schema_identifier_policy;
 } sqlparser_name_context_t;
 
 typedef struct {
@@ -78,6 +100,8 @@ typedef struct {
 	size_t seen;
 	size_t target_index;
 	int want_target;
+	/* Opt-in read path only; zero preserves mutation/provenance ownership. */
+	int omit_location_owner;
 	char **match_slot;
 	char **target_slot;
 	ProtobufCMessage *target_owner;
@@ -503,6 +527,11 @@ sqlparser_status_t sqlparser_build_wrapped_sql(
 	const char *suffix,
 	char **out_sql,
 	sqlparser_error_t *out_error);
+/* Nonempty-root admission for exclusively owned fresh wrapper subtrees.
+ * No transfer/allocation; callers must clear old owners before marking. */
+sqlparser_status_t sqlparser_validate_owned_wrapper_node(
+	const PgQuery__Node *node, sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_parse_wrapper_ast(
 	const char *wrapped_sql,
 	PgQuery__ParseResult **out_ast,

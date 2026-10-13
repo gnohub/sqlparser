@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sqlparser_internal.h"
+#include "sqlparser_test_tree_parity.h"
 
 static sqlparser_error_t error;
 static size_t case_number, commits;
@@ -34,8 +35,7 @@ static void compare(sqlparser_handle_t *actual, sqlparser_handle_t *expected, si
     sqlparser_bind_occurrence_view_t ab, bb;
     sqlparser_query_graph_view_t ag, bg;
     size_t row, column, ac, bc;
-    CHECK(actual->parse_tree.len == expected->parse_tree.len);
-    CHECK(memcmp(actual->parse_tree.data, expected->parse_tree.data, actual->parse_tree.len) == 0);
+    CHECK(sqlparser_test_same_tree(actual, expected));
     CHECK(sqlparser_deparse(actual, &a, &error) == SQLPARSER_STATUS_OK);
     CHECK(sqlparser_deparse(expected, &b, &error) == SQLPARSER_STATUS_OK);
     CHECK(strcmp(a, b) == 0); sqlparser_string_free(a); sqlparser_string_free(b);
@@ -149,7 +149,8 @@ static void native_cases(void)
             CHECK(sqlparser_apply_patch(handle, &list, &error) == SQLPARSER_STATUS_OK);
             CHECK_COMMITS(before + 1U);
             CHECK(error.code == SQLPARSER_STATUS_OK && error.message[0] == '\0');
-            CHECK(handle->ast == NULL && handle->patch_batch_flags == 0U && handle->surface_source_complete);
+            CHECK((handle->ast == NULL || handle->representation == SQLPARSER_REPRESENTATION_OWNED_AST) &&
+                handle->patch_batch_flags == 0U && handle->surface_source_complete);
             CHECK(handle->generation == generation + 1UL && handle->sql == handle->parser_sql);
             for (index = 0U; index < count; index++) {
                 free((void *)patches[index].selector); free((void *)patches[index].sql); free((void *)values[index].string_value);

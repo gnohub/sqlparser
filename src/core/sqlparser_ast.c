@@ -6,6 +6,8 @@
 
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_ast_internal.h"
+#include "protobuf/sqlparser_name_schema.h"
+#include "sqlparser_proto_clone.h"
 
 void sqlparser_relation_view_clear(sqlparser_relation_view_t *view)
 {
@@ -744,12 +746,18 @@ static int sqlparser_message_is_name_container(const ProtobufCMessageDescriptor 
 		return 0;
 	}
 
+	/* Canonical schema identity avoids reinterpreting immutable type names.
+	 * Custom and copied descriptors retain the original textual semantics. */
+	{
+		const int schema_class = sqlparser_name_schema_class(descriptor);
+		if (schema_class != 0) return schema_class == 2;
+	}
 	short_name = descriptor->short_name;
 	return strcmp(short_name, "Node") == 0 || strcmp(short_name, "List") == 0 ||
 	       strcmp(short_name, "String") == 0;
 }
 
-int sqlparser_name_atom_is_identifier(
+static int sqlparser_name_atom_is_identifier_text(
 	ProtobufCMessage *message,
 	const sqlparser_name_context_t *context,
 	const ProtobufCMessageDescriptor *descriptor,
@@ -1107,6 +1115,52 @@ int sqlparser_name_atom_is_identifier(
 	return 0;
 }
 
+
+int sqlparser_name_atom_is_identifier(
+	ProtobufCMessage *message,
+	const sqlparser_name_context_t *context,
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field)
+{
+	unsigned policy = SQLPARSER_NAME_POLICY_UNKNOWN;
+	int schema_class;
+
+	if (message == NULL || (context != NULL && context->identifier_forbidden)) {
+		return 0;
+	}
+	schema_class = sqlparser_name_schema_class(descriptor);
+	if (schema_class == 2 && context != NULL &&
+	    context->owner_type != NULL && context->field_name != NULL) {
+		policy = context->schema_identifier_policy;
+	} else if (schema_class == 1) {
+		policy = sqlparser_name_schema_field_policy(descriptor, field);
+	}
+	switch (policy) {
+		case SQLPARSER_NAME_POLICY_NO:
+			return 0;
+		case SQLPARSER_NAME_POLICY_YES:
+			return 1;
+		case SQLPARSER_NAME_POLICY_VARIABLE_SET:
+			return message->descriptor == &pg_query__variable_set_stmt__descriptor &&
+				((PgQuery__VariableSetStmt *)message)->kind !=
+					PG_QUERY__VARIABLE_SET_KIND__VAR_SET_MULTI;
+		case SQLPARSER_NAME_POLICY_FUNC_CALL:
+			return context != NULL && context->field_owner != NULL &&
+				context->field_owner->descriptor == &pg_query__func_call__descriptor &&
+				((PgQuery__FuncCall *)context->field_owner)->funcformat ==
+					PG_QUERY__COERCION_FORM__COERCE_EXPLICIT_CALL;
+		case SQLPARSER_NAME_POLICY_CONSTRAINT_KEYS:
+			return !(context != NULL && context->field_owner != NULL &&
+				context->field_owner->descriptor == &pg_query__constraint__descriptor &&
+				((PgQuery__Constraint *)context->field_owner)->contype ==
+					PG_QUERY__CONSTR_TYPE__CONSTR_NOTNULL);
+		default:
+			/* DefElem's parent-dependent rules and every unrecognized schema
+			 * retain the complete original policy, including arbitrary names. */
+			return sqlparser_name_atom_is_identifier_text(message, context, descriptor, field);
+	}
+}
+
 int32_t *sqlparser_proto_location_slot(ProtobufCMessage *message)
 {
 	const ProtobufCMessageDescriptor *descriptor;
@@ -1118,6 +1172,9 @@ int32_t *sqlparser_proto_location_slot(ProtobufCMessage *message)
 	}
 
 	descriptor = message->descriptor;
+	/* The generated Node wrapper has only message-valued alternatives.
+	 * Location metadata belongs to the selected child, never the wrapper. */
+	if (descriptor == &pg_query__node__descriptor) return NULL;
 	base = (uint8_t *)message;
 	for (index = 0U; index < descriptor->n_fields; index++) {
 		const ProtobufCFieldDescriptor *field;
@@ -1171,6 +1228,7 @@ sqlparser_name_context_t sqlparser_next_name_context(
 	const sqlparser_name_context_t *context)
 {
 	sqlparser_name_context_t next_context;
+	int schema_class;
 
 	memset(&next_context, 0, sizeof(next_context));
 	if (descriptor == &pg_query__a__indirection__descriptor &&
@@ -1181,13 +1239,19 @@ sqlparser_name_context_t sqlparser_next_name_context(
 		}
 		return next_context;
 	}
-	if (sqlparser_message_is_name_container(descriptor)) {
+	schema_class = sqlparser_name_schema_class(descriptor);
+	if (schema_class == 2 ||
+	    (schema_class == 0 && sqlparser_message_is_name_container(descriptor))) {
 		if (context != NULL) {
 			next_context = *context;
 		}
 		return next_context;
 	}
 
+	if (schema_class == 1) {
+		next_context.schema_identifier_policy =
+			sqlparser_name_schema_field_policy(descriptor, field);
+	}
 	if (descriptor != NULL) {
 		next_context.owner_type = descriptor->short_name;
 	}
@@ -1299,9 +1363,12 @@ sqlparser_status_t sqlparser_walk_message_tree(
 	sqlparser_error_t *out_error)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	const uint8_t *base;
 	unsigned index;
 
+visit_message:
 	if (message == NULL || search == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
@@ -1327,10 +1394,30 @@ sqlparser_status_t sqlparser_walk_message_tree(
 	}
 
 	base = (const uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	if (descriptor == &pg_query__node__descriptor) {
+		/* Acceptance and ordinal/target handling above must see the wrapper.
+		 * Resolve only afterward: an accept callback may replace its case,
+		 * child or descriptor. Keep the original runtime field checks. */
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, (uint32_t)((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+		if (fields != NULL && fields->type == PROTOBUF_C_TYPE_MESSAGE &&
+		    fields->label != PROTOBUF_C_LABEL_REPEATED &&
+		    ((fields->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) == 0U ||
+		     *(const int *)(base + fields->quantifier_offset) == (int)fields->id)) {
+			message = *(ProtobufCMessage **)(base + fields->offset);
+			/* The child still gets every visit/accept/stop check, without a
+			 * redundant one-field loop and physical wrapper recursion. */
+			goto visit_message;
+		}
+	} else {
+		fields = descriptor->fields;
+		field_count = descriptor->n_fields;
+	}
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if (field->type != PROTOBUF_C_TYPE_MESSAGE) {
 			continue;
 		}
@@ -1396,10 +1483,13 @@ sqlparser_status_t sqlparser_walk_message_names(
 	sqlparser_name_search_t *search)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	ProtobufCMessage *location_owner;
 	unsigned index;
 
+visit_message:
 	if (message == NULL || search == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
@@ -1413,14 +1503,40 @@ sqlparser_status_t sqlparser_walk_message_names(
 	}
 
 	base = (uint8_t *)message;
-	location_owner =
-		sqlparser_proto_location_slot(message) != NULL ?
-			message :
-			(context != NULL ? context->location_owner : NULL);
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	if (descriptor == &pg_query__node__descriptor) {
+		fields = protobuf_c_message_descriptor_get_field(
+			descriptor, (uint32_t)((const PgQuery__Node *)message)->node_case);
+		field_count = fields != NULL ? 1U : 0U;
+		/* A Node has no location of its own. In this case next_name_context
+		 * and the following location assignment reproduce every inherited
+		 * context member exactly. NULL roots and owner-clearing contexts
+		 * retain the ordinary path below. */
+		if (context != NULL &&
+		    (!search->omit_location_owner || context->location_owner == NULL) &&
+		    fields != NULL && fields->type == PROTOBUF_C_TYPE_MESSAGE &&
+		    fields->label != PROTOBUF_C_LABEL_REPEATED &&
+		    ((fields->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) == 0U ||
+		     *(const int *)(base + fields->quantifier_offset) == (int)fields->id)) {
+			message = *(ProtobufCMessage **)(base + fields->offset);
+			goto visit_message;
+		}
+	} else {
+		fields = descriptor->fields;
+		field_count = descriptor->n_fields;
+	}
+	/* Read-only public name views do not consume source-location ownership.
+	 * Keep tracking as the default for every mutation/provenance visitor. */
+	location_owner = NULL;
+	if (!search->omit_location_owner) {
+		location_owner =
+			sqlparser_proto_location_slot(message) != NULL ?
+				message :
+				(context != NULL ? context->location_owner : NULL);
+	}
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
 			const int case_value = *(const int *)(base + field->quantifier_offset);
 
@@ -1615,6 +1731,8 @@ sqlparser_status_t sqlparser_walk_message_strings(
 	sqlparser_string_search_t *search)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	unsigned index;
 
@@ -1626,10 +1744,11 @@ sqlparser_status_t sqlparser_walk_message_strings(
 		return SQLPARSER_STATUS_OK;
 	}
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	fields = sqlparser_proto_traversal_fields(message, &field_count);
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
 		    *(const int *)(base + field->quantifier_offset) !=
 			    (int)field->id) {
@@ -1876,6 +1995,8 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 	sqlparser_node_slot_search_t *search)
 {
 	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCFieldDescriptor *fields;
+	unsigned field_count;
 	uint8_t *base;
 	unsigned index;
 
@@ -1894,10 +2015,11 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 	}
 
 	base = (uint8_t *)message;
-	for (index = 0U; index < descriptor->n_fields; index++) {
+	fields = sqlparser_proto_traversal_fields(message, &field_count);
+	for (index = 0U; index < field_count; index++) {
 		const ProtobufCFieldDescriptor *field;
 
-		field = &descriptor->fields[index];
+		field = &fields[index];
 		if (field->type != PROTOBUF_C_TYPE_MESSAGE) {
 			continue;
 		}
@@ -5382,14 +5504,244 @@ sqlparser_status_t sqlparser_mark_proto_nodes_generated_with_fragment_source(
 	return sqlparser_finish_generated_source(source, out_error);
 }
 
+/* Clone the in-memory protobuf representation, rather than using the wire
+ * format as an intermediate ownership transfer. Descriptor defaults are
+ * immutable and retain their sentinel identity; all other owning members use
+ * ordinary independent allocations accepted by free_unpacked and mutators. */
+static size_t sqlparser_proto_value_size(ProtobufCType type)
+{
+	switch (type) {
+		case PROTOBUF_C_TYPE_INT32:
+		case PROTOBUF_C_TYPE_SINT32:
+		case PROTOBUF_C_TYPE_SFIXED32:
+		case PROTOBUF_C_TYPE_UINT32:
+		case PROTOBUF_C_TYPE_FIXED32:
+			return sizeof(uint32_t);
+		case PROTOBUF_C_TYPE_INT64:
+		case PROTOBUF_C_TYPE_SINT64:
+		case PROTOBUF_C_TYPE_SFIXED64:
+		case PROTOBUF_C_TYPE_UINT64:
+		case PROTOBUF_C_TYPE_FIXED64:
+			return sizeof(uint64_t);
+		case PROTOBUF_C_TYPE_FLOAT:
+			return sizeof(float);
+		case PROTOBUF_C_TYPE_DOUBLE:
+			return sizeof(double);
+		case PROTOBUF_C_TYPE_BOOL:
+			return sizeof(protobuf_c_boolean);
+		case PROTOBUF_C_TYPE_ENUM:
+			return sizeof(int);
+		case PROTOBUF_C_TYPE_STRING:
+			return sizeof(char *);
+		case PROTOBUF_C_TYPE_MESSAGE:
+			return sizeof(ProtobufCMessage *);
+		case PROTOBUF_C_TYPE_BYTES:
+			return sizeof(ProtobufCBinaryData);
+	}
+	return 0U;
+}
+
+static int sqlparser_clone_proto_bytes(
+	const ProtobufCBinaryData *source,
+	ProtobufCBinaryData *target,
+	const ProtobufCBinaryData *default_value)
+{
+	target->len = source->len;
+	if (source->data == NULL) {
+		return source->len == 0U;
+	}
+	if (default_value != NULL && source->data == default_value->data) {
+		target->data = source->data;
+		return 1;
+	}
+	target->data = (uint8_t *)malloc(source->len != 0U ? source->len : 1U);
+	if (target->data == NULL) {
+		return 0;
+	}
+	if (source->len != 0U) {
+		memcpy(target->data, source->data, source->len);
+	}
+	return 1;
+}
+
+/* target is a zero-initialized slot owned by a destructible partial message.
+ * Store allocations immediately so the ordinary protobuf destructor also
+ * handles any failure in a later member. Repeated values have no defaults. */
+static int sqlparser_clone_proto_value(
+	const ProtobufCFieldDescriptor *field,
+	const void *source,
+	void *target,
+	size_t value_size)
+{
+	const void *default_value = field->label == PROTOBUF_C_LABEL_REPEATED
+		? NULL : field->default_value;
+
+	switch (field->type) {
+		case PROTOBUF_C_TYPE_STRING: {
+			const char *text;
+			char *copy;
+			memcpy(&text, source, sizeof(text));
+			if (text == NULL || text == default_value) {
+				memcpy(target, &text, sizeof(text));
+				return 1;
+			}
+			copy = sqlparser_strdup(text);
+			memcpy(target, &copy, sizeof(copy));
+			return copy != NULL;
+		}
+		case PROTOBUF_C_TYPE_MESSAGE: {
+			const ProtobufCMessage *child;
+			ProtobufCMessage *copy;
+			memcpy(&child, source, sizeof(child));
+			if (child == NULL || child == default_value) {
+				memcpy(target, &child, sizeof(child));
+				return 1;
+			}
+			copy = sqlparser_clone_proto_message(child);
+			memcpy(target, &copy, sizeof(copy));
+			return copy != NULL;
+		}
+		case PROTOBUF_C_TYPE_BYTES:
+			return sqlparser_clone_proto_bytes(source, target, default_value);
+		default:
+			memcpy(target, source, value_size);
+			return 1;
+	}
+}
+
+ProtobufCMessage *sqlparser_clone_proto_message(const ProtobufCMessage *source)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	ProtobufCMessage *target;
+	unsigned first, end, field_index;
+
+	if (source == NULL || source->descriptor == NULL) {
+		return NULL;
+	}
+	descriptor = source->descriptor;
+	if (descriptor->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC ||
+		descriptor->sizeof_message < sizeof(*target)) {
+		return NULL;
+	}
+	target = (ProtobufCMessage *)calloc(1U, descriptor->sizeof_message);
+	if (target == NULL) {
+		return NULL;
+	}
+	target->descriptor = descriptor;
+	first = 0U;
+	end = descriptor->n_fields;
+	/* Node is a large message-valued oneof. Descriptor lookup avoids scanning
+	 * hundreds of inactive alternatives at every level of an ordinary tree. */
+	if (descriptor == &pg_query__node__descriptor) {
+		const ProtobufCFieldDescriptor *selected =
+			protobuf_c_message_descriptor_get_field(descriptor,
+				(uint32_t)((const PgQuery__Node *)source)->node_case);
+		first = selected != NULL ? (unsigned)(selected - descriptor->fields) : end;
+		end = selected != NULL ? first + 1U : end;
+	}
+	for (field_index = first; field_index < end; field_index++) {
+		const ProtobufCFieldDescriptor *field = &descriptor->fields[field_index];
+		const uint8_t *source_member = (const uint8_t *)source + field->offset;
+		uint8_t *target_member = (uint8_t *)target + field->offset;
+		size_t value_size = sqlparser_proto_value_size(field->type);
+
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
+			uint32_t selected;
+			memcpy(&selected, (const uint8_t *)source + field->quantifier_offset,
+				sizeof(selected));
+			if (selected != field->id) {
+				continue;
+			}
+			memcpy((uint8_t *)target + field->quantifier_offset, &selected,
+				sizeof(selected));
+		} else if (field->label == PROTOBUF_C_LABEL_OPTIONAL &&
+			field->quantifier_offset != 0U) {
+			memcpy((uint8_t *)target + field->quantifier_offset,
+				(const uint8_t *)source + field->quantifier_offset,
+				sizeof(protobuf_c_boolean));
+		}
+		if (value_size == 0U) {
+			goto failed;
+		}
+		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+			size_t count, index;
+			const uint8_t *source_values;
+			uint8_t *target_values;
+			memcpy(&count, (const uint8_t *)source + field->quantifier_offset,
+				sizeof(count));
+			if (count == 0U) {
+				continue;
+			}
+			memcpy(&source_values, source_member, sizeof(source_values));
+			if (source_values == NULL || count > SIZE_MAX / value_size) {
+				goto failed;
+			}
+			target_values = (uint8_t *)calloc(count, value_size);
+			if (target_values == NULL) {
+				goto failed;
+			}
+			memcpy(target_member, &target_values, sizeof(target_values));
+			memcpy((uint8_t *)target + field->quantifier_offset, &count,
+				sizeof(count));
+			if (field->type != PROTOBUF_C_TYPE_STRING &&
+				field->type != PROTOBUF_C_TYPE_BYTES &&
+				field->type != PROTOBUF_C_TYPE_MESSAGE) {
+				memcpy(target_values, source_values, count * value_size);
+				continue;
+			}
+			for (index = 0U; index < count; index++) {
+				if (!sqlparser_clone_proto_value(field,
+					source_values + index * value_size,
+					target_values + index * value_size, value_size)) {
+					goto failed;
+				}
+			}
+		} else if (!sqlparser_clone_proto_value(field, source_member,
+			target_member, value_size)) {
+			goto failed;
+		}
+	}
+	if (source->n_unknown_fields != 0U) {
+		size_t count = source->n_unknown_fields;
+		unsigned index;
+		if (source->unknown_fields == NULL ||
+			count > SIZE_MAX / sizeof(*target->unknown_fields)) {
+			goto failed;
+		}
+		target->unknown_fields = (ProtobufCMessageUnknownField *)calloc(
+			count, sizeof(*target->unknown_fields));
+		if (target->unknown_fields == NULL) {
+			goto failed;
+		}
+		target->n_unknown_fields = source->n_unknown_fields;
+		for (index = 0U; index < source->n_unknown_fields; index++) {
+			const ProtobufCMessageUnknownField *from = &source->unknown_fields[index];
+			ProtobufCMessageUnknownField *to = &target->unknown_fields[index];
+			ProtobufCBinaryData from_data = {from->len, from->data};
+			ProtobufCBinaryData to_data = {0U, NULL};
+			if (!sqlparser_clone_proto_bytes(&from_data, &to_data, NULL)) {
+				goto failed;
+			}
+			to->tag = from->tag;
+			to->wire_type = from->wire_type;
+			to->len = to_data.len;
+			to->data = to_data.data;
+		}
+	}
+	return target;
+
+failed:
+	protobuf_c_message_free_unpacked(target, NULL);
+	return NULL;
+}
+
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
-	size_t packed_size;
-	size_t packed_len;
-	uint8_t *buffer;
+	const ProtobufCFieldDescriptor *selected;
+	const ProtobufCMessage *child = NULL;
 	ProtobufCMessage *cloned_message;
 
 	if (source == NULL || out_node == NULL) {
@@ -5401,43 +5753,27 @@ sqlparser_status_t sqlparser_clone_proto_node(
 	}
 
 	*out_node = NULL;
-	packed_size = protobuf_c_message_get_packed_size((const ProtobufCMessage *)source);
-	if (packed_size == 0U) {
+	selected = protobuf_c_message_descriptor_get_field(
+		&pg_query__node__descriptor, (uint32_t)source->node_case);
+	if (selected != NULL) {
+		memcpy(&child, (const uint8_t *)source + selected->offset, sizeof(child));
+	}
+	/* Keep the previous zero-sized-node rejection without serializing. Every
+	 * known Node alternative is message-valued; even an empty child contributes
+	 * a tag and length. Unknown fields also make a Node nonempty. */
+	if (source->base.n_unknown_fields == 0U &&
+		(selected == NULL || child == NULL || child == selected->default_value)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to pack node");
+			"cannot clone an empty node");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	buffer = (uint8_t *)malloc(packed_size);
-	if (buffer == NULL) {
+	cloned_message = sqlparser_clone_proto_message((const ProtobufCMessage *)source);
+	if (cloned_message == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-
-	packed_len = protobuf_c_message_pack((const ProtobufCMessage *)source, buffer);
-	if (packed_len != packed_size) {
-		free(buffer);
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to serialize node");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-
-	cloned_message = protobuf_c_message_unpack(
-		((const ProtobufCMessage *)source)->descriptor,
-		NULL,
-		packed_size,
-		buffer);
-	free(buffer);
-	if (cloned_message == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"failed to deserialize node");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
 	*out_node = (PgQuery__Node *)cloned_message;

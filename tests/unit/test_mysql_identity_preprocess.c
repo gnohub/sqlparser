@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "sqlparser_internal.h"
+#include "sqlparser_test_tree_parity.h"
 #include "src/pg_query_observer.h"
 
 static const char *stage = "start";
@@ -274,8 +275,7 @@ static void handle_equal(sqlparser_handle_t *a,sqlparser_handle_t *b)
 {
     char *as=NULL,*bs=NULL;sqlparser_error_t ae={0},be={0};
     text_equal(a->parser_sql,b->parser_sql);text_equal(a->sql,b->sql);
-    CHECK(a->parse_tree.len==b->parse_tree.len);
-    CHECK(memcmp(a->parse_tree.data,b->parse_tree.data,a->parse_tree.len)==0);
+    CHECK(sqlparser_test_same_tree(a,b));
     CHECK(a->statement_count==b->statement_count);
     {
         sqlparser_status_t ar=sqlparser_deparse(a,&as,&ae);

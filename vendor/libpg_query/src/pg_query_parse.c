@@ -2,6 +2,7 @@
 #include "pg_query_internal.h"
 #include "pg_query_outfuncs.h"
 #include "pg_query_observer.h"
+#include "pg_query_owned_ast.h"
 
 #include "parser/parser.h"
 #include "parser/scanner.h"
@@ -222,6 +223,8 @@ pg_query_prove_mysql_owned_scalar_insert(const char *owned_input, size_t input_l
     return 1;
 }
 
+#include "pg_query_compact_scalar_insert.inc"
+
 typedef enum PgQueryInsertConstructorMode
 {
     PG_QUERY_INSERT_CONSTRUCTOR_NONE,
@@ -426,6 +429,36 @@ PgQueryProtobufParseResult pg_query_parse_protobuf_opts(const char* input, int p
 	pg_query_exit_memory_context(ctx);
 
 	return result;
+}
+
+PgQueryOwnedParseResult
+pg_query_parse_owned_opts_preserving_identifier_spelling(
+    const char *input, int parser_options)
+{
+    MemoryContext ctx = pg_query_enter_memory_context();
+    PgQueryInternalParsetreeAndError parsed;
+    PgQueryOwnedParseResult result = {0};
+
+    /* Always enter the complete ordinary grammar. Nothing from the observer
+     * graph, direct-wire writer or INSERT constructors is retained or used. */
+    parsed = pg_query_raw_parse_with_options(input, parser_options, true,
+        PG_QUERY_INSERT_CONSTRUCTOR_NONE, NULL, NULL, NULL);
+    result.stderr_buffer = parsed.stderr_buffer;
+    result.error = parsed.error;
+    if (result.error == NULL)
+        result.parse_tree = pg_query_nodes_to_owned_ast(parsed.tree);
+    pg_query_exit_memory_context(ctx);
+    return result;
+}
+
+void
+pg_query_free_owned_parse_result(PgQueryOwnedParseResult result)
+{
+    if (result.error != NULL)
+        pg_query_free_error(result.error);
+    if (result.parse_tree != NULL)
+        pg_query__parse_result__free_unpacked(result.parse_tree, NULL);
+    free(result.stderr_buffer);
 }
 
 PgQueryProtobufParseResult

@@ -155,18 +155,29 @@ static void check_parse_parity(const char *sql, size_t statement_limit)
 #endif
     fallback_status = sqlparser_parse_with_options(sql, &options, &fallback, &fallback_error);
 #ifdef SQLPARSER_OBSERVER_TEST_WRAPPERS
-    if (observed_status == SQLPARSER_STATUS_OK) CHECK(unpack_calls == 1U);
+    if (observed_status == SQLPARSER_STATUS_OK)
+        CHECK(unpack_calls == (fallback->representation == SQLPARSER_REPRESENTATION_OWNED_AST ? 0U : 1U));
     disable_observer = 0;
 #endif
     CHECK(observed_status == fallback_status);
     CHECK(memcmp(&observed_error, &fallback_error, sizeof(observed_error)) == 0);
     if (observed_status == SQLPARSER_STATUS_OK) {
         CHECK(observed != NULL && fallback != NULL);
-        CHECK(observed->ast == NULL && fallback->ast == NULL);
+        CHECK(observed->representation == fallback->representation);
+        CHECK((observed->ast == NULL) == (fallback->ast == NULL));
         CHECK(observed->statement_count == fallback->statement_count);
         CHECK(observed->parse_tree.len == fallback->parse_tree.len);
-        CHECK(memcmp(observed->parse_tree.data, fallback->parse_tree.data,
-            observed->parse_tree.len) == 0);
+        if (observed->parse_tree.len != 0U)
+            CHECK(memcmp(observed->parse_tree.data, fallback->parse_tree.data,
+                observed->parse_tree.len) == 0);
+        if (observed->ast != NULL) {
+            size_t n = pg_query__parse_result__get_packed_size(observed->ast);
+            char *a = malloc(n), *b = malloc(n);
+            CHECK(a && b && n == pg_query__parse_result__get_packed_size(fallback->ast));
+            CHECK(pg_query__parse_result__pack(observed->ast,(uint8_t *)a) == n);
+            CHECK(pg_query__parse_result__pack(fallback->ast,(uint8_t *)b) == n && !memcmp(a,b,n));
+            free(a);free(b);
+        }
         /* Reuse parser contexts before any lazy unpack/graph/deparse work. */
         for (i = 0; i < 20U; i++) {
             CHECK(sqlparser_parse_with_options("SELECT 'context-churn', 123", &options,
@@ -226,7 +237,7 @@ int main(void)
         options.dialect = SQLPARSER_DIALECT_MYSQL;
         disable_observer = 1;
         fail_unpack = 1;
-        CHECK(sqlparser_parse_with_options("SELECT 1", &options, &handle, &error) ==
+        CHECK(sqlparser_parse_with_options("INSERT INTO t(v) VALUES (1)", &options, &handle, &error) ==
             SQLPARSER_STATUS_INTERNAL_ERROR);
         CHECK(handle == NULL && strcmp(error.message, "failed to unpack parse tree protobuf") == 0);
         disable_observer = 0;

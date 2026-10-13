@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_ast_rebase.h"
 #include "sqlparser_ascii_string_internal.h"
 #include "sqlparser_wire_insert_internal.h"
 #include "../dialect/sqlparser_dialect_dml_result_internal.h"
@@ -11280,6 +11281,230 @@ done:
 	return status;
 }
 
+/* A materialization barrier may reuse its owned AST when every planned
+ * change is one complete, isolated literal token of the same lexer category.
+ * This is a transaction proof, not a persistent semantic cache. Deferred and
+ * already-applied edits are normalized alike from their validated SQL text. */
+typedef struct {
+	PgQuery__AConst **slot;
+	PgQuery__AConst *replacement;
+	int kind;
+	int integer;
+} sqlparser_patch_literal_rebase_t;
+
+/* Keep non-canonical UTF-8 on the original parser path rather than infer
+ * the active database-encoding rules from source bytes alone. */
+static int sqlparser_patch_rebase_utf8(const char *text, size_t length)
+{
+	size_t index = 0U;
+	while (index < length) {
+		unsigned char first = (unsigned char)text[index++];
+		unsigned int count, value, minimum;
+		if (first < 0x80U) continue;
+		if (first >= 0xc2U && first <= 0xdfU) { count = 1U; value = first & 0x1fU; minimum = 0x80U; }
+		else if (first >= 0xe0U && first <= 0xefU) { count = 2U; value = first & 0x0fU; minimum = 0x800U; }
+		else if (first >= 0xf0U && first <= 0xf4U) { count = 3U; value = first & 0x07U; minimum = 0x10000U; }
+		else return 0;
+		if (count > length - index) return 0;
+		while (count--) {
+			unsigned char byte = (unsigned char)text[index++];
+			if ((byte & 0xc0U) != 0x80U) return 0;
+			value = (value << 6U) | (byte & 0x3fU);
+		}
+		if (value < minimum || value > 0x10ffffU || (value >= 0xd800U && value <= 0xdfffU)) return 0;
+	}
+	return 1;
+}
+
+static int sqlparser_patch_rebase_token(const char *text, size_t length,
+	int *out_integer)
+{
+	size_t index;
+	unsigned int value = 0U;
+	if (length >= 2U && text[0] == '\'') {
+		if (!sqlparser_patch_rebase_utf8(text, length)) return 0;
+		for (index = 1U; index < length; index++) {
+			if (text[index] == '\\' || text[index] == '\0') return 0;
+			if (text[index] != '\'') continue;
+			if (index == length - 1U) return 1;
+			if (text[index + 1U] != '\'') return 0;
+			index++;
+		}
+		return 0;
+	}
+	if (length == 0U) return 0;
+	for (index = 0U; index < length; index++) {
+		unsigned int digit = (unsigned char)text[index] - (unsigned int)'0';
+		if (digit > 9U || value > ((unsigned int)INT32_MAX - digit) / 10U) return 0;
+		value = value * 10U + digit;
+	}
+	*out_integer = (int)value;
+	return 2;
+}
+
+typedef struct {
+	const sqlparser_surface_source_edits_t *edits;
+	sqlparser_patch_literal_rebase_t *targets;
+} sqlparser_patch_rebase_owner_context_t;
+
+/* Called by the single coordinate-plan traversal. It records only owner-slot
+ * identities; it neither changes the AST nor allocates semantic state. */
+static int sqlparser_patch_rebase_owner(PgQuery__AConst **slot,
+	int under_type_name, void *opaque)
+{
+	sqlparser_patch_rebase_owner_context_t *context = opaque;
+	const sqlparser_surface_source_edits_t *edits = context->edits;
+	sqlparser_patch_literal_rebase_t *targets = context->targets;
+	PgQuery__AConst *constant = *slot;
+	size_t left = 0U, right = edits->count;
+	if (constant->location < 0) return 1;
+	while (left < right) {
+		size_t middle = left + (right - left) / 2U;
+		if (edits->items[middle].source_start < (size_t)constant->location) left = middle + 1U;
+		else right = middle;
+	}
+	if (left == edits->count || edits->items[left].source_start != (size_t)constant->location) return 1;
+	/* TypeName descendants participate in grammar-time equality checks that
+	 * can discard duplicate syntax (ordered-set aggregate arguments). */
+	if (under_type_name || targets[left].slot != NULL || constant->isnull ||
+	    (targets[left].kind == 1 ? constant->val_case != PG_QUERY__A__CONST__VAL_SVAL || constant->sval == NULL :
+	     constant->val_case != PG_QUERY__A__CONST__VAL_IVAL || constant->ival == NULL)) return 0;
+	targets[left].slot = slot;
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_patch_try_rebase_literals(
+	sqlparser_handle_t *handle, const sqlparser_surface_source_edits_t *edits,
+	char **owned_sql, int *out_handled, sqlparser_error_t *out_error)
+{
+	sqlparser_patch_literal_rebase_t *targets = NULL;
+	sqlparser_ast_rebase_plan_t plan = {0};
+	sqlparser_patch_rebase_owner_context_t owners;
+	int planned;
+	char *parser_sql = NULL;
+	void *state = NULL;
+	size_t index, old_cursor = 0U, new_cursor = 0U, new_length;
+	sqlparser_status_t status = SQLPARSER_STATUS_OK;
+	*out_handled = 0;
+	if (handle->dialect != SQLPARSER_DIALECT_POSTGRESQL ||
+	    handle->dialect_ops != sqlparser_dialect_postgresql_ops() ||
+	    handle->dialect_ops != sqlparser_dialect_get_ops(SQLPARSER_DIALECT_POSTGRESQL) ||
+	    handle->representation != SQLPARSER_REPRESENTATION_OWNED_AST ||
+	    handle->ast == NULL || handle->control != NULL || handle->identifier_mutation_count != 0U ||
+	    handle->sql == NULL || handle->parser_sql == NULL ||
+	    handle->sql_len != handle->parser_sql_len ||
+	    memcmp(handle->sql, handle->parser_sql, handle->sql_len) != 0 ||
+	    edits->count == 0U || edits->count > SIZE_MAX / sizeof(*targets) ||
+	    owned_sql == NULL || *owned_sql == NULL) return SQLPARSER_STATUS_OK;
+	new_length = strlen(*owned_sql);
+	if (!sqlparser_ast_rebase_edits_valid(edits, handle->sql_len, new_length)) return SQLPARSER_STATUS_OK;
+	/* Cheap lexical/source proofs precede the one AST walk. Proof misses
+	 * neither allocate an owner table nor traverse unrelated descriptors. */
+	for (index = 0U; index < edits->count; index++) {
+		const sqlparser_surface_source_edit_t *edit = &edits->items[index];
+		size_t unchanged = edit->source_start - old_cursor;
+		int old_integer, new_integer, kind;
+		if (unchanged > new_length - new_cursor ||
+		    memcmp(handle->sql + old_cursor, *owned_sql + new_cursor, unchanged) != 0) goto done;
+		new_cursor += unchanged;
+		if (edit->replacement_length > new_length - new_cursor ||
+		    memcmp(edit->replacement, *owned_sql + new_cursor, edit->replacement_length) != 0) goto done;
+		new_cursor += edit->replacement_length;
+		old_cursor = edit->source_end;
+		kind = sqlparser_patch_rebase_token(handle->sql + edit->source_start,
+			edit->source_end - edit->source_start, &old_integer);
+		if (kind == 0 || kind != sqlparser_patch_rebase_token(edit->replacement,
+		    edit->replacement_length, &new_integer)) goto done;
+		/* No token prefixes, suffixes, or PostgreSQL newline concatenation. */
+		if ((edit->source_start > 0U &&
+		     (sqlparser_public_char_is_ident((unsigned char)handle->sql[edit->source_start - 1U]) ||
+		      handle->sql[edit->source_start - 1U] == '&' ||
+		      (kind == 2 && handle->sql[edit->source_start - 1U] == '.'))) ||
+		    (edit->source_end < handle->sql_len &&
+		     (sqlparser_public_char_is_ident((unsigned char)handle->sql[edit->source_end]) ||
+		      (kind == 2 && handle->sql[edit->source_end] == '.'))) ||
+		    (kind == 1 && sqlparser_patch_source_string_is_adjacent(handle, edit->source_end))) goto done;
+	}
+	if (handle->sql_len - old_cursor != new_length - new_cursor ||
+	    memcmp(handle->sql + old_cursor, *owned_sql + new_cursor, new_length - new_cursor) != 0) goto done;
+	targets = (sqlparser_patch_literal_rebase_t *)calloc(edits->count, sizeof(*targets));
+	if (targets == NULL) goto no_memory;
+	for (index = 0U; index < edits->count; index++) {
+		const sqlparser_surface_source_edit_t *edit = &edits->items[index];
+		targets[index].kind = edit->replacement[0] == '\'' ? 1 : 2;
+		if (targets[index].kind == 2)
+			(void)sqlparser_patch_rebase_token(edit->replacement, edit->replacement_length, &targets[index].integer);
+	}
+	owners.edits = edits;
+	owners.targets = targets;
+	planned = sqlparser_ast_rebase_plan_build(&plan, handle->ast, edits,
+		handle->sql_len, new_length, sqlparser_patch_rebase_owner, &owners);
+	if (planned < 0) goto no_memory;
+	if (!planned) goto done;
+	for (index = 0U; index < edits->count; index++) if (targets[index].slot == NULL) goto done;
+	status = sqlparser_validate_text_limit(*owned_sql, handle->limits.max_sql_bytes,
+		"SQL input", NULL, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto done;
+	status = handle->dialect_ops->preprocess(*owned_sql, &handle->limits, &parser_sql, &state, out_error);
+	if (status != SQLPARSER_STATUS_OK) goto done;
+	if (parser_sql == NULL || strcmp(parser_sql, *owned_sql) != 0) goto done;
+	for (index = 0U; index < edits->count; index++) {
+		const sqlparser_surface_source_edit_t *edit = &edits->items[index];
+		PgQuery__AConst *replacement = (PgQuery__AConst *)calloc(1U, sizeof(*replacement));
+		if (replacement == NULL) goto no_memory;
+		pg_query__a__const__init(replacement);
+		targets[index].replacement = replacement;
+		if (targets[index].kind == 1) {
+			size_t source, dest = 0U;
+			replacement->val_case = PG_QUERY__A__CONST__VAL_SVAL;
+			replacement->sval = (PgQuery__String *)calloc(1U, sizeof(*replacement->sval));
+			if (replacement->sval == NULL) goto no_memory;
+			pg_query__string__init(replacement->sval);
+			replacement->sval->sval = (char *)malloc(edit->replacement_length - 1U);
+			if (replacement->sval->sval == NULL) goto no_memory;
+			for (source = 1U; source < edit->replacement_length - 1U; source++) {
+				replacement->sval->sval[dest++] = edit->replacement[source];
+				if (edit->replacement[source] == '\'') source++;
+			}
+			replacement->sval->sval[dest] = '\0';
+		} else {
+			replacement->val_case = PG_QUERY__A__CONST__VAL_IVAL;
+			replacement->ival = (PgQuery__Integer *)calloc(1U, sizeof(*replacement->ival));
+			if (replacement->ival == NULL) goto no_memory;
+			pg_query__integer__init(replacement->ival);
+			replacement->ival->ival = targets[index].integer;
+		}
+	}
+	/* All proof, preprocessing and allocations precede mutation. Preprocessing
+	 * never touches this AST. Consume stable coordinate slots before freeing
+	 * any old AConst; no staged address survives the payload replacement. */
+	sqlparser_ast_rebase_plan_apply(&plan);
+	sqlparser_ast_rebase_plan_release(&plan);
+	for (index = 0U; index < edits->count; index++) {
+		PgQuery__AConst *previous = *targets[index].slot;
+		targets[index].replacement->location = previous->location;
+		*targets[index].slot = targets[index].replacement;
+		targets[index].replacement = NULL;
+		pg_query__a__const__free_unpacked(previous, NULL);
+	}
+	status = sqlparser_handle_commit_rebased_source(handle, owned_sql, &parser_sql, &state, out_error);
+	if (status == SQLPARSER_STATUS_OK) *out_handled = 1;
+	goto done;
+no_memory:
+	status = SQLPARSER_STATUS_NO_MEMORY;
+	sqlparser_error_set_message(out_error, status, "out of memory");
+done:
+	sqlparser_ast_rebase_plan_release(&plan);
+	if (targets != NULL) {
+		for (index = 0U; index < edits->count; index++)
+			if (targets[index].replacement != NULL) pg_query__a__const__free_unpacked(targets[index].replacement, NULL);
+		free(targets);
+	}
+	if (state != NULL) handle->dialect_ops->destroy_state(state);
+	free(parser_sql);
+	return status;
+}
+
 static sqlparser_status_t sqlparser_patch_materialize_surface_edits(
 	sqlparser_handle_t *handle,
 	sqlparser_surface_source_edits_t *edits,
@@ -11325,6 +11550,8 @@ static sqlparser_status_t sqlparser_patch_materialize_surface_edits(
 	 * Only the final rebuild can be replaced by an owner-certified commit. */
 	status = sqlparser_oracle_try_commit_multi_insert_strings(
 		handle, edits, &patched_sql, &owned_commit, out_error);
+	if (status == SQLPARSER_STATUS_OK && !owned_commit)
+		status = sqlparser_patch_try_rebase_literals(handle, edits, &patched_sql, &owned_commit, out_error);
 	sqlparser_surface_source_edits_release(edits);
 	if (status == SQLPARSER_STATUS_OK && !owned_commit) {
 		status = sqlparser_handle_reparse_destructive(handle, &patched_sql, out_error);
@@ -13063,6 +13290,12 @@ static sqlparser_status_t sqlparser_patch_try_wire_scalar_insert_strings(
     if (status != SQLPARSER_STATUS_OK) goto done;
     /* The owned edits are unchanged since certify_insert_edits; envelope
      * restoration only read them while producing independently owned SQL. */
+    if (insert->compact != NULL) {
+        status = sqlparser_handle_commit_compact_insert(handle, &sql, &edits, out_error);
+        if (status == SQLPARSER_STATUS_UNSUPPORTED) { status = SQLPARSER_STATUS_OK; goto done; }
+        if (status == SQLPARSER_STATUS_OK) *out_handled = 1;
+        goto done;
+    }
     status = sqlparser_wire_scalar_insert_pack_proven_edits(insert, &edits, &packed);
     if (status == SQLPARSER_STATUS_UNSUPPORTED) { status = SQLPARSER_STATUS_OK; goto done; }
     if (status != SQLPARSER_STATUS_OK) {
@@ -13251,7 +13484,7 @@ static sqlparser_status_t sqlparser_patch_try_readonly_oracle_strings(
 	 * generation. Keep the apply boundary's AST/binder cleanup without a second
 	 * increment or promotion of the discarded initial-span/header proofs. */
 	handle->generation = original_generation + 1UL;
-	sqlparser_handle_clear_ast(handle);
+	sqlparser_handle_discard_ast_adapter(handle);
 	sqlparser_oracle_multi_insert_certify_source(handle);
 	*outcome = SQLPARSER_ORACLE_BATCH_COMMITTED;
 done:
@@ -13319,6 +13552,8 @@ sqlparser_status_t sqlparser_apply_patch(
 	status = sqlparser_patch_snapshot_inputs(patches, &input_copy, &input_storage, out_error);
 	if (status != SQLPARSER_STATUS_OK) goto failed;
 	patches = &input_copy;
+    status = sqlparser_handle_promote_compact(handle, out_error);
+    if (status != SQLPARSER_STATUS_OK) goto failed;
 	had_control = handle->control != NULL;
 	has_rhs_expressions = 0;
 	batch_may_introduce_rhs_expression = 0;
@@ -13376,7 +13611,7 @@ sqlparser_status_t sqlparser_apply_patch(
 	oracle_source_current = sqlparser_oracle_multi_insert_source_is_current(handle);
 	handle->generation = original_generation + 1UL;
 	sqlparser_handle_invalidate_derived(handle);
-	sqlparser_handle_clear_ast(handle);
+	sqlparser_handle_discard_ast_adapter(handle);
 	if (oracle_source_current) sqlparser_oracle_multi_insert_certify_source(handle);
 	sqlparser_error_clear(out_error);
 	return SQLPARSER_STATUS_OK;

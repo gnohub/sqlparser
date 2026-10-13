@@ -12,6 +12,7 @@
 #include <string.h>
 #include "sqlparser_internal.h"
 #include "sqlparser_wire_insert_internal.h"
+#include "sqlparser_test_tree_parity.h"
 #include "sqlparser_dialect_internal.h"
 #include "sqlparser_dialect_national_literal_internal.h"
 #include "sqlparser_dialect_bind_internal.h"
@@ -284,8 +285,7 @@ static void native_wire(sqlparser_handle_t *h, const char *expected)
     PgQueryProtobufParseResult native = pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         expected, PG_QUERY_PARSE_DEFAULT, native_observer, &calls);
     CHECK(native.error == NULL && calls == 1U && native.parse_tree.data != NULL);
-    CHECK(h->parse_tree.len == native.parse_tree.len);
-    CHECK(memcmp(h->parse_tree.data, native.parse_tree.data, h->parse_tree.len) == 0);
+    CHECK(sqlparser_test_matches_wire(h, native.parse_tree));
     pg_query_free_protobuf_parse_result(native);
 }
 static sqlparser_handle_t *reference(const char *sql, sqlparser_query_graph_view_t *graph)
@@ -659,8 +659,7 @@ static void lifecycle(size_t rows, size_t columns, int typed, size_t padding, in
 
 static void same_wire(sqlparser_handle_t *a, sqlparser_handle_t *b)
 {
-    CHECK(a->parse_tree.len == b->parse_tree.len);
-    CHECK(memcmp(a->parse_tree.data, b->parse_tree.data, a->parse_tree.len) == 0);
+    CHECK(sqlparser_test_same_tree(a, b));
 }
 static void fallback_sources(void)
 {

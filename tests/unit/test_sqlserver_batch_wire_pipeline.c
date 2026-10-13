@@ -112,8 +112,8 @@ static void batch_native_wire(sqlparser_handle_t *h, const char *expected, size_
     PgQueryProtobufParseResult native = pg_query_parse_protobuf_opts_preserving_identifier_spelling_observed(
         expected, PG_QUERY_PARSE_DEFAULT, batch_native_observer, &context);
     CHECK(native.error == NULL && context.calls == 1U && native.parse_tree.data);
-    CHECK(sqlparser_statement_count(h) == count && h->parse_tree.len == native.parse_tree.len);
-    CHECK(memcmp(h->parse_tree.data, native.parse_tree.data, h->parse_tree.len) == 0);
+    CHECK(sqlparser_statement_count(h) == count);
+    CHECK(sqlparser_test_matches_wire(h, native.parse_tree));
     pg_query_free_protobuf_parse_result(native);
 }
 

@@ -70,4 +70,31 @@ sqlparser_status_t sqlparser_dialect_national_literals_clone_owners(
 	const ProtobufCMessage *clone_root,
 	sqlparser_error_t *out_error);
 
+/* Render-scoped projection. Entries borrow immutable state records; only the
+ * entry array is owned here. Never pass this view to national_literals_clear. */
+typedef struct {
+	const sqlparser_dialect_national_literal_t *literal;
+	size_t ordinal;
+} sqlparser_dialect_national_literal_view_entry_t;
+
+typedef struct {
+	sqlparser_dialect_national_literal_view_entry_t *items;
+	size_t count;
+} sqlparser_dialect_national_literal_view_t;
+
+sqlparser_status_t sqlparser_dialect_national_literals_project_fragment(
+	const sqlparser_dialect_national_literals_t *literals,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_dialect_national_literal_view_t *out_view,
+	sqlparser_error_t *out_error);
+void sqlparser_dialect_national_literal_view_release(
+	sqlparser_dialect_national_literal_view_t *view);
+int sqlparser_dialect_national_literal_view_match(
+	const sqlparser_dialect_national_literal_view_t *view,
+	size_t ordinal,
+	const char *sql,
+	size_t start,
+	size_t end);
+
 #endif

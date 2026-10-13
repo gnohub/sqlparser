@@ -341,7 +341,7 @@ static void output_oom(const char *sql)
     output_failures = 0U;
     fail_output = 1;
     CHECK(sqlparser_parse("SELECT 1; SELECT )", &handle, &error) == SQLPARSER_STATUS_PARSE_ERROR);
-    CHECK(handle == NULL && output_failures == 1U);
+    CHECK(handle == NULL && output_failures == 0U); /* Owned parsing does not serialize an error tree. */
     fail_output = 0;
     handle = parse(sql);
     sqlparser_handle_destroy(handle);
