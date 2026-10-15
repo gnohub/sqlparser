@@ -389,6 +389,13 @@ sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dameng_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_dameng_preprocess_multi_update_assignment_fragment(
 	const char *input_sql,
 	void *state,

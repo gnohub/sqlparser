@@ -1091,7 +1091,7 @@ static void corpora(const char *directory)
         fprintf(stderr, "CORPUS|%s|%zu\n", files[f], json_array_size(items));
         json_decref(root);
     }
-    CHECK(corpus_inputs == 3887U && override_inputs == 7U);
+    CHECK(corpus_inputs == 4004U && override_inputs == 7U);
 }
 static size_t find_name(sqlparser_handle_t *h, const char *owner, const char *field, const char *value)
 {

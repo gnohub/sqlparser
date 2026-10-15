@@ -68,6 +68,35 @@ The test suite contains:
 
 ## Run
 
+### JSON Patch Checks
+
+Dialect cases remain in `tests/cases/*input.json`. Each entry in `patch` starts independently from the original SQL. A normal entry applies one patch; an entry containing `batch` submits its ordered members in one patch list with exactly one `sqlparser_apply_patch()` call. The `patches` statistic counts checks, so one batch counts as one check.
+
+An `insert_assignment` entry may use `name` and `source_selector` to copy an assignment value, without `value`. The name retains dialect identifier delimiters, and `source_selector` is a complete selector string. Batch members use the same patch parameters; `deparse` and optional `bind_occurrences` belong only to the outer batch and describe the final result. For example:
+
+```json
+{
+  "batch": [
+    {
+      "action": "insert_assignment",
+      "target": "stmt[0].assignment[1]",
+      "name": "[v_ENCRYPTED]",
+      "source_selector": "stmt[0].assignment[0]"
+    },
+    {
+      "action": "replace",
+      "target": "stmt[0].assignment[1]",
+      "value": "@__dbp_1"
+    }
+  ],
+  "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1"
+}
+```
+
+The original SQL for this SQL Server check is `UPDATE t SET v = @p WHERE id = 1`. Every check retains exact SQL, reparse, and patched/fresh View comparisons. JSON owns member parameters until the complete apply call returns.
+
+### Commands
+
 ```bash
 make test
 ```

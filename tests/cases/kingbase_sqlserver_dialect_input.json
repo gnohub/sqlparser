@@ -17480,6 +17480,1475 @@
           "target": "stmt[1].literal[0]"
         }
       ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-names",
+      "sql": "UPDATE t SET v = 1 WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[v_encrypted]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [v_encrypted] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[v_encrypted] = 1",
+          "deparse": "UPDATE t SET v = 1, [v_encrypted] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[V_ENCRYPTED]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [V_ENCRYPTED] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[V_ENCRYPTED] = 1",
+          "deparse": "UPDATE t SET v = 1, [V_ENCRYPTED] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[v_ENCRYPTED]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [v_ENCRYPTED] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[v_ENCRYPTED] = 1",
+          "deparse": "UPDATE t SET v = 1, [v_ENCRYPTED] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[select]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [select] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[select] = 1",
+          "deparse": "UPDATE t SET v = 1, [select] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[backup value]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [backup value] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[backup value] = 1",
+          "deparse": "UPDATE t SET v = 1, [backup value] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[backup]]value]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, [backup]]value] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[backup]]value] = 1",
+          "deparse": "UPDATE t SET v = 1, [backup]]value] = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "plain_backup",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 1, plain_backup = 1 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "plain_backup = 1",
+          "deparse": "UPDATE t SET v = 1, plain_backup = 1 WHERE id = 1"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-positions",
+      "sql": "UPDATE t SET a = 10, v = 20, z = 30 WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "a"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "z"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[10]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 3,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 10
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 20
+                    }
+                  },
+                  {
+                    "target_field": 2,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[2]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 30
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[0]",
+          "name": "[position_backup]",
+          "source_selector": "stmt[0].assignment[1]",
+          "deparse": "UPDATE t SET [position_backup] = 20, a = 10, v = 20, z = 30 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "[position_backup] = 20",
+          "deparse": "UPDATE t SET [position_backup] = 20, a = 10, v = 20, z = 30 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[position_backup]",
+          "source_selector": "stmt[0].assignment[1]",
+          "deparse": "UPDATE t SET a = 10, [position_backup] = 20, v = 20, z = 30 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[position_backup] = 20",
+          "deparse": "UPDATE t SET a = 10, [position_backup] = 20, v = 20, z = 30 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[3]",
+          "name": "[position_backup]",
+          "source_selector": "stmt[0].assignment[1]",
+          "deparse": "UPDATE t SET a = 10, v = 20, z = 30, [position_backup] = 20 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[3]",
+          "value": "[position_backup] = 20",
+          "deparse": "UPDATE t SET a = 10, v = 20, z = 30, [position_backup] = 20 WHERE id = 1"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-bind-batch",
+      "sql": "UPDATE t SET v = @p WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "bind",
+                    "bind_key": "p",
+                    "bind_kind": 2,
+                    "bind_sql": "@p",
+                    "bind_position": 1,
+                    "selector": "stmt[0].assignment[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[v_ENCRYPTED]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @p WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            }
+          ]
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[1]",
+              "name": "[v_ENCRYPTED]",
+              "source_selector": "stmt[0].assignment[0]"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].assignment[1]",
+              "value": "@__dbp_1"
+            }
+          ],
+          "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "__dbp_1",
+              "sql": "@__dbp_1"
+            }
+          ]
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[v_ENCRYPTED] = @p",
+          "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @p WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            }
+          ]
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[1]",
+              "value": "[v_ENCRYPTED] = @p"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].assignment[1]",
+              "value": "@__dbp_1"
+            }
+          ],
+          "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "__dbp_1",
+              "sql": "@__dbp_1"
+            }
+          ]
+        }
+      ],
+      "bind_occurrences": [
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "p",
+          "sql": "@p"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-expression",
+      "sql": "UPDATE t SET v = COALESCE(v, 0) + 2 WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 0
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 2
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[12]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 2
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "expression",
+                    "rhs_fields": [
+                      1
+                    ],
+                    "rhs_values": [
+                      0,
+                      1
+                    ],
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[value_backup]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = COALESCE(v, 0) + 2, [value_backup] = COALESCE(v, 0) + 2 WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[value_backup] = COALESCE(v, 0) + 2",
+          "deparse": "UPDATE t SET v = COALESCE(v, 0) + 2, [value_backup] = COALESCE(v, 0) + 2 WHERE id = 1"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-literal",
+      "sql": "UPDATE t SET v = 'a''b' WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "a'b"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[value_backup]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE t SET v = 'a''b', [value_backup] = 'a''b' WHERE id = 1"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[value_backup] = 'a''b'",
+          "deparse": "UPDATE t SET v = 'a''b', [value_backup] = 'a''b' WHERE id = 1"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-batch-order",
+      "sql": "UPDATE t SET v = 1, z = 9 WHERE id = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "z"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 9
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[0]",
+              "name": "[first_backup]",
+              "source_selector": "stmt[0].assignment[0]"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].assignment[0]",
+              "value": "2"
+            },
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[3]",
+              "name": "[second_backup]",
+              "source_selector": "stmt[0].assignment[0]"
+            }
+          ],
+          "deparse": "UPDATE t SET [first_backup] = 2, v = 1, z = 9, [second_backup] = 2 WHERE id = 1"
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[0]",
+              "value": "[first_backup] = 1"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].assignment[0]",
+              "value": "2"
+            },
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[3]",
+              "value": "[second_backup] = 2"
+            }
+          ],
+          "deparse": "UPDATE t SET [first_backup] = 2, v = 1, z = 9, [second_backup] = 2 WHERE id = 1"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-existing-quotes",
+      "sql": "UPDATE [QuotedTable] SET [OriginalValue] = 1, plain_v = 2 WHERE [Id] = 3",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "QuotedTable",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "OriginalValue",
+                  "quoted_identifier": true
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "plain_v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "Id",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 3
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[2]",
+          "name": "[copied_value]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE [QuotedTable] SET [OriginalValue] = 1, plain_v = 2, [copied_value] = 1 WHERE [Id] = 3"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[2]",
+          "value": "[copied_value] = 1",
+          "deparse": "UPDATE [QuotedTable] SET [OriginalValue] = 1, plain_v = 2, [copied_value] = 1 WHERE [Id] = 3"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-update-named-bind-repro",
+      "sql": "UPDATE dbo.[dbpx_s3_ac12457be471] SET v=@p WHERE id=1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "dbpx_s3_ac12457be471",
+                  "quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "bind",
+                    "bind_key": "p",
+                    "bind_kind": 2,
+                    "bind_sql": "@p",
+                    "bind_position": 1,
+                    "selector": "stmt[0].assignment[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "name": "[v_ENCRYPTED]",
+          "source_selector": "stmt[0].assignment[0]",
+          "deparse": "UPDATE dbo.[dbpx_s3_ac12457be471] SET v = @p, [v_ENCRYPTED] = @p WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            }
+          ]
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].assignment[1]",
+              "name": "[v_ENCRYPTED]",
+              "source_selector": "stmt[0].assignment[0]"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].assignment[1]",
+              "value": "@__dbp_1"
+            }
+          ],
+          "deparse": "UPDATE dbo.[dbpx_s3_ac12457be471] SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "__dbp_1",
+              "sql": "@__dbp_1"
+            }
+          ]
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "[v_ENCRYPTED] = @__dbp_1",
+          "deparse": "UPDATE dbo.[dbpx_s3_ac12457be471] SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "p",
+              "sql": "@p"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "__dbp_1",
+              "sql": "@__dbp_1"
+            }
+          ]
+        }
+      ],
+      "bind_occurrences": [
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "p",
+          "sql": "@p"
+        }
+      ]
+    },
+    {
+      "name": "kingbase-sqlserver-identifier-clone-merge-update",
+      "sql": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "v",
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][0]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "field",
+                        "source_field": 3,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][0]"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].merge_assignment[0][1]",
+          "name": "[merge_backup]",
+          "source_selector": "stmt[0].merge_assignment[0][0]",
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [merge_backup] = s.v;"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].merge_assignment[0][1]",
+          "value": "[merge_backup] = s.v",
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [merge_backup] = s.v;"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].merge_assignment[0][1]",
+          "name": "[MergeBackup]",
+          "source_selector": "stmt[0].merge_assignment[0][0]",
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [MergeBackup] = s.v;"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].merge_assignment[0][1]",
+          "value": "[MergeBackup] = s.v",
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [MergeBackup] = s.v;"
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].merge_assignment[0][1]",
+              "name": "[merge_backup]",
+              "source_selector": "stmt[0].merge_assignment[0][0]"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].merge_assignment[0][1]",
+              "value": "s.v + 1"
+            }
+          ],
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [merge_backup] = s.v + 1;"
+        },
+        {
+          "batch": [
+            {
+              "action": "insert_assignment",
+              "target": "stmt[0].merge_assignment[0][1]",
+              "value": "[merge_backup] = s.v"
+            },
+            {
+              "action": "replace",
+              "target": "stmt[0].merge_assignment[0][1]",
+              "value": "s.v + 1"
+            }
+          ],
+          "deparse": "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v, [merge_backup] = s.v + 1;"
+        }
+      ]
     }
   ]
 }

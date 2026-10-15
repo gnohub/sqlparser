@@ -651,7 +651,6 @@ static int sqlparser_case_prepare_patch(
 	sqlparser_literal_value_t *out_literal,
 	const char **out_action,
 	const char **out_target,
-	const char **out_expected_sql,
 	char *detail,
 	size_t detail_size)
 {
@@ -673,9 +672,13 @@ static int sqlparser_case_prepare_patch(
 	static const char *const delete_assignment_keys[] = {
 		"action", "target", "deparse", "bind_occurrences"
 	};
+	static const char *const clone_assignment_keys[] = {
+		"action", "target", "name", "source_selector", "deparse",
+		"bind_occurrences"
+	};
 	const char *action;
-	const char *expected_sql;
 	const char *name;
+	const char *source_selector;
 	const char *target;
 	const char *value;
 	const char *selector;
@@ -683,6 +686,7 @@ static int sqlparser_case_prepare_patch(
 	size_t allowed_count;
 	int branch_insert;
 	int pair_insert;
+	int clone_assignment;
 	json_int_t index;
 	json_t *index_json;
 	json_t *resolved;
@@ -693,18 +697,15 @@ static int sqlparser_case_prepare_patch(
 
 	*out_action = NULL;
 	*out_target = NULL;
-	*out_expected_sql = NULL;
 	if (!json_is_object(patch_json)) {
 		(void)snprintf(detail, detail_size, "patch is not an object");
 		return 0;
 	}
 	action = sqlparser_case_required_string(patch_json, "action");
 	target = sqlparser_case_required_string(patch_json, "target");
-	expected_sql = sqlparser_case_required_string(patch_json, "deparse");
 	*out_action = action;
 	*out_target = target;
-	*out_expected_sql = expected_sql;
-	if (action == NULL || target == NULL || expected_sql == NULL) {
+	if (action == NULL || target == NULL) {
 		(void)snprintf(detail, detail_size, "patch strings must be non-empty");
 		return 0;
 	}
@@ -750,7 +751,13 @@ static int sqlparser_case_prepare_patch(
 		 (parsed_selector.kind ==
 			  SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
 		  json_object_get(patch_json, "name") != NULL));
-	if (branch_insert || pair_insert) {
+	clone_assignment = op == SQLPARSER_PATCH_INSERT_ASSIGNMENT &&
+		json_object_get(patch_json, "source_selector") != NULL;
+	if (clone_assignment) {
+		allowed_keys = clone_assignment_keys;
+		allowed_count = sizeof(clone_assignment_keys) /
+			sizeof(clone_assignment_keys[0]);
+	} else if (branch_insert || pair_insert) {
 		allowed_keys = pair_insert_keys;
 		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);
 	} else if (op == SQLPARSER_PATCH_INSERT_COLUMN ||
@@ -779,9 +786,21 @@ static int sqlparser_case_prepare_patch(
 	}
 	name = NULL;
 	value = NULL;
+	source_selector = NULL;
 	literal_json = json_object_get(patch_json, "literal");
 	memset(out_literal, 0, sizeof(*out_literal));
-	if (literal_json != NULL) {
+	if (clone_assignment) {
+		name = sqlparser_case_required_string(patch_json, "name");
+		source_selector = sqlparser_case_required_string(
+			patch_json, "source_selector");
+		if (name == NULL || source_selector == NULL ||
+		    sqlparser_selector_parse(source_selector, &parsed_selector,
+			    &selector_error) != SQLPARSER_STATUS_OK) {
+			(void)snprintf(detail, detail_size,
+				"cloned assignment requires name and a valid source_selector");
+			return 0;
+		}
+	} else if (literal_json != NULL) {
 		const char *kind;
 
 		kind = json_is_object(literal_json) ?
@@ -847,7 +866,10 @@ static int sqlparser_case_prepare_patch(
 	memset(out_patch, 0, sizeof(*out_patch));
 	out_patch->op = op;
 	out_patch->selector = selector;
-	if (literal_json != NULL) {
+	if (clone_assignment) {
+		out_patch->name = name;
+		out_patch->source_selector = source_selector;
+	} else if (literal_json != NULL) {
 		out_patch->literal = out_literal;
 	} else if (branch_insert || pair_insert) {
 		out_patch->name = name;
@@ -870,13 +892,6 @@ static int sqlparser_case_prepare_patch(
 		}
 		out_patch->index = (size_t)index;
 	}
-	if (!sqlparser_case_validate_bind_occurrences(
-		    json_object_get(patch_json, "bind_occurrences"),
-		    detail,
-		    detail_size)) {
-		return 0;
-	}
-
 	return 1;
 }
 
@@ -888,10 +903,15 @@ static int sqlparser_case_run_patch(
 	size_t patch_index,
 	sqlparser_case_runner_stats_t *stats)
 {
+	static const char *const batch_keys[] = {
+		"batch", "deparse", "bind_occurrences"
+	};
 	sqlparser_parse_options_t options;
 	sqlparser_patch_list_t patches;
 	sqlparser_patch_t patch;
 	sqlparser_literal_value_t literal;
+	sqlparser_patch_t *batch_items;
+	sqlparser_literal_value_t *batch_literals;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	sqlparser_handle_t *roundtrip;
@@ -903,42 +923,78 @@ static int sqlparser_case_run_patch(
 	char *roundtrip_sql;
 	char *roundtrip_view_text;
 	char detail[256];
+	json_t *batch;
+	json_t *member;
+	size_t item_index;
 	int status;
 
 	action = NULL;
 	target = NULL;
 	expected_sql = NULL;
-	memset(detail, 0, sizeof(detail));
-	if (!sqlparser_case_prepare_patch(
-		    patch_json,
-		    expected_view,
-		    &patch,
-		    &literal,
-		    &action,
-		    &target,
-		    &expected_sql,
-		    detail,
-		    sizeof(detail))) {
-		stats->runner_errors++;
-		sqlparser_case_report_failure(
-			stats,
-			context,
-			SQLPARSER_CASE_STAGE_PATCH_DEPARSE,
-			patch_index,
-			action,
-			target,
-			detail);
-		stats->patches_failed++;
-		return 0;
-	}
-
+	batch_items = NULL;
+	batch_literals = NULL;
 	handle = NULL;
 	roundtrip = NULL;
 	actual_sql = NULL;
 	patched_view_text = NULL;
 	roundtrip_sql = NULL;
 	roundtrip_view_text = NULL;
+	memset(detail, 0, sizeof(detail));
 	memset(&error, 0, sizeof(error));
+	expected_sql = sqlparser_case_required_string(patch_json, "deparse");
+	if (expected_sql == NULL) {
+		(void)snprintf(detail, sizeof(detail), "patch deparse must be a non-empty string");
+		goto invalid_patch;
+	}
+	batch = json_object_get(patch_json, "batch");
+	patches.items = &patch;
+	patches.count = 1U;
+	if (batch != NULL) {
+		action = "batch";
+		if (!json_is_array(batch) || json_array_size(batch) == 0U ||
+		    !sqlparser_case_object_has_only(patch_json, batch_keys,
+			    sizeof(batch_keys) / sizeof(batch_keys[0]), detail, sizeof(detail))) {
+			if (detail[0] == '\0') {
+				(void)snprintf(detail, sizeof(detail), "patch batch must be a non-empty array");
+			}
+			goto invalid_patch;
+		}
+		patches.count = json_array_size(batch);
+		if (patches.count > SIZE_MAX / sizeof(*batch_items) ||
+		    patches.count > SIZE_MAX / sizeof(*batch_literals)) {
+			(void)snprintf(detail, sizeof(detail), "patch batch is too large");
+			goto invalid_patch;
+		}
+		batch_items = (sqlparser_patch_t *)calloc(patches.count, sizeof(*batch_items));
+		batch_literals = (sqlparser_literal_value_t *)calloc(patches.count, sizeof(*batch_literals));
+		if (batch_items == NULL || batch_literals == NULL) {
+			(void)snprintf(detail, sizeof(detail), "out of memory preparing patch batch");
+			goto invalid_patch;
+		}
+		json_array_foreach(batch, item_index, member) {
+			if (json_object_get(member, "deparse") != NULL ||
+			    json_object_get(member, "bind_occurrences") != NULL) {
+				(void)snprintf(detail, sizeof(detail), "batch expectations belong to the batch, not a member");
+				goto invalid_patch;
+			}
+			if (!sqlparser_case_prepare_patch(member, expected_view,
+				    &batch_items[item_index], &batch_literals[item_index],
+				    &action, &target, detail, sizeof(detail))) {
+				goto invalid_patch;
+			}
+		}
+		action = "batch";
+		target = NULL;
+		patches.items = batch_items;
+	} else if (!sqlparser_case_prepare_patch(patch_json, expected_view,
+		    &patch, &literal, &action, &target, detail, sizeof(detail))) {
+		goto invalid_patch;
+	}
+	if (!sqlparser_case_validate_bind_occurrences(
+		    json_object_get(patch_json, "bind_occurrences"), detail, sizeof(detail))) {
+		goto invalid_patch;
+	}
+
 	sqlparser_parse_options_default(&options);
 	options.dialect = context->dialect;
 	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
@@ -952,8 +1008,6 @@ static int sqlparser_case_run_patch(
 		goto fail;
 	}
 
-	patches.items = &patch;
-	patches.count = 1U;
 	memset(&error, 0, sizeof(error));
 	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -1063,9 +1117,13 @@ static int sqlparser_case_run_patch(
 	sqlparser_string_free(actual_sql);
 	sqlparser_handle_destroy(roundtrip);
 	sqlparser_handle_destroy(handle);
+	free(batch_literals);
+	free(batch_items);
 	stats->patches_passed++;
 	return 1;
 
+invalid_patch:
+	stats->runner_errors++;
 fail:
 	sqlparser_case_report_failure(
 		stats,
@@ -1081,6 +1139,8 @@ fail:
 	sqlparser_string_free(actual_sql);
 	sqlparser_handle_destroy(roundtrip);
 	sqlparser_handle_destroy(handle);
+	free(batch_literals);
+	free(batch_items);
 	stats->patches_failed++;
 	return 0;
 }

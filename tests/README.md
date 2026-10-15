@@ -64,6 +64,35 @@ GNU 链接器构建启用 observer 和分配包装检查；不提供 pthreads �
 
 ## 执行方式
 
+### JSON patch 检查项
+
+各方言用例仍保存在 `tests/cases/*input.json`。`patch` 数组中的每个检查项从原 SQL 独立开始；普通检查项执行一次单项 patch，包含 `batch` 的检查项将成员按数组顺序放入同一个 patch list，仅调用一次 `sqlparser_apply_patch()`。统计中的 `patches` 表示检查项数，一个 batch 计为一个检查项。
+
+`insert_assignment` 可通过 `name` 和 `source_selector` 表达赋值复制，不与 `value` 混用。`name` 保留方言标识符定界符，`source_selector` 是完整 selector 字符串。batch 成员沿用普通 patch 参数；`deparse` 和可选的 `bind_occurrences` 只放在 batch 外层，检查最终结果。例如：
+
+```json
+{
+  "batch": [
+    {
+      "action": "insert_assignment",
+      "target": "stmt[0].assignment[1]",
+      "name": "[v_ENCRYPTED]",
+      "source_selector": "stmt[0].assignment[0]"
+    },
+    {
+      "action": "replace",
+      "target": "stmt[0].assignment[1]",
+      "value": "@__dbp_1"
+    }
+  ],
+  "deparse": "UPDATE t SET v = @p, [v_ENCRYPTED] = @__dbp_1 WHERE id = 1"
+}
+```
+
+上述检查项的原 SQL 为 `UPDATE t SET v = @p WHERE id = 1`，方言为 SQL Server。所有检查项继续校验完整输出 SQL、重新解析结果及改写 handle 与重新解析 handle 的 View 一致性。成员参数由 JSON 持有，直到整批调用结束后才释放。
+
+### 测试命令
+
 ```bash
 make test
 ```

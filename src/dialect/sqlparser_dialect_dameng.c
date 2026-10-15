@@ -5299,11 +5299,12 @@ static sqlparser_status_t sqlparser_dameng_rewrite_assignment_target_fragment(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
+sqlparser_status_t sqlparser_dameng_preprocess_fragment_identifier_origins(
 	const char *input_sql,
 	void *state,
 	size_t statement_index,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dameng_state_t *dameng_state;
@@ -5325,8 +5326,20 @@ static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
 		&dameng_state->national_literals);
 	sqlparser_dialect_minuses_begin_fragment(&dameng_state->minuses);
 
-	return sqlparser_dameng_preprocess_text(
-		input_sql, dameng_state, out_parser_sql, out_error);
+	return sqlparser_dameng_preprocess_text_internal(
+		input_sql, dameng_state, out_parser_sql, origins,
+		input_sql != NULL ? strlen(input_sql) : 0U, 0U, out_error);
+}
+
+static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_dameng_preprocess_fragment_identifier_origins(
+		input_sql, state, statement_index, out_parser_sql, NULL, out_error);
 }
 
 sqlparser_status_t sqlparser_dameng_preprocess_multi_update_assignment_fragment(

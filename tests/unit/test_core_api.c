@@ -35557,6 +35557,7 @@ static int test_dameng_multitable_update_marker_and_qualifier_contract(void)
 		handle,
 		&insert_selector,
 		&target_path,
+		SQLPARSER_PROTO_LOCATION_GENERATED,
 		&source_selector,
 		&error);
 	if (expect_status_ok(

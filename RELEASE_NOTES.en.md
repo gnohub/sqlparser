@@ -1,15 +1,15 @@
-# v2.17.6 Release Notes
+# v2.17.7 Release Notes
 
-Version 2.17.6 fixes loss of the national string prefix when rewriting string contents.
+Version 2.17.7 fixes identifier delimiter metadata loss during assignment rewriting.
 
 ## Changes
 
-- Preserve the `N` prefix when replacing national string contents without affecting unchanged literals. Ordinary strings do not acquire a prefix.
-- Correct prefix handling in literal-node updates and SQL-fragment edits while retaining explicit SQL-fragment semantics, with related JSON regression coverage.
+- Preserve target identifier delimiters and `quoted_identifier` when adding assignments through `name + source_selector`, including subsequent single and batch edits.
+- Retain identifier origin mappings during Dameng SQL-fragment preprocessing and add related JSON regression coverage across all 13 dialect entries.
 
 ## API Compatibility
 
-- Public function signatures, structure layouts, selectors, and calling rules remain unchanged from 2.17.5.
+- Public function signatures, structure layouts, selectors, and calling rules remain unchanged from 2.17.6.
 
 ## Calling Rules
 

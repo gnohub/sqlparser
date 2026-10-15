@@ -1148,6 +1148,7 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *insert_selector,
 	const sqlparser_identifier_path_view_t *target,
+	int32_t target_location,
 	const sqlparser_selector_t *source_selector,
 	sqlparser_error_t *out_error)
 {
@@ -1296,6 +1297,9 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
+	/* The target spelling is already owned by the handle; retain its location
+	 * on the new owner before commit sweeps unreferenced spelling groups. */
+	new_node->res_target->location = target_location;
 	cloned_value = NULL;
 
 	next_nodes = sqlparser_update_alloc_node_array(old_count + 1U, out_error);

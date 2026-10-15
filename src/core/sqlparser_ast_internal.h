@@ -614,6 +614,7 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *insert_selector,
 	const sqlparser_identifier_path_view_t *target,
+	int32_t target_location,
 	const sqlparser_selector_t *source_selector,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_assignment_delete_by_selector(

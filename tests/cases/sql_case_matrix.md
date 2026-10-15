@@ -1,10 +1,31 @@
 # SQL 用例矩阵
 
-本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
+本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch 检查项；含 `batch` 的检查项一次提交其全部成员。patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
+
+## 赋值复制的标识符定界信息
+
+13 个现有方言夹具中的 `*-identifier-clone-*` 包含 117 条正例，每个入口 9 条，共 549 个独立检查项。其中 95 项为同批提交，合计执行 670 个 patch 操作。用例参数和预期结果均保存在 JSON 中，测试驱动只读取参数和执行断言；普通检查项仍从原 SQL 独立开始。
+
+| 方言入口组 | 新增用例 | 检查项 | 赋值语句范围 |
+| --- | ---: | ---: | --- |
+| PostgreSQL、Vastbase PostgreSQL、KingbaseES PostgreSQL | 27 | 132 | UPDATE、MERGE UPDATE、ON CONFLICT UPDATE |
+| MySQL、Vastbase MySQL、KingbaseES MySQL | 27 | 126 | UPDATE、ON DUPLICATE KEY UPDATE、多表 UPDATE 限定目标 |
+| Oracle、达梦、Vastbase Oracle、KingbaseES Oracle | 36 | 168 | UPDATE、MERGE UPDATE、MERGE 限定目标 |
+| SQL Server、Vastbase SQL Server、KingbaseES SQLServer | 27 | 123 | UPDATE、MERGE UPDATE、命名参数同批改写 |
+
+验收范围：
+
+- `insert_assignment` 使用 `name + source_selector`，保留新增目标名称的定界符和 `quoted_identifier`。覆盖小写、大写、混合大小写、保留字、空格和转义定界符；未定界名称保留未定界状态。
+- 覆盖 SET 列表头、中、尾插入，保留源赋值、其他赋值、WHERE 条件以及已有的定界表名和列名。限定目标分别使用 MySQL 多表 UPDATE 和 Oracle/达梦兼容的 MERGE 语法。
+- RHS 覆盖整数、字符串、表达式、字段和各入口支持的 bind。命名及位置 bind 断言保留每次 occurrence 的编号、key 和 SQL token。
+- 同批覆盖先复制再替换右值，以及后续复制读取前序 patch 更新后的值。完整 SQL 片段插入作为独立对照，同样检查 SQL 和查询图，不因输出 SQL 正确而跳过 View 对账。
+- 输出必须保留显式定界形式，且改写 handle 与重新解析 handle 的 View 一致；不能以重新添加引号后的输出掩盖内部 `quoted_identifier` 丢失。
+
+语法依据为各方言的官方标识符及 DML 规则：[PostgreSQL 标识符](https://www.postgresql.org/docs/17/sql-syntax-lexical.html)、[MERGE](https://www.postgresql.org/docs/17/sql-merge.html)、[INSERT ON CONFLICT](https://www.postgresql.org/docs/17/sql-insert.html)；[MySQL 标识符](https://dev.mysql.com/doc/refman/8.4/en/identifiers.html)、[限定名](https://dev.mysql.com/doc/refman/8.0/en/identifier-qualifiers.html)、[ON DUPLICATE KEY UPDATE](https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html)；[Oracle 标识符](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Database-Object-Names-and-Qualifiers.html)、[MERGE](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/MERGE.html)；[SQL Server 标识符](https://learn.microsoft.com/en-us/sql/relational-databases/databases/database-identifiers)、[MERGE](https://learn.microsoft.com/en-us/sql/t-sql/statements/merge-transact-sql)；[达梦 DML](https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification.html)；[KingbaseES 基本元素](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html)、[MERGE 与 UPDATE](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/SQL_Statements_10.html)。兼容入口沿用各自矩阵记录的语法边界，不将基础方言的语法自动推广到其他兼容模式。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 228 条 `status = "final"` 用例和 760 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 294 条 `status = "final"` 用例和 909 个独立 patch 检查项；34 条用例以及 47 个 patch 检查项含 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 

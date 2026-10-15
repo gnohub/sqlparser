@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.17.7
+
+- Preserve target identifier delimiters and `quoted_identifier` when adding assignments through `name + source_selector`, including subsequent single and batch edits.
+- Retain identifier origin mappings during Dameng SQL-fragment preprocessing and add related JSON regression coverage across all 13 dialect entries.
+- Public function signatures, structure layouts, selectors, and calling rules remain unchanged from 2.17.6.
+
 ## 2.17.6
 
 - Preserve `N` when replacing string contents and prevent prefix loss on unchanged literals, retaining existing ordinary-string and explicit SQL-fragment semantics.

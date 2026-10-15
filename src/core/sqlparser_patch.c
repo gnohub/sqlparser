@@ -10034,6 +10034,7 @@ static sqlparser_status_t sqlparser_patch_insert_assignment(
 				handle,
 				&selector,
 				&target.view,
+				target.node->res_target->val->column_ref->location,
 				&source_selector,
 				out_error);
 		sqlparser_patch_assignment_target_clear(

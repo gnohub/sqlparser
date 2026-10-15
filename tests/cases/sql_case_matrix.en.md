@@ -1,11 +1,32 @@
 # SQL Case Matrix
 
-This file records the regression cases covered by `tests/cases/sql_batch_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
+This file records the regression cases covered by `tests/cases/sql_batch_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch check independently. A check containing `batch` submits all its members in one apply call. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
+
+## Identifier Delimiters in Assignment Cloning
+
+The `*-identifier-clone-*` cases occupy the 13 existing dialect fixtures: 117 positive cases, nine per entry point, with 549 independent checks. The 95 batch checks bring the total to 670 patch operations. SQL, patch inputs, and expected results remain in JSON; the runner only reads parameters and executes assertions. Each outer check starts independently from the original SQL.
+
+| Entry-point group | Added cases | Checks | Assignment contexts |
+| --- | ---: | ---: | --- |
+| PostgreSQL, Vastbase PostgreSQL, KingbaseES PostgreSQL | 27 | 132 | UPDATE, MERGE UPDATE, ON CONFLICT UPDATE |
+| MySQL, Vastbase MySQL, KingbaseES MySQL | 27 | 126 | UPDATE, ON DUPLICATE KEY UPDATE, qualified multi-table UPDATE targets |
+| Oracle, Dameng, Vastbase Oracle, KingbaseES Oracle | 36 | 168 | UPDATE, MERGE UPDATE, qualified MERGE targets |
+| SQL Server, Vastbase SQL Server, KingbaseES SQLServer | 27 | 123 | UPDATE, MERGE UPDATE, named-bind batches |
+
+Acceptance coverage:
+
+- `insert_assignment` with `name + source_selector` retains the new target's delimiters and `quoted_identifier`. Names cover lowercase, uppercase, mixed case, reserved words, spaces, and escaped delimiters; unquoted names remain unquoted.
+- Head, middle, and tail insertion preserves source and unrelated assignments, WHERE conditions, and existing quoted table and column names. Qualified targets use MySQL multi-table UPDATE or Oracle/Dameng-compatible MERGE syntax.
+- RHS forms include integers, strings, expressions, fields, and supported bind tokens. Named and positional bind checks retain every occurrence's position, key, and SQL token.
+- Batches cover cloning followed by RHS replacement, and later cloning of a value changed by an earlier member. Complete assignment SQL provides an independent comparison path and remains subject to both SQL and View checks.
+- Explicit delimiters must survive rendering, and the patched View must match a fresh parse. Correct-looking output quotes do not excuse missing internal `quoted_identifier` metadata.
+
+Syntax references: PostgreSQL [identifiers](https://www.postgresql.org/docs/17/sql-syntax-lexical.html), [MERGE](https://www.postgresql.org/docs/17/sql-merge.html), and [INSERT ON CONFLICT](https://www.postgresql.org/docs/17/sql-insert.html); MySQL [identifiers](https://dev.mysql.com/doc/refman/8.4/en/identifiers.html), [qualified names](https://dev.mysql.com/doc/refman/8.0/en/identifier-qualifiers.html), and [ON DUPLICATE KEY UPDATE](https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html); Oracle [identifiers](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Database-Object-Names-and-Qualifiers.html) and [MERGE](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/MERGE.html); SQL Server [identifiers](https://learn.microsoft.com/en-us/sql/relational-databases/databases/database-identifiers) and [MERGE](https://learn.microsoft.com/en-us/sql/t-sql/statements/merge-transact-sql); [Dameng DML](https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification.html); KingbaseES [SQL elements](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html) and [MERGE/UPDATE](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/SQL_Statements_10.html). Compatibility entries retain the syntax boundaries recorded in their own matrices rather than inheriting every base-dialect feature.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 228 cases with `status = "final"` and 760 independent
-patches. Two cases and their 10 patches contain complete bind-occurrence
+The fixture contains 294 cases with `status = "final"` and 909 independent
+patch checks. Thirty-four cases and 47 patch checks contain bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
 cases and `PG-001` through `PG-027`. All 32 contain at least one non-empty

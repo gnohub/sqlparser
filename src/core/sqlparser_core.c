@@ -3933,6 +3933,11 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 				out_error);
 		dameng_multi_update_fragment = 1;
 	} else if (origins != NULL &&
+		   handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		status = sqlparser_dameng_preprocess_fragment_identifier_origins(
+			public_sql, candidate_state, statement_index,
+			out_parser_sql, origins, out_error);
+	} else if (origins != NULL &&
 	    handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER) {
 		status =
 			sqlparser_vastbase_sqlserver_preprocess_fragment_identifier_origins(
@@ -3998,7 +4003,8 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	    (dameng_multi_update_fragment ||
 	     (!sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
 	      !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
-	      !sqlparser_dialect_is_oracle_compatible(handle->dialect))) &&
+	      !sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+	      handle->dialect != SQLPARSER_DIALECT_DAMENG)) &&
 	    strcmp(*out_parser_sql, public_sql) != 0) {
 		sqlparser_identifier_origin_map_destroy(origins);
 		origins = NULL;

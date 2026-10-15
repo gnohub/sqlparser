@@ -154,7 +154,8 @@ static void assignment_copy(void)
 	target.parts = parts;
 	target.part_count = 1U;
 	CHECK(sqlparser_assignment_insert_from_assignment_value_by_selector(
-		handle, &insert, &target, &source, &error) == SQLPARSER_STATUS_OK);
+		handle, &insert, &target, SQLPARSER_PROTO_LOCATION_GENERATED,
+		&source, &error) == SQLPARSER_STATUS_OK);
 	verify_staging(handle, before, 1U);
 	handle->dialect_ops = original_ops;
 	handle->patch_batch_flags = 0U;

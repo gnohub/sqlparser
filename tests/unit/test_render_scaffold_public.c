@@ -273,7 +273,7 @@ static void corpora(const char *directory)
         fprintf(stderr, "corpus %s: %zu inputs\n", files[f].file, json_array_size(items));
         json_decref(root);
     }
-    CHECK(corpus_inputs == 3887U);
+    CHECK(corpus_inputs == 4004U);
     CHECK(dialect_override_inputs == 7U);
 }
 
