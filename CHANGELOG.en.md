@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.17.6
+
+- Preserve `N` when replacing string contents and prevent prefix loss on unchanged literals, retaining existing ordinary-string and explicit SQL-fragment semantics.
+- Correct prefix handling in literal-node updates and SQL-fragment edits, with related JSON regression coverage.
+- Public function signatures, structure layouts, selectors, and calling rules remain unchanged from 2.17.5.
+
 ## 2.17.5
 
 - Link direct-field `IN/NOT IN` predicates to their RHS subqueries across all 13 dialect entries, reusing existing output targets and selectors.

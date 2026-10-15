@@ -5683,6 +5683,7 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
+	const sqlparser_literal_value_t *literal,
 	int require_literal,
 	sqlparser_error_t *out_error)
 {
@@ -5730,6 +5731,20 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	variable_set_arg = sqlparser_patch_value_slot_is_variable_set_arg(statement, value_slot);
+	semantic_replacement = sqlparser_unwrap_grouping_node(*value_slot);
+	if (!variable_set_arg && literal != NULL &&
+	    literal->kind == SQLPARSER_LITERAL_KIND_STRING &&
+	    semantic_replacement != NULL &&
+	    semantic_replacement->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+	    semantic_replacement->a_const != NULL &&
+	    semantic_replacement->a_const->val_case == PG_QUERY__A__CONST__VAL_SVAL) {
+		status = sqlparser_validate_handle_sql_input(handle, sql_text, "value SQL", out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_a_const_set_literal(semantic_replacement->a_const, literal, out_error);
+		}
+		return status == SQLPARSER_STATUS_OK ?
+			sqlparser_handle_commit_ast(handle, out_error) : status;
+	}
 	status = sqlparser_preprocess_handle_sql_fragment_for_mutation(
 		handle,
 		selector->statement_index,
@@ -5849,6 +5864,7 @@ static sqlparser_status_t sqlparser_patch_set_legacy_literal_sql(
 		handle,
 		&value_selector,
 		sql_text,
+		NULL,
 		1,
 		out_error);
 }
@@ -6148,6 +6164,68 @@ static sqlparser_status_t sqlparser_patch_render_structured_sql(
 		return sqlparser_patch_render_literal_sql(handle->dialect, patch->literal, out_sql, out_error);
 	}
 	return sqlparser_render_bind_value_sql(handle, patch->bind, out_sql, out_error);
+}
+
+/* Source edits replace a complete token, including its prefix. Inherit only
+ * from an original national string, never from a surrounding expression. */
+static sqlparser_status_t sqlparser_patch_inherit_national_literal(
+	const sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	size_t source_start,
+	size_t source_end,
+	char **in_out_sql,
+	size_t *in_out_length,
+	sqlparser_error_t *out_error)
+{
+	size_t start, end, depth = 0U, length;
+	char *sql;
+
+	if (patch->op != SQLPARSER_PATCH_REPLACE || patch->literal == NULL ||
+	    patch->literal->kind != SQLPARSER_LITERAL_KIND_STRING ||
+	    in_out_sql == NULL || *in_out_sql == NULL ||
+	    source_start >= source_end || source_end > handle->sql_len) {
+		return SQLPARSER_STATUS_OK;
+	}
+	start = source_start;
+	while (start < source_end && handle->sql[start] == '(') {
+		depth++;
+		start = sqlparser_public_skip_trivia(handle->dialect, handle->sql, start + 1U);
+	}
+	if (start >= source_end || source_end - start < 3U ||
+	    (handle->sql[start] != 'N' && handle->sql[start] != 'n')) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->sql[start + 1U] == '\'' ||
+	    (sqlparser_dialect_is_mysql_compatible(handle->dialect) && handle->sql[start + 1U] == '"')) {
+		end = sqlparser_public_skip_quoted_or_comment(handle->dialect, handle->sql, start + 1U);
+	} else {
+		end = sqlparser_public_skip_quoted_or_comment(handle->dialect, handle->sql, start);
+	}
+	if (end <= start || end > source_end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	while (depth > 0U && end < source_end) {
+		end = sqlparser_public_skip_trivia(handle->dialect, handle->sql, end);
+		if (end >= source_end || handle->sql[end] != ')') break;
+		end++;
+		depth--;
+	}
+	if (depth != 0U || end != source_end) return SQLPARSER_STATUS_OK;
+	length = *in_out_length;
+	if (length > SIZE_MAX - 2U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "literal SQL is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	sql = (char *)realloc(*in_out_sql, length + 2U);
+	if (sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memmove(sql + 1U, sql, length + 1U);
+	sql[0] = 'N';
+	*in_out_sql = sql;
+	*in_out_length = length + 1U;
+	return sqlparser_validate_handle_sql_input(handle, sql, "literal SQL", out_error);
 }
 
 static int sqlparser_patch_is_name_only_insert_column(
@@ -8141,8 +8219,11 @@ static sqlparser_status_t sqlparser_patch_plan_merge_insert_surface_edit(
 			    &source_end)) {
 			goto done;
 		}
-		replacement = rendered_value;
 		replacement_length = strlen(rendered_value);
+		status = sqlparser_patch_inherit_national_literal(
+			handle, patch, source_start, source_end, &rendered_value, &replacement_length, out_error);
+		if (status != SQLPARSER_STATUS_OK) goto done;
+		replacement = rendered_value;
 	} else if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
 		   selector->kind ==
 			   SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
@@ -9225,6 +9306,16 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit_with_oracle_batch(
 		free(insertion);
 		return SQLPARSER_STATUS_OK;
 	}
+	if (rendered != NULL && replacement == rendered) {
+		status = sqlparser_patch_inherit_national_literal(
+			handle, patch, source_start, source_end, &rendered, &replacement_length, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rendered);
+			free(insertion);
+			return status;
+		}
+		replacement = rendered;
+	}
 	if (in_out_sql_length != NULL) {
 		status = sqlparser_patch_validate_expression_sql(
 			handle, selector.statement_index, replacement, patch->literal, selector.kind,
@@ -9584,6 +9675,7 @@ static sqlparser_status_t sqlparser_patch_replace(
 				handle,
 				&selector,
 				value_sql,
+				patch->literal,
 				0,
 				out_error);
 			free(value_sql);
@@ -11271,6 +11363,12 @@ static sqlparser_status_t sqlparser_patch_plan_expression_surface_edit(
 		goto done;
 	}
 	replacement_length = replacement != NULL ? strlen(replacement) : 0U;
+	if (rendered != NULL && replacement == rendered) {
+		status = sqlparser_patch_inherit_national_literal(
+			handle, patch, source_start, source_end, &rendered, &replacement_length, out_error);
+		if (status != SQLPARSER_STATUS_OK) goto done;
+		replacement = rendered;
+	}
 	status = sqlparser_patch_batch_surface_edit(handle, edits, source_start, source_end,
 		replacement, replacement_length, NULL, in_out_sql_length, 0, out_supported, out_error);
 

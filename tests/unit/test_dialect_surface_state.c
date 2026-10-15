@@ -251,9 +251,9 @@ static int sqlparser_surface_test_structured_literal_owner(
 	static const char input_sql[] =
 		"SELECT \"same\" AS value_col FROM users WHERE status = n'same'";
 	static const char after_literal_sql[] =
-		"SELECT 'same' AS value_col FROM users WHERE status = n'same'";
+		"SELECT \"same\" AS value_col FROM users WHERE status = n'same'";
 	static const char after_where_literal_sql[] =
-		"SELECT 'same' AS value_col FROM users WHERE status = 'same'";
+		"SELECT \"same\" AS value_col FROM users WHERE status = N'changed'";
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	sqlparser_literal_value_t replacement;
@@ -297,6 +297,9 @@ static int sqlparser_surface_test_structured_literal_owner(
 		sql = NULL;
 	}
 	if (status == SQLPARSER_STATUS_OK) {
+		/* A same-value edit keeps its spelling; changing a national string
+		 * keeps the character-set prefix without restoring the old contents. */
+		replacement.string_value = "changed";
 		status = sqlparser_statement_where_set_literal(
 			handle, 0U, 0U, &replacement, &error);
 		if (status == SQLPARSER_STATUS_OK) {

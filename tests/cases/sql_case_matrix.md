@@ -280,3 +280,39 @@ DDL 的 relation 进入 `kind = "ddl"` 根 block，并通过 `ddl_role = "target
 | `P184` | `postgresql-predicate-expression-variadic-argument-mutations` | 零/一/二参数及替换、头中尾插入、删除至零参数 |
 | `P185` | `postgresql-predicate-expression-comment-surface-bind-renumber` | 注释表面、bind 重编号与 patch 后 fresh View |
 | `P186` | `postgresql-predicate-expression-reverse-rhs-bind-field` | 左侧 bind value 与右侧 field/function 并存，predicate 保留 `value`/`right_field` 并增加 `right_expression` |
+
+## 国别字符串的 typed literal 替换
+
+`*-national-typed-*` 用例验证：原 SQL 中的 `N'张三'` 经 `SQLPARSER_LITERAL_KIND_STRING` 替换为 `芨鏖` 后，输出应为 `N'芨鏖'`。未修改字面量的前缀保持不变，普通字符串不自动增加 `N`；同内容的普通字符串和国别字符串按各自位置区分。
+
+JSON patch 使用 `"literal": {"kind": "string", "string_value": "芨鏖"}` 表示原有 `patch.literal` 调用，`string_value` 只含内容，不含 SQL 引号或前缀。该形式仅用于 `replace`，与 SQL 片段字段 `value` 互斥；显式 SQL 片段仍按其自身前缀处理。每个 patch 从原 SQL 独立解析并单次执行，不累积前一个 patch 的修改。
+
+| 夹具 | 新增用例 | 独立 patch |
+| --- | ---: | ---: |
+| `sql_batch_input.json` | 21 | 60 |
+| `mysql_dialect_input.json` | 19 | 56 |
+| `oracle_dialect_input.json` | 22 | 61 |
+| `sqlserver_dialect_input.json` | 25 | 67 |
+| `vastbase_mysql_dialect_input.json` | 19 | 56 |
+| `vastbase_sqlserver_dialect_input.json` | 25 | 67 |
+| `kingbase_oracle_dialect_input.json` | 22 | 61 |
+| `kingbase_mysql_dialect_input.json` | 19 | 56 |
+| `kingbase_postgresql_dialect_input.json` | 21 | 60 |
+| `kingbase_sqlserver_dialect_input.json` | 22 | 62 |
+
+覆盖 INSERT VALUES/SELECT、UPDATE、SELECT、DELETE、WHERE/IN、函数参数、CASE、JOIN、HAVING、ORDER BY、CTE、子查询、UNION、DDL 默认值与 CHECK、视图，以及中文、ASCII、空字符串、嵌入单引号、同值替换和重复值定位。selector 覆盖 literal、where_literal、value、insert_cell、assignment、expression_arg 及适用方言的 MERGE assignment/cell。全部条目为可执行的 `final` 正例，SQL 预期保留正确前缀。
+
+语法依据与范围：
+
+`insert-mixed` 还验证反斜杠与单引号同时出现的新值，要求改写后内容和 `N` 前缀均保持正确；PostgreSQL 不得将生成的转义字符串前缀与 `N` 拼接为 `EN` 或 `NE`。
+
+- SQL Server：[Unicode 常量](https://learn.microsoft.com/en-us/sql/t-sql/data-types/constants-transact-sql?view=sql-server-ver17)、[OUTPUT](https://learn.microsoft.com/en-us/sql/t-sql/queries/output-clause-transact-sql?view=sql-server-ver17)。使用大写 `N`，包含 INSERT 后接 SELECT 和 UPDATE OUTPUT 的复现场景。
+- Oracle：[Literals](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Literals.html)、[MERGE](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/MERGE.html)。常量 SELECT 带 `FROM dual`；`nq'[...]'` 替换后允许规范为 `N'...'`，但不能变成普通字符串。
+- MySQL：[String Literals](https://dev.mysql.com/doc/refman/8.0/en/string-literals.html)。`N` 表示 national character set；本组 MySQL 形态不包含 MERGE。
+- PostgreSQL：[官方词法规则](https://github.com/postgres/postgres/blob/REL_16_STABLE/src/backend/parser/scan.l)、[MERGE](https://www.postgresql.org/docs/16/sql-merge.html)。词法规则明确识别 national character string；此处不将其含义等同于 SQL Server 的 Unicode 类型。
+- KingbaseES Oracle/MySQL/PostgreSQL：[常量章节](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html)规定 `N`/`n` 及 NQ 组合；[MERGE 语法](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/SQL_Statements_10.html)要求 `ON (...)`。NQ 用例只放在 Oracle 兼容入口。
+- KingbaseES SQLServer：[V9R4C12 Unicode 常量](https://help.kingbase.com.cn/v9.4.12/development/application-develop-guide/reference/sqlserver/basic_element/constant.html)、[MERGE](https://help.kingbase.com.cn/v9.4.12/development/application-develop-guide/reference/sqlserver/statement/general/merge.html)。本组不套用 SQL Server 的 OUTPUT 用例。
+- Vastbase MySQL：[官方修复记录 1055177](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/88507de13b814447b608edc6c503d3d1)明确给出该模式的 `SELECT N'123456789'` 语法。
+- Vastbase SQL Server：[image 类型示例](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/57b0255f7b8c4d7791bc4aae4b25b4e4)明确使用 `N'...'`；[OUTPUT](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/a482bf3c5623448db422577f53fd82cf)和 [MERGE](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/28e5cb385a954b028d5f711623670726)分别限定返回子句与 `ON (...)` 形态。
+
+达梦、Vastbase Oracle/PostgreSQL 未纳入本组 N 前缀用例：尚缺对应方言或兼容模式的直接官方语法依据。这不表示服务端不支持，也不以解析器接受输入代替服务端语法验证。

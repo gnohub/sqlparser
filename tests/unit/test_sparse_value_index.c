@@ -472,7 +472,7 @@ static void test_corpora(const char *directory)
         }
         fprintf(stderr, "CORPUS|%s|%zu\n", files[f], json_array_size(items)); json_decref(root);
     }
-    CHECK(test_corpus == 3672 && test_overrides == 7);
+    CHECK(test_corpus == 3887 && test_overrides == 7);
 }
 int main(int argc, char **argv)
 {

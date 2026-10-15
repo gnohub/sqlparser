@@ -1,18 +1,15 @@
-# v2.17.5 Release Notes
+# v2.17.6 Release Notes
 
-Version 2.17.5 adds predicate-to-subquery links, extends DELETE alias handling, and fixes SQL Server transaction output after rewriting.
+Version 2.17.6 fixes loss of the national string prefix when rewriting string contents.
 
 ## Changes
 
-- Link direct-field `IN/NOT IN` predicates to their RHS query blocks across all 13 dialect entries, reusing existing ordered output targets, fields, values, and selectors. `NOT IN` retains its existing `NOT` parent structure.
-- Extend single-target DELETE alias handling in MySQL, SQL Server, Dameng, and related compatibility entries, including target resolution and rewriting within multi-table sources.
-- Preserve the SQL Server `TRANSACTION` keyword after rewriting mixed transaction batches, including related compatibility entries.
-- Add related JSON regression cases, consolidate Oracle tests into the shared test layout, and merge duplicate reference implementations.
+- Preserve the `N` prefix when replacing national string contents without affecting unchanged literals. Ordinary strings do not acquire a prefix.
+- Correct prefix handling in literal-node updates and SQL-fragment edits while retaining explicit SQL-fragment semantics, with related JSON regression coverage.
 
 ## API Compatibility
 
-- Add `has_source_block` and `source_block_index` to `sqlparser_graph_predicate_t`, returned by the existing `sqlparser_query_graph_predicate_at()` function. View JSON exposes the link as `source_block`.
-- No public functions are added; existing function signatures and calling rules remain unchanged. The public structure layout is extended, so callers must recompile against the updated header.
+- Public function signatures, structure layouts, selectors, and calling rules remain unchanged from 2.17.5.
 
 ## Calling Rules
 

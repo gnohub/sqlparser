@@ -7979,17 +7979,23 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 
 			literal_end = sqlparser_sqlserver_quoted_literal_end(core_sql, index);
 			use_unicode_prefix = 0;
+			while (state != NULL && unicode_index < state->unicode_count &&
+			       state->unicode_restores[unicode_index].ordinal < literal_ordinal) {
+				unicode_index++;
+			}
 			if (literal_end > index &&
 			    state != NULL &&
 			    unicode_index < state->unicode_count &&
 			    state->unicode_restores[unicode_index].ordinal ==
-				    literal_ordinal &&
-			    sqlparser_sqlserver_literal_matches(
+				    literal_ordinal) {
+				use_unicode_prefix =
+					(state->owners_bound &&
+					 state->unicode_restores[unicode_index].owner != NULL) ||
+					sqlparser_sqlserver_literal_matches(
 				    core_sql,
 				    index,
 				    literal_end,
-				    state->unicode_restores[unicode_index].literal)) {
-				use_unicode_prefix = 1;
+				    state->unicode_restores[unicode_index].literal);
 				unicode_index++;
 			}
 			if (use_unicode_prefix) {
@@ -15626,9 +15632,7 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_literal_fragment(
 			(const ProtobufCMessage *)literal_owner,
 			sqlserver_state->unicode_count);
 	}
-	if (restore != NULL &&
-	    sqlparser_sqlserver_literal_matches(
-		    core_sql, 0U, literal_end, restore->literal)) {
+	if (restore != NULL) {
 		sqlparser_sqlserver_buffer_t out;
 		sqlparser_status_t status;
 

@@ -526,8 +526,6 @@ sqlparser_status_t sqlparser_statement_set_literal_in_place(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	PgQuery__AConst *old_a_const;
-	PgQuery__AConst *replacement;
 	PgQuery__Node *literal_node;
 	sqlparser_status_t status;
 
@@ -554,25 +552,12 @@ sqlparser_status_t sqlparser_statement_set_literal_in_place(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	replacement = (PgQuery__AConst *)calloc(1U, sizeof(*replacement));
-	if (replacement == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_NO_MEMORY,
-			"out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	pg_query__a__const__init(replacement);
-	replacement->location = literal_node->a_const->location;
-	status = sqlparser_a_const_set_literal(replacement, value, out_error);
+	/* The payload setter builds the new value before releasing the old one.
+	 * Keep the AConst owner so dialect literal attributes survive a value edit. */
+	status = sqlparser_a_const_set_literal(literal_node->a_const, value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		pg_query__a__const__free_unpacked(replacement, NULL);
 		return status;
 	}
-
-	old_a_const = literal_node->a_const;
-	literal_node->a_const = replacement;
-	pg_query__a__const__free_unpacked(old_a_const, NULL);
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 

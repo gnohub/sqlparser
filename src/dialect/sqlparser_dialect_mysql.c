@@ -10094,6 +10094,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_pg_quotes_to_backticks(
 						    sql + index,
 						    literal_end - index) == 0) {
 						surface_sql = literal->surface_sql;
+					} else if (literal->owner != NULL && literal->surface_sql != NULL &&
+						   (literal->surface_sql[0] == 'N' || literal->surface_sql[0] == 'n') &&
+						   (literal->surface_sql[1] == '\'' || literal->surface_sql[1] == '"')) {
+						/* Preserve the character-set attribute, not the old contents. */
+						status = sqlparser_mysql_buffer_append_char(&out, 'N', out_error);
+						if (status != SQLPARSER_STATUS_OK) {
+							sqlparser_mysql_buffer_release(&out);
+							return status;
+						}
 					}
 				}
 			}

@@ -298,3 +298,39 @@ These cases cover `query_graph.expressions[]` and argument-level patching. Predi
 | `P184` | `postgresql-predicate-expression-variadic-argument-mutations` | Zero/one/two arguments, replacement, head/middle/tail insertion, and deletion to zero |
 | `P185` | `postgresql-predicate-expression-comment-surface-bind-renumber` | Comment surface, bind renumbering, and fresh View after patch |
 | `P186` | `postgresql-predicate-expression-reverse-rhs-bind-field` | left bind value coexists with a right field/function; the predicate retains `value`/`right_field` and adds `right_expression` |
+
+## Typed replacement of national string literals
+
+The `*-national-typed-*` cases require a `SQLPARSER_LITERAL_KIND_STRING` replacement of the contents of `N'张三'` with `芨鏖` to produce `N'芨鏖'`. Unchanged literals retain their prefixes, ordinary strings do not acquire `N`, and identical text in ordinary and national literals is distinguished by position.
+
+The JSON form `"literal": {"kind": "string", "string_value": "芨鏖"}` exercises the existing `patch.literal` API. Its value contains string contents only, without SQL quoting or a prefix. It is restricted to `replace` and is mutually exclusive with the SQL-fragment field `value`; explicit SQL fragments retain their own prefix semantics. Each patch starts from a fresh parse of the original SQL and executes independently.
+
+| Fixture | Added cases | Independent patches |
+| --- | ---: | ---: |
+| `sql_batch_input.json` | 21 | 60 |
+| `mysql_dialect_input.json` | 19 | 56 |
+| `oracle_dialect_input.json` | 22 | 61 |
+| `sqlserver_dialect_input.json` | 25 | 67 |
+| `vastbase_mysql_dialect_input.json` | 19 | 56 |
+| `vastbase_sqlserver_dialect_input.json` | 25 | 67 |
+| `kingbase_oracle_dialect_input.json` | 22 | 61 |
+| `kingbase_mysql_dialect_input.json` | 19 | 56 |
+| `kingbase_postgresql_dialect_input.json` | 21 | 60 |
+| `kingbase_sqlserver_dialect_input.json` | 22 | 62 |
+
+Coverage includes INSERT VALUES/SELECT, UPDATE, SELECT, DELETE, WHERE/IN, function arguments, CASE, JOIN, HAVING, ORDER BY, CTEs, subqueries, UNION, DDL defaults and CHECK constraints, views, Chinese and ASCII contents, empty strings, embedded quotes, unchanged-value replacements, and repeated-value ownership. Selectors cover literal, where_literal, value, insert_cell, assignment, expression_arg, and MERGE assignment/cell where applicable. All entries are executable `final` positive cases with prefix-preserving expectations.
+
+Syntax sources and boundaries:
+
+`insert-mixed` also verifies replacements containing both a backslash and an apostrophe. Contents and the `N` prefix must both survive; PostgreSQL must not combine generated escape-string prefixes with `N` as `EN` or `NE`.
+
+- SQL Server: [Unicode constants](https://learn.microsoft.com/en-us/sql/t-sql/data-types/constants-transact-sql?view=sql-server-ver17) and [OUTPUT](https://learn.microsoft.com/en-us/sql/t-sql/queries/output-clause-transact-sql?view=sql-server-ver17). Uppercase `N` is used, including the INSERT-plus-SELECT and UPDATE OUTPUT reproductions.
+- Oracle: [Literals](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Literals.html) and [MERGE](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/MERGE.html). Constant SELECTs use `FROM dual`; replacing `nq'[...]'` may normalize it to `N'...'`, but not to an ordinary string.
+- MySQL: [String Literals](https://dev.mysql.com/doc/refman/8.0/en/string-literals.html). `N` denotes the national character set. The MySQL-shaped cases do not use MERGE.
+- PostgreSQL: [official lexer](https://github.com/postgres/postgres/blob/REL_16_STABLE/src/backend/parser/scan.l) and [MERGE](https://www.postgresql.org/docs/16/sql-merge.html). The lexer recognizes national character strings; this does not imply SQL Server Unicode type semantics.
+- KingbaseES Oracle/MySQL/PostgreSQL: [constants](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/datatype.html) document `N`/`n` and NQ combinations; [MERGE](https://help.kingbase.com.cn/v8/development/sql-plsql/sql/SQL_Statements_10.html) requires `ON (...)`. NQ cases are included only in the Oracle-compatible entry.
+- KingbaseES SQLServer: [V9R4C12 Unicode constants](https://help.kingbase.com.cn/v9.4.12/development/application-develop-guide/reference/sqlserver/basic_element/constant.html) and [MERGE](https://help.kingbase.com.cn/v9.4.12/development/application-develop-guide/reference/sqlserver/statement/general/merge.html). SQL Server OUTPUT cases are not copied into this group.
+- Vastbase MySQL: [official fix 1055177](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/88507de13b814447b608edc6c503d3d1) explicitly shows `SELECT N'123456789'` in this mode.
+- Vastbase SQL Server: the [image type example](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/57b0255f7b8c4d7791bc4aae4b25b4e4) uses `N'...'`; [OUTPUT](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/a482bf3c5623448db422577f53fd82cf) and [MERGE](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/28e5cb385a954b028d5f711623670726) define the applicable return clause and parenthesized ON condition.
+
+Dameng and Vastbase Oracle/PostgreSQL are not included in this N-prefix group because direct official syntax evidence for those dialects or modes has not been established. This is not a claim that their servers reject the syntax; parser acceptance alone is not treated as server syntax validation.

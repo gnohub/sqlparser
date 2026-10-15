@@ -648,6 +648,7 @@ static int sqlparser_case_prepare_patch(
 	json_t *patch_json,
 	json_t *expected_view,
 	sqlparser_patch_t *out_patch,
+	sqlparser_literal_value_t *out_literal,
 	const char **out_action,
 	const char **out_target,
 	const char **out_expected_sql,
@@ -655,8 +656,9 @@ static int sqlparser_case_prepare_patch(
 	size_t detail_size)
 {
 	static const char *const normal_keys[] = {
-		"action", "target", "value", "deparse", "bind_occurrences"
+		"action", "target", "value", "literal", "deparse", "bind_occurrences"
 	};
+	static const char *const literal_keys[] = {"kind", "string_value"};
 	static const char *const insert_keys[] = {
 		"action", "target", "value", "index", "deparse",
 		"bind_occurrences"
@@ -684,6 +686,7 @@ static int sqlparser_case_prepare_patch(
 	json_int_t index;
 	json_t *index_json;
 	json_t *resolved;
+	json_t *literal_json;
 	sqlparser_error_t selector_error;
 	sqlparser_patch_op_t op;
 	sqlparser_selector_t parsed_selector;
@@ -776,7 +779,29 @@ static int sqlparser_case_prepare_patch(
 	}
 	name = NULL;
 	value = NULL;
-	if (branch_insert) {
+	literal_json = json_object_get(patch_json, "literal");
+	memset(out_literal, 0, sizeof(*out_literal));
+	if (literal_json != NULL) {
+		const char *kind;
+
+		kind = json_is_object(literal_json) ?
+			json_string_value(json_object_get(literal_json, "kind")) : NULL;
+		if (op != SQLPARSER_PATCH_REPLACE ||
+		    json_object_get(patch_json, "value") != NULL ||
+		    kind == NULL || strcmp(kind, "string") != 0 ||
+		    !json_is_string(json_object_get(literal_json, "string_value"))) {
+			(void)snprintf(detail, detail_size,
+				"literal requires replace with a string value and no SQL value");
+			return 0;
+		}
+		if (!sqlparser_case_object_has_only(literal_json, literal_keys,
+			    sizeof(literal_keys) / sizeof(literal_keys[0]), detail, detail_size)) {
+			return 0;
+		}
+		out_literal->kind = SQLPARSER_LITERAL_KIND_STRING;
+		out_literal->string_value =
+			json_string_value(json_object_get(literal_json, "string_value"));
+	} else if (branch_insert) {
 		if (json_object_get(patch_json, "name") != NULL &&
 		    (name = sqlparser_case_required_string(
 			     patch_json, "name")) == NULL) {
@@ -822,7 +847,9 @@ static int sqlparser_case_prepare_patch(
 	memset(out_patch, 0, sizeof(*out_patch));
 	out_patch->op = op;
 	out_patch->selector = selector;
-	if (branch_insert || pair_insert) {
+	if (literal_json != NULL) {
+		out_patch->literal = out_literal;
+	} else if (branch_insert || pair_insert) {
 		out_patch->name = name;
 		out_patch->default_sql = value;
 	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
@@ -864,6 +891,7 @@ static int sqlparser_case_run_patch(
 	sqlparser_parse_options_t options;
 	sqlparser_patch_list_t patches;
 	sqlparser_patch_t patch;
+	sqlparser_literal_value_t literal;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	sqlparser_handle_t *roundtrip;
@@ -885,6 +913,7 @@ static int sqlparser_case_run_patch(
 		    patch_json,
 		    expected_view,
 		    &patch,
+		    &literal,
 		    &action,
 		    &target,
 		    &expected_sql,

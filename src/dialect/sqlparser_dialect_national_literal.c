@@ -282,8 +282,9 @@ sqlparser_dialect_national_literals_find(
 	}
 	if (left >= literals->count ||
 	    literals->items[left].ordinal != ordinal ||
-	    strlen(literals->items[left].sql) != end - start ||
-	    memcmp(literals->items[left].sql, sql + start, end - start) != 0) {
+	    (literals->items[left].owner == NULL &&
+	     (strlen(literals->items[left].sql) != end - start ||
+	      memcmp(literals->items[left].sql, sql + start, end - start) != 0))) {
 		return NULL;
 	}
 	return &literals->items[left];
@@ -687,9 +688,9 @@ int sqlparser_dialect_national_literal_view_match(
 		return 0;
 	}
 	literal = view->items[left].literal;
-	return literal != NULL && literal->sql != NULL &&
-		strlen(literal->sql) == end - start &&
-		memcmp(literal->sql, sql + start, end - start) == 0;
+	return literal != NULL && (literal->owner != NULL ||
+		(literal->sql != NULL && strlen(literal->sql) == end - start &&
+		 memcmp(literal->sql, sql + start, end - start) == 0));
 }
 
 sqlparser_status_t sqlparser_dialect_national_literals_clone_owners(

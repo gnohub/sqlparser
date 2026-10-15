@@ -3,8 +3,8 @@
 This document describes the public C API types, lifecycle rules, structured
 read APIs, and rewrite APIs exposed by `sqlparser`.
 
-This reference describes the 2.17.5 API. This version adds subquery-link fields
-to `sqlparser_graph_predicate_t`; callers must recompile. A handle cannot be reused
+This reference describes the 2.17.6 API, with the same public function signatures
+and structure layouts as 2.17.5. A handle cannot be reused
 after patch/deparse failure, unlike the rollback behavior in 2.16.x.
 See the [Release notes](../RELEASE_NOTES.en.md).
 

@@ -489,7 +489,7 @@ static void corpora(const char *directory)
         }
         fprintf(stderr, "CORPUS|%s|%zu\n", files[f], json_array_size(items)); json_decref(root);
     }
-    CHECK(inputs == 3672U && overrides == 7U);
+    CHECK(inputs == 3887U && overrides == 7U);
 }
 
 /* Parent-requested focused boundary additions. Malformed-array rejection uses

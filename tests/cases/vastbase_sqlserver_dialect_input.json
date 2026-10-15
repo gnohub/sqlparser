@@ -74472,6 +74472,3661 @@
           "bind_occurrences": []
         }
       ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-insert-mixed",
+      "sql": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'张三', '普通', N'尾');",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "id"
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "v"
+                  },
+                  {
+                    "ordinal": 2,
+                    "column": "plain_value"
+                  },
+                  {
+                    "ordinal": 3,
+                    "column": "note"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "张三"
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 2,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][2]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "普通"
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 3,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][3]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "尾"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'芨鏖', '普通', N'尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "19354909276"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'19354909276', '普通', N'尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "张三"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'张三', '普通', N'尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][3]",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'张三', '普通', N'新尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][2]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'张三', '芨鏖', N'尾');"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'芨鏖', '普通', N'尾');",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].literal[1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "a\\'b"
+          },
+          "deparse": "INSERT INTO t (id, v, plain_value, note) VALUES (1, N'a\\''b', '普通', N'尾');"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-update-set-and-where",
+      "sql": "UPDATE t SET v = N'张三', note = N'尾' WHERE code = N'条件';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "note"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "code",
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "条件"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "张三"
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[1]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "尾"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].assignment[0]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "UPDATE t SET v = N'芨鏖', note = N'尾' WHERE code = N'条件';"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "UPDATE t SET v = N'芨鏖', note = N'尾' WHERE code = N'条件';",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].assignment[1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "UPDATE t SET v = N'张三', note = N'新尾' WHERE code = N'条件';"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新条件"
+          },
+          "deparse": "UPDATE t SET v = N'张三', note = N'尾' WHERE code = N'新条件';",
+          "target": "stmt[0].where_literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-select-mixed",
+      "sql": "SELECT N'张三' AS v, '普通' AS plain_value, N'尾' AS note;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "plain_value",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "literal",
+                  "name": "note",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "普通"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[5]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'芨鏖' AS v, '普通' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "ascii"
+          },
+          "deparse": "SELECT N'ascii' AS v, '普通' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT N'张三' AS v, '普通' AS plain_value, N'新尾' AS note;",
+          "target": "stmt[0].literal[2]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'张三' AS v, '芨鏖' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'芨鏖' AS v, '普通' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].value[1]"
+        },
+        {
+          "action": "replace",
+          "value": "'显式普通'",
+          "deparse": "SELECT '显式普通' AS v, '普通' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "value": "N'显式国别'",
+          "deparse": "SELECT N'显式国别' AS v, '普通' AS plain_value, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-where-and-in",
+      "sql": "SELECT id FROM t WHERE v = N'张三' AND note IN (N'尾', N'末');",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "note",
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[9]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "IN",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[15]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "IN",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[16]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "末"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "IN",
+                  "operator_kind": "unknown",
+                  "left_field": 2
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t WHERE v = N'芨鏖' AND note IN (N'尾', N'末');",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t WHERE v = N'芨鏖' AND note IN (N'尾', N'末');",
+          "target": "stmt[0].where_literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t WHERE v = N'芨鏖' AND note IN (N'尾', N'末');",
+          "target": "stmt[0].value[9]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT id FROM t WHERE v = N'张三' AND note IN (N'新尾', N'末');",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-delete-where",
+      "sql": "DELETE FROM t WHERE v = N'张三' AND note = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "note",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[5]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[10]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 1
+                }
+              ],
+              "dml": {
+                "kind": "delete",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "delete_targets": [
+                  0
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "DELETE FROM t WHERE v = N'芨鏖' AND note = N'尾';",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "DELETE FROM t WHERE v = N'芨鏖' AND note = N'尾';",
+          "target": "stmt[0].where_literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "DELETE FROM t WHERE v = N'芨鏖' AND note = N'尾';",
+          "target": "stmt[0].value[5]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-function-argument",
+      "sql": "SELECT id FROM t WHERE v LIKE COALESCE(N'张三', N'尾');",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "LIKE",
+                  "operator_kind": "like",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "expression",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].expression_arg[0][0]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].expression_arg[0][1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "LIKE",
+                  "operator_kind": "like",
+                  "left_field": 1,
+                  "value": 0,
+                  "right_expression": 0
+                }
+              ],
+              "expressions": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "function",
+                  "sql": "COALESCE(N'张三', N'尾')",
+                  "name": "COALESCE",
+                  "arguments": [
+                    {
+                      "ordinal": 0,
+                      "kind": "literal",
+                      "value": 1,
+                      "selector": "stmt[0].expression_arg[0][0]"
+                    },
+                    {
+                      "ordinal": 1,
+                      "kind": "literal",
+                      "value": 2,
+                      "selector": "stmt[0].expression_arg[0][1]"
+                    }
+                  ],
+                  "selector": "stmt[0].expression[0]",
+                  "argument_list_selector": "stmt[0].expression_args[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t WHERE v LIKE COALESCE(N'芨鏖', N'尾');",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].expression_arg[0][0]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t WHERE v LIKE COALESCE(N'芨鏖', N'尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].expression_arg[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT id FROM t WHERE v LIKE COALESCE(N'张三', N'新尾');"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-case-expression",
+      "sql": "SELECT CASE WHEN id = 1 THEN N'张三' ELSE N'尾' END AS v FROM t;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "expression",
+                  "name": "v",
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target_path": [
+                    {
+                      "kind": "expression",
+                      "name": "case_when",
+                      "arg_index": 0
+                    },
+                    {
+                      "kind": "expression",
+                      "name": "case_when",
+                      "arg_index": 0
+                    },
+                    {
+                      "kind": "expression",
+                      "name": "=",
+                      "arg_index": 0
+                    }
+                  ]
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT CASE WHEN id = 1 THEN N'芨鏖' ELSE N'尾' END AS v FROM t;",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT CASE WHEN id = 1 THEN N'张三' ELSE N'新尾' END AS v FROM t;",
+          "target": "stmt[0].literal[2]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-join-on",
+      "sql": "SELECT t.id FROM t JOIN s ON t.id = s.id AND s.v = N'张三' WHERE t.note = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "v",
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "note",
+                  "selector": "stmt[0].name[11]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[21]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[27]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "value": 2
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT t.id FROM t JOIN s ON t.id = s.id AND s.v = N'芨鏖' WHERE t.note = N'尾';",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT t.id FROM t JOIN s ON t.id = s.id AND s.v = N'张三' WHERE t.note = N'新尾';",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-having",
+      "sql": "SELECT v, COUNT(*) AS n FROM t GROUP BY v HAVING v = N'张三' OR v = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "v",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "expression",
+                  "name": "n",
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "v",
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "group_by",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[6]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[14]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[19]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "kind": "bool",
+                  "bool_operator": "or",
+                  "children": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "having",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 3,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT v, COUNT(*) AS n FROM t GROUP BY v HAVING v = N'芨鏖' OR v = N'尾';",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT v, COUNT(*) AS n FROM t GROUP BY v HAVING v = N'张三' OR v = N'新尾';",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-order-by",
+      "sql": "SELECT id FROM t ORDER BY CASE WHEN v = N'张三' THEN 0 ELSE 1 END, CASE WHEN v = N'尾' THEN 0 ELSE 1 END;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "order_by",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "order_by",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[3]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT id FROM t ORDER BY CASE WHEN v = N'芨鏖' THEN 0 ELSE 1 END, CASE WHEN v = N'尾' THEN 0 ELSE 1 END;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT id FROM t ORDER BY CASE WHEN v = N'张三' THEN 0 ELSE 1 END, CASE WHEN v = N'新尾' THEN 0 ELSE 1 END;",
+          "target": "stmt[0].literal[3]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-cte",
+      "sql": "WITH q AS (SELECT id, v FROM t WHERE v = N'张三') SELECT id FROM q WHERE v <> N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    2
+                  ],
+                  "predicates": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "cte",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "q",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "v",
+                  "field": 1,
+                  "selector": "stmt[0].select_target[1][1]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "v",
+                  "target": 1,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "v",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 2,
+                  "selector": "stmt[0].name[0]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[22]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "<>",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "<>",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "WITH q AS (SELECT id, v FROM t WHERE v = N'芨鏖') SELECT id FROM q WHERE v <> N'尾';",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "WITH q AS (SELECT id, v FROM t WHERE v = N'张三') SELECT id FROM q WHERE v <> N'新尾';",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-subquery",
+      "sql": "SELECT t.id FROM t WHERE EXISTS (SELECT 1 FROM s WHERE s.id = t.id AND s.v = N'张三') AND t.v = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "kind": "scalar_subquery",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    1
+                  ],
+                  "predicates": [
+                    3,
+                    4,
+                    5
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "v",
+                  "selector": "stmt[0].name[9]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[31]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[9]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[25]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "exists",
+                  "bool_operator": "none"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 2
+                },
+                {
+                  "block": 1,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "value": 3
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT t.id FROM t WHERE EXISTS (SELECT 1 FROM s WHERE s.id = t.id AND s.v = N'芨鏖') AND t.v = N'尾';",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT t.id FROM t WHERE EXISTS (SELECT 1 FROM s WHERE s.id = t.id AND s.v = N'张三') AND t.v = N'新尾';",
+          "target": "stmt[0].literal[2]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-union",
+      "sql": "SELECT N'张三' AS v UNION ALL SELECT N'尾' AS v;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "set"
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    1
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 2,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "sets": [
+                {
+                  "kind": "union_all",
+                  "result_block": 0,
+                  "branches": [
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'芨鏖' AS v UNION ALL SELECT N'尾' AS v;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT N'张三' AS v UNION ALL SELECT N'新尾' AS v;",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-insert-select",
+      "sql": "INSERT INTO t (id, v, note) SELECT id, N'张三', N'尾' FROM s;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 2,
+                  "kind": "literal",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[4]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[8]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[10]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "select",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "id"
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "v"
+                  },
+                  {
+                    "ordinal": 2,
+                    "column": "note"
+                  }
+                ],
+                "source_block": 1
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "INSERT INTO t (id, v, note) SELECT id, N'芨鏖', N'尾' FROM s;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "INSERT INTO t (id, v, note) SELECT id, N'张三', N'新尾' FROM s;",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-ddl-default-and-check",
+      "sql": "CREATE TABLE national_strings (id int, v varchar(40) DEFAULT N'张三', CONSTRAINT ck_v CHECK (v <> N'尾'));",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_table",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "table": "national_strings",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "CREATE TABLE national_strings (id int, v varchar(40) DEFAULT N'芨鏖', CONSTRAINT ck_v CHECK (v <> N'尾'));",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "禁止"
+          },
+          "deparse": "CREATE TABLE national_strings (id int, v varchar(40) DEFAULT N'张三', CONSTRAINT ck_v CHECK (v <> N'禁止'));",
+          "target": "stmt[0].literal[2]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-create-view",
+      "sql": "CREATE VIEW national_view AS SELECT N'张三' AS v, N'尾' AS note;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "create_view",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "ddl",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "ddl_role": "target",
+                  "table": "national_view",
+                  "source_block": 1,
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "note",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[2]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[4]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "CREATE VIEW national_view AS SELECT N'芨鏖' AS v, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "CREATE VIEW national_view AS SELECT N'张三' AS v, N'新尾' AS note;",
+          "target": "stmt[0].literal[1]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-quoted-and-empty-content",
+      "sql": "SELECT N'张''三' AS v, N'尾' AS note;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "note",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张'三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨'鏖"
+          },
+          "deparse": "SELECT N'芨''鏖' AS v, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": ""
+          },
+          "deparse": "SELECT N'' AS v, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "张'三"
+          },
+          "deparse": "SELECT N'张''三' AS v, N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-ordinary-string-control",
+      "sql": "SELECT '张三' AS v, '尾' AS note;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "note",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT '芨鏖' AS v, '尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": ""
+          },
+          "deparse": "SELECT '' AS v, '尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-repeated-string-ownership",
+      "sql": "SELECT N'张三' AS first_value, '张三' AS plain_value, N'张三' AS last_value;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "first_value",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "plain_value",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "literal",
+                  "name": "last_value",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[5]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'芨鏖' AS first_value, '张三' AS plain_value, N'张三' AS last_value;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'张三' AS first_value, '芨鏖' AS plain_value, N'张三' AS last_value;",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'张三' AS first_value, '张三' AS plain_value, N'芨鏖' AS last_value;",
+          "target": "stmt[0].literal[2]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-merge-update",
+      "sql": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = N'张三', note = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "s",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "note"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][0]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "张三"
+                    }
+                  },
+                  {
+                    "target_field": 3,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][1]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "尾"
+                    }
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "literal",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][0]",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "张三"
+                        }
+                      },
+                      {
+                        "target_field": 3,
+                        "kind": "literal",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][1]",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "尾"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].merge_assignment[0][0]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = N'芨鏖', note = N'尾';"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = N'芨鏖', note = N'尾';",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-merge-insert",
+      "sql": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, v, note) VALUES (s.id, N'张三', N'尾');",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "s",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[12]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "id",
+                        "selector": "stmt[0].merge_insert_column[0][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "v",
+                        "selector": "stmt[0].merge_insert_column[0][1]"
+                      },
+                      {
+                        "ordinal": 2,
+                        "column": "note",
+                        "selector": "stmt[0].merge_insert_column[0][2]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 2,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
+                      },
+                      {
+                        "row": 0,
+                        "column": 1,
+                        "kind": "literal",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][1]",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "张三"
+                        }
+                      },
+                      {
+                        "row": 0,
+                        "column": 2,
+                        "kind": "literal",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][2]",
+                        "literal": {
+                          "kind": "string",
+                          "string_value": "尾"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].merge_insert_cell[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, v, note) VALUES (s.id, N'芨鏖', N'尾');"
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].merge_insert_cell[0][2]",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "MERGE INTO t AS t USING s AS s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, v, note) VALUES (s.id, N'张三', N'新尾');"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-update-output",
+      "sql": "UPDATE t SET v = N'张三文本' OUTPUT inserted.id, inserted.v AS new_value WHERE id = 1;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 2,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "new_value",
+                  "field": 3,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "v"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "v",
+                  "target": 1,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[6]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "张三文本"
+                    }
+                  }
+                ],
+                "result_channels": [
+                  {
+                    "kind": "client",
+                    "block": 1,
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 2,
+                        "kind": "target_after",
+                        "relation": 0
+                      },
+                      {
+                        "target": 1,
+                        "field": 3,
+                        "kind": "target_after",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].assignment[0]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖文本"
+          },
+          "deparse": "UPDATE t SET v = N'芨鏖文本' OUTPUT inserted.id, inserted.v AS new_value WHERE id = 1;"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖文本"
+          },
+          "deparse": "UPDATE t SET v = N'芨鏖文本' OUTPUT inserted.id, inserted.v AS new_value WHERE id = 1;",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-insert-followed-by-select",
+      "sql": "INSERT INTO t (id, v) VALUES (1, N'张三'); SELECT v FROM t;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "id"
+                  },
+                  {
+                    "ordinal": 1,
+                    "column": "v"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "row": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][1]",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "张三"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[1].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "v",
+                  "field": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "v",
+                  "target": 0,
+                  "selector": "stmt[1].name[0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "stmt[0].insert_cell[0][1]",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "INSERT INTO t (id, v) VALUES (1, N'芨鏖'); SELECT v FROM t;"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-delete-output",
+      "sql": "DELETE FROM t OUTPUT DELETED.id, N'张三' AS label WHERE v = N'尾';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "id",
+                  "field": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "label",
+                  "value": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "v",
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "relation": 0,
+                  "column": "id",
+                  "target": 0,
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[4]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[10]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "delete",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "delete_targets": [
+                  0
+                ],
+                "result_channels": [
+                  {
+                    "kind": "client",
+                    "block": 1,
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 1,
+                        "kind": "target_before",
+                        "relation": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "DELETE FROM t OUTPUT DELETED.id, N'芨鏖' AS label WHERE v = N'尾';",
+          "target": "stmt[0].literal[1]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "DELETE FROM t OUTPUT DELETED.id, N'张三' AS label WHERE v = N'新尾';",
+          "target": "stmt[0].literal[0]"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-national-typed-multiple-statements",
+      "sql": "SELECT N'张三' AS v; SELECT N'尾' AS note;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "v",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "张三"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "index": 1,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "targets": [
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "note",
+                  "value": 0,
+                  "selector": "stmt[1].select_target[0][0]",
+                  "target_list_selector": "stmt[1].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[1].value[1]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "尾"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "芨鏖"
+          },
+          "deparse": "SELECT N'芨鏖' AS v; SELECT N'尾' AS note;",
+          "target": "stmt[0].literal[0]"
+        },
+        {
+          "action": "replace",
+          "literal": {
+            "kind": "string",
+            "string_value": "新尾"
+          },
+          "deparse": "SELECT N'张三' AS v; SELECT N'新尾' AS note;",
+          "target": "stmt[1].literal[0]"
+        }
+      ]
     }
   ]
 }

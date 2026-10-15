@@ -989,19 +989,37 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_national_literals(
 			continue;
 		}
 
-		if (sql[index] == '\'') {
+		if (sql[index] == '\'' ||
+		    (sql[index] == 'E' && sql[index + 1U] == '\'')) {
 			size_t literal_end;
+			int escaped = sql[index] == 'E';
+			int national;
 
-			literal_end = sqlparser_postgresql_quoted_literal_end(sql, index);
-			if (literal_end > index &&
-			    sqlparser_postgresql_national_literal_matches(state, literal_ordinal, sql, index, literal_end)) {
+			literal_end = sqlparser_postgresql_quoted_literal_end(sql, index + (size_t)escaped);
+			national = literal_end > index &&
+				sqlparser_postgresql_national_literal_matches(state, literal_ordinal, sql, index, literal_end);
+			if (national) {
 				status = sqlparser_postgresql_buffer_append_char(&out, 'N', out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_postgresql_buffer_release(&out);
 					return status;
 				}
 			}
-			status = sqlparser_postgresql_copy_single_quoted_literal(sql, &index, &out, out_error);
+			if (escaped && national) {
+				/* Generated E strings double backslashes. N strings use standard
+				 * quoting, so keep their contents without combining E and N. */
+				index++;
+				while (index < literal_end && status == SQLPARSER_STATUS_OK) {
+					char value = sql[index++];
+					if (value == '\\' && index < literal_end && sql[index] == '\\') index++;
+					status = sqlparser_postgresql_buffer_append_char(&out, value, out_error);
+				}
+			} else {
+				status = escaped ? sqlparser_postgresql_buffer_append_char(&out, sql[index++], out_error) :
+					SQLPARSER_STATUS_OK;
+				if (status == SQLPARSER_STATUS_OK)
+					status = sqlparser_postgresql_copy_single_quoted_literal(sql, &index, &out, out_error);
+			}
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_postgresql_buffer_release(&out);
 				return status;
@@ -1078,8 +1096,6 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 	const sqlparser_dialect_national_literal_t *literal;
 	const sqlparser_postgresql_state_t *pg_state;
 	size_t literal_end;
-	sqlparser_postgresql_buffer_t out;
-	sqlparser_status_t status;
 
 	(void)statement_index;
 
@@ -1098,26 +1114,20 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 		sqlparser_dialect_national_literals_find_owner(
 			&pg_state->national_literals, literal_owner) :
 		NULL;
-	literal_end = core_sql[0] == '\'' ? sqlparser_postgresql_quoted_literal_end(core_sql, 0U) : 0U;
+	literal_end = core_sql[0] == '\'' ? sqlparser_postgresql_quoted_literal_end(core_sql, 0U) :
+		(core_sql[0] == 'E' && core_sql[1] == '\'') ? sqlparser_postgresql_quoted_literal_end(core_sql, 1U) : 0U;
 	if (literal_end > 0U &&
 	    core_sql[literal_end] == '\0' &&
-	    literal != NULL &&
-	    sqlparser_postgresql_national_literal_matches(
-		    pg_state, literal->ordinal, core_sql, 0U, literal_end)) {
-		memset(&out, 0, sizeof(out));
-		status = sqlparser_postgresql_buffer_append_char(&out, 'N', out_error);
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_postgresql_buffer_append_cstr(&out, core_sql, out_error);
-		}
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_postgresql_buffer_finish(&out, out_error);
-		}
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_postgresql_buffer_release(&out);
-			return status;
-		}
-		*out_sql = sqlparser_postgresql_buffer_take(&out);
-		return SQLPARSER_STATUS_OK;
+	    literal != NULL) {
+		sqlparser_dialect_national_literal_t record = *literal;
+		sqlparser_postgresql_state_t fragment;
+
+		memset(&fragment, 0, sizeof(fragment));
+		record.ordinal = 0U;
+		fragment.national_literals.items = &record;
+		fragment.national_literals.count = 1U;
+		return sqlparser_postgresql_postprocess_national_literals(
+			core_sql, &fragment, out_sql, out_error);
 	}
 
 	*out_sql = sqlparser_strdup(core_sql);

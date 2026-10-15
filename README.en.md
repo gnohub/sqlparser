@@ -8,7 +8,7 @@
 destroy it once instead of retrying or reading the previous state. Successful
 patch/deparse rounds reuse the same handle. Every nonempty apply invalidates
 borrowed views, even for identical SQL; a successful empty list preserves them.
-Version 2.17.5 extends `sqlparser_graph_predicate_t`, so callers must recompile when upgrading.
+Version 2.17.5 extends `sqlparser_graph_predicate_t`, so callers upgrading from 2.17.4 or earlier must recompile.
 These failure and borrowed-view rules differ from 2.16.x. Read the
 [Release notes](./RELEASE_NOTES.en.md) before adoption.
 

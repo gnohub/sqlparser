@@ -7,7 +7,7 @@
 **兼容性说明：** 本版本沿用 2.17.0 的调用规则。patch 或 deparse 失败后 handle 失效，须销毁一次，不能重试
 或读取旧状态。成功的 patch/deparse 可在同一 handle 上连续执行多轮。每次非空
 apply 均使借用视图失效，即使 SQL 相同；成功的空列表保留视图。2.17.5 扩展了
-`sqlparser_graph_predicate_t`，升级时需重新编译调用方。上述失败处理与借用视图规则不同于 2.16.x。接入前请阅读[发布说明](./RELEASE_NOTES.md)。
+`sqlparser_graph_predicate_t`，从 2.17.4 及更早版本升级时需重新编译调用方。上述失败处理与借用视图规则不同于 2.16.x。接入前请阅读[发布说明](./RELEASE_NOTES.md)。
 
 解析内核基于仓库内固定版本的 `libpg_query`：
 
